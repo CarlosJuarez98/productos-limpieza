@@ -1,0 +1,73 @@
+<h2 class="page-title">Entradas</h2>
+
+<section class="panel">
+  <form class="form-grid" (ngSubmit)="guardar()">
+    <label>
+      Fecha
+      <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
+    </label>
+    <label>
+      Producto
+      <select [(ngModel)]="form.productoId" name="productoId" required>
+        <option [ngValue]="null">Selecciona...</option>
+        @for (p of productos; track p.id) {
+          <option [ngValue]="p.id">{{ p.nombre }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      Cantidad agregada
+      <input type="number" step="0.01" min="0" [(ngModel)]="form.cantidad" name="cantidad" required />
+    </label>
+    <label>
+      Precio proveedor
+      <input type="number" step="0.01" min="0" [(ngModel)]="form.precioProveedor" name="precioProveedor" />
+    </label>
+    <label>
+      Actualizar precio compra
+      <select [(ngModel)]="form.actualizarPrecioCompra" name="actualizarPrecioCompra">
+        <option [ngValue]="true">Sí</option>
+        <option [ngValue]="false">No</option>
+      </select>
+    </label>
+    <button type="submit">Registrar entrada</button>
+  </form>
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+</section>
+
+<section class="panel" style="margin-top: 1rem">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Precio proveedor</th>
+          <th>Total</th>
+          <th>Precio compra anterior</th>
+          <th>¿Subió?</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (e of entradas; track e.id) {
+          <tr [class.warn]="e.precioMayor">
+            <td>{{ e.fecha }}</td>
+            <td>{{ e.productoNombre }}</td>
+            <td class="money">{{ e.cantidad | number: '1.2-2' }}</td>
+            <td class="money">{{ e.precioProveedor != null ? ('$' + (e.precioProveedor | number: '1.2-2')) : '—' }}</td>
+            <td class="money">{{ e.total != null ? ('$' + (e.total | number: '1.2-2')) : '—' }}</td>
+            <td class="money">${{ e.precioCompraAnterior | number: '1.2-2' }}</td>
+            <td>{{ e.precioMayor ? 'SÍ' : 'No' }}</td>
+            <td class="actions">
+              <button type="button" class="danger" (click)="eliminar(e.id)">Eliminar</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

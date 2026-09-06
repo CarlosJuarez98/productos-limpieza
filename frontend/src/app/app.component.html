@@ -1,0 +1,17 @@
+<header class="top">
+  <div class="brand">
+    <span class="mark">PL</span>
+    <div>
+      <h1>Productos de limpieza</h1>
+      <p>Control de ventas e inventario</p>
+    </div>
+  </div>
+  <nav>
+    @for (link of links; track link.path) {
+      <a [routerLink]="link.path" routerLinkActive="active">{{ link.label }}</a>
+    }
+  </nav>
+</header>
+<main>
+  <router-outlet />
+</main>

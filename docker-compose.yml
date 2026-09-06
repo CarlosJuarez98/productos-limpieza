@@ -1,0 +1,41 @@
+services:
+  # Oracle exclusivo de productos-limpieza (NO es mesa-lista ni ORCL local)
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-productos-limpieza
+    ports:
+      - "1522:1521"
+      - "5501:5500"
+    environment:
+      ORACLE_PASSWORD: ProductosLimpieza2026
+      APP_USER: productos_limpieza
+      APP_USER_PASSWORD: ProductosLimpieza2026
+    volumes:
+      - oracle-productos-limpieza-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 180s
+
+  backend:
+    build: ./backend
+    container_name: productos-limpieza-api
+    ports:
+      - "8083:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: oracle
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: productos_limpieza
+      SPRING_DATASOURCE_PASSWORD: ProductosLimpieza2026
+      APP_IMPORT_ON_STARTUP: "true"
+      APP_FORCE_IMPORT: "false"
+    depends_on:
+      oracle:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  oracle-productos-limpieza-data:
+    name: oracle-productos-limpieza-data

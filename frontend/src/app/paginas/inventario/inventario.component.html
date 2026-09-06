@@ -1,0 +1,76 @@
+<h2 class="page-title">Inventario</h2>
+
+<section class="panel">
+  <form class="form-grid" (ngSubmit)="guardar()">
+    <label>
+      Producto
+      <input [(ngModel)]="form.nombre" name="nombre" required />
+    </label>
+    <label>
+      Precio compra
+      <input type="number" step="0.01" [(ngModel)]="form.precioCompra" name="precioCompra" />
+    </label>
+    <label>
+      Cantidad inicial
+      <input type="number" step="0.01" [(ngModel)]="form.cantidadInicial" name="cantidadInicial" />
+    </label>
+    <label>
+      Precio venta
+      <input type="number" step="0.01" [(ngModel)]="form.precioVenta" name="precioVenta" />
+    </label>
+    <button type="submit">{{ editando ? 'Actualizar' : 'Agregar producto' }}</button>
+    @if (editando) {
+      <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
+    }
+  </form>
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+</section>
+
+<section class="panel" style="margin-top: 1rem">
+  <div class="toolbar">
+    <label>
+      Buscar
+      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Nombre del producto..." />
+    </label>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Precio venta</th>
+          <th>Precio compra</th>
+          <th>Mín. sugerido</th>
+          <th>Máx. sugerido</th>
+          <th>Inicial</th>
+          <th>Stock</th>
+          <th>Casa</th>
+          <th>Casa $</th>
+          <th>% ganancia</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (i of filtrados; track i.id) {
+          <tr [class.danger]="i.precioVentaBajoMinimo" [class.warn]="i.stockActual <= 0">
+            <td>{{ i.nombre }}</td>
+            <td class="money">${{ i.precioVentaHoy | number: '1.2-2' }}</td>
+            <td class="money">${{ i.precioCompra | number: '1.2-2' }}</td>
+            <td class="money">${{ i.precioMinimoSugerido | number: '1.2-2' }}</td>
+            <td class="money">${{ i.precioMaximoSugerido | number: '1.2-2' }}</td>
+            <td class="money">{{ i.cantidadInicial | number: '1.2-2' }}</td>
+            <td class="money">{{ i.stockActual | number: '1.2-2' }}</td>
+            <td class="money">{{ i.utilizadoEnCasa | number: '1.2-2' }}</td>
+            <td class="money">${{ i.utilizadoEnCasaMonto | number: '1.2-2' }}</td>
+            <td class="money">{{ i.porcentajeGanancia | number: '1.2-2' }}%</td>
+            <td class="actions">
+              <button type="button" class="secondary" (click)="editar(i)">Editar</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
