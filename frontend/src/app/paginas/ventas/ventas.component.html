@@ -1,0 +1,75 @@
+<h2 class="page-title">Ventas</h2>
+
+<section class="panel">
+  <form class="form-grid" (ngSubmit)="guardar()">
+    <label>
+      Fecha
+      <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
+    </label>
+    <label>
+      Tipo venta
+      <select [(ngModel)]="form.tipoVenta" name="tipoVenta">
+        @for (t of tipos; track t.value) {
+          <option [value]="t.value">{{ t.label }}</option>
+        }
+      </select>
+    </label>
+    @if (requiereProducto) {
+      <label>
+        Producto
+        <select [(ngModel)]="form.productoId" name="productoId" required>
+          <option [ngValue]="null">Selecciona...</option>
+          @for (p of productos; track p.id) {
+            <option [ngValue]="p.id">{{ p.nombre }}</option>
+          }
+        </select>
+      </label>
+    }
+    <label>
+      Cantidad / Monto
+      <input type="number" step="0.01" min="0" [(ngModel)]="form.cantidad" name="cantidad" required />
+    </label>
+    <button type="submit">Registrar venta</button>
+  </form>
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+</section>
+
+<section class="panel" style="margin-top: 1rem">
+  <div class="toolbar">
+    <label>
+      Buscar
+      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto o tipo..." />
+    </label>
+    <span class="muted">{{ filtradas.length }} registros</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Producto</th>
+          <th>Tipo</th>
+          <th>Cantidad</th>
+          <th>Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (v of filtradas; track v.id) {
+          <tr>
+            <td>{{ v.fecha }}</td>
+            <td>{{ v.productoNombre || '—' }}</td>
+            <td>{{ v.tipoVentaLabel }}</td>
+            <td class="money">{{ v.cantidad | number: '1.2-2' }}</td>
+            <td class="money">${{ v.total | number: '1.2-2' }}</td>
+            <td class="actions">
+              <button type="button" class="danger" (click)="eliminar(v.id)">Eliminar</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

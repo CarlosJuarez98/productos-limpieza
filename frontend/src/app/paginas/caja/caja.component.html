@@ -1,0 +1,97 @@
+<h2 class="page-title">Caja</h2>
+
+@if (error) {
+  <p class="error">{{ error }}</p>
+}
+
+@if (caja) {
+  <div class="stats">
+    <div class="stat"><span>Total vendido productos</span><strong>${{ caja.totalVendidoProductos | number: '1.2-2' }}</strong></div>
+    <div class="stat"><span>Total recargas</span><strong>${{ caja.totalRecargas | number: '1.2-2' }}</strong></div>
+    <div class="stat"><span>Pago de servicios</span><strong>${{ caja.totalPagoServicios | number: '1.2-2' }}</strong></div>
+    <div class="stat"><span>Total caja</span><strong>${{ caja.totalCaja | number: '1.2-2' }}</strong></div>
+    <div class="stat"><span>Transferencias netas</span><strong>${{ caja.totalTransferenciasNetas | number: '1.2-2' }}</strong></div>
+    <div class="stat"><span>Total negocio</span><strong>${{ caja.totalNegocio | number: '1.2-2' }}</strong></div>
+  </div>
+}
+
+<section class="panel">
+  <h3>Corte de caja</h3>
+  <form class="form-grid" (ngSubmit)="guardarConfig()">
+    <label>
+      Fecha inicio
+      <input type="date" [(ngModel)]="config.fechaInicio" name="fechaInicio" />
+    </label>
+    <label>
+      Fecha fin
+      <input type="date" [(ngModel)]="config.fechaFin" name="fechaFin" />
+    </label>
+    <label>
+      Fondo inicial
+      <input type="number" step="0.01" [(ngModel)]="config.fondoInicial" name="fondoInicial" />
+    </label>
+    <button type="submit">Guardar corte</button>
+  </form>
+</section>
+
+<section class="panel" style="margin-top: 1rem">
+  <h3>Nuevo movimiento</h3>
+  <form class="form-grid" (ngSubmit)="guardarMovimiento()">
+    <label>
+      Fecha
+      <input type="date" [(ngModel)]="mov.fecha" name="movFecha" required />
+    </label>
+    <label>
+      Tipo
+      <select [(ngModel)]="mov.tipo" name="movTipo">
+        <option value="RETIRO">Retiro</option>
+        <option value="INGRESO">Ingreso</option>
+        <option value="RETIRO_TRANSFERENCIA">Retiro transferencia</option>
+        <option value="TRANSFERENCIA">Transferencia</option>
+      </select>
+    </label>
+    <label>
+      Monto
+      <input type="number" step="0.01" [(ngModel)]="mov.monto" name="movMonto" required />
+    </label>
+    <label>
+      Motivo
+      <input [(ngModel)]="mov.motivo" name="movMotivo" />
+    </label>
+    <button type="submit">Agregar</button>
+  </form>
+</section>
+
+@if (caja) {
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem">
+    @for (bloque of [
+      { titulo: 'Retiros', items: caja.retiros },
+      { titulo: 'Ingresos', items: caja.ingresos },
+      { titulo: 'Retiros transferencia', items: caja.retirosTransferencia },
+      { titulo: 'Transferencias', items: caja.transferencias }
+    ]; track bloque.titulo) {
+      <section class="panel">
+        <h3>{{ bloque.titulo }}</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Fecha</th><th>Monto</th><th>Motivo</th><th></th></tr>
+            </thead>
+            <tbody>
+              @for (m of bloque.items; track m.id) {
+                <tr>
+                  <td>{{ m.fecha }}</td>
+                  <td class="money">${{ m.monto | number: '1.2-2' }}</td>
+                  <td>{{ m.motivo || '—' }}</td>
+                  <td class="actions">
+                    <button type="button" class="danger" (click)="eliminar(m.id)">X</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+  </div>
+}

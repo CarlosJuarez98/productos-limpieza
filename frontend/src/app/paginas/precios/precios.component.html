@@ -1,0 +1,55 @@
+<h2 class="page-title">Histórico de precios</h2>
+
+<section class="panel">
+  <form class="form-grid" (ngSubmit)="guardar()">
+    <label>
+      Producto
+      <select [(ngModel)]="form.productoId" name="productoId" required>
+        <option [ngValue]="null">Selecciona...</option>
+        @for (p of productos; track p.id) {
+          <option [ngValue]="p.id">{{ p.nombre }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      Fecha vigencia
+      <input type="date" [(ngModel)]="form.fechaVigencia" name="fechaVigencia" required />
+    </label>
+    <label>
+      Precio
+      <input type="number" step="0.01" [(ngModel)]="form.precio" name="precio" required />
+    </label>
+    <button type="submit">Agregar precio</button>
+  </form>
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+</section>
+
+<section class="panel" style="margin-top: 1rem">
+  <div class="toolbar">
+    <label>
+      Buscar
+      <input class="search" [(ngModel)]="filtro" name="filtro" />
+    </label>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Producto</th><th>Fecha vigencia</th><th>Precio</th><th></th></tr>
+      </thead>
+      <tbody>
+        @for (p of filtrados; track p.id) {
+          <tr>
+            <td>{{ p.productoNombre }}</td>
+            <td>{{ p.fechaVigencia }}</td>
+            <td class="money">${{ p.precio | number: '1.2-2' }}</td>
+            <td class="actions">
+              <button type="button" class="danger" (click)="eliminar(p.id)">Eliminar</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

@@ -1,0 +1,29 @@
+<h2 class="page-title">Lista de precios · {{ hoy }}</h2>
+
+<section class="panel">
+  <div class="toolbar">
+    <label>
+      Buscar
+      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto..." />
+    </label>
+    <button type="button" class="secondary" (click)="imprimir()">Imprimir</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Precio venta hoy</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (i of filtrados; track i.id) {
+          <tr>
+            <td>{{ i.nombre }}</td>
+            <td class="money">${{ i.precioVentaHoy | number: '1.2-2' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
