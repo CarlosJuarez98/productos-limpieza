@@ -4,8 +4,8 @@ services:
     image: gvenzl/oracle-xe:21-slim
     container_name: oracle-productos-limpieza
     ports:
-      - "1522:1521"
-      - "5501:5500"
+      - "1551:1521"
+      - "5502:5500"
     environment:
       ORACLE_PASSWORD: ProductosLimpieza2026
       APP_USER: productos_limpieza
@@ -20,12 +20,15 @@ services:
       start_period: 180s
 
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: productos-limpieza-api
     ports:
       - "8083:8080"
     environment:
       SPRING_PROFILES_ACTIVE: oracle
+      SERVER_PORT: "8080"
       SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
       SPRING_DATASOURCE_USERNAME: productos_limpieza
       SPRING_DATASOURCE_PASSWORD: ProductosLimpieza2026

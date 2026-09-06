@@ -15,10 +15,10 @@ public class CorsConfig {
       public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
             .allowedOrigins(
-                "http://localhost:4201",
-                "http://127.0.0.1:4201",
-                "http://localhost:8083",
-                "http://127.0.0.1:8083")
+                "http://127.0.0.1:4202",
+                "http://localhost:4202",
+                "http://127.0.0.1:8083",
+                "http://localhost:8083")
             .allowedMethods("*")
             .allowedHeaders("*");
       }
