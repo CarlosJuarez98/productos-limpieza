@@ -5,6 +5,7 @@ import {
   Apartado,
   ApartadosResumen,
   CajaResumen,
+  CortePeriodo,
   Entrada,
   InventarioItem,
   MargenConfig,
@@ -144,8 +145,16 @@ export class ApiService {
     return this.http.put(`${this.base}/caja/config`, body);
   }
 
-  marcarCorte(body: { fechaCorte: string; fondoInicial?: number }): Observable<unknown> {
+  marcarCorte(body: {
+    fechaCorte: string;
+    fondoInicial?: number;
+    totalCalculadora?: number;
+  }): Observable<unknown> {
     return this.http.post(`${this.base}/caja/cortes`, body);
+  }
+
+  detalleCorte(fecha: string): Observable<CortePeriodo> {
+    return this.http.get<CortePeriodo>(`${this.base}/caja/cortes/${fecha}`);
   }
 
   crearMovimientoCaja(body: unknown): Observable<MovimientoCaja> {

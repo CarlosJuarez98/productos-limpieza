@@ -81,25 +81,62 @@
     </label>
     <label>
       Precio compra
-      <input type="number" step="0.01" [(ngModel)]="form.precioCompra" name="precioCompra" />
+      <input
+        type="number"
+        step="0.01"
+        [(ngModel)]="form.precioCompra"
+        name="precioCompra"
+        (ngModelChange)="onCompraChange()"
+      />
     </label>
     <label>
-      Precio menudeo
-      <input type="number" step="0.01" [(ngModel)]="form.precioVenta" name="precioVenta" />
+      Precio menudeo (tú lo asignas)
+      <input
+        type="number"
+        step="0.01"
+        [(ngModel)]="form.precioVenta"
+        name="precioVenta"
+        (ngModelChange)="onMenudeoChange()"
+        [placeholder]="sugeridoPlaceholder"
+      />
     </label>
     <label>
       Precio ≥ 5 L
-      <input type="number" step="0.01" [(ngModel)]="form.precioMayoreo5" name="precioMayoreo5" />
+      <input
+        type="number"
+        step="0.01"
+        [(ngModel)]="form.precioMayoreo5"
+        name="precioMayoreo5"
+        [readonly]="!editando"
+      />
     </label>
     <label>
       Precio ≥ 10 L
-      <input type="number" step="0.01" [(ngModel)]="form.precioMayoreo10" name="precioMayoreo10" />
+      <input
+        type="number"
+        step="0.01"
+        [(ngModel)]="form.precioMayoreo10"
+        name="precioMayoreo10"
+        [readonly]="!editando"
+      />
     </label>
     <button type="submit">{{ editando ? 'Actualizar' : 'Agregar producto' }}</button>
     @if (editando) {
       <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
     }
   </form>
+  @if (sugeridoMinForm > 0 || sugeridoMaxForm > 0) {
+    <p class="sugerido-form">
+      Guía para menudeo:
+      <button type="button" class="chip-sugerido" (click)="usarSugerido(sugeridoMinForm)">
+        mín ${{ sugeridoMinForm | number: '1.2-2' }}
+      </button>
+      <button type="button" class="chip-sugerido" (click)="usarSugerido(sugeridoMaxForm)">
+        máx ${{ sugeridoMaxForm | number: '1.2-2' }}
+      </button>
+      — al poner menudeo, mayoreo ≥5 / ≥10 se calculan solos.
+    </p>
+  }
   @if (error) {
     <p class="error">{{ error }}</p>
   }
@@ -121,8 +158,8 @@
           <th>≥ 5 L</th>
           <th>≥ 10 L</th>
           <th>Compra</th>
-          <th>Mín. sugerido</th>
-          <th>Máx. sugerido</th>
+          <th class="col-sugerido">Mín. sugerido</th>
+          <th class="col-sugerido">Máx. sugerido</th>
           <th>Stock</th>
           <th>% ganancia</th>
           <th></th>
@@ -142,8 +179,8 @@
             <td class="money">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
             <td class="money">${{ i.precioMayoreo10 | number: '1.2-2' }}</td>
             <td class="money">${{ i.precioCompra | number: '1.2-2' }}</td>
-            <td class="money">${{ i.precioMinimoSugerido | number: '1.2-2' }}</td>
-            <td class="money">${{ i.precioMaximoSugerido | number: '1.2-2' }}</td>
+            <td class="money col-sugerido">${{ i.precioMinimoSugerido | number: '1.2-2' }}</td>
+            <td class="money col-sugerido">${{ i.precioMaximoSugerido | number: '1.2-2' }}</td>
             <td class="money">{{ i.stockActual | number: '1.2-2' }}</td>
             <td class="money">{{ i.porcentajeGanancia | number: '1.2-2' }}%</td>
             <td class="actions">

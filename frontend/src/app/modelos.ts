@@ -98,6 +98,31 @@ export interface CajaResumen {
   transferencias: MovimientoCaja[];
 }
 
+export interface CortePeriodo {
+  fechaCorte: string;
+  periodoDesde: string;
+  periodoHasta: string;
+  fondoInicial: number;
+  totalVendidoProductos: number;
+  totalRecargas: number;
+  totalPagoServicios: number;
+  totalIngresos: number;
+  totalRetiros: number;
+  totalTransferencias: number;
+  totalRetirosTransferencia: number;
+  totalApartadosProductos: number;
+  totalApartadosServicios: number;
+  totalCaja: number;
+  totalTransferenciasNetas: number;
+  totalNegocio: number;
+  totalCalculadora: number | null;
+  diferencia: number | null;
+  retiros: MovimientoCaja[];
+  ingresos: MovimientoCaja[];
+  retirosTransferencia: MovimientoCaja[];
+  transferencias: MovimientoCaja[];
+}
+
 export interface Apartado {
   id: number;
   fecha: string;

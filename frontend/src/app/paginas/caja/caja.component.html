@@ -13,13 +13,6 @@
     <p class="corte-aviso">
       Último corte:
       <strong class="fecha-naranja-caja">{{ fechaUltimoCorte | fechaDmY }}</strong>
-      <span class="muted">
-        — periodo desde {{ caja!.fechaInicio | fechaDmY }}
-        @if (caja?.fechaFin) {
-          hasta {{ caja!.fechaFin | fechaDmY }}
-        }
-        (ese día de corte ya no cuenta)
-      </span>
     </p>
   }
   <form class="form-grid" (ngSubmit)="guardarConfig()">
@@ -44,6 +37,66 @@
       Hasta hoy (fondo $200)
     </button>
   </form>
+  @if (cortesAnteriores.length) {
+    <div class="cortes-hist">
+      <button type="button" class="secondary" (click)="mostrarCortes = !mostrarCortes">
+        {{ mostrarCortes ? 'Ocultar' : 'Ver' }} cortes anteriores
+      </button>
+      @if (mostrarCortes) {
+        <div class="cortes-lista">
+          @for (f of cortesAnteriores; track f; let i = $index) {
+            <button
+              type="button"
+              class="corte-chip"
+              [class.ultimo]="i === 0"
+              [class.activo]="corteSeleccionado === f"
+              (click)="consultarCorte(f)"
+            >
+              {{ f | fechaDmY }}
+            </button>
+          }
+        </div>
+        @if (cargandoCorte) {
+          <p class="muted hint">Cargando corte…</p>
+        }
+        @if (detalleCorte && !cargandoCorte) {
+          <div class="corte-detalle">
+            <h4>
+              Corte {{ detalleCorte.fechaCorte | fechaDmY }}
+              <span class="muted">
+                · periodo {{ detalleCorte.periodoDesde | fechaDmY }} →
+                {{ detalleCorte.periodoHasta | fechaDmY }}
+              </span>
+            </h4>
+            <div class="stats">
+              <div class="stat"><span>Fondo</span><strong>${{ detalleCorte.fondoInicial | number: '1.2-2' }}</strong></div>
+              <div class="stat"><span>Vendido</span><strong>${{ detalleCorte.totalVendidoProductos | number: '1.2-2' }}</strong></div>
+              <div class="stat"><span>Ingresos</span><strong>${{ detalleCorte.totalIngresos | number: '1.2-2' }}</strong></div>
+              <div class="stat"><span>Retiros</span><strong>${{ detalleCorte.totalRetiros | number: '1.2-2' }}</strong></div>
+              <div class="stat"><span>Apartados</span><strong>${{ detalleCorte.totalApartadosProductos | number: '1.2-2' }}</strong></div>
+              <div class="stat"><span>Transferencias</span><strong>${{ detalleCorte.totalTransferencias | number: '1.2-2' }}</strong></div>
+              <div class="stat destacado"><span>Total caja</span><strong>${{ detalleCorte.totalCaja | number: '1.2-2' }}</strong></div>
+              <div class="stat destacado"><span>Total negocio</span><strong>${{ detalleCorte.totalNegocio | number: '1.2-2' }}</strong></div>
+              @if (detalleCorte.totalCalculadora != null) {
+                <div class="stat"><span>Contado</span><strong>${{ detalleCorte.totalCalculadora | number: '1.2-2' }}</strong></div>
+              }
+              @if (detalleCorte.diferencia != null) {
+                <div
+                  class="stat destacado"
+                  [class.faltante-stat]="detalleCorte.diferencia < -0.005"
+                  [class.sobrante-stat]="detalleCorte.diferencia > 0.005"
+                >
+                  <span>Diferencia</span>
+                  <strong>${{ detalleCorte.diferencia | number: '1.2-2' }}</strong>
+                </div>
+              }
+            </div>
+            <p class="muted hint">{{ mensajeDetalleCorte }}</p>
+          </div>
+        }
+      }
+    </div>
+  }
   <p class="muted hint">
     Al marcar un corte, el periodo nuevo empieza al día siguiente: las ventas del día del corte ya no
     entran. Con el periodo guardado se suman ventas, movimientos y apartados de esas fechas; luego
@@ -52,95 +105,74 @@
 </section>
 
 @if (caja) {
-  <div class="caja-top-grid">
-    <section class="panel totales-panel">
-      <h3>Totales del periodo</h3>
-      <p class="muted hint">
-        Ventas desde el día siguiente al corte
-        @if (caja.fechaInicio) {
-          ({{ caja.fechaInicio | fechaDmY }}
-          @if (caja.fechaFin) {
-            → {{ caja.fechaFin | fechaDmY }}
-          }
-          )
+  <section class="panel totales-panel" style="margin-top: 1rem">
+    <h3>Totales del periodo</h3>
+    <p class="muted hint">
+      Ventas desde el día siguiente al corte
+      @if (caja.fechaInicio) {
+        ({{ caja.fechaInicio | fechaDmY }}
+        @if (caja.fechaFin) {
+          → {{ caja.fechaFin | fechaDmY }}
         }
-      </p>
-      <div class="stats">
-        <div class="stat"><span>Fondo inicial</span><strong>${{ caja.fondoInicial | number: '1.2-2' }}</strong></div>
-        <div class="stat"><span>Vendido productos</span><strong>${{ caja.totalVendidoProductos | number: '1.2-2' }}</strong></div>
-        <div class="stat"><span>Recargas</span><strong>${{ caja.totalRecargas | number: '1.2-2' }}</strong></div>
-        <div class="stat"><span>Pago de servicios</span><strong>${{ caja.totalPagoServicios | number: '1.2-2' }}</strong></div>
-        <div class="stat"><span>Ingresos</span><strong>${{ caja.totalIngresos | number: '1.2-2' }}</strong></div>
-        <div class="stat"><span>Retiros</span><strong>${{ caja.totalRetiros | number: '1.2-2' }}</strong></div>
-        <div class="stat"><span>Apartados</span><strong>${{ caja.totalApartadosProductos | number: '1.2-2' }}</strong></div>
-        <div class="stat destacado"><span>Total caja (esperado)</span><strong>${{ caja.totalCaja | number: '1.2-2' }}</strong></div>
-        <div class="stat"><span>Transferencias netas</span><strong>${{ caja.totalTransferenciasNetas | number: '1.2-2' }}</strong></div>
-        <div class="stat destacado"><span>Total negocio</span><strong>${{ caja.totalNegocio | number: '1.2-2' }}</strong></div>
-        <div class="stat destacado"><span>Total calculadora</span><strong>${{ totalCalculadora | number: '1.2-2' }}</strong></div>
-      </div>
-      <p class="muted formula">
-        Total caja = fondo + productos + recargas + servicios + ingresos − retiros − transferencias − apartados.
-      </p>
-    </section>
-
-    <section class="panel calc-panel">
-      <h3>Calculadora — ¿falta o sobra?</h3>
-      <p class="muted hint">
-        Contado − total caja. Negativo = falta; positivo = sobra.
-      </p>
-      <div class="table-wrap calc-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Denom.</th>
-              <th>Cant.</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (d of denominaciones; track d.valor) {
-              <tr>
-                <td class="money">${{ d.valor | number: '1.2-2' }}</td>
-                <td>
-                  <input type="text" inputmode="numeric" [(ngModel)]="d.cantidad" [name]="'den' + d.valor" />
-                </td>
-                <td class="money">${{ totalLinea(d) | number: '1.2-2' }}</td>
-              </tr>
-            }
-            <tr class="calc-total-row">
-              <td colspan="2"><strong>Contado</strong></td>
-              <td class="money"><strong>${{ totalCalculadora | number: '1.2-2' }}</strong></td>
-            </tr>
-            <tr>
-              <td colspan="2">Esperado</td>
-              <td class="money">${{ (caja?.totalCaja || 0) | number: '1.2-2' }}</td>
-            </tr>
-            <tr>
-              <td colspan="2"><strong>Diferencia</strong></td>
-              <td
-                class="money"
-                [class.ok]="estadoDiferencia === 'ok'"
-                [class.faltante]="estadoDiferencia === 'faltante'"
-                [class.sobrante]="estadoDiferencia === 'sobrante'"
-              >
-                <strong>${{ diferenciaCaja | number: '1.2-2' }}</strong>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      @if (mensajeDiferencia) {
-        <p
-          class="calc-msg"
-          [class.ok]="estadoDiferencia === 'ok'"
-          [class.faltante]="estadoDiferencia === 'faltante'"
-          [class.sobrante]="estadoDiferencia === 'sobrante'"
-        >
-          {{ mensajeDiferencia }}
-        </p>
+        )
       }
-    </section>
-  </div>
+    </p>
+    <div class="stats">
+      <div class="stat"><span>Fondo inicial</span><strong>${{ caja.fondoInicial | number: '1.2-2' }}</strong></div>
+      <div class="stat"><span>Vendido productos</span><strong>${{ caja.totalVendidoProductos | number: '1.2-2' }}</strong></div>
+      <div class="stat"><span>Recargas</span><strong>${{ caja.totalRecargas | number: '1.2-2' }}</strong></div>
+      <div class="stat"><span>Pago de servicios</span><strong>${{ caja.totalPagoServicios | number: '1.2-2' }}</strong></div>
+      <div class="stat"><span>Ingresos</span><strong>${{ caja.totalIngresos | number: '1.2-2' }}</strong></div>
+      <div class="stat"><span>Retiros</span><strong>${{ caja.totalRetiros | number: '1.2-2' }}</strong></div>
+      <div class="stat"><span>Apartados</span><strong>${{ caja.totalApartadosProductos | number: '1.2-2' }}</strong></div>
+      <div class="stat destacado"><span>Total caja (esperado)</span><strong>${{ caja.totalCaja | number: '1.2-2' }}</strong></div>
+      <div class="stat"><span>Transferencias netas</span><strong>${{ caja.totalTransferenciasNetas | number: '1.2-2' }}</strong></div>
+      <div class="stat destacado"><span>Total negocio</span><strong>${{ caja.totalNegocio | number: '1.2-2' }}</strong></div>
+      <div class="stat destacado"><span>Total calculadora</span><strong>${{ totalCalculadora | number: '1.2-2' }}</strong></div>
+    </div>
+    <p class="muted formula">
+      Total caja = fondo + productos + recargas + servicios + ingresos − retiros − transferencias − apartados.
+    </p>
+  </section>
+
+  <section class="panel calc-panel" style="margin-top: 1rem">
+    <h3>Calculadora — ¿falta o sobra?</h3>
+    <p class="muted hint">
+      Contado − total caja. Negativo = falta; positivo = sobra.
+    </p>
+    <div class="calc-denoms">
+      @for (d of denominaciones; track d.valor) {
+        <label class="calc-den">
+          <span class="money">${{ d.valor | number: '1.2-2' }}</span>
+          <input type="text" inputmode="numeric" [(ngModel)]="d.cantidad" [name]="'den' + d.valor" />
+          <em class="money">${{ totalLinea(d) | number: '1.2-2' }}</em>
+        </label>
+      }
+    </div>
+    <div class="calc-resumen">
+      <div class="stat"><span>Contado</span><strong>${{ totalCalculadora | number: '1.2-2' }}</strong></div>
+      <div class="stat"><span>Esperado</span><strong>${{ (caja?.totalCaja || 0) | number: '1.2-2' }}</strong></div>
+      <div
+        class="stat destacado"
+        [class.ok]="estadoDiferencia === 'ok'"
+        [class.faltante]="estadoDiferencia === 'faltante'"
+        [class.sobrante]="estadoDiferencia === 'sobrante'"
+      >
+        <span>Diferencia</span>
+        <strong>${{ diferenciaCaja | number: '1.2-2' }}</strong>
+      </div>
+    </div>
+    @if (mensajeDiferencia) {
+      <p
+        class="calc-msg"
+        [class.ok]="estadoDiferencia === 'ok'"
+        [class.faltante]="estadoDiferencia === 'faltante'"
+        [class.sobrante]="estadoDiferencia === 'sobrante'"
+      >
+        {{ mensajeDiferencia }}
+      </p>
+    }
+  </section>
 }
 
 <section class="panel" style="margin-top: 1rem">
@@ -173,28 +205,48 @@
 
 @if (caja) {
   <div class="movs-grid">
-    @for (bloque of [
-      { titulo: 'Retiros', items: caja.retiros },
-      { titulo: 'Ingresos', items: caja.ingresos },
-      { titulo: 'Retiros transferencia', items: caja.retirosTransferencia },
-      { titulo: 'Transferencias', items: caja.transferencias }
-    ]; track bloque.titulo) {
+    @if (detalleCorte) {
+      <p class="muted movs-periodo-hint">
+        Movimientos del corte {{ detalleCorte.fechaCorte | fechaDmY }}
+        ({{ detalleCorte.periodoDesde | fechaDmY }} → {{ detalleCorte.periodoHasta | fechaDmY }})
+        ·
+        <button type="button" class="linkish" (click)="limpiarCorteSeleccionado()">
+          Ver periodo actual
+        </button>
+      </p>
+    }
+    @for (bloque of bloquesMovimientos; track bloque.titulo) {
       <section class="panel mov-panel">
         <h3>{{ bloque.titulo }}</h3>
         <div class="table-wrap mov-table">
           <table>
             <thead>
-              <tr><th>Fecha</th><th>Monto</th><th>Motivo</th><th></th></tr>
+              <tr>
+                <th>Fecha</th>
+                <th>Monto</th>
+                @if (bloque.conMotivo) {
+                  <th>Motivo</th>
+                }
+                <th></th>
+              </tr>
             </thead>
             <tbody>
               @for (m of bloque.items; track m.id) {
                 <tr>
                   <td class="col-fecha">{{ m.fecha | fechaDmY }}</td>
                   <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
-                  <td class="col-motivo" [title]="m.motivo || ''">{{ m.motivo || '—' }}</td>
+                  @if (bloque.conMotivo) {
+                    <td class="col-motivo" [title]="m.motivo || ''">{{ m.motivo || '—' }}</td>
+                  }
                   <td class="actions">
-                    <button type="button" class="danger" (click)="eliminar(m.id)">×</button>
+                    @if (!detalleCorte) {
+                      <button type="button" class="danger" (click)="eliminar(m.id)">×</button>
+                    }
                   </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td [attr.colspan]="bloque.conMotivo ? 4 : 3" class="muted">Sin movimientos</td>
                 </tr>
               }
             </tbody>

@@ -3,12 +3,18 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { CajaResumen, TipoMovimientoCaja } from '../../modelos';
+import { CajaResumen, CortePeriodo, MovimientoCaja, TipoMovimientoCaja } from '../../modelos';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 
 interface Denominacion {
   valor: number;
   cantidad: number | null;
+}
+
+interface BloqueMov {
+  titulo: string;
+  items: MovimientoCaja[];
+  conMotivo: boolean;
 }
 
 @Component({
@@ -37,6 +43,10 @@ export class CajaComponent implements OnInit {
   ];
   /** Fecha del último corte marcado (la que se usa como inicio del periodo actual). */
   ultimoCorte = '';
+  mostrarCortes = false;
+  corteSeleccionado: string | null = null;
+  detalleCorte: CortePeriodo | null = null;
+  cargandoCorte = false;
 
   config = {
     fechaInicio: '',
@@ -84,6 +94,57 @@ export class CajaComponent implements OnInit {
     if (this.ultimoCorte) return this.ultimoCorte;
     const inicio = this.caja?.fechaInicio || this.config.fechaInicio;
     return inicio ? this.sumarDias(inicio, -1) : '';
+  }
+
+  /** Cortes de más reciente a más antiguo (fechas naranjas Excel). */
+  get cortesAnteriores(): string[] {
+    const list = [...(this.caja?.fechasCorte || [])];
+    return list.sort((a, b) => b.localeCompare(a));
+  }
+
+  consultarCorte(fecha: string): void {
+    this.corteSeleccionado = fecha;
+    this.mostrarCortes = true;
+    this.cargandoCorte = true;
+    this.detalleCorte = null;
+    this.api.detalleCorte(fecha).subscribe({
+      next: (d) => {
+        this.detalleCorte = d;
+        this.cargandoCorte = false;
+      },
+      error: (e) => {
+        this.cargandoCorte = false;
+        this.error = e.error?.error || 'No se pudo cargar el corte';
+      },
+    });
+  }
+
+  get mensajeDetalleCorte(): string {
+    const d = this.detalleCorte;
+    if (!d) return '';
+    if (d.diferencia == null) {
+      return 'Sin conteo de billetes guardado en este corte (solo totales del periodo).';
+    }
+    const x = Number(d.diferencia);
+    if (Math.abs(x) < 0.005) return 'Cuadró: contado = total caja.';
+    if (x < 0) return `Faltaron $${Math.abs(x).toFixed(2)}.`;
+    return `Sobraron $${x.toFixed(2)}.`;
+  }
+
+  get bloquesMovimientos(): BloqueMov[] {
+    const src = this.detalleCorte || this.caja;
+    if (!src) return [];
+    return [
+      { titulo: 'Retiros', items: src.retiros || [], conMotivo: true },
+      { titulo: 'Ingresos', items: src.ingresos || [], conMotivo: true },
+      { titulo: 'Retiros transferencia', items: src.retirosTransferencia || [], conMotivo: false },
+      { titulo: 'Transferencias', items: src.transferencias || [], conMotivo: false },
+    ];
+  }
+
+  limpiarCorteSeleccionado(): void {
+    this.corteSeleccionado = null;
+    this.detalleCorte = null;
   }
 
   totalLinea(d: Denominacion): number {
@@ -165,10 +226,15 @@ export class CajaComponent implements OnInit {
       `¿Marcar corte el ${formatFechaDmY(corte)}? Quedará en naranja como en Excel. El periodo nuevo empieza el ${formatFechaDmY(inicio)} con fondo $200.`
     );
     if (!ok) return;
+    const contado = this.totalCalculadora > 0 ? this.totalCalculadora : undefined;
     this.denominaciones.forEach((x) => (x.cantidad = null));
     this.error = '';
     this.ok = '';
-    this.api.marcarCorte({ fechaCorte: corte, fondoInicial: 200 }).subscribe({
+    this.api.marcarCorte({
+      fechaCorte: corte,
+      fondoInicial: 200,
+      totalCalculadora: contado,
+    }).subscribe({
       next: () => {
         this.ok = `Corte marcado el ${formatFechaDmY(corte)}: el periodo cuenta desde ${formatFechaDmY(inicio)}`;
         this.cargar();
