@@ -61,7 +61,7 @@ public class InventarioService {
         .toList();
   }
 
-  /** Recalcula menudeo + mayoreo (≥5 / ≥10) de todos los productos según márgenes. */
+  /** Recalcula solo mayoreo (≥5 / ≥10). El menudeo vive en el histórico y no se sobrescribe. */
   @Transactional
   public void aplicarPreciosDesdeMargenes(MargenConfig margen) {
     for (Producto p : productoRepo.findAllByOrderByNombreAsc()) {
@@ -69,16 +69,7 @@ public class InventarioService {
       if (compra.compareTo(BigDecimal.ZERO) <= 0) {
         continue;
       }
-      BigDecimal menudeo = conMargen(compra, margen.getMargenMax());
-      BigDecimal m5 = conMargen(compra, margen.getMargenMayoreo5());
-      BigDecimal m10 = conMargen(compra, margen.getMargenMayoreo10());
-      // Actualiza la vigencia actual; no inserta un cambio con fecha de hoy
-      LocalDate fecha = precioHistoricoService.fechaVigenciaActual(p).orElse(null);
-      if (fecha != null) {
-        precioHistoricoService.crearDirecto(p, fecha, menudeo);
-      }
-      p.setPrecioMayoreo5(m5);
-      p.setPrecioMayoreo10(m10);
+      aplicarMayoreoDesdeCompra(p, margen);
       productoRepo.save(p);
     }
   }
@@ -104,11 +95,8 @@ public class InventarioService {
         fecha = LocalDate.now(ZONA);
       }
       precioHistoricoService.crearDirecto(p, fecha, req.precioVenta());
-    } else if (p.getPrecioCompra().compareTo(BigDecimal.ZERO) > 0) {
-      // Alta nueva sin precio: usa margen máx. sobre la primera fecha de vigencia existente o hoy solo si no hay histórico
-      LocalDate f = precioHistoricoService.fechaVigenciaActual(p).orElse(LocalDate.now(ZONA));
-      precioHistoricoService.crearDirecto(p, f, conMargen(p.getPrecioCompra(), margen.getMargenMax()));
     }
+    // Los % mín/máx solo alimentan columnas sugeridas; no crean menudeo automático.
     return toDto(p, margen);
   }
 
@@ -141,19 +129,7 @@ public class InventarioService {
       aplicarMayoreoDesdeCompra(p, margen);
     }
     p = productoRepo.save(p);
-    if (req.precioVenta() != null) {
-      BigDecimal actual = precioService.precioHoy(p);
-      if (req.precioVenta().compareTo(actual) != 0) {
-        // Actualiza el precio vigente sin crear una fila nueva con la fecha de hoy
-        LocalDate fecha = req.fechaVigenciaPrecio();
-        if (fecha == null || fecha.equals(LocalDate.now(ZONA))) {
-          fecha = precioHistoricoService.fechaVigenciaActual(p).orElse(null);
-        }
-        if (fecha != null) {
-          precioHistoricoService.crearDirecto(p, fecha, req.precioVenta());
-        }
-      }
-    }
+    // Menudeo solo se define vía histórico (pantalla Precios). No sobrescribir al editar producto.
     return toDto(p, margen);
   }
 

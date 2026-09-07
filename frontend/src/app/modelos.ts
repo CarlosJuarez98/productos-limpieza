@@ -89,7 +89,7 @@ export interface CajaResumen {
   totalCaja: number;
   totalTransferenciasNetas: number;
   totalNegocio: number;
-  /** Fechas de corte (naranja en Excel). */
+  /** Fechas de corte registradas en BD. */
   fechasCorte: string[];
   fechaUltimoCorte: string | null;
   retiros: MovimientoCaja[];

@@ -4,11 +4,20 @@
 }
 
 .chart-toolbar {
-  margin-bottom: 0.85rem;
+  margin-bottom: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chart-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   align-items: center;
 }
 
-.chart-toolbar .hint {
+.chart-hint {
+  margin: 0.55rem 0 0.35rem;
   font-size: 0.85rem;
 }
 

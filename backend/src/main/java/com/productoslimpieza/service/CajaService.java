@@ -32,7 +32,7 @@ public class CajaService {
 
   private static final ZoneId ZONA = ZoneId.of("America/Mexico_City");
   private static final BigDecimal FONDO_DEFAULT = new BigDecimal("200.00");
-  /** Fondo del primer periodo largo (Excel), antes del primer corte naranja. */
+  /** Fondo del primer periodo, antes del primer corte. */
   private static final BigDecimal FONDO_HISTORICO = new BigDecimal("790.00");
   private static final LocalDate INICIO_HISTORICO = LocalDate.of(2025, 10, 29);
 

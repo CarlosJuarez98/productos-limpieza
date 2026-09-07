@@ -39,6 +39,8 @@ export class UsoCasaComponent implements OnInit {
   error = '';
   /** yyyy-MM seleccionado en el gráfico; null = todos. */
   mesSeleccionado: string | null = null;
+  /** Panel del gráfico contraído por defecto. */
+  mostrarGrafico = false;
   form = {
     fecha: this.hoyLocal(),
     productoId: null as number | null,

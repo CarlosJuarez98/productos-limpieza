@@ -107,3 +107,20 @@ input[readonly] {
   background: #f4f8f5;
   color: var(--muted);
 }
+
+.precio-input {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.precio-input .peso {
+  color: var(--muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.precio-input input {
+  width: 100%;
+  min-width: 0;
+}

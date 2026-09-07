@@ -46,7 +46,7 @@ export class ApartadosComponent implements OnInit {
     salarios: null as number | null,
   };
 
-  readonly columnasExcel: {
+  readonly columnasRegistros: {
     titulo: string;
     categoria: CategoriaApartado;
     tipo: TipoMovimientoApartado;
@@ -94,7 +94,7 @@ export class ApartadosComponent implements OnInit {
     return Number(this.caja?.totalNegocio ?? this.caja?.totalCaja ?? 0);
   }
 
-  /** Saldo actual (ingresos − gastos), como en Excel. */
+  /** Saldo actual (ingresos − gastos). */
   saldo(cat: CategoriaApartado): number {
     return Number(this.data?.totales?.[cat] ?? 0);
   }

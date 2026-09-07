@@ -78,7 +78,7 @@ public class VentaService {
 
   public BigDecimal calcularTotal(
       TipoVenta tipo, BigDecimal cantidad, Producto producto, LocalDate fecha, BigDecimal totalManual) {
-    // CASA/MUESTRA normalmente $0; si Excel trae monto (ej. Casa $51), respetarlo.
+    // CASA/MUESTRA normalmente $0; si hay monto manual (p. ej. Casa), se respeta.
     if (tipo.totalEsCero()) {
       if (totalManual != null && totalManual.compareTo(BigDecimal.ZERO) > 0) {
         return totalManual.setScale(2, RoundingMode.HALF_UP);
@@ -105,7 +105,12 @@ public class VentaService {
     if (producto == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Producto requerido para este tipo de venta");
     }
-    // Precio manual (total ya calculado en front: cantidad × precio unitario)
+    // Litros / Pieza: siempre menudeo del histórico; no se acepta total/precio manual
+    if (tipo == TipoVenta.LITROS || tipo == TipoVenta.PIEZA) {
+      BigDecimal precio = precioService.precioVigente(producto, fecha);
+      return cantidad.multiply(precio).setScale(2, RoundingMode.HALF_UP);
+    }
+    // Otros (p. ej. mayoreo ya se resolvió arriba): si mandan total manual, se respeta
     if (totalManual != null && totalManual.compareTo(BigDecimal.ZERO) > 0) {
       return totalManual.setScale(2, RoundingMode.HALF_UP);
     }
@@ -172,7 +177,7 @@ public class VentaService {
         p != null ? p.getId() : null,
         p != null ? p.getNombre() : null,
         v.getTipoVenta(),
-        v.getTipoVenta().toExcel(),
+        v.getTipoVenta().toLabel(),
         v.getCantidad(),
         v.getTotal()
     );

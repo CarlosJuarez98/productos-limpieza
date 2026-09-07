@@ -93,7 +93,7 @@ h3 {
   overflow-x: hidden;
 }
 
-.excel-grid {
+.registros-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
@@ -103,12 +103,12 @@ h3 {
 }
 
 @media (max-width: 1100px) {
-  .excel-grid {
+  .registros-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.excel-col {
+.registro-col {
   border: 1px solid var(--line);
   border-radius: 0.4rem;
   padding: 0.4rem 0.5rem;
@@ -118,7 +118,7 @@ h3 {
   overflow-x: hidden;
 }
 
-.excel-col h4 {
+.registro-col h4 {
   margin: 0 0 0.3rem;
   font-size: 0.88rem;
   display: flex;
@@ -134,31 +134,31 @@ h3 {
   white-space: nowrap;
 }
 
-.excel-col table {
+.registro-col table {
   width: 100%;
   max-width: 100%;
   table-layout: fixed;
   font-size: 0.8rem;
 }
 
-.excel-col th,
-.excel-col td {
+.registro-col th,
+.registro-col td {
   padding: 0.25rem 0.3rem;
   overflow-wrap: anywhere;
 }
 
-.excel-col th.money,
-.excel-col td.money {
+.registro-col th.money,
+.registro-col td.money {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.excel-col tr.gasto td {
+.registro-col tr.gasto td {
   color: var(--danger);
 }
 
-.excel-col .actions .danger {
+.registro-col .actions .danger {
   padding: 0.05rem 0.35rem;
   font-size: 0.85rem;
 }

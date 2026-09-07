@@ -13,58 +13,64 @@
 <section class="panel chart-panel">
   <div class="toolbar chart-toolbar">
     <h3>Consumo por mes</h3>
-    @if (mesSeleccionado) {
-      <button type="button" class="secondary" (click)="limpiarMes()">Ver todos</button>
-    } @else {
-      <span class="muted hint">Clic en una barra para filtrar ese mes</span>
-    }
-  </div>
-
-  <div class="chart-bars" role="img" [attr.aria-label]="'Consumo mensual al costo'">
-    @for (m of porMes; track m.key) {
-      <button
-        type="button"
-        class="bar-col"
-        [class.activo]="mesSeleccionado === m.key"
-        [class.vacio]="m.costo <= 0"
-        (click)="seleccionarMes(m.key)"
-        [title]="m.label + ': $' + (m.costo | number: '1.2-2')"
-      >
-        <span class="bar-valor" [class.oculto]="m.costo <= 0">
-          ${{ m.costo | number: '1.0-0' }}
-        </span>
-        <span class="bar-track">
-          <span class="bar-fill" [style.height.%]="alturaBarra(m.costo)"></span>
-        </span>
-        <span class="bar-label">{{ m.label }}</span>
+    <div class="chart-toolbar-actions">
+      @if (mostrarGrafico && mesSeleccionado) {
+        <button type="button" class="secondary" (click)="limpiarMes()">Ver todos</button>
+      }
+      <button type="button" class="secondary" (click)="mostrarGrafico = !mostrarGrafico">
+        {{ mostrarGrafico ? 'Ocultar' : 'Ver gráfico' }}
       </button>
-    }
+    </div>
   </div>
 
-  @if (productosDelMes.length) {
-    <div class="mes-detalle">
-      <h4>Por producto — {{ labelMesSeleccionado }}</h4>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Producto</th>
-              <th>Cantidad</th>
-              <th>Costo</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (p of productosDelMes; track p.nombre) {
-              <tr>
-                <td>{{ p.nombre }}</td>
-                <td class="money">{{ p.cantidad | number: '1.2-2' }}</td>
-                <td class="money">${{ p.costo | number: '1.2-2' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+  @if (mostrarGrafico) {
+    <p class="muted hint chart-hint">Clic en una barra para filtrar ese mes</p>
+    <div class="chart-bars" role="img" [attr.aria-label]="'Consumo mensual al costo'">
+      @for (m of porMes; track m.key) {
+        <button
+          type="button"
+          class="bar-col"
+          [class.activo]="mesSeleccionado === m.key"
+          [class.vacio]="m.costo <= 0"
+          (click)="seleccionarMes(m.key)"
+          [title]="m.label + ': $' + (m.costo | number: '1.2-2')"
+        >
+          <span class="bar-valor" [class.oculto]="m.costo <= 0">
+            ${{ m.costo | number: '1.0-0' }}
+          </span>
+          <span class="bar-track">
+            <span class="bar-fill" [style.height.%]="alturaBarra(m.costo)"></span>
+          </span>
+          <span class="bar-label">{{ m.label }}</span>
+        </button>
+      }
     </div>
+
+    @if (productosDelMes.length) {
+      <div class="mes-detalle">
+        <h4>Por producto — {{ labelMesSeleccionado }}</h4>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Costo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of productosDelMes; track p.nombre) {
+                <tr>
+                  <td>{{ p.nombre }}</td>
+                  <td class="money">{{ p.cantidad | number: '1.2-2' }}</td>
+                  <td class="money">${{ p.costo | number: '1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
   }
 </section>
 

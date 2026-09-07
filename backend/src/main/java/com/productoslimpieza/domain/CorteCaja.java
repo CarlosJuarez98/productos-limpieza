@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/** Fecha de corte de caja (naranja en Excel Ventas). */
+/** Fecha de corte de caja (tabla cortes_caja en BD). */
 @Entity
 @Table(
     name = "cortes_caja",

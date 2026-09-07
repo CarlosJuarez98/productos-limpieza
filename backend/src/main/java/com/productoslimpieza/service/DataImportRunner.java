@@ -7,8 +7,6 @@ import com.productoslimpieza.repo.*;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -22,8 +20,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Semilla opcional (JSON) solo si se activa app.import-on-startup.
- * En operación normal la fuente de verdad es Oracle.
+ * Semilla opcional desde classpath (resources/data) SOLO si app.import-on-startup=true
+ * y la BD está vacía. En operación normal no corre: la fuente de verdad es Oracle.
  */
 @Component
 @org.springframework.core.annotation.Order(1)
@@ -40,12 +38,7 @@ public class DataImportRunner implements ApplicationRunner {
   private final MovimientoCajaRepository movimientoRepo;
   private final ApartadoRepository apartadoRepo;
   private final InversionRepository inversionRepo;
-  private final ProduccionRepository produccionRepo;
-  private final TraspasoRepository traspasoRepo;
-  private final TraspasoAbonoRepository traspasoAbonoRepo;
   private final boolean importOnStartup;
-  private final boolean forceImport;
-  private final String seedPath;
 
   public DataImportRunner(
       ObjectMapper mapper,
@@ -57,12 +50,7 @@ public class DataImportRunner implements ApplicationRunner {
       MovimientoCajaRepository movimientoRepo,
       ApartadoRepository apartadoRepo,
       InversionRepository inversionRepo,
-      ProduccionRepository produccionRepo,
-      TraspasoRepository traspasoRepo,
-      TraspasoAbonoRepository traspasoAbonoRepo,
-      @Value("${app.import-on-startup:false}") boolean importOnStartup,
-      @Value("${app.force-import:false}") boolean forceImport,
-      @Value("${app.seed-path:../data}") String seedPath) {
+      @Value("${app.import-on-startup:false}") boolean importOnStartup) {
     this.mapper = mapper;
     this.productoRepo = productoRepo;
     this.precioRepo = precioRepo;
@@ -72,12 +60,7 @@ public class DataImportRunner implements ApplicationRunner {
     this.movimientoRepo = movimientoRepo;
     this.apartadoRepo = apartadoRepo;
     this.inversionRepo = inversionRepo;
-    this.produccionRepo = produccionRepo;
-    this.traspasoRepo = traspasoRepo;
-    this.traspasoAbonoRepo = traspasoAbonoRepo;
     this.importOnStartup = importOnStartup;
-    this.forceImport = forceImport;
-    this.seedPath = seedPath;
   }
 
   @Override
@@ -86,16 +69,12 @@ public class DataImportRunner implements ApplicationRunner {
     if (!importOnStartup) {
       return;
     }
-    if (!forceImport && productoRepo.count() > 0) {
-      log.info("BD ya tiene datos ({} productos). No se reimporta.", productoRepo.count());
+    if (productoRepo.count() > 0) {
+      log.info("BD ya tiene datos ({} productos). No se reimporta (Oracle es la fuente de verdad).", productoRepo.count());
       return;
     }
     try {
-      if (forceImport) {
-        log.info("Forzando reimportación: limpiando tablas...");
-        clearAll();
-      }
-      log.info("Importando semilla JSON desde {}", seedPath);
+      log.info("BD vacía: importando semilla opcional desde classpath data/");
       importAll();
       log.info(
           "Importación completada: {} productos, {} precios, {} ventas, {} entradas, {} mov.caja, {} apartados, {} inversión",
@@ -110,20 +89,6 @@ public class DataImportRunner implements ApplicationRunner {
       log.error("Fallo al importar semilla JSON", ex);
       throw new IllegalStateException("No se pudieron importar los datos semilla", ex);
     }
-  }
-
-  private void clearAll() {
-    traspasoAbonoRepo.deleteAllInBatch();
-    traspasoRepo.deleteAllInBatch();
-    produccionRepo.deleteAllInBatch();
-    ventaRepo.deleteAllInBatch();
-    entradaRepo.deleteAllInBatch();
-    precioRepo.deleteAllInBatch();
-    movimientoRepo.deleteAllInBatch();
-    apartadoRepo.deleteAllInBatch();
-    inversionRepo.deleteAllInBatch();
-    cajaConfigRepo.deleteAllInBatch();
-    productoRepo.deleteAllInBatch();
   }
 
   private void importAll() throws IOException {
@@ -164,7 +129,7 @@ public class DataImportRunner implements ApplicationRunner {
       if (fechaStr == null || fechaStr.isBlank() || tipoRaw == null) {
         continue;
       }
-      TipoVenta tipo = TipoVenta.fromExcel(tipoRaw);
+      TipoVenta tipo = TipoVenta.fromLabel(tipoRaw);
       Venta v = new Venta();
       v.setFecha(LocalDate.parse(fechaStr));
       v.setTipoVenta(tipo);
@@ -299,15 +264,18 @@ public class DataImportRunner implements ApplicationRunner {
   }
 
   private byte[] readBytes(String file) throws IOException {
-    Path external = Path.of(seedPath, file).toAbsolutePath().normalize();
-    if (Files.exists(external)) {
-      return Files.readAllBytes(external);
-    }
     ClassPathResource resource = new ClassPathResource("data/" + file);
     if (resource.exists()) {
-      return resource.getInputStream().readAllBytes();
+      byte[] bytes = resource.getInputStream().readAllBytes();
+      // Quita BOM UTF-8 si viene
+      if (bytes.length >= 3 && bytes[0] == (byte) 0xEF && bytes[1] == (byte) 0xBB && bytes[2] == (byte) 0xBF) {
+        byte[] sinBom = new byte[bytes.length - 3];
+        System.arraycopy(bytes, 3, sinBom, 0, sinBom.length);
+        return sinBom;
+      }
+      return bytes;
     }
-    log.warn("No se encontró archivo semilla: {}", file);
+    log.warn("No se encontró semilla classpath data/{}", file);
     return null;
   }
 
