@@ -86,10 +86,16 @@
                     [(ngModel)]="l.precioManual"
                     [name]="'precio' + l.key"
                     [placeholder]="precioLista(l) > 0 ? (precioLista(l) | number: '1.2-2') : 'auto'"
-                    title="Vacío = precio de lista. Si lo llenas, ese precio manda."
+                    title="Mayoreo: vacío usa tramos ≥5/≥10. Si lo llenas, ese precio manda."
                     (keydown.enter)="onCantidadEnter($event, i)"
                   />
                 </div>
+              } @else if (muestraPrecioLista(l.tipoVenta)) {
+                @if (precioLista(l) > 0) {
+                  <span class="money" title="Menudeo del histórico de precios">${{ precioLista(l) | number: '1.2-2' }}</span>
+                } @else {
+                  <span class="muted">Sin precio</span>
+                }
               } @else {
                 <span class="muted">—</span>
               }

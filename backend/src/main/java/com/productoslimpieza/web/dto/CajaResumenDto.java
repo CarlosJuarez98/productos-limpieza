@@ -17,13 +17,13 @@ public record CajaResumenDto(
     BigDecimal totalTransferencias,
     BigDecimal totalApartadosProductos,
     BigDecimal totalApartadosServicios,
-    /** Como en Excel: fondo + ventas + ingresos − retiros − transferencias − apartados */
+    /** Fondo + ventas + ingresos − retiros − transferencias − apartados */
     BigDecimal totalCaja,
     /** Transferencias − retiros transferencia */
     BigDecimal totalTransferenciasNetas,
     /** Total caja + transferencias netas (debe acercarse al efectivo contado) */
     BigDecimal totalNegocio,
-    /** Fechas de corte (naranja en Excel Ventas). */
+    /** Fechas de corte registradas en BD. */
     List<LocalDate> fechasCorte,
     /** Último corte marcado (= día anterior al inicio del periodo). */
     LocalDate fechaUltimoCorte,

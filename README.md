@@ -2,29 +2,25 @@
 
 Control de ventas, inventario, entradas, caja y apartados.
 
-La **fuente de verdad es Oracle** (volumen Docker). El Excel ya no se usa.
+## Fuente de verdad
+
+**Oracle** (volumen Docker `oracle-productos-limpieza-data`). Todo lo operativo vive en la BD:
+productos, histórico de precios (menudeo), ventas, caja, apartados, cortes.
+
+No hay dependencia del Excel. Los JSON en `backend/src/main/resources/data/` son semilla
+**opcional** solo si la BD está vacía (`APP_IMPORT_ON_STARTUP=true`).
 
 Stack: **Spring Boot 3** + **Angular 19** + **Oracle XE en Docker**.
 
-## Uso diario (como los otros proyectos)
+## Uso diario
 
-Doble clic en `iniciar.bat` (o `dev.bat`):
+Doble clic en `iniciar.bat` (o el acceso directo del escritorio):
 
 | Qué | Puerto | URL |
 |-----|--------|-----|
 | **Angular (app)** | **4202** | http://127.0.0.1:4202/ |
 | API Spring | 8083 | http://127.0.0.1:8083/api |
 | Oracle | 1551 | — |
-
-No uses `:8083/ventas` para trabajar: ahí solo queda la API (o el modo Docker embebido).
-
-## Puertos (sin chocar con otros proyectos)
-
-| Proyecto | API | Frontend | Oracle | EM |
-|----------|-----|----------|--------|----|
-| mesa-lista / alimenticio | 8080 | 4200 | 1521 | 5500 |
-| control-gastos | 8081 | 4201 | 1522 | 5501 |
-| **productos-limpieza** | **8083** | **4202** | **1551** | **5502** |
 
 ## Base de datos Oracle (Docker)
 
@@ -39,12 +35,7 @@ No uses `:8083/ventas` para trabajar: ahí solo queda la API (o el modo Docker e
 | Contenedor | `oracle-productos-limpieza` |
 | Volumen | `oracle-productos-limpieza-data` |
 
-## Modo Docker all-in-one (opcional)
+## Precios
 
-`iniciar-docker.bat` empaqueta Angular dentro del JAR y abre http://localhost:8083/  
-Úsalo solo si no quieres `ng serve`.
-
-## Datos
-
-- En operación normal **no** se reimportan semillas JSON (`APP_IMPORT_ON_STARTUP=false`).
-- Casa y Muestra siempre quedan en **$0** en la BD.
+- **Menudeo / precio actual** = registro vigente en **histórico de precios** (tabla en Oracle).
+- Mayoreo ≥5 / ≥10 se guarda en el producto; no lo inventa el Excel.

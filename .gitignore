@@ -3,9 +3,8 @@
 *.iml
 .vscode/
 target/
-backend/data/
 
-# Base de datos propia del proyecto
+# Base de datos H2 local (legado)
 db/
 *.mv.db
 *.trace.db

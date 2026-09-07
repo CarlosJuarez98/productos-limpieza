@@ -6,14 +6,14 @@
       Buscar
       <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto..." />
     </label>
-    <button type="button" class="secondary" (click)="descargarExcel()">Descargar Excel</button>
+    <button type="button" class="secondary" (click)="exportarLista()">Exportar lista (.xlsx)</button>
   </div>
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>Producto</th>
-          <th>Menudeo</th>
+          <th>Menudeo (histórico)</th>
           <th>≥ 5 L</th>
           <th>≥ 10 L</th>
         </tr>

@@ -32,9 +32,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
       SPRING_DATASOURCE_USERNAME: productos_limpieza
       SPRING_DATASOURCE_PASSWORD: ProductosLimpieza2026
-      # Fuente de verdad: volumen Oracle. No reimportar semillas/Excel.
+      # Fuente de verdad: volumen Oracle. No reimportar semillas.
       APP_IMPORT_ON_STARTUP: "false"
-      APP_FORCE_IMPORT: "false"
     depends_on:
       oracle:
         condition: service_healthy

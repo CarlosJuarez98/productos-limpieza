@@ -31,9 +31,9 @@ export class EntradasComponent implements OnInit {
   prep = {
     fecha: new Date().toISOString().slice(0, 10),
     productoResultadoId: null as number | null,
-    cantidadResultado: 1 as number | null,
+    cantidadResultado: null as number | null,
     productoInsumoId: null as number | null,
-    cantidadInsumo: 1 as number | null,
+    cantidadInsumo: null as number | null,
     insumoNombre: '' as string,
   };
 
@@ -69,26 +69,18 @@ export class EntradasComponent implements OnInit {
     this.prep.productoResultadoId = id;
     this.prep.productoInsumoId = null;
     this.prep.insumoNombre = '';
+    this.errorPrep = '';
     if (id == null) return;
     this.api.recetaProduccion(id).subscribe({
       next: (r) => {
         if (r.encontrada && r.productoInsumoId != null) {
           this.prep.productoInsumoId = r.productoInsumoId;
           this.prep.insumoNombre = r.productoInsumoNombre ?? '';
-          if (this.prep.cantidadResultado != null) {
-            this.prep.cantidadInsumo = this.prep.cantidadResultado;
-          }
         } else {
           this.errorPrep = 'No hay receta para ese producto (Cloro←Hipoclorito o Fabuloso←Base)';
         }
       },
     });
-  }
-
-  onCantidadResultadoChange(): void {
-    if (this.prep.cantidadResultado != null && this.prep.productoInsumoId != null) {
-      this.prep.cantidadInsumo = this.prep.cantidadResultado;
-    }
   }
 
   guardar(): void {
@@ -141,8 +133,8 @@ export class EntradasComponent implements OnInit {
       .subscribe({
         next: () => {
           this.okPrep = `Listo: +${this.prep.cantidadResultado} y se descontó ${this.prep.cantidadInsumo} de ${this.prep.insumoNombre}`;
-          this.prep.cantidadResultado = 1;
-          this.prep.cantidadInsumo = 1;
+          this.prep.cantidadResultado = null;
+          this.prep.cantidadInsumo = null;
           this.prep.productoResultadoId = null;
           this.prep.productoInsumoId = null;
           this.prep.insumoNombre = '';

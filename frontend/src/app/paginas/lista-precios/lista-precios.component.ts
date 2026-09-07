@@ -28,8 +28,8 @@ export class ListaPreciosComponent implements OnInit {
     return this.items.filter((i) => i.nombre.toLowerCase().includes(q));
   }
 
-  /** Descarga Excel con la lista actual de productos y precios. */
-  descargarExcel(): void {
+  /** Exporta la lista actual desde la BD (inventario + precios vigentes). */
+  exportarLista(): void {
     const filas = this.filtrados.map((i) => ({
       Producto: i.nombre,
       Menudeo: Number(i.precioVentaHoy),

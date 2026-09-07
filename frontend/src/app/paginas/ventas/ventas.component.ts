@@ -39,7 +39,7 @@ export class VentasComponent implements OnInit {
   fechaMin: string | null = null;
   /** Día del último corte (no se pueden registrar ventas ≤ esta fecha). */
   fechaUltimoCorte: string | null = null;
-  /** Todas las fechas de corte (naranja en Excel). */
+  /** Todas las fechas de corte (BD). */
   private fechasCorte = new Set<string>();
   /** Último registro (producto) de cada fecha de corte → naranja. */
   private idMarcadoresCorte = new Set<number>();
@@ -113,9 +113,14 @@ export class VentasComponent implements OnInit {
     return tipo === 'MAYOREO';
   }
 
-  /** Litros/Pieza/Mayoreo: se puede poner precio unitario a mano. */
+  /** Solo mayoreo permite precio/total a mano. Litros/Pieza usan histórico. */
   permitePrecioManual(tipo: TipoVenta): boolean {
-    return tipo === 'LITROS' || tipo === 'PIEZA' || tipo === 'MAYOREO';
+    return tipo === 'MAYOREO';
+  }
+
+  /** Muestra el menudeo vigente (solo lectura) en Litros/Pieza. */
+  muestraPrecioLista(tipo: TipoVenta): boolean {
+    return tipo === 'LITROS' || tipo === 'PIEZA';
   }
 
   tienePrecioManual(l: LineaVenta): boolean {
@@ -140,20 +145,18 @@ export class VentasComponent implements OnInit {
       return Math.round(cant * 100) / 100;
     }
 
-    // Si hay precio manual, manda sobre el automático
-    if (this.tienePrecioManual(l)) {
-      return Math.round(Number(l.precioManual) * cant * 100) / 100;
-    }
-
     if (l.tipoVenta === 'MAYOREO') {
+      if (this.tienePrecioManual(l)) {
+        return Math.round(Number(l.precioManual) * cant * 100) / 100;
+      }
       if (l.total != null && Number(l.total) > 0) {
         return Math.round(Number(l.total) * 100) / 100;
       }
-      const unit = this.precioUnitarioMayoreo(l);
-      return unit > 0 ? Math.round(unit * cant * 100) / 100 : null;
+      const unitMay = this.precioUnitarioMayoreo(l);
+      return unitMay > 0 ? Math.round(unitMay * cant * 100) / 100 : null;
     }
 
-    // Litros / Pieza: precio menudeo × cantidad
+    // Litros / Pieza: siempre menudeo del histórico
     if (l.productoId == null) return null;
     const unit = this.precioLista(l);
     return unit > 0 ? Math.round(unit * cant * 100) / 100 : null;
@@ -179,8 +182,11 @@ export class VentasComponent implements OnInit {
     }
   }
 
-  /** Total a enviar al API (null = que calcule el backend). */
+  /** Total a enviar al API (null = que calcule el backend con histórico). */
   totalParaGuardar(l: LineaVenta): number | null {
+    if (l.tipoVenta === 'LITROS' || l.tipoVenta === 'PIEZA') {
+      return null; // backend usa menudeo del histórico
+    }
     if (this.tienePrecioManual(l)) {
       const t = this.totalEstimado(l);
       return t != null ? t : null;

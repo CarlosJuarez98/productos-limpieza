@@ -45,7 +45,7 @@ public class ApartadoService {
       gastos.put(c, gas.setScale(2, RoundingMode.HALF_UP));
       saldos.put(c, ing.subtract(gas).setScale(2, RoundingMode.HALF_UP));
     }
-    // General = productos + casa + salarios (como Excel; sin servicios)
+    // General = productos + casa + salarios (sin servicios)
     BigDecimal general = saldos.getOrDefault(CategoriaApartado.PRODUCTOS, BigDecimal.ZERO)
         .add(saldos.getOrDefault(CategoriaApartado.CASA, BigDecimal.ZERO))
         .add(saldos.getOrDefault(CategoriaApartado.SALARIOS, BigDecimal.ZERO))

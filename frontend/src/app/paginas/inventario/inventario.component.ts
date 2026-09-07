@@ -96,11 +96,6 @@ export class InventarioComponent implements OnInit {
     this.calcularMayoreoDesdeCompra();
   }
 
-  usarSugerido(precio: number): void {
-    this.form.precioVenta = precio;
-    this.onMenudeoChange();
-  }
-
   /** Mayoreo = compra × (1 + % mayoreo), igual que en backend. */
   private calcularMayoreoDesdeCompra(): void {
     const c = Number(this.form.precioCompra) || 0;
@@ -164,7 +159,7 @@ export class InventarioComponent implements OnInit {
             mayoreo10: Number(m.porcentajeMayoreo10),
           };
           this.guardandoMargen = false;
-          this.ok = 'Márgenes guardados (precios actuales no se modificaron)';
+          this.ok = 'Márgenes guardados: Mín/Máx solo actualizan columnas sugeridas';
           this.cargar();
         },
         error: (e) => {
@@ -177,7 +172,7 @@ export class InventarioComponent implements OnInit {
   async aplicarPreciosDesdeMargenes(): Promise<void> {
     this.normalizarPct();
     const ok = await this.confirmDlg.ask(
-      '¿Sobrescribir TODOS los precios menudeo y mayoreo con el cálculo de márgenes? Se perderán tus precios actuales.'
+      '¿Recalcular solo mayoreo (≥5 / ≥10) con los márgenes? El menudeo del histórico no se toca.'
     );
     if (!ok) return;
     this.error = '';
@@ -196,7 +191,7 @@ export class InventarioComponent implements OnInit {
             next: (m) => {
               this.margen = m;
               this.guardandoMargen = false;
-              this.ok = 'Precios recalculados desde márgenes';
+              this.ok = 'Mayoreo recalculado (menudeo del histórico intacto)';
               this.cargar();
             },
             error: (e) => {
@@ -214,14 +209,17 @@ export class InventarioComponent implements OnInit {
 
   guardar(): void {
     this.error = '';
-    const body = {
+    const body: Record<string, unknown> = {
       nombre: this.form.nombre,
       precioCompra: this.form.precioCompra,
       cantidadInicial: this.form.cantidadInicial,
-      precioVenta: this.form.precioVenta,
       precioMayoreo5: this.form.precioMayoreo5,
       precioMayoreo10: this.form.precioMayoreo10,
     };
+    // Menudeo solo al dar de alta (crea histórico). Al editar no se envía.
+    if (!this.editando) {
+      body['precioVenta'] = this.form.precioVenta;
+    }
     const req = this.editando
       ? this.api.actualizarProducto(this.editando.id, body)
       : this.api.crearProducto(body);

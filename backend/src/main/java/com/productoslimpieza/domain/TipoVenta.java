@@ -10,7 +10,8 @@ public enum TipoVenta {
   RECARGA,
   PAGO_DE_SERVICIOS;
 
-  public static TipoVenta fromExcel(String raw) {
+  /** Parsea etiqueta de tipo (semilla / UI). */
+  public static TipoVenta fromLabel(String raw) {
     if (raw == null || raw.isBlank()) {
       throw new IllegalArgumentException("Tipo de venta vacío");
     }
@@ -30,7 +31,7 @@ public enum TipoVenta {
     };
   }
 
-  public String toExcel() {
+  public String toLabel() {
     return switch (this) {
       case LITROS -> "Litros";
       case PIEZA -> "Pieza";

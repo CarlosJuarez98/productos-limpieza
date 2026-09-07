@@ -28,7 +28,7 @@ export class CajaComponent implements OnInit {
   caja: CajaResumen | null = null;
   error = '';
   ok = '';
-  /** Como en Excel: billetes/monedas contados. */
+  /** Billetes/monedas contados en caja. */
   denominaciones: Denominacion[] = [
     { valor: 500, cantidad: null },
     { valor: 200, cantidad: null },
@@ -89,7 +89,7 @@ export class CajaComponent implements OnInit {
     return `${yy}-${mm}-${dd}`;
   }
 
-  /** Día del último corte (naranja Excel); ese día ya no cuenta en el periodo. */
+  /** Día del último corte; ese día ya no cuenta en el periodo. */
   get fechaUltimoCorte(): string {
     if (this.caja?.fechaUltimoCorte) return this.caja.fechaUltimoCorte;
     if (this.ultimoCorte) return this.ultimoCorte;
@@ -97,7 +97,7 @@ export class CajaComponent implements OnInit {
     return inicio ? this.sumarDias(inicio, -1) : '';
   }
 
-  /** Cortes de más reciente a más antiguo (fechas naranjas Excel). */
+  /** Cortes de más reciente a más antiguo (BD). */
   get cortesAnteriores(): string[] {
     const list = [...(this.caja?.fechasCorte || [])];
     return list.sort((a, b) => b.localeCompare(a));
@@ -178,12 +178,12 @@ export class CajaComponent implements OnInit {
     return Math.round(d.valor * c * 100) / 100;
   }
 
-  /** Excel: Total Calculadora */
+  /** Total de la calculadora de efectivo. */
   get totalCalculadora(): number {
     return Math.round(this.denominaciones.reduce((s, d) => s + this.totalLinea(d), 0) * 100) / 100;
   }
 
-  /** Excel: Diferencia de caja = Calculadora − Total caja */
+  /** Diferencia de caja = calculadora − total caja. */
   get diferenciaCaja(): number {
     if (!this.caja) return 0;
     return Math.round((this.totalCalculadora - Number(this.caja.totalCaja)) * 100) / 100;
