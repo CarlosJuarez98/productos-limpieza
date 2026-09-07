@@ -1,0 +1,110 @@
+.lote-wrap {
+  max-height: none;
+  overflow: visible;
+  margin-bottom: 0.75rem;
+}
+
+/* Que el desplegable de producto no quede bajo otras filas */
+table.lote {
+  overflow: visible;
+}
+
+table.lote td,
+table.lote th {
+  vertical-align: middle;
+  overflow: visible;
+}
+
+table.lote select,
+table.lote input[type='number'] {
+  width: 100%;
+  min-width: 0;
+}
+
+table.lote td:nth-child(3) {
+  min-width: 0;
+  width: 28%;
+}
+
+table.lote td:nth-child(5) .precio-input {
+  min-width: 0;
+}
+
+table.lote th:last-child,
+table.lote td.actions {
+  display: table-cell;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+table.lote td.actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.precio-input {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.precio-input .peso {
+  color: var(--muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.precio-input input {
+  width: 100%;
+  min-width: 70px;
+}
+
+.lote-actions {
+  justify-content: flex-start;
+}
+
+.ok-msg {
+  color: var(--ok);
+  margin: 0.4rem 0 0;
+}
+
+.corte-aviso {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.85rem;
+  background: #fff2e6;
+  border: 1px solid #f4a460;
+  border-radius: 0.55rem;
+  color: #7a3e0c;
+}
+
+.corte-aviso .fecha-naranja,
+td.fecha-naranja {
+  background: #f4a460;
+  color: #3b2208;
+  font-weight: 700;
+}
+
+td.fecha-naranja {
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.25rem;
+}
+
+.corte-aviso .fecha-naranja {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.3rem;
+}

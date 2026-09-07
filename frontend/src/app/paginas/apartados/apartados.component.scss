@@ -1,0 +1,164 @@
+:host {
+  display: block;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.ok-msg {
+  color: var(--ok);
+  margin: 0 0 0.5rem;
+}
+
+.hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.stats {
+  margin-bottom: 0.55rem;
+}
+
+.stats .stat.destacado {
+  border-color: #f4a460;
+  background: #fff8f0;
+}
+
+.acciones-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .acciones-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.acciones-row .panel {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  min-width: 0;
+}
+
+.form-compact {
+  margin-bottom: 0;
+  gap: 0.45rem;
+}
+
+.form-compact label {
+  font-size: 0.8rem;
+}
+
+.precio-input {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.precio-input .peso {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.precio-input input {
+  width: 100%;
+  min-width: 0;
+}
+
+.reparto-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.total-line {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.registros-panel {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  overflow-x: hidden;
+}
+
+.excel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 1100px) {
+  .excel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.excel-col {
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  background: #fafcfb;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.excel-col h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.88rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.saldo-inline {
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.excel-col table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+  font-size: 0.8rem;
+}
+
+.excel-col th,
+.excel-col td {
+  padding: 0.25rem 0.3rem;
+  overflow-wrap: anywhere;
+}
+
+.excel-col th.money,
+.excel-col td.money {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.excel-col tr.gasto td {
+  color: var(--danger);
+}
+
+.excel-col .actions .danger {
+  padding: 0.05rem 0.35rem;
+  font-size: 0.85rem;
+}

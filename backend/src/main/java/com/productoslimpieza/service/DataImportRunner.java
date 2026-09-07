@@ -21,7 +21,12 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Semilla opcional (JSON) solo si se activa app.import-on-startup.
+ * En operación normal la fuente de verdad es Oracle.
+ */
 @Component
+@org.springframework.core.annotation.Order(1)
 public class DataImportRunner implements ApplicationRunner {
 
   private static final Logger log = LoggerFactory.getLogger(DataImportRunner.class);
@@ -35,6 +40,9 @@ public class DataImportRunner implements ApplicationRunner {
   private final MovimientoCajaRepository movimientoRepo;
   private final ApartadoRepository apartadoRepo;
   private final InversionRepository inversionRepo;
+  private final ProduccionRepository produccionRepo;
+  private final TraspasoRepository traspasoRepo;
+  private final TraspasoAbonoRepository traspasoAbonoRepo;
   private final boolean importOnStartup;
   private final boolean forceImport;
   private final String seedPath;
@@ -49,7 +57,10 @@ public class DataImportRunner implements ApplicationRunner {
       MovimientoCajaRepository movimientoRepo,
       ApartadoRepository apartadoRepo,
       InversionRepository inversionRepo,
-      @Value("${app.import-on-startup:true}") boolean importOnStartup,
+      ProduccionRepository produccionRepo,
+      TraspasoRepository traspasoRepo,
+      TraspasoAbonoRepository traspasoAbonoRepo,
+      @Value("${app.import-on-startup:false}") boolean importOnStartup,
       @Value("${app.force-import:false}") boolean forceImport,
       @Value("${app.seed-path:../data}") String seedPath) {
     this.mapper = mapper;
@@ -61,6 +72,9 @@ public class DataImportRunner implements ApplicationRunner {
     this.movimientoRepo = movimientoRepo;
     this.apartadoRepo = apartadoRepo;
     this.inversionRepo = inversionRepo;
+    this.produccionRepo = produccionRepo;
+    this.traspasoRepo = traspasoRepo;
+    this.traspasoAbonoRepo = traspasoAbonoRepo;
     this.importOnStartup = importOnStartup;
     this.forceImport = forceImport;
     this.seedPath = seedPath;
@@ -81,7 +95,7 @@ public class DataImportRunner implements ApplicationRunner {
         log.info("Forzando reimportación: limpiando tablas...");
         clearAll();
       }
-      log.info("Importando Excel (data/) desde {}", seedPath);
+      log.info("Importando semilla JSON desde {}", seedPath);
       importAll();
       log.info(
           "Importación completada: {} productos, {} precios, {} ventas, {} entradas, {} mov.caja, {} apartados, {} inversión",
@@ -93,12 +107,15 @@ public class DataImportRunner implements ApplicationRunner {
           apartadoRepo.count(),
           inversionRepo.count());
     } catch (Exception ex) {
-      log.error("Fallo al importar datos del Excel", ex);
-      throw new IllegalStateException("No se pudieron importar los datos del Excel", ex);
+      log.error("Fallo al importar semilla JSON", ex);
+      throw new IllegalStateException("No se pudieron importar los datos semilla", ex);
     }
   }
 
   private void clearAll() {
+    traspasoAbonoRepo.deleteAllInBatch();
+    traspasoRepo.deleteAllInBatch();
+    produccionRepo.deleteAllInBatch();
     ventaRepo.deleteAllInBatch();
     entradaRepo.deleteAllInBatch();
     precioRepo.deleteAllInBatch();
@@ -163,8 +180,12 @@ public class DataImportRunner implements ApplicationRunner {
         });
         v.setProducto(p);
       }
-      // Total tal cual viene del Excel
-      v.setTotal(nz(dec(row.get("total"))));
+      // Casa/Muestra siempre en $0
+      if (tipo.totalEsCero()) {
+        v.setTotal(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+      } else {
+        v.setTotal(nz(dec(row.get("total"))));
+      }
       ventaRepo.save(v);
     }
 
@@ -226,6 +247,11 @@ public class DataImportRunner implements ApplicationRunner {
       a.setFecha(LocalDate.parse(str(row.get("fecha"))));
       a.setCategoria(CategoriaApartado.valueOf(str(row.get("categoria"))));
       a.setIngreso(nz(dec(row.get("ingreso"))));
+      String tipo = str(row.get("tipo"));
+      a.setTipo(tipo == null || tipo.isBlank()
+          ? TipoMovimientoApartado.INGRESO
+          : TipoMovimientoApartado.valueOf(tipo));
+      a.setMotivo(str(row.get("motivo")));
       apartadoRepo.save(a);
     }
 

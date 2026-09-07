@@ -3,57 +3,144 @@
 @if (error) {
   <p class="error">{{ error }}</p>
 }
-
-@if (data) {
-  <div class="stats">
-    <div class="stat"><span>General</span><strong>${{ total('GENERAL') | number: '1.2-2' }}</strong></div>
-    <div class="stat"><span>Ganancia productos</span><strong>${{ total('PRODUCTOS') | number: '1.2-2' }}</strong></div>
-    <div class="stat"><span>Ganancia casa</span><strong>${{ total('CASA') | number: '1.2-2' }}</strong></div>
-    <div class="stat"><span>Ganancia salarios</span><strong>${{ total('SALARIOS') | number: '1.2-2' }}</strong></div>
-  </div>
+@if (ok) {
+  <p class="ok-msg">{{ ok }}</p>
 }
 
-<section class="panel">
-  <form class="form-grid" (ngSubmit)="guardar()">
-    <label>
-      Fecha
-      <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
-    </label>
-    <label>
-      Categoría
-      <select [(ngModel)]="form.categoria" name="categoria">
-        <option value="GENERAL">Apartados general</option>
-        <option value="PRODUCTOS">Ganancia productos</option>
-        <option value="CASA">Ganancia casa</option>
-        <option value="SALARIOS">Ganancia salarios</option>
-      </select>
-    </label>
-    <label>
-      Ingreso
-      <input type="number" step="0.01" [(ngModel)]="form.ingreso" name="ingreso" required />
-    </label>
-    <button type="submit">Registrar</button>
-  </form>
-</section>
+<div class="stats">
+  <div class="stat destacado">
+    <span>Apartados general</span>
+    <strong>${{ totalSubapartados | number: '1.2-2' }}</strong>
+  </div>
+  <div class="stat">
+    <span>Productos</span>
+    <strong>${{ saldo('PRODUCTOS') | number: '1.2-2' }}</strong>
+  </div>
+  <div class="stat">
+    <span>Casa</span>
+    <strong>${{ saldo('CASA') | number: '1.2-2' }}</strong>
+  </div>
+  <div class="stat">
+    <span>Salarios</span>
+    <strong>${{ saldo('SALARIOS') | number: '1.2-2' }}</strong>
+  </div>
+</div>
 
-<section class="panel" style="margin-top: 1rem">
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Fecha</th><th>Categoría</th><th>Ingreso</th><th></th></tr>
-      </thead>
-      <tbody>
-        @for (a of data?.movimientos || []; track a.id) {
-          <tr>
-            <td>{{ a.fecha }}</td>
-            <td>{{ a.categoria }}</td>
-            <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
-            <td class="actions">
-              <button type="button" class="danger" (click)="eliminar(a.id)">Eliminar</button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
+<div class="acciones-row">
+  <section class="panel">
+    <h3>Apartar de caja</h3>
+    <p class="muted hint">
+      Disponible: <strong>${{ disponibleCaja | number: '1.2-2' }}</strong>
+    </p>
+    <div class="form-grid form-compact">
+      <label>
+        Fecha
+        <input type="date" [(ngModel)]="formIngreso.fecha" name="fechaReparto" />
+      </label>
+      <label>
+        Productos
+        <div class="precio-input">
+          <span class="peso">$</span>
+          <input type="text" inputmode="decimal" [(ngModel)]="montos.productos" name="montoProd" placeholder="0" />
+        </div>
+      </label>
+      <label>
+        Casa
+        <div class="precio-input">
+          <span class="peso">$</span>
+          <input type="text" inputmode="decimal" [(ngModel)]="montos.casa" name="montoCasa" placeholder="0" />
+        </div>
+      </label>
+      <label>
+        Salarios
+        <div class="precio-input">
+          <span class="peso">$</span>
+          <input type="text" inputmode="decimal" [(ngModel)]="montos.salarios" name="montoSal" placeholder="0" />
+        </div>
+      </label>
+      <div class="reparto-actions">
+        <p class="muted total-line" [class.error]="!cabeEnCaja && totalApartar > 0">
+          Total: <strong>${{ totalApartar | number: '1.2-2' }}</strong>
+        </p>
+        <button type="button" (click)="registrarReparto()" [disabled]="!puedeRegistrarReparto">
+          Registrar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h3>Usar dinero (gasto)</h3>
+    <form class="form-grid form-compact" (ngSubmit)="guardarGasto()">
+      <label>
+        Fecha
+        <input type="date" [(ngModel)]="formGasto.fecha" name="fechaGasto" required />
+      </label>
+      <label>
+        Subapartado
+        <select [(ngModel)]="formGasto.categoria" name="catGasto">
+          <option value="PRODUCTOS">Productos</option>
+          <option value="CASA">Casa</option>
+          <option value="SALARIOS">Salarios</option>
+        </select>
+      </label>
+      <label>
+        Monto
+        <input type="number" step="0.01" [(ngModel)]="formGasto.ingreso" name="montoGasto" required />
+      </label>
+      <label>
+        Motivo
+        <input [(ngModel)]="formGasto.motivo" name="motivoGasto" required placeholder="Agua, Doctor..." />
+      </label>
+      <div class="reparto-actions">
+        <button type="submit">Registrar gasto</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<section class="panel registros-panel">
+  <h3>Registros</h3>
+  <div class="excel-grid">
+    @for (col of columnasExcel; track col.titulo) {
+      <div class="excel-col">
+        <h4>
+          {{ col.titulo }}
+          <span class="saldo-inline">${{ saldo(col.categoria) | number: '1.2-2' }}</span>
+        </h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              @if (col.tipo === 'INGRESO') {
+                <th>Ingreso</th>
+              } @else {
+                <th>Gastado</th>
+                <th>Motivo</th>
+              }
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of movimientosDe(col.categoria, col.tipo); track a.id) {
+              <tr [class.gasto]="col.tipo === 'GASTO'">
+                <td>{{ a.fecha | fechaDmY }}</td>
+                <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
+                @if (col.tipo === 'GASTO') {
+                  <td>{{ a.motivo }}</td>
+                }
+                <td class="actions">
+                  <button type="button" class="danger" (click)="eliminar(a.id)">×</button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td [attr.colspan]="col.tipo === 'GASTO' ? 4 : 3" class="muted">Sin registros</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
   </div>
 </section>

@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Map;
 
 public record ApartadosResumenDto(
+    /** Saldo actual por categoría: ingresos − gastos (como en Excel). */
     Map<CategoriaApartado, BigDecimal> totales,
+    Map<CategoriaApartado, BigDecimal> ingresos,
+    Map<CategoriaApartado, BigDecimal> gastos,
     List<ApartadoDto> movimientos
 ) {}

@@ -6,14 +6,16 @@
       Buscar
       <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto..." />
     </label>
-    <button type="button" class="secondary" (click)="imprimir()">Imprimir</button>
+    <button type="button" class="secondary" (click)="descargarExcel()">Descargar Excel</button>
   </div>
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>Producto</th>
-          <th>Precio venta hoy</th>
+          <th>Menudeo</th>
+          <th>≥ 5 L</th>
+          <th>≥ 10 L</th>
         </tr>
       </thead>
       <tbody>
@@ -21,6 +23,8 @@
           <tr>
             <td>{{ i.nombre }}</td>
             <td class="money">${{ i.precioVentaHoy | number: '1.2-2' }}</td>
+            <td class="money">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
+            <td class="money">${{ i.precioMayoreo10 | number: '1.2-2' }}</td>
           </tr>
         }
       </tbody>

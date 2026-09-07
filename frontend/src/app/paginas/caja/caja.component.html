@@ -3,36 +3,145 @@
 @if (error) {
   <p class="error">{{ error }}</p>
 }
-
-@if (caja) {
-  <div class="stats">
-    <div class="stat"><span>Total vendido productos</span><strong>${{ caja.totalVendidoProductos | number: '1.2-2' }}</strong></div>
-    <div class="stat"><span>Total recargas</span><strong>${{ caja.totalRecargas | number: '1.2-2' }}</strong></div>
-    <div class="stat"><span>Pago de servicios</span><strong>${{ caja.totalPagoServicios | number: '1.2-2' }}</strong></div>
-    <div class="stat"><span>Total caja</span><strong>${{ caja.totalCaja | number: '1.2-2' }}</strong></div>
-    <div class="stat"><span>Transferencias netas</span><strong>${{ caja.totalTransferenciasNetas | number: '1.2-2' }}</strong></div>
-    <div class="stat"><span>Total negocio</span><strong>${{ caja.totalNegocio | number: '1.2-2' }}</strong></div>
-  </div>
+@if (ok) {
+  <p class="ok-msg">{{ ok }}</p>
 }
 
 <section class="panel">
-  <h3>Corte de caja</h3>
+  <h3>Periodo / corte</h3>
+  @if (caja?.fechaInicio) {
+    <p class="corte-aviso">
+      Último corte:
+      <strong class="fecha-naranja-caja">{{ fechaUltimoCorte | fechaDmY }}</strong>
+      <span class="muted">
+        — periodo desde {{ caja!.fechaInicio | fechaDmY }}
+        @if (caja?.fechaFin) {
+          hasta {{ caja!.fechaFin | fechaDmY }}
+        }
+        (ese día de corte ya no cuenta)
+      </span>
+    </p>
+  }
   <form class="form-grid" (ngSubmit)="guardarConfig()">
     <label>
-      Fecha inicio
-      <input type="date" [(ngModel)]="config.fechaInicio" name="fechaInicio" />
+      Fecha inicio (día siguiente al corte)
+      <input type="date" [(ngModel)]="config.fechaInicio" name="fechaInicio" readonly />
     </label>
     <label>
-      Fecha fin
+      Fecha fin (corte actual)
       <input type="date" [(ngModel)]="config.fechaFin" name="fechaFin" />
     </label>
     <label>
       Fondo inicial
-      <input type="number" step="0.01" [(ngModel)]="config.fondoInicial" name="fondoInicial" />
+      <div class="precio-input">
+        <span class="peso">$</span>
+        <input type="text" inputmode="decimal" [(ngModel)]="config.fondoInicial" name="fondoInicial" />
+      </div>
     </label>
-    <button type="submit">Guardar corte</button>
+    <button type="submit">Guardar periodo</button>
+    <button type="button" (click)="marcarCorte()">Marcar corte (inicio = día siguiente, fondo $200)</button>
+    <button type="button" class="secondary" (click)="iniciarNuevoPeriodo()">
+      Hasta hoy (fondo $200)
+    </button>
   </form>
+  <p class="muted hint">
+    Al marcar un corte, el periodo nuevo empieza al día siguiente: las ventas del día del corte ya no
+    entran. Con el periodo guardado se suman ventas, movimientos y apartados de esas fechas; luego
+    cuentas el efectivo para ver si falta o sobra.
+  </p>
 </section>
+
+@if (caja) {
+  <div class="caja-top-grid">
+    <section class="panel totales-panel">
+      <h3>Totales del periodo</h3>
+      <p class="muted hint">
+        Ventas desde el día siguiente al corte
+        @if (caja.fechaInicio) {
+          ({{ caja.fechaInicio | fechaDmY }}
+          @if (caja.fechaFin) {
+            → {{ caja.fechaFin | fechaDmY }}
+          }
+          )
+        }
+      </p>
+      <div class="stats">
+        <div class="stat"><span>Fondo inicial</span><strong>${{ caja.fondoInicial | number: '1.2-2' }}</strong></div>
+        <div class="stat"><span>Vendido productos</span><strong>${{ caja.totalVendidoProductos | number: '1.2-2' }}</strong></div>
+        <div class="stat"><span>Recargas</span><strong>${{ caja.totalRecargas | number: '1.2-2' }}</strong></div>
+        <div class="stat"><span>Pago de servicios</span><strong>${{ caja.totalPagoServicios | number: '1.2-2' }}</strong></div>
+        <div class="stat"><span>Ingresos</span><strong>${{ caja.totalIngresos | number: '1.2-2' }}</strong></div>
+        <div class="stat"><span>Retiros</span><strong>${{ caja.totalRetiros | number: '1.2-2' }}</strong></div>
+        <div class="stat"><span>Apartados</span><strong>${{ caja.totalApartadosProductos | number: '1.2-2' }}</strong></div>
+        <div class="stat destacado"><span>Total caja (esperado)</span><strong>${{ caja.totalCaja | number: '1.2-2' }}</strong></div>
+        <div class="stat"><span>Transferencias netas</span><strong>${{ caja.totalTransferenciasNetas | number: '1.2-2' }}</strong></div>
+        <div class="stat destacado"><span>Total negocio</span><strong>${{ caja.totalNegocio | number: '1.2-2' }}</strong></div>
+        <div class="stat destacado"><span>Total calculadora</span><strong>${{ totalCalculadora | number: '1.2-2' }}</strong></div>
+      </div>
+      <p class="muted formula">
+        Total caja = fondo + productos + recargas + servicios + ingresos − retiros − transferencias − apartados.
+      </p>
+    </section>
+
+    <section class="panel calc-panel">
+      <h3>Calculadora — ¿falta o sobra?</h3>
+      <p class="muted hint">
+        Contado − total caja. Negativo = falta; positivo = sobra.
+      </p>
+      <div class="table-wrap calc-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Denom.</th>
+              <th>Cant.</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (d of denominaciones; track d.valor) {
+              <tr>
+                <td class="money">${{ d.valor | number: '1.2-2' }}</td>
+                <td>
+                  <input type="text" inputmode="numeric" [(ngModel)]="d.cantidad" [name]="'den' + d.valor" />
+                </td>
+                <td class="money">${{ totalLinea(d) | number: '1.2-2' }}</td>
+              </tr>
+            }
+            <tr class="calc-total-row">
+              <td colspan="2"><strong>Contado</strong></td>
+              <td class="money"><strong>${{ totalCalculadora | number: '1.2-2' }}</strong></td>
+            </tr>
+            <tr>
+              <td colspan="2">Esperado</td>
+              <td class="money">${{ (caja?.totalCaja || 0) | number: '1.2-2' }}</td>
+            </tr>
+            <tr>
+              <td colspan="2"><strong>Diferencia</strong></td>
+              <td
+                class="money"
+                [class.ok]="estadoDiferencia === 'ok'"
+                [class.faltante]="estadoDiferencia === 'faltante'"
+                [class.sobrante]="estadoDiferencia === 'sobrante'"
+              >
+                <strong>${{ diferenciaCaja | number: '1.2-2' }}</strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      @if (mensajeDiferencia) {
+        <p
+          class="calc-msg"
+          [class.ok]="estadoDiferencia === 'ok'"
+          [class.faltante]="estadoDiferencia === 'faltante'"
+          [class.sobrante]="estadoDiferencia === 'sobrante'"
+        >
+          {{ mensajeDiferencia }}
+        </p>
+      }
+    </section>
+  </div>
+}
 
 <section class="panel" style="margin-top: 1rem">
   <h3>Nuevo movimiento</h3>
@@ -63,16 +172,16 @@
 </section>
 
 @if (caja) {
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem">
+  <div class="movs-grid">
     @for (bloque of [
       { titulo: 'Retiros', items: caja.retiros },
       { titulo: 'Ingresos', items: caja.ingresos },
       { titulo: 'Retiros transferencia', items: caja.retirosTransferencia },
       { titulo: 'Transferencias', items: caja.transferencias }
     ]; track bloque.titulo) {
-      <section class="panel">
+      <section class="panel mov-panel">
         <h3>{{ bloque.titulo }}</h3>
-        <div class="table-wrap">
+        <div class="table-wrap mov-table">
           <table>
             <thead>
               <tr><th>Fecha</th><th>Monto</th><th>Motivo</th><th></th></tr>
@@ -80,11 +189,11 @@
             <tbody>
               @for (m of bloque.items; track m.id) {
                 <tr>
-                  <td>{{ m.fecha }}</td>
-                  <td class="money">${{ m.monto | number: '1.2-2' }}</td>
-                  <td>{{ m.motivo || '—' }}</td>
+                  <td class="col-fecha">{{ m.fecha | fechaDmY }}</td>
+                  <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
+                  <td class="col-motivo" [title]="m.motivo || ''">{{ m.motivo || '—' }}</td>
                   <td class="actions">
-                    <button type="button" class="danger" (click)="eliminar(m.id)">X</button>
+                    <button type="button" class="danger" (click)="eliminar(m.id)">×</button>
                   </td>
                 </tr>
               }

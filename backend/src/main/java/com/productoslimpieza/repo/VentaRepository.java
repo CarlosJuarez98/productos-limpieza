@@ -14,6 +14,8 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
 
   List<Venta> findAllByOrderByFechaDescIdDesc();
 
+  List<Venta> findByTipoVentaOrderByFechaDescIdDesc(TipoVenta tipoVenta);
+
   List<Venta> findByFechaBetweenOrderByFechaDescIdDesc(LocalDate desde, LocalDate hasta);
 
   @Query("""

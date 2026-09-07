@@ -7,8 +7,14 @@ import {
   CajaResumen,
   Entrada,
   InventarioItem,
+  MargenConfig,
   MovimientoCaja,
   PrecioHistorico,
+  Produccion,
+  RecetaSugerida,
+  Traspaso,
+  TraspasoAbono,
+  TraspasosResumen,
   Venta,
 } from './modelos';
 
@@ -23,6 +29,10 @@ export class ApiService {
     if (desde) params = params.set('desde', desde);
     if (hasta) params = params.set('hasta', hasta);
     return this.http.get<Venta[]>(`${this.base}/ventas`, { params });
+  }
+
+  usoCasa(): Observable<Venta[]> {
+    return this.http.get<Venta[]>(`${this.base}/casa`);
   }
 
   crearVenta(body: unknown): Observable<Venta> {
@@ -49,6 +59,22 @@ export class ApiService {
     return this.http.delete<void>(`${this.base}/entradas/${id}`);
   }
 
+  producciones(): Observable<Produccion[]> {
+    return this.http.get<Produccion[]>(`${this.base}/producciones`);
+  }
+
+  recetaProduccion(productoResultadoId: number): Observable<RecetaSugerida> {
+    return this.http.get<RecetaSugerida>(`${this.base}/producciones/receta/${productoResultadoId}`);
+  }
+
+  crearProduccion(body: unknown): Observable<Produccion> {
+    return this.http.post<Produccion>(`${this.base}/producciones`, body);
+  }
+
+  eliminarProduccion(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/producciones/${id}`);
+  }
+
   inventario(): Observable<InventarioItem[]> {
     return this.http.get<InventarioItem[]>(`${this.base}/inventario`);
   }
@@ -59,6 +85,43 @@ export class ApiService {
 
   actualizarProducto(id: number, body: unknown): Observable<InventarioItem> {
     return this.http.put<InventarioItem>(`${this.base}/inventario/${id}`, body);
+  }
+
+  margenes(): Observable<MargenConfig> {
+    return this.http.get<MargenConfig>(`${this.base}/margenes`);
+  }
+
+  actualizarMargenes(body: {
+    porcentajeMin: number;
+    porcentajeMax: number;
+    porcentajeMayoreo5: number;
+    porcentajeMayoreo10: number;
+  }): Observable<MargenConfig> {
+    return this.http.put<MargenConfig>(`${this.base}/margenes`, body);
+  }
+
+  aplicarPreciosDesdeMargenes(): Observable<MargenConfig> {
+    return this.http.post<MargenConfig>(`${this.base}/margenes/aplicar-precios`, {});
+  }
+
+  traspasos(): Observable<TraspasosResumen> {
+    return this.http.get<TraspasosResumen>(`${this.base}/traspasos`);
+  }
+
+  crearTraspaso(body: unknown): Observable<Traspaso> {
+    return this.http.post<Traspaso>(`${this.base}/traspasos`, body);
+  }
+
+  eliminarTraspaso(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/traspasos/${id}`);
+  }
+
+  crearAbonoTraspaso(body: unknown): Observable<TraspasoAbono> {
+    return this.http.post<TraspasoAbono>(`${this.base}/traspasos/abonos`, body);
+  }
+
+  eliminarAbonoTraspaso(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/traspasos/abonos/${id}`);
   }
 
   precios(): Observable<PrecioHistorico[]> {
@@ -79,6 +142,10 @@ export class ApiService {
 
   actualizarCajaConfig(body: unknown): Observable<unknown> {
     return this.http.put(`${this.base}/caja/config`, body);
+  }
+
+  marcarCorte(body: { fechaCorte: string; fondoInicial?: number }): Observable<unknown> {
+    return this.http.post(`${this.base}/caja/cortes`, body);
   }
 
   crearMovimientoCaja(body: unknown): Observable<MovimientoCaja> {

@@ -9,5 +9,7 @@ public record ProductoRequest(
     BigDecimal precioCompra,
     BigDecimal cantidadInicial,
     BigDecimal precioVenta,
-    LocalDate fechaVigenciaPrecio
+    LocalDate fechaVigenciaPrecio,
+    BigDecimal precioMayoreo5,
+    BigDecimal precioMayoreo10
 ) {}

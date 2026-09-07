@@ -15,6 +15,7 @@ public interface PrecioHistoricoRepository extends JpaRepository<PrecioHistorico
 
   List<PrecioHistorico> findAllByOrderByProductoNombreAscFechaVigenciaDesc();
 
+  Optional<PrecioHistorico> findByProductoAndFechaVigencia(Producto producto, LocalDate fechaVigencia);
   @Query("""
       select p from PrecioHistorico p
       where p.producto = :producto and p.fechaVigencia <= :fecha

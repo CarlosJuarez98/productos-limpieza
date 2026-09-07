@@ -39,11 +39,25 @@ public class PrecioHistoricoService {
 
   @Transactional
   public PrecioHistorico crearDirecto(Producto producto, LocalDate fecha, BigDecimal precio) {
-    PrecioHistorico ph = new PrecioHistorico();
-    ph.setProducto(producto);
-    ph.setFechaVigencia(fecha);
-    ph.setPrecio(precio);
-    return precioRepo.save(ph);
+    return precioRepo.findByProductoAndFechaVigencia(producto, fecha)
+        .map(ph -> {
+          ph.setPrecio(precio);
+          return precioRepo.save(ph);
+        })
+        .orElseGet(() -> {
+          PrecioHistorico ph = new PrecioHistorico();
+          ph.setProducto(producto);
+          ph.setFechaVigencia(fecha);
+          ph.setPrecio(precio);
+          return precioRepo.save(ph);
+        });
+  }
+
+  /** Fecha de la fila de histórico que rige hoy (la más reciente ≤ hoy). */
+  @Transactional(readOnly = true)
+  public java.util.Optional<LocalDate> fechaVigenciaActual(Producto producto) {
+    return precioRepo.findPrecioVigente(producto, LocalDate.now())
+        .map(PrecioHistorico::getFechaVigencia);
   }
 
   @Transactional

@@ -1,38 +1,134 @@
 <h2 class="page-title">Ventas</h2>
 
+@if (fechaUltimoCorte) {
+  <p class="corte-aviso">
+    Última fecha de corte:
+    <strong class="fecha-naranja">{{ fechaUltimoCorte | fechaDmY }}</strong>
+    <span class="muted"> — no se pueden agregar ventas ese día ni antes</span>
+  </p>
+}
+
 <section class="panel">
-  <form class="form-grid" (ngSubmit)="guardar()">
+  <div class="toolbar">
     <label>
-      Fecha
-      <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
+      Fecha (todas las filas)
+      <input
+        type="date"
+        [(ngModel)]="fecha"
+        name="fechaLote"
+        [min]="fechaMin || null"
+        [max]="fechaMax"
+        required
+      />
     </label>
-    <label>
-      Tipo venta
-      <select [(ngModel)]="form.tipoVenta" name="tipoVenta">
-        @for (t of tipos; track t.value) {
-          <option [value]="t.value">{{ t.label }}</option>
+    <span class="muted">{{ lineas.length }} filas listas</span>
+  </div>
+
+  <div class="table-wrap lote-wrap">
+    <table class="lote">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Tipo</th>
+          <th>Producto</th>
+          <th>Cantidad / Monto</th>
+          <th>Precio $</th>
+          <th>Total $</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of lineas; track l.key; let i = $index) {
+          <tr>
+            <td class="muted">{{ i + 1 }}</td>
+            <td>
+              <select
+                [(ngModel)]="l.tipoVenta"
+                [name]="'tipo' + l.key"
+                (ngModelChange)="sugerirTotalMayoreo(l)"
+              >
+                @for (t of tipos; track t.value) {
+                  <option [value]="t.value">{{ t.label }}</option>
+                }
+              </select>
+            </td>
+            <td>
+              @if (requiereProducto(l.tipoVenta)) {
+                <app-producto-autocomplete
+                  [productos]="productos"
+                  [productoId]="l.productoId"
+                  [inputName]="'prod' + l.key"
+                  (productoIdChange)="l.productoId = $event; sugerirTotalMayoreo(l)"
+                />
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                [(ngModel)]="l.cantidad"
+                [name]="'cant' + l.key"
+                [placeholder]="esMayoreo(l.tipoVenta) ? 'Cantidad' : '0'"
+                (ngModelChange)="sugerirTotalMayoreo(l)"
+              />
+            </td>
+            <td>
+              @if (permitePrecioManual(l.tipoVenta)) {
+                <div class="precio-input">
+                  <span class="peso">$</span>
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    [(ngModel)]="l.precioManual"
+                    [name]="'precio' + l.key"
+                    [placeholder]="precioLista(l) > 0 ? (precioLista(l) | number: '1.2-2') : 'auto'"
+                    title="Vacío = precio de lista. Si lo llenas, ese precio manda."
+                  />
+                </div>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td>
+              @if (esMayoreo(l.tipoVenta) && !tienePrecioManual(l)) {
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  [(ngModel)]="l.total"
+                  [name]="'total' + l.key"
+                  placeholder="Total cobrado"
+                />
+              } @else if (totalEstimado(l) != null) {
+                <span class="money">${{ totalEstimado(l) | number: '1.2-2' }}</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="actions">
+              <button type="button" class="danger" (click)="quitarLinea(i)" title="Quitar fila">×</button>
+            </td>
+          </tr>
         }
-      </select>
-    </label>
-    @if (requiereProducto) {
-      <label>
-        Producto
-        <select [(ngModel)]="form.productoId" name="productoId" required>
-          <option [ngValue]="null">Selecciona...</option>
-          @for (p of productos; track p.id) {
-            <option [ngValue]="p.id">{{ p.nombre }}</option>
-          }
-        </select>
-      </label>
-    }
-    <label>
-      Cantidad / Monto
-      <input type="number" step="0.01" min="0" [(ngModel)]="form.cantidad" name="cantidad" required />
-    </label>
-    <button type="submit">Registrar venta</button>
-  </form>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="toolbar lote-actions">
+    <button type="button" class="secondary" (click)="agregarLinea()">+ Agregar fila</button>
+    <button type="button" (click)="guardarTodas()" [disabled]="guardando">
+      {{ guardando ? 'Guardando...' : 'Guardar todas' }}
+    </button>
+  </div>
+
   @if (error) {
     <p class="error">{{ error }}</p>
+  }
+  @if (ok) {
+    <p class="ok-msg">{{ ok }}</p>
   }
 </section>
 
@@ -59,7 +155,9 @@
       <tbody>
         @for (v of filtradas; track v.id) {
           <tr>
-            <td>{{ v.fecha }}</td>
+            <td [class.fecha-naranja]="esRegistroCorte(v)">
+              {{ v.fecha | fechaDmY }}
+            </td>
             <td>{{ v.productoNombre || '—' }}</td>
             <td>{{ v.tipoVentaLabel }}</td>
             <td class="money">{{ v.cantidad | number: '1.2-2' }}</td>

@@ -1,6 +1,7 @@
 <h2 class="page-title">Entradas</h2>
 
 <section class="panel">
+  <h3>Compra / entrada de proveedor</h3>
   <form class="form-grid" (ngSubmit)="guardar()">
     <label>
       Fecha
@@ -8,12 +9,11 @@
     </label>
     <label>
       Producto
-      <select [(ngModel)]="form.productoId" name="productoId" required>
-        <option [ngValue]="null">Selecciona...</option>
-        @for (p of productos; track p.id) {
-          <option [ngValue]="p.id">{{ p.nombre }}</option>
-        }
-      </select>
+      <app-producto-autocomplete
+        [productos]="productos"
+        [(productoId)]="form.productoId"
+        [required]="true"
+      />
     </label>
     <label>
       Cantidad agregada
@@ -38,6 +38,94 @@
 </section>
 
 <section class="panel" style="margin-top: 1rem">
+  <h3>Preparación (ya no uses Casa para esto)</h3>
+  <p class="muted hint">
+    Cloro se prepara con Hipoclorito. Fabuloso se prepara con su Base Fabuloso.
+    Sube el producto terminado y descuenta el insumo del inventario.
+  </p>
+  <form class="form-grid" (ngSubmit)="guardarPreparacion()">
+    <label>
+      Fecha
+      <input type="date" [(ngModel)]="prep.fecha" name="prepFecha" required />
+    </label>
+    <label>
+      Producto preparado
+      <app-producto-autocomplete
+        [productos]="productosPreparables"
+        [productoId]="prep.productoResultadoId"
+        (productoIdChange)="onResultadoChange($event)"
+        [required]="true"
+        placeholder="Cloro o Fabuloso..."
+      />
+    </label>
+    <label>
+      Cantidad preparada
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        [(ngModel)]="prep.cantidadResultado"
+        (ngModelChange)="onCantidadResultadoChange()"
+        name="prepCantRes"
+        required
+      />
+    </label>
+    <label>
+      Insumo (se descuenta)
+      <input [value]="prep.insumoNombre || '—'" name="prepInsumo" disabled />
+    </label>
+    <label>
+      Cantidad de insumo
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        [(ngModel)]="prep.cantidadInsumo"
+        name="prepCantIns"
+        required
+      />
+    </label>
+    <button type="submit">Registrar preparación</button>
+  </form>
+  @if (errorPrep) {
+    <p class="error">{{ errorPrep }}</p>
+  }
+  @if (okPrep) {
+    <p class="ok-msg">{{ okPrep }}</p>
+  }
+
+  <div class="table-wrap" style="margin-top: 1rem">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Preparado</th>
+          <th>Cantidad</th>
+          <th>Insumo usado</th>
+          <th>Cant. insumo</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of producciones; track p.id) {
+          <tr>
+            <td>{{ p.fecha | fechaDmY }}</td>
+            <td>{{ p.productoResultadoNombre }}</td>
+            <td class="money">{{ p.cantidadResultado | number: '1.2-2' }}</td>
+            <td>{{ p.productoInsumoNombre }}</td>
+            <td class="money">{{ p.cantidadInsumo | number: '1.2-2' }}</td>
+            <td class="actions">
+              <button type="button" class="danger" (click)="eliminarProduccion(p.id)">Eliminar</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" style="margin-top: 1rem">
+  <h3>Historial de entradas</h3>
   <div class="table-wrap">
     <table>
       <thead>
@@ -55,7 +143,7 @@
       <tbody>
         @for (e of entradas; track e.id) {
           <tr [class.warn]="e.precioMayor">
-            <td>{{ e.fecha }}</td>
+            <td>{{ e.fecha | fechaDmY }}</td>
             <td>{{ e.productoNombre }}</td>
             <td class="money">{{ e.cantidad | number: '1.2-2' }}</td>
             <td class="money">{{ e.precioProveedor != null ? ('$' + (e.precioProveedor | number: '1.2-2')) : '—' }}</td>
