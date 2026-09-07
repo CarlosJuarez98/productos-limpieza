@@ -1,5 +1,6 @@
 package com.productoslimpieza.web;
 
+import com.productoslimpieza.domain.TipoVenta;
 import com.productoslimpieza.web.dto.*;
 import com.productoslimpieza.service.*;
 import jakarta.validation.Valid;
@@ -19,6 +20,9 @@ public class ApiController {
   private final CajaService cajaService;
   private final ApartadoService apartadoService;
   private final InversionService inversionService;
+  private final ProduccionService produccionService;
+  private final MargenService margenService;
+  private final TraspasoService traspasoService;
 
   public ApiController(
       VentaService ventaService,
@@ -27,7 +31,10 @@ public class ApiController {
       PrecioHistoricoService precioHistoricoService,
       CajaService cajaService,
       ApartadoService apartadoService,
-      InversionService inversionService) {
+      InversionService inversionService,
+      ProduccionService produccionService,
+      MargenService margenService,
+      TraspasoService traspasoService) {
     this.ventaService = ventaService;
     this.entradaService = entradaService;
     this.inventarioService = inventarioService;
@@ -35,6 +42,9 @@ public class ApiController {
     this.cajaService = cajaService;
     this.apartadoService = apartadoService;
     this.inversionService = inversionService;
+    this.produccionService = produccionService;
+    this.margenService = margenService;
+    this.traspasoService = traspasoService;
   }
 
   @GetMapping("/ventas")
@@ -42,6 +52,11 @@ public class ApiController {
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
     return ventaService.listar(desde, hasta);
+  }
+
+  @GetMapping("/casa")
+  public List<VentaDto> usoCasa() {
+    return ventaService.listarPorTipo(TipoVenta.CASA);
   }
 
   @PostMapping("/ventas")
@@ -79,6 +94,26 @@ public class ApiController {
     entradaService.eliminar(id);
   }
 
+  @GetMapping("/producciones")
+  public List<ProduccionDto> producciones() {
+    return produccionService.listar();
+  }
+
+  @GetMapping("/producciones/receta/{productoResultadoId}")
+  public RecetaSugeridaDto recetaProduccion(@PathVariable Long productoResultadoId) {
+    return produccionService.sugerir(productoResultadoId);
+  }
+
+  @PostMapping("/producciones")
+  public ProduccionDto crearProduccion(@Valid @RequestBody ProduccionRequest req) {
+    return produccionService.crear(req);
+  }
+
+  @DeleteMapping("/producciones/{id}")
+  public void eliminarProduccion(@PathVariable Long id) {
+    produccionService.eliminar(id);
+  }
+
   @GetMapping("/inventario")
   public List<InventarioDto> inventario() {
     return inventarioService.listar();
@@ -92,6 +127,46 @@ public class ApiController {
   @PutMapping("/inventario/{id}")
   public InventarioDto actualizarProducto(@PathVariable Long id, @Valid @RequestBody ProductoRequest req) {
     return inventarioService.actualizar(id, req);
+  }
+
+  @GetMapping("/margenes")
+  public MargenConfigDto margenes() {
+    return margenService.dto();
+  }
+
+  @PutMapping("/margenes")
+  public MargenConfigDto actualizarMargenes(@Valid @RequestBody MargenConfigRequest req) {
+    return margenService.actualizar(req);
+  }
+
+  @PostMapping("/margenes/aplicar-precios")
+  public MargenConfigDto aplicarPreciosDesdeMargenes() {
+    return margenService.aplicarPrecios();
+  }
+
+  @GetMapping("/traspasos")
+  public TraspasosResumenDto traspasos() {
+    return traspasoService.resumen();
+  }
+
+  @PostMapping("/traspasos")
+  public TraspasoDto crearTraspaso(@Valid @RequestBody TraspasoRequest req) {
+    return traspasoService.crear(req);
+  }
+
+  @DeleteMapping("/traspasos/{id}")
+  public void eliminarTraspaso(@PathVariable Long id) {
+    traspasoService.eliminar(id);
+  }
+
+  @PostMapping("/traspasos/abonos")
+  public TraspasoAbonoDto crearAbonoTraspaso(@Valid @RequestBody TraspasoAbonoRequest req) {
+    return traspasoService.crearAbono(req);
+  }
+
+  @DeleteMapping("/traspasos/abonos/{id}")
+  public void eliminarAbonoTraspaso(@PathVariable Long id) {
+    traspasoService.eliminarAbono(id);
   }
 
   @GetMapping("/precios")
@@ -122,6 +197,11 @@ public class ApiController {
   @PutMapping("/caja/config")
   public Object cajaConfig(@RequestBody CajaConfigRequest req) {
     return cajaService.actualizarConfig(req);
+  }
+
+  @PostMapping("/caja/cortes")
+  public Object marcarCorte(@Valid @RequestBody MarcarCorteRequest req) {
+    return cajaService.marcarCorte(req);
   }
 
   @PostMapping("/caja/movimientos")

@@ -4,12 +4,11 @@
   <form class="form-grid" (ngSubmit)="guardar()">
     <label>
       Producto
-      <select [(ngModel)]="form.productoId" name="productoId" required>
-        <option [ngValue]="null">Selecciona...</option>
-        @for (p of productos; track p.id) {
-          <option [ngValue]="p.id">{{ p.nombre }}</option>
-        }
-      </select>
+      <app-producto-autocomplete
+        [productos]="productos"
+        [(productoId)]="form.productoId"
+        [required]="true"
+      />
     </label>
     <label>
       Fecha vigencia
@@ -30,23 +29,81 @@
   <div class="toolbar">
     <label>
       Buscar
-      <input class="search" [(ngModel)]="filtro" name="filtro" />
+      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto..." />
     </label>
   </div>
+
+  <h3>Precios actuales (menudeo)</h3>
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Producto</th><th>Fecha vigencia</th><th>Precio</th><th></th></tr>
+        <tr>
+          <th>Producto</th>
+          <th>Vigente desde</th>
+          <th>Menudeo</th>
+          <th></th>
+        </tr>
       </thead>
       <tbody>
-        @for (p of filtrados; track p.id) {
+        @for (p of preciosActuales; track p.productoId) {
+          <tr class="precio-actual">
+            <td>
+              {{ p.productoNombre }}
+              <span class="badge-actual">actual</span>
+            </td>
+            <td>
+              @if (p.vigenteDesde) {
+                {{ p.vigenteDesde | fechaDmY }}
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="money">${{ p.precioMenudeo | number: '1.2-2' }}</td>
+            <td class="actions">
+              @if (p.historicoId != null) {
+                <button type="button" class="danger" (click)="eliminar(p.historicoId)">Eliminar</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" style="margin-top: 1rem">
+  <h3>Historial (precios anteriores)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Desde</th>
+          <th>Hasta</th>
+          <th>Precio</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of preciosAnteriores; track p.id) {
           <tr>
             <td>{{ p.productoNombre }}</td>
-            <td>{{ p.fechaVigencia }}</td>
+            <td>{{ p.fechaVigencia | fechaDmY }}</td>
+            <td>
+              @if (p.vigenteHasta) {
+                {{ p.vigenteHasta | fechaDmY }}
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
             <td class="money">${{ p.precio | number: '1.2-2' }}</td>
             <td class="actions">
               <button type="button" class="danger" (click)="eliminar(p.id)">Eliminar</button>
             </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="muted">No hay precios anteriores{{ filtro ? ' con ese filtro' : '' }}.</td>
           </tr>
         }
       </tbody>

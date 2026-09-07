@@ -6,6 +6,8 @@ public record InventarioDto(
     Long id,
     String nombre,
     BigDecimal precioVentaHoy,
+    BigDecimal precioMayoreo5,
+    BigDecimal precioMayoreo10,
     BigDecimal precioCompra,
     BigDecimal precioMinimoSugerido,
     BigDecimal precioMaximoSugerido,

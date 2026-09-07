@@ -19,12 +19,17 @@
 html,
 body {
   margin: 0;
-  min-height: 100%;
+  height: 100%;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(31, 107, 79, 0.08), transparent 28%),
     linear-gradient(180deg, #f7faf8 0%, var(--bg) 40%, #e9efe9 100%);
   color: var(--text);
   font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+}
+
+body {
+  overflow-y: hidden;
 }
 
 h1,
@@ -74,17 +79,19 @@ select {
   min-width: 0;
 }
 
+.page-title {
+  margin: 0 0 0.65rem;
+  font-size: 1.35rem;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 0.75rem;
-  padding: 1rem 1.1rem;
+  padding: 0.85rem 1rem;
   box-shadow: 0 8px 24px rgba(22, 53, 40, 0.04);
-}
-
-.page-title {
-  margin: 0 0 1rem;
-  font-size: 1.55rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .form-grid {
@@ -112,22 +119,36 @@ select {
 }
 
 .table-wrap {
-  overflow: auto;
-  max-height: 65vh;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: min(65vh, calc(100dvh - 12rem));
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 table {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
   font-size: 0.92rem;
 }
 
 th,
 td {
-  padding: 0.55rem 0.6rem;
+  padding: 0.45rem 0.5rem;
   border-bottom: 1px solid var(--line);
   text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+th.nowrap,
+td.nowrap,
+.money,
+td.money,
+th.money {
   white-space: nowrap;
+  word-break: normal;
 }
 
 th {
@@ -141,6 +162,15 @@ th {
 
 tr.warn td {
   background: rgba(154, 75, 31, 0.08);
+}
+
+tr.ganancia-alta td {
+  background: rgba(31, 107, 79, 0.12);
+}
+
+tr.ganancia-alta td:nth-child(9) {
+  color: var(--ok);
+  font-weight: 700;
 }
 
 tr.danger td {
@@ -162,16 +192,17 @@ tr.danger td {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
 }
 
 .stat {
   background: #f7fbf8;
   border: 1px solid var(--line);
-  border-radius: 0.65rem;
-  padding: 0.8rem 0.9rem;
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  min-width: 0;
 }
 
 .stat span {
@@ -199,4 +230,23 @@ tr.danger td {
 
 .search {
   min-width: 220px;
+}
+
+.corte-aviso {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.85rem;
+  background: #fff2e6;
+  border: 1px solid #f4a460;
+  border-radius: 0.55rem;
+  color: #7a3e0c;
+}
+
+.corte-aviso strong,
+.fecha-naranja-caja {
+  margin-left: 0.25rem;
+  background: #f4a460;
+  color: #3b2208;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.3rem;
 }

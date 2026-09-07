@@ -6,6 +6,7 @@ public enum TipoVenta {
   MUESTRA,
   CASA,
   PESOS,
+  MAYOREO,
   RECARGA,
   PAGO_DE_SERVICIOS;
 
@@ -22,6 +23,7 @@ public enum TipoVenta {
       case "muestra" -> MUESTRA;
       case "casa" -> CASA;
       case "pesos" -> PESOS;
+      case "mayoreo" -> MAYOREO;
       case "recarga" -> RECARGA;
       case "pago de servicios" -> PAGO_DE_SERVICIOS;
       default -> throw new IllegalArgumentException("Tipo de venta desconocido: " + raw);
@@ -35,21 +37,27 @@ public enum TipoVenta {
       case MUESTRA -> "Muestra";
       case CASA -> "Casa";
       case PESOS -> "Pesos";
+      case MAYOREO -> "Mayoreo";
       case RECARGA -> "Recarga";
       case PAGO_DE_SERVICIOS -> "Pago de servicios";
     };
   }
 
   public boolean esProducto() {
-    return this == LITROS || this == PIEZA || this == MUESTRA || this == CASA || this == PESOS;
+    return this == LITROS || this == PIEZA || this == MUESTRA || this == CASA || this == PESOS || this == MAYOREO;
   }
 
   public boolean descuentaStockUnidades() {
-    return this == LITROS || this == PIEZA || this == MUESTRA || this == CASA;
+    return this == LITROS || this == PIEZA || this == MUESTRA || this == CASA || this == MAYOREO;
   }
 
   public boolean totalEsCantidad() {
     return this == PESOS || this == RECARGA || this == PAGO_DE_SERVICIOS;
+  }
+
+  /** Total negociado a mano (no usa precio de lista). */
+  public boolean totalEsManual() {
+    return this == MAYOREO;
   }
 
   public boolean totalEsCero() {

@@ -4,5 +4,7 @@ public enum CategoriaApartado {
   GENERAL,
   PRODUCTOS,
   CASA,
-  SALARIOS
+  SALARIOS,
+  /** Apartados servicios/recargas (columna aparte en Excel Caja; no suma al general). */
+  SERVICIOS
 }

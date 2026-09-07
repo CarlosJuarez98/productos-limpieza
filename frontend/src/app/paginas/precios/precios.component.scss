@@ -1,0 +1,26 @@
+h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.leyenda {
+  margin: 0 0 0.65rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.badge-actual {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+  background: #e5f3ec;
+  color: var(--ok);
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+tr.precio-actual td {
+  background: rgba(31, 107, 79, 0.07);
+}

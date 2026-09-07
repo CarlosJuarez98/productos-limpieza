@@ -1,0 +1,138 @@
+<h2 class="page-title">Traspasos</h2>
+<p class="muted" style="margin-top: -0.5rem; margin-bottom: 1rem">
+  Producto que das a otra persona (ej. mamá) al precio de compra. Se descuenta del inventario y queda como deuda.
+</p>
+
+@if (data) {
+  <div class="stats">
+    <div class="stat"><span>Total traspasado</span><strong>${{ data.totalTraspasado | number: '1.2-2' }}</strong></div>
+    <div class="stat"><span>Total abonado</span><strong>${{ data.totalAbonado | number: '1.2-2' }}</strong></div>
+    <div class="stat"><span>Saldo pendiente</span><strong>${{ data.saldoPendiente | number: '1.2-2' }}</strong></div>
+  </div>
+}
+
+<section class="panel">
+  <h3>Nuevo traspaso</h3>
+  <form class="form-grid" (ngSubmit)="guardar()">
+    <label>
+      Fecha
+      <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
+    </label>
+    <label>
+      Producto
+      <app-producto-autocomplete
+        [productos]="productos"
+        [(productoId)]="form.productoId"
+        [required]="true"
+      />
+    </label>
+    <label>
+      Cantidad
+      <input type="number" step="0.01" min="0" [(ngModel)]="form.cantidad" name="cantidad" required />
+    </label>
+    <label>
+      Persona
+      <input [(ngModel)]="form.persona" name="persona" placeholder="Mamá" />
+    </label>
+    <label>
+      Nota
+      <input [(ngModel)]="form.nota" name="nota" />
+    </label>
+    <label>
+      Total al costo
+      <input [value]="'$' + (totalEstimado | number: '1.2-2')" disabled />
+    </label>
+    <button type="submit">Registrar traspaso</button>
+  </form>
+</section>
+
+<section class="panel" style="margin-top: 1rem">
+  <h3>Abono / pago de deuda</h3>
+  <form class="form-grid" (ngSubmit)="guardarAbono()">
+    <label>
+      Fecha
+      <input type="date" [(ngModel)]="abono.fecha" name="abonoFecha" required />
+    </label>
+    <label>
+      Monto
+      <input type="number" step="0.01" min="0" [(ngModel)]="abono.monto" name="abonoMonto" required />
+    </label>
+    <label>
+      Persona
+      <input [(ngModel)]="abono.persona" name="abonoPersona" />
+    </label>
+    <label>
+      Nota
+      <input [(ngModel)]="abono.nota" name="abonoNota" />
+    </label>
+    <button type="submit">Registrar abono</button>
+  </form>
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+</section>
+
+@if (data) {
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; margin-top: 1rem">
+    <section class="panel">
+      <h3>Traspasos</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Producto</th>
+              <th>Cant.</th>
+              <th>Total</th>
+              <th>Persona</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of data.traspasos; track t.id) {
+              <tr>
+                <td>{{ t.fecha | fechaDmY }}</td>
+                <td>{{ t.productoNombre }}</td>
+                <td class="money">{{ t.cantidad | number: '1.2-2' }}</td>
+                <td class="money">${{ t.total | number: '1.2-2' }}</td>
+                <td>{{ t.persona || '—' }}</td>
+                <td class="actions">
+                  <button type="button" class="danger" (click)="eliminar(t.id)">X</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel">
+      <h3>Abonos</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Monto</th>
+              <th>Persona</th>
+              <th>Nota</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of data.abonos; track a.id) {
+              <tr>
+                <td>{{ a.fecha | fechaDmY }}</td>
+                <td class="money">${{ a.monto | number: '1.2-2' }}</td>
+                <td>{{ a.persona || '—' }}</td>
+                <td>{{ a.nota || '—' }}</td>
+                <td class="actions">
+                  <button type="button" class="danger" (click)="eliminarAbono(a.id)">X</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+}

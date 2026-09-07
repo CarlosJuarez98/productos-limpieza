@@ -4,6 +4,7 @@ export type TipoVenta =
   | 'MUESTRA'
   | 'CASA'
   | 'PESOS'
+  | 'MAYOREO'
   | 'RECARGA'
   | 'PAGO_DE_SERVICIOS';
 
@@ -13,7 +14,8 @@ export type TipoMovimientoCaja =
   | 'RETIRO_TRANSFERENCIA'
   | 'TRANSFERENCIA';
 
-export type CategoriaApartado = 'GENERAL' | 'PRODUCTOS' | 'CASA' | 'SALARIOS';
+export type CategoriaApartado = 'GENERAL' | 'PRODUCTOS' | 'CASA' | 'SALARIOS' | 'SERVICIOS';
+export type TipoMovimientoApartado = 'INGRESO' | 'GASTO';
 
 export interface Venta {
   id: number;
@@ -42,6 +44,8 @@ export interface InventarioItem {
   id: number;
   nombre: string;
   precioVentaHoy: number;
+  precioMayoreo5: number;
+  precioMayoreo10: number;
   precioCompra: number;
   precioMinimoSugerido: number;
   precioMaximoSugerido: number;
@@ -80,9 +84,14 @@ export interface CajaResumen {
   totalIngresos: number;
   totalRetirosTransferencia: number;
   totalTransferencias: number;
+  totalApartadosProductos: number;
+  totalApartadosServicios: number;
   totalCaja: number;
   totalTransferenciasNetas: number;
   totalNegocio: number;
+  /** Fechas de corte (naranja en Excel). */
+  fechasCorte: string[];
+  fechaUltimoCorte: string | null;
   retiros: MovimientoCaja[];
   ingresos: MovimientoCaja[];
   retirosTransferencia: MovimientoCaja[];
@@ -94,18 +103,81 @@ export interface Apartado {
   fecha: string;
   categoria: CategoriaApartado;
   ingreso: number;
+  tipo: TipoMovimientoApartado;
+  motivo: string | null;
 }
 
 export interface ApartadosResumen {
+  /** Saldos actuales (ingresos − gastos). */
   totales: Record<CategoriaApartado, number>;
+  ingresos: Record<CategoriaApartado, number>;
+  gastos: Record<CategoriaApartado, number>;
   movimientos: Apartado[];
+}
+
+export interface Produccion {
+  id: number;
+  fecha: string;
+  productoResultadoId: number;
+  productoResultadoNombre: string;
+  cantidadResultado: number;
+  productoInsumoId: number;
+  productoInsumoNombre: string;
+  cantidadInsumo: number;
+}
+
+export interface RecetaSugerida {
+  productoResultadoId: number;
+  productoResultadoNombre: string;
+  productoInsumoId: number | null;
+  productoInsumoNombre: string | null;
+  encontrada: boolean;
+}
+
+export interface MargenConfig {
+  margenMin: number;
+  margenMax: number;
+  margenMayoreo5: number;
+  margenMayoreo10: number;
+  porcentajeMin: number;
+  porcentajeMax: number;
+  porcentajeMayoreo5: number;
+  porcentajeMayoreo10: number;
+}
+
+export interface Traspaso {
+  id: number;
+  fecha: string;
+  productoId: number;
+  productoNombre: string;
+  cantidad: number;
+  precioCompra: number;
+  total: number;
+  persona: string | null;
+  nota: string | null;
+}
+
+export interface TraspasoAbono {
+  id: number;
+  fecha: string;
+  monto: number;
+  persona: string | null;
+  nota: string | null;
+}
+
+export interface TraspasosResumen {
+  totalTraspasado: number;
+  totalAbonado: number;
+  saldoPendiente: number;
+  traspasos: Traspaso[];
+  abonos: TraspasoAbono[];
 }
 
 export const TIPOS_VENTA: { value: TipoVenta; label: string }[] = [
   { value: 'LITROS', label: 'Litros' },
   { value: 'PIEZA', label: 'Pieza' },
+  { value: 'MAYOREO', label: 'Mayoreo' },
   { value: 'MUESTRA', label: 'Muestra' },
-  { value: 'CASA', label: 'Casa' },
   { value: 'PESOS', label: 'Pesos' },
   { value: 'RECARGA', label: 'Recarga' },
   { value: 'PAGO_DE_SERVICIOS', label: 'Pago de servicios' },

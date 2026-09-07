@@ -1,0 +1,67 @@
+h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.margen-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.margen-block {
+  background: #f7fbf8;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  padding: 0.75rem 0.9rem;
+  min-width: 160px;
+}
+
+.margen-block span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.margen-block strong {
+  display: block;
+  margin: 0.25rem 0 0.55rem;
+  font-size: 1.25rem;
+}
+
+.margen-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.35rem 0 0;
+}
+
+.margen-input-row input {
+  width: 5.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.pct-suffix {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.margen-apply {
+  margin-top: 0.85rem;
+}
+
+.ok-msg {
+  color: var(--ok);
+  margin: 0.5rem 0 0;
+}
+
+.hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
+
+td.bajo-minimo {
+  color: var(--danger);
+  font-weight: 700;
+}

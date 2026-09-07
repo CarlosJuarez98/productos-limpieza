@@ -20,6 +20,14 @@ public class Producto {
   @Column(precision = 14, scale = 4)
   private BigDecimal cantidadInicial = BigDecimal.ZERO;
 
+  /** Precio unitario mayoreo desde 5 L / piezas */
+  @Column(precision = 14, scale = 4)
+  private BigDecimal precioMayoreo5;
+
+  /** Precio unitario mayoreo desde 10 L / piezas */
+  @Column(precision = 14, scale = 4)
+  private BigDecimal precioMayoreo10;
+
   @Column(nullable = false)
   private boolean activo = true;
 
@@ -31,6 +39,10 @@ public class Producto {
   public void setPrecioCompra(BigDecimal precioCompra) { this.precioCompra = precioCompra; }
   public BigDecimal getCantidadInicial() { return cantidadInicial; }
   public void setCantidadInicial(BigDecimal cantidadInicial) { this.cantidadInicial = cantidadInicial; }
+  public BigDecimal getPrecioMayoreo5() { return precioMayoreo5; }
+  public void setPrecioMayoreo5(BigDecimal precioMayoreo5) { this.precioMayoreo5 = precioMayoreo5; }
+  public BigDecimal getPrecioMayoreo10() { return precioMayoreo10; }
+  public void setPrecioMayoreo10(BigDecimal precioMayoreo10) { this.precioMayoreo10 = precioMayoreo10; }
   public boolean isActivo() { return activo; }
   public void setActivo(boolean activo) { this.activo = activo; }
 }
