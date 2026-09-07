@@ -171,7 +171,12 @@ public class CajaService {
   public CajaConfig actualizarConfig(CajaConfigRequest req) {
     CajaConfig cfg = getOrCreateConfig();
     if (req.fechaInicio() != null) cfg.setFechaInicio(req.fechaInicio());
-    if (req.fechaFin() != null) cfg.setFechaFin(req.fechaFin());
+    if (req.fechaFin() != null) {
+      if (req.fechaFin().isAfter(LocalDate.now(ZONA))) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha fin no puede ser posterior a hoy");
+      }
+      cfg.setFechaFin(req.fechaFin());
+    }
     if (req.fondoInicial() != null) cfg.setFondoInicial(req.fondoInicial());
     return configRepo.save(cfg);
   }
@@ -192,11 +197,12 @@ public class CajaService {
     CajaConfig cfg = getOrCreateConfig();
     LocalDate desde = cfg.getFechaInicio() != null ? cfg.getFechaInicio() : INICIO_HISTORICO;
     LocalDate hasta = corte;
-    Totales t = calcularTotales(desde, hasta, nz(cfg.getFondoInicial()));
+    BigDecimal fondoCierre = req.fondoPeriodo() != null ? nz(req.fondoPeriodo()) : nz(cfg.getFondoInicial());
+    Totales t = calcularTotales(desde, hasta, fondoCierre);
 
     CorteCaja c = corteRepo.findByFecha(corte).orElseGet(CorteCaja::new);
     c.setFecha(corte);
-    c.setFondoPeriodo(nz(cfg.getFondoInicial()));
+    c.setFondoPeriodo(fondoCierre);
     c.setTotalCaja(t.totalCaja);
     c.setTotalNegocio(t.totalNegocio);
     if (req.totalCalculadora() != null) {

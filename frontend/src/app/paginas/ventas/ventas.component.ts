@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -45,6 +45,9 @@ export class VentasComponent implements OnInit {
   private idMarcadoresCorte = new Set<number>();
   lineas: LineaVenta[] = [];
   private nextKey = 1;
+
+  @ViewChildren(ProductoAutocompleteComponent) prodAutos!: QueryList<ProductoAutocompleteComponent>;
+  @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   constructor(
     private api: ApiService,
@@ -227,6 +230,43 @@ export class VentasComponent implements OnInit {
 
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
+  }
+
+  /** Enter en producto → cantidad de la misma fila. */
+  onProductoEnter(index: number): void {
+    setTimeout(() => this.focusCantidad(index), 0);
+  }
+
+  /** Enter en cantidad → producto de la siguiente fila (crea fila si hace falta). */
+  onCantidadEnter(ev: Event, index: number): void {
+    ev.preventDefault();
+    const irA = index + 1;
+    if (irA >= this.lineas.length) {
+      this.agregarLinea();
+    }
+    setTimeout(() => {
+      const l = this.lineas[irA];
+      if (l && this.requiereProducto(l.tipoVenta)) {
+        this.focusProducto(irA);
+      } else {
+        this.focusCantidad(irA);
+      }
+    }, 0);
+  }
+
+  private focusProducto(index: number): void {
+    // ViewChildren solo incluye filas con autocomplete
+    const autoIndex =
+      this.lineas.slice(0, index + 1).filter((l) => this.requiereProducto(l.tipoVenta)).length - 1;
+    if (autoIndex < 0) return;
+    this.prodAutos?.get(autoIndex)?.focus();
+  }
+
+  private focusCantidad(index: number): void {
+    const el = this.cantInputs?.get(index)?.nativeElement;
+    if (!el) return;
+    el.focus();
+    el.select();
   }
 
   quitarLinea(index: number): void {

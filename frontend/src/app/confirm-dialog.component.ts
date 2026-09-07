@@ -18,12 +18,16 @@ import { ConfirmDialogService, ConfirmRequest } from './confirm-dialog.service';
           [attr.aria-label]="req.titulo"
         >
           <h3>{{ req.titulo }}</h3>
-          <p>{{ req.mensaje }}</p>
+          <p class="mensaje">{{ req.mensaje }}</p>
           <div class="actions">
             <button type="button" class="secondary" (click)="cancelar()">
               {{ req.cancelarTexto }}
             </button>
-            <button type="button" class="danger" (click)="aceptar()">
+            <button
+              type="button"
+              [class.danger]="esEliminar"
+              (click)="aceptar()"
+            >
               {{ req.confirmarTexto }}
             </button>
           </div>
@@ -56,10 +60,11 @@ import { ConfirmDialogService, ConfirmRequest } from './confirm-dialog.service';
         margin: 0 0 0.55rem;
         font-size: 1.2rem;
       }
-      .dialog p {
+      .dialog p.mensaje {
         margin: 0 0 1.15rem;
         color: var(--muted);
         line-height: 1.45;
+        white-space: pre-line;
       }
       .dialog .actions {
         display: flex;
@@ -76,14 +81,18 @@ export class ConfirmDialogComponent implements OnInit, OnDestroy {
 
   constructor(private confirm: ConfirmDialogService) {}
 
+  get esEliminar(): boolean {
+    const t = (this.req?.confirmarTexto || '').toLowerCase();
+    return t.includes('eliminar') || t.includes('borrar');
+  }
+
   ngOnInit(): void {
     this.sub = this.confirm.state$.subscribe((pending) => {
       this.abierto = !!pending;
       this.req = pending?.request ?? null;
       if (this.abierto) {
-        // Enfoca el botón de confirmar en el siguiente tick
         setTimeout(() => {
-          document.querySelector<HTMLButtonElement>('.dialog button.danger')?.focus();
+          document.querySelector<HTMLButtonElement>('.dialog .actions button:last-child')?.focus();
         });
       }
     });

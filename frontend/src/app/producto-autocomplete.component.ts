@@ -25,15 +25,27 @@ import { InventarioItem } from './modelos';
         [ngModel]="texto"
         (ngModelChange)="onTexto($event)"
         (focus)="abrir()"
+        (keydown)="onKeydown($event)"
+        role="combobox"
+        [attr.aria-expanded]="abierto"
+        aria-autocomplete="list"
         [placeholder]="placeholder"
         [required]="required"
         autocomplete="off"
         [name]="inputName"
       />
       @if (abierto && texto.trim()) {
-        <ul class="sugerencias" [class.arriba]="abreArriba">
-          @for (p of filtrados; track p.id) {
-            <li (mousedown)="elegir(p); $event.preventDefault()">{{ p.nombre }}</li>
+        <ul class="sugerencias" [class.arriba]="abreArriba" role="listbox">
+          @for (p of filtrados; track p.id; let i = $index) {
+            <li
+              role="option"
+              [class.activo]="i === indiceActivo"
+              [attr.aria-selected]="i === indiceActivo"
+              (mousedown)="elegir(p); $event.preventDefault()"
+              (mouseenter)="indiceActivo = i"
+            >
+              {{ p.nombre }}
+            </li>
           } @empty {
             <li class="vacio">Sin coincidencia en inventario</li>
           }
@@ -79,7 +91,8 @@ import { InventarioItem } from './modelos';
         cursor: pointer;
         color: var(--text);
       }
-      .sugerencias li:hover {
+      .sugerencias li:hover,
+      .sugerencias li.activo {
         background: #eef5f1;
       }
       .sugerencias li.vacio {
@@ -100,12 +113,67 @@ export class ProductoAutocompleteComponent implements OnChanges {
   @Input() placeholder = 'Escribe el producto...';
   @Input() inputName = 'productoTexto';
   @Output() productoIdChange = new EventEmitter<number | null>();
+  /** Enter con producto listo: el padre puede pasar a cantidad / siguiente fila. */
+  @Output() enterConfirmado = new EventEmitter<void>();
 
   @ViewChild('inputEl') inputEl?: ElementRef<HTMLInputElement>;
+  @ViewChild('root') rootEl?: ElementRef<HTMLElement>;
 
   texto = '';
   abierto = false;
   abreArriba = false;
+  /** Índice resaltado en la lista (-1 = ninguno). */
+  indiceActivo = -1;
+
+  focus(): void {
+    this.inputEl?.nativeElement?.focus();
+  }
+
+  onKeydown(ev: KeyboardEvent): void {
+    const list = this.filtrados;
+    if (ev.key === 'ArrowDown') {
+      if (!this.texto.trim()) return;
+      ev.preventDefault();
+      this.abrir();
+      if (list.length === 0) return;
+      this.indiceActivo = this.indiceActivo < list.length - 1 ? this.indiceActivo + 1 : 0;
+      this.scrollActivo();
+      return;
+    }
+    if (ev.key === 'ArrowUp') {
+      if (!this.abierto || list.length === 0) return;
+      ev.preventDefault();
+      this.indiceActivo = this.indiceActivo > 0 ? this.indiceActivo - 1 : list.length - 1;
+      this.scrollActivo();
+      return;
+    }
+    if (ev.key === 'Escape') {
+      if (!this.abierto) return;
+      ev.preventDefault();
+      this.abierto = false;
+      this.indiceActivo = -1;
+      return;
+    }
+    if (ev.key === 'Enter') {
+      this.onEnter(ev);
+    }
+  }
+
+  onEnter(ev: Event): void {
+    const ke = ev as KeyboardEvent;
+    if (this.abierto && this.filtrados.length > 0) {
+      ke.preventDefault();
+      const idx = this.indiceActivo >= 0 ? this.indiceActivo : 0;
+      this.elegir(this.filtrados[idx]);
+      this.enterConfirmado.emit();
+      return;
+    }
+    if (this.productoId != null || this.texto.trim()) {
+      ke.preventDefault();
+      this.cerrarSeleccion();
+      this.enterConfirmado.emit();
+    }
+  }
 
   get filtrados(): InventarioItem[] {
     const q = this.texto.trim().toLowerCase();
@@ -128,6 +196,7 @@ export class ProductoAutocompleteComponent implements OnChanges {
 
   onTexto(value: string): void {
     this.texto = value;
+    this.indiceActivo = -1;
     this.abrir();
     const exacto = this.productos.find(
       (p) => p.nombre.toLowerCase() === value.trim().toLowerCase()
@@ -144,6 +213,7 @@ export class ProductoAutocompleteComponent implements OnChanges {
     this.productoId = p.id;
     this.productoIdChange.emit(p.id);
     this.abierto = false;
+    this.indiceActivo = -1;
   }
 
   @HostListener('document:click', ['$event'])
@@ -152,12 +222,21 @@ export class ProductoAutocompleteComponent implements OnChanges {
     if (t?.closest?.('.producto-ac')) return;
     if (!this.abierto) return;
     this.abierto = false;
+    this.indiceActivo = -1;
     this.cerrarSeleccion();
   }
 
   @HostListener('window:resize')
   alResize(): void {
     if (this.abierto) this.actualizarDireccion();
+  }
+
+  private scrollActivo(): void {
+    setTimeout(() => {
+      const root = this.rootEl?.nativeElement;
+      const activo = root?.querySelector('li.activo') as HTMLElement | null;
+      activo?.scrollIntoView({ block: 'nearest' });
+    }, 0);
   }
 
   private actualizarDireccion(): void {

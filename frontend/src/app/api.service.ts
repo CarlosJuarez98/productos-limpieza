@@ -149,6 +149,7 @@ export class ApiService {
     fechaCorte: string;
     fondoInicial?: number;
     totalCalculadora?: number;
+    fondoPeriodo?: number;
   }): Observable<unknown> {
     return this.http.post(`${this.base}/caja/cortes`, body);
   }

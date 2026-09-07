@@ -16,7 +16,8 @@ table.lote th {
 }
 
 table.lote select,
-table.lote input[type='number'] {
+table.lote input[type='number'],
+table.lote input[type='text'] {
   width: 100%;
   min-width: 0;
 }
