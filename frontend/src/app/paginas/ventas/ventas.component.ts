@@ -40,7 +40,9 @@ export class VentasComponent implements OnInit {
   /** Día del último corte (no se pueden registrar ventas ≤ esta fecha). */
   fechaUltimoCorte: string | null = null;
   /** Todas las fechas de corte (naranja en Excel). */
-  fechasCorte = new Set<string>();
+  private fechasCorte = new Set<string>();
+  /** Último registro (producto) de cada fecha de corte → naranja. */
+  private idMarcadoresCorte = new Set<number>();
   lineas: LineaVenta[] = [];
   private nextKey = 1;
 
@@ -190,6 +192,7 @@ export class VentasComponent implements OnInit {
     this.api.ventas().subscribe({
       next: (v) => {
         this.ventas = v;
+        this.recalcularMarcadoresCorte();
       },
       error: (e) => (this.error = e.error?.error || 'No se pudieron cargar ventas'),
     });
@@ -201,13 +204,25 @@ export class VentasComponent implements OnInit {
           c.fechaUltimoCorte || (c.fechaInicio ? this.sumarDias(c.fechaInicio, -1) : null);
         this.fechasCorte = new Set(c.fechasCorte || []);
         this.asegurarFechaValida();
+        this.recalcularMarcadoresCorte();
       },
     });
   }
 
-  /** Fechas de corte = naranja en Excel (todas las ventas de ese día). */
+  /** Solo el último producto/venta de cada fecha de corte. */
   esRegistroCorte(v: Venta): boolean {
-    return this.fechasCorte.has(v.fecha);
+    return this.idMarcadoresCorte.has(v.id);
+  }
+
+  private recalcularMarcadoresCorte(): void {
+    this.idMarcadoresCorte.clear();
+    if (this.fechasCorte.size === 0 || this.ventas.length === 0) return;
+    for (const fecha of this.fechasCorte) {
+      const delDia = this.ventas.filter((v) => v.fecha === fecha);
+      if (delDia.length === 0) continue;
+      const ultimo = delDia.reduce((a, b) => (a.id > b.id ? a : b));
+      this.idMarcadoresCorte.add(ultimo.id);
+    }
   }
 
   agregarLinea(): void {

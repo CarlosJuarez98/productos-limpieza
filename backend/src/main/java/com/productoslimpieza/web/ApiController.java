@@ -204,6 +204,12 @@ public class ApiController {
     return cajaService.marcarCorte(req);
   }
 
+  @GetMapping("/caja/cortes/{fecha}")
+  public CortePeriodoDto detalleCorte(
+      @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
+    return cajaService.detalleCorte(fecha);
+  }
+
   @PostMapping("/caja/movimientos")
   public MovimientoCajaDto crearMovimiento(@Valid @RequestBody MovimientoCajaRequest req) {
     return cajaService.crearMovimiento(req);

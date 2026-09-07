@@ -65,3 +65,45 @@ td.bajo-minimo {
   color: var(--danger);
   font-weight: 700;
 }
+
+th.col-sugerido,
+td.col-sugerido {
+  background: #fff2e6;
+  color: #7a3e0c;
+  font-weight: 700;
+}
+
+th.col-sugerido {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #ffe4c4;
+}
+
+.sugerido-form {
+  margin: 0.65rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+button.chip-sugerido {
+  background: #fff2e6;
+  color: #7a3e0c;
+  border: 1px solid #f4a460;
+  font-weight: 700;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.9rem;
+}
+
+button.chip-sugerido:hover {
+  background: #ffe4c4;
+}
+
+input[readonly] {
+  background: #f4f8f5;
+  color: var(--muted);
+}

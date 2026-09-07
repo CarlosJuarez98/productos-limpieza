@@ -60,6 +60,57 @@ export class InventarioComponent implements OnInit {
     return this.items.filter((i) => i.nombre.toLowerCase().includes(q));
   }
 
+  /** Guía al dar de alta: compra × (1 + % mín/máx). */
+  get sugeridoMinForm(): number {
+    const c = Number(this.form.precioCompra) || 0;
+    if (c <= 0) return 0;
+    return Math.round(c * (1 + Number(this.pct.min) / 100) * 100) / 100;
+  }
+
+  get sugeridoMaxForm(): number {
+    const c = Number(this.form.precioCompra) || 0;
+    if (c <= 0) return 0;
+    return Math.round(c * (1 + Number(this.pct.max) / 100) * 100) / 100;
+  }
+
+  get sugeridoPlaceholder(): string {
+    if (this.sugeridoMinForm <= 0) return '';
+    return `${this.sugeridoMinForm} – ${this.sugeridoMaxForm}`;
+  }
+
+  onCompraChange(): void {
+    // Si ya hay menudeo, refresca mayoreo; si no, solo actualiza la guía (getters).
+    if (this.form.precioVenta != null && Number(this.form.precioVenta) > 0) {
+      this.calcularMayoreoDesdeCompra();
+    }
+  }
+
+  onMenudeoChange(): void {
+    if (this.form.precioVenta == null || Number(this.form.precioVenta) <= 0) {
+      if (!this.editando) {
+        this.form.precioMayoreo5 = null;
+        this.form.precioMayoreo10 = null;
+      }
+      return;
+    }
+    this.calcularMayoreoDesdeCompra();
+  }
+
+  usarSugerido(precio: number): void {
+    this.form.precioVenta = precio;
+    this.onMenudeoChange();
+  }
+
+  /** Mayoreo = compra × (1 + % mayoreo), igual que en backend. */
+  private calcularMayoreoDesdeCompra(): void {
+    const c = Number(this.form.precioCompra) || 0;
+    if (c <= 0) return;
+    this.form.precioMayoreo5 =
+      Math.round(c * (1 + Number(this.pct.mayoreo5) / 100) * 100) / 100;
+    this.form.precioMayoreo10 =
+      Math.round(c * (1 + Number(this.pct.mayoreo10) / 100) * 100) / 100;
+  }
+
   cargar(): void {
     this.api.inventario().subscribe({
       next: (i) => (this.items = i),

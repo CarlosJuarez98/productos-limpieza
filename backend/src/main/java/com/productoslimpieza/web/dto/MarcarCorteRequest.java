@@ -6,5 +6,7 @@ import java.time.LocalDate;
 
 public record MarcarCorteRequest(
     @NotNull LocalDate fechaCorte,
-    BigDecimal fondoInicial
+    BigDecimal fondoInicial,
+    /** Efectivo contado al cerrar (opcional; sirve para guardar faltante/sobrante). */
+    BigDecimal totalCalculadora
 ) {}
