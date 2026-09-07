@@ -53,6 +53,7 @@ export class CajaComponent implements OnInit {
     fechaFin: '',
     fondoInicial: 200,
   };
+  guardandoPeriodo = false;
   mov = {
     fecha: this.hoyLocal(),
     tipo: 'RETIRO' as TipoMovimientoCaja,
@@ -137,9 +138,33 @@ export class CajaComponent implements OnInit {
     return [
       { titulo: 'Retiros', items: src.retiros || [], conMotivo: true },
       { titulo: 'Ingresos', items: src.ingresos || [], conMotivo: true },
-      { titulo: 'Retiros transferencia', items: src.retirosTransferencia || [], conMotivo: false },
-      { titulo: 'Transferencias', items: src.transferencias || [], conMotivo: false },
     ];
+  }
+
+  /** Transferencias del periodo (o del corte consultado). */
+  get transferenciasVista(): MovimientoCaja[] {
+    const src = this.detalleCorte || this.caja;
+    return src?.transferencias || [];
+  }
+
+  get retirosTransferenciaVista(): MovimientoCaja[] {
+    const src = this.detalleCorte || this.caja;
+    return src?.retirosTransferencia || [];
+  }
+
+  get saldoBanco(): number {
+    if (this.detalleCorte) return Number(this.detalleCorte.totalTransferenciasNetas) || 0;
+    return Number(this.caja?.totalTransferenciasNetas) || 0;
+  }
+
+  get totalTransferenciasVista(): number {
+    if (this.detalleCorte) return Number(this.detalleCorte.totalTransferencias) || 0;
+    return Number(this.caja?.totalTransferencias) || 0;
+  }
+
+  get totalRetirosTxVista(): number {
+    if (this.detalleCorte) return Number(this.detalleCorte.totalRetirosTransferencia) || 0;
+    return Number(this.caja?.totalRetirosTransferencia) || 0;
   }
 
   limpiarCorteSeleccionado(): void {
@@ -181,10 +206,28 @@ export class CajaComponent implements OnInit {
   }
 
   get estadoDiferencia(): 'ok' | 'faltante' | 'sobrante' | null {
-    if (!this.caja || this.totalCalculadora <= 0) return null;
+    if (!this.caja) return null;
     const d = this.diferenciaCaja;
     if (Math.abs(d) < 0.005) return 'ok';
     return d < 0 ? 'faltante' : 'sobrante';
+  }
+
+  /** Se puede cerrar si la fecha fin aún no es un corte y no es futura. */
+  get puedeGuardarPeriodo(): boolean {
+    if (this.guardandoPeriodo || !this.config.fechaFin || !this.config.fechaInicio) return false;
+    if (this.config.fechaFin > this.hoyLocal()) return false;
+    if (this.config.fechaFin < this.config.fechaInicio) return false;
+    const cortes = this.caja?.fechasCorte || [];
+    return !cortes.includes(this.config.fechaFin);
+  }
+
+  get etiquetaBotonPeriodo(): string {
+    if (this.guardandoPeriodo) return 'Guardando…';
+    if (!this.config.fechaFin) return 'Guardar periodo';
+    const cortes = this.caja?.fechasCorte || [];
+    if (cortes.includes(this.config.fechaFin)) return 'Periodo cerrado';
+    if (this.config.fechaFin > this.hoyLocal()) return 'Fecha fin inválida';
+    return 'Guardar periodo';
   }
 
   cargar(): void {
@@ -202,61 +245,75 @@ export class CajaComponent implements OnInit {
     });
   }
 
-  guardarConfig(): void {
+  async guardarConfig(): Promise<void> {
+    if (!this.puedeGuardarPeriodo || !this.caja) return;
     this.error = '';
     this.ok = '';
-    this.api.actualizarCajaConfig(this.config).subscribe({
-      next: () => {
-        this.ok = 'Periodo guardado';
-        this.cargar();
-      },
-      error: (e) => (this.error = e.error?.error || 'Error al guardar configuración'),
-    });
-  }
-
-  /** Marca la fecha fin como corte (naranja); el periodo nuevo empieza al día siguiente. */
-  async marcarCorte(): Promise<void> {
-    if (!this.config.fechaFin) {
-      this.error = 'Indica la fecha fin del corte';
+    const hoy = this.hoyLocal();
+    if (this.config.fechaFin && this.config.fechaFin > hoy) {
+      this.error = 'La fecha fin no puede ser posterior a hoy';
+      this.config.fechaFin = hoy;
       return;
     }
-    const corte = this.config.fechaFin;
-    const inicio = this.sumarDias(corte, 1);
-    const ok = await this.confirmDlg.ask(
-      `¿Marcar corte el ${formatFechaDmY(corte)}? Quedará en naranja como en Excel. El periodo nuevo empieza el ${formatFechaDmY(inicio)} con fondo $200.`
-    );
-    if (!ok) return;
-    const contado = this.totalCalculadora > 0 ? this.totalCalculadora : undefined;
-    this.denominaciones.forEach((x) => (x.cantidad = null));
-    this.error = '';
-    this.ok = '';
-    this.api.marcarCorte({
-      fechaCorte: corte,
-      fondoInicial: 200,
-      totalCalculadora: contado,
-    }).subscribe({
-      next: () => {
-        this.ok = `Corte marcado el ${formatFechaDmY(corte)}: el periodo cuenta desde ${formatFechaDmY(inicio)}`;
-        this.cargar();
-      },
-      error: (e) => (this.error = e.error?.error || 'Error al marcar el corte'),
-    });
-  }
 
-  /** Extiende el periodo: mantiene inicio (día después del corte), fin = hoy, fondo $200. */
-  async iniciarNuevoPeriodo(): Promise<void> {
-    const inicio = this.config.fechaInicio || this.sumarDias(this.config.fechaFin || this.hoyLocal(), 1);
-    const ok = await this.confirmDlg.ask(
-      `¿Continuar periodo desde ${formatFechaDmY(inicio)} (día siguiente al último corte) hasta hoy con fondo $200?`
-    );
+    const corte = this.config.fechaFin;
+    const inicioNuevo = this.sumarDias(corte, 1);
+    const contado = this.totalCalculadora;
+    const esperado = Number(this.caja.totalCaja) || 0;
+    const dif = Math.round((contado - esperado) * 100) / 100;
+    let difTxt = 'sin contado en calculadora';
+    if (contado > 0) {
+      if (Math.abs(dif) < 0.005) difTxt = 'cuadró';
+      else if (dif < 0) difTxt = `faltaron $${Math.abs(dif).toFixed(2)}`;
+      else difTxt = `sobraron $${dif.toFixed(2)}`;
+    }
+
+    const resumen =
+      `¿Guardar y cerrar el periodo hasta ${formatFechaDmY(corte)}?\n\n` +
+      `Vendido: $${Number(this.caja.totalVendidoProductos).toFixed(2)}\n` +
+      `Ingresos: $${Number(this.caja.totalIngresos).toFixed(2)}\n` +
+      `Retiros: $${Number(this.caja.totalRetiros).toFixed(2)}\n` +
+      `Total caja: $${esperado.toFixed(2)}\n` +
+      `Contado: $${contado.toFixed(2)} (${difTxt})\n\n` +
+      `Quedará registrado el corte. El periodo nuevo empieza el ${formatFechaDmY(inicioNuevo)} con fondo $200.`;
+
+    const ok = await this.confirmDlg.ask(resumen, {
+      titulo: 'Guardar periodo',
+      confirmarTexto: 'Guardar',
+    });
     if (!ok) return;
-    this.config = {
-      fechaInicio: inicio,
-      fechaFin: this.hoyLocal(),
-      fondoInicial: 200,
-    };
-    this.denominaciones.forEach((x) => (x.cantidad = null));
-    this.guardarConfig();
+
+    if (contado <= 0) {
+      const seguir = await this.confirmDlg.ask(
+        'La calculadora está en $0. ¿Guardar el periodo sin contado? (no se sabrá si faltó o sobró)',
+        { titulo: 'Sin contado', confirmarTexto: 'Guardar igual' }
+      );
+      if (!seguir) return;
+    }
+
+    this.guardandoPeriodo = true;
+    this.api
+      .marcarCorte({
+        fechaCorte: corte,
+        fondoInicial: 200,
+        fondoPeriodo: Number(this.config.fondoInicial),
+        totalCalculadora: contado > 0 ? contado : undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.ok =
+            `Periodo cerrado el ${formatFechaDmY(corte)}: retiros, ingresos, total caja y ${difTxt} quedaron guardados. ` +
+            `Nuevo periodo desde ${formatFechaDmY(inicioNuevo)}.`;
+          this.denominaciones.forEach((x) => (x.cantidad = null));
+          this.guardandoPeriodo = false;
+          this.limpiarCorteSeleccionado();
+          this.cargar();
+        },
+        error: (e) => {
+          this.guardandoPeriodo = false;
+          this.error = e.error?.error || 'Error al guardar el periodo';
+        },
+      });
   }
 
   guardarMovimiento(): void {

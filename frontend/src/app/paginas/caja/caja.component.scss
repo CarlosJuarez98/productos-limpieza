@@ -14,6 +14,97 @@
   background: #fff8f0;
 }
 
+.stats .stat.banco-stat {
+  border-color: #8eb8d4;
+  background: #f0f7fb;
+}
+
+.stats .stat.banco-stat strong {
+  color: #1a5f7a;
+}
+
+.banco-panel {
+  border-color: #b7d0df;
+  background: linear-gradient(180deg, #f7fbfe 0%, #fff 55%);
+}
+
+.banco-panel h3 {
+  margin: 0 0 0.15rem;
+  font-size: 1.1rem;
+}
+
+.banco-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.banco-head .hint {
+  margin: 0;
+}
+
+.banco-saldo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid #8eb8d4;
+  border-radius: 0.55rem;
+  background: #e8f3f9;
+  min-width: 9rem;
+}
+
+.banco-saldo span {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.banco-saldo strong {
+  font-size: 1.35rem;
+  color: #1a5f7a;
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+.banco-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.banco-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.banco-col h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+}
+
+.movs-efectivo {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 700px) {
+  .banco-grid,
+  .banco-stats,
+  .movs-efectivo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .banco-saldo {
+    align-items: flex-start;
+    width: 100%;
+  }
+}
+
 .calc-panel {
   width: 100%;
   max-width: none;
@@ -92,7 +183,7 @@
 }
 
 .calc-resumen .stat.sobrante strong {
-  color: var(--warn);
+  color: var(--ok);
 }
 
 .calc-msg {
@@ -114,7 +205,7 @@ td.faltante {
 
 .calc-msg.sobrante,
 td.sobrante {
-  color: var(--warn);
+  color: var(--ok);
 }
 
 .precio-input {
@@ -287,9 +378,17 @@ input[readonly] {
   background: #fdf2f2;
 }
 
+.corte-detalle .faltante-stat strong {
+  color: var(--danger);
+}
+
 .corte-detalle .sobrante-stat {
   border-color: #b4d4c0;
   background: #f0faf4;
+}
+
+.corte-detalle .sobrante-stat strong {
+  color: var(--ok);
 }
 
 .movs-periodo-hint {

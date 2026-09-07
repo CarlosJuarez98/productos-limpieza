@@ -106,7 +106,7 @@ export class ApartadosComponent implements OnInit {
   movimientosDe(cat: CategoriaApartado, tipo: TipoMovimientoApartado): Apartado[] {
     return (this.data?.movimientos ?? [])
       .filter((a) => a.categoria === cat && a.tipo === tipo)
-      .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id - b.id);
+      .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id - a.id);
   }
 
   montoDe(cat: 'productos' | 'casa' | 'salarios'): number {
@@ -173,6 +173,11 @@ export class ApartadosComponent implements OnInit {
     }
 
     const fecha = this.formIngreso.fecha || this.hoyLocal();
+    if (fecha > this.hoyLocal()) {
+      this.error = 'La fecha de apartar no puede ser posterior a hoy';
+      this.formIngreso.fecha = this.hoyLocal();
+      return;
+    }
     const requests = [];
     if (prod > 0) {
       requests.push(

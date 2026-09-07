@@ -79,6 +79,18 @@ select {
   min-width: 0;
 }
 
+/* Sin flechas en inputs numéricos (todas las pantallas) */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 .page-title {
   margin: 0 0 0.65rem;
   font-size: 1.35rem;

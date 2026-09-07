@@ -35,7 +35,12 @@
     <div class="form-grid form-compact">
       <label>
         Fecha
-        <input type="date" [(ngModel)]="formIngreso.fecha" name="fechaReparto" />
+        <input
+          type="date"
+          [(ngModel)]="formIngreso.fecha"
+          name="fechaReparto"
+          [max]="hoyLocal()"
+        />
       </label>
       <label>
         Productos
@@ -86,7 +91,16 @@
       </label>
       <label>
         Monto
-        <input type="number" step="0.01" [(ngModel)]="formGasto.ingreso" name="montoGasto" required />
+        <div class="precio-input">
+          <span class="peso">$</span>
+          <input
+            type="text"
+            inputmode="decimal"
+            [(ngModel)]="formGasto.ingreso"
+            name="montoGasto"
+            required
+          />
+        </div>
       </label>
       <label>
         Motivo

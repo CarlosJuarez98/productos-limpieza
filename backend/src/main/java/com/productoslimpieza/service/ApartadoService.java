@@ -9,6 +9,8 @@ import com.productoslimpieza.web.dto.ApartadoRequest;
 import com.productoslimpieza.web.dto.ApartadosResumenDto;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class ApartadoService {
+
+  private static final ZoneId ZONA = ZoneId.of("America/Mexico_City");
 
   private final ApartadoRepository apartadoRepo;
 
@@ -71,6 +75,9 @@ public class ApartadoService {
     }
     if (req.ingreso() == null || req.ingreso().compareTo(BigDecimal.ZERO) <= 0) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El monto debe ser mayor a 0");
+    }
+    if (req.fecha() != null && req.fecha().isAfter(LocalDate.now(ZONA))) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha no puede ser posterior a hoy");
     }
     Apartado a = new Apartado();
     a.setFecha(req.fecha());
