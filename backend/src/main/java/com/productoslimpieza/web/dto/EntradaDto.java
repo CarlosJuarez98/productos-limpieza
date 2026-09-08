@@ -11,6 +11,8 @@ public record EntradaDto(
     BigDecimal cantidad,
     BigDecimal precioProveedor,
     BigDecimal total,
+    /** Precio de la última compra previa (o precio compra inventario si no hay). */
     BigDecimal precioCompraAnterior,
-    boolean precioMayor
+    boolean precioMayor,
+    boolean precioMenor
 ) {}

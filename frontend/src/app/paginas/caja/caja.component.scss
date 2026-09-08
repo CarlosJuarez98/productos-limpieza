@@ -186,24 +186,14 @@
   color: var(--ok);
 }
 
-.calc-msg {
-  margin: 0.5rem 0 0;
-  font-weight: 600;
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
-
-.calc-msg.ok,
 td.ok {
   color: var(--ok);
 }
 
-.calc-msg.faltante,
 td.faltante {
   color: var(--danger);
 }
 
-.calc-msg.sobrante,
 td.sobrante {
   color: var(--ok);
 }

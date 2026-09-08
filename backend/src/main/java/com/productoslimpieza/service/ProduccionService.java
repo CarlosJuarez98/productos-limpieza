@@ -68,6 +68,10 @@ public class ProduccionService {
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto resultado no encontrado"));
     Producto insumo = productoRepo.findById(req.productoInsumoId())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto insumo no encontrado"));
+    if (!resultado.isActivo() || !insumo.isActivo()) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El producto está dado de baja del inventario");
+    }
     Produccion p = new Produccion();
     p.setFecha(req.fecha());
     p.setProductoResultado(resultado);

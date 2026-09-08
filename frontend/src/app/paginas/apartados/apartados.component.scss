@@ -71,15 +71,129 @@
 
 .reparto-actions {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 0.35rem;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   min-width: 0;
+  grid-column: 1 / -1;
 }
 
 .total-line {
   margin: 0;
   font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.gasto-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.gasto-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.gasto-wrap {
+  margin-bottom: 0.45rem;
+  overflow-x: auto;
+}
+
+.gasto-lote {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 0.85rem;
+}
+
+.gasto-lote th,
+.gasto-lote td {
+  padding: 0.25rem 0.3rem;
+  vertical-align: middle;
+}
+
+.gasto-lote th:first-child,
+.gasto-lote td:first-child {
+  width: 1.6rem;
+}
+
+.gasto-lote th:nth-child(2),
+.gasto-lote td:nth-child(2) {
+  width: 8.75rem;
+}
+
+.gasto-lote th:nth-child(3),
+.gasto-lote td:nth-child(3) {
+  width: 5.5rem;
+}
+
+.gasto-lote th:last-child,
+.gasto-lote td:last-child {
+  width: 2.5rem;
+}
+
+.gasto-lote td.actions {
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0.25rem 0.2rem;
+}
+
+.gasto-lote td.actions .danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  margin: 0 auto;
+  line-height: 1;
+  font-size: 1.1rem;
+}
+
+.gasto-lote select,
+.gasto-lote input {
+  width: 100%;
+  min-width: 0;
+  height: 2.15rem;
+  box-sizing: border-box;
+  padding: 0 0.55rem;
+  line-height: 2.15rem;
+  vertical-align: middle;
+}
+
+.gasto-lote select {
+  appearance: auto;
+  padding-right: 1.5rem;
+  /* Centrado vertical del texto en Windows/Chrome */
+  line-height: normal;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.gasto-lote .precio-input {
+  height: 2.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.gasto-lote .precio-input input {
+  height: 100%;
+  padding: 0 0.4rem;
+  line-height: normal;
+}
+
+.gasto-actions {
+  grid-column: auto;
+  justify-content: flex-start;
 }
 
 h3 {
@@ -93,17 +207,118 @@ h3 {
   overflow-x: hidden;
 }
 
-.registros-grid {
+.registros-bloques {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.registro-bloque {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem 0.7rem;
+  background: #fafcfb;
+  min-width: 0;
+}
+
+.bloque-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.bloque-head h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-family: 'Fraunces', Georgia, serif;
+  color: var(--text);
+}
+
+.bloque-total {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.registro-bloque .chart-bars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 0.5rem;
+  min-height: 8.5rem;
+  max-width: 22rem;
+  margin: 0 auto 0.55rem;
+  padding: 0.25rem 0.35rem 0.15rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.registro-bloque .bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.registro-bloque .bar-valor {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.registro-bloque .bar-valor.oculto {
+  visibility: hidden;
+}
+
+.registro-bloque .bar-track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 3.25rem;
+  height: 5.5rem;
+  margin: 0 auto;
+}
+
+.registro-bloque .bar-fill {
+  display: block;
+  width: 100%;
+  min-height: 3px;
+  border-radius: 0.35rem 0.35rem 0.15rem 0.15rem;
+  background: linear-gradient(180deg, #2f8f6a 0%, var(--accent) 100%);
+  transition: height 0.25s ease;
+}
+
+.registro-bloque .bar-fill.gasto-fill {
+  background: linear-gradient(180deg, #6b8f7a 0%, #3d5c4a 100%);
+}
+
+.registro-bloque .bar-col.vacio .bar-fill {
+  background: #d5e0d9;
+  opacity: 0.55;
+}
+
+.registro-bloque .bar-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.15;
+}
+
+.bloque-cols {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
+  align-items: stretch;
 }
 
-@media (max-width: 1100px) {
-  .registros-grid {
+@media (max-width: 800px) {
+  .bloque-cols {
     grid-template-columns: 1fr;
   }
 }
@@ -111,16 +326,18 @@ h3 {
 .registro-col {
   border: 1px solid var(--line);
   border-radius: 0.4rem;
-  padding: 0.4rem 0.5rem;
-  background: #fafcfb;
+  padding: 0.4rem 0.45rem;
+  background: #fff;
   min-width: 0;
-  max-width: 100%;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.registro-col h4 {
+.registro-col h5 {
   margin: 0 0 0.3rem;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
   display: flex;
   justify-content: space-between;
   gap: 0.35rem;
@@ -136,29 +353,52 @@ h3 {
 
 .registro-col table {
   width: 100%;
-  max-width: 100%;
   table-layout: fixed;
   font-size: 0.8rem;
+  color: var(--text);
 }
 
 .registro-col th,
 .registro-col td {
   padding: 0.25rem 0.3rem;
-  overflow-wrap: anywhere;
+  vertical-align: top;
+  color: inherit;
+}
+
+.registro-col th:first-child,
+.registro-col td:first-child {
+  width: 5.6rem;
+  white-space: nowrap;
 }
 
 .registro-col th.money,
+.registro-col td.money,
+.registro-col th:nth-child(2),
 .registro-col td.money {
+  width: 5.2rem;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
-.registro-col tr.gasto td {
-  color: var(--danger);
+.registro-col td.motivo {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.registro-col th:last-child,
+.registro-col td.actions {
+  width: 1.7rem;
+  padding-left: 0.15rem;
+  padding-right: 0.1rem;
+  text-align: center;
 }
 
 .registro-col .actions .danger {
-  padding: 0.05rem 0.35rem;
-  font-size: 0.85rem;
+  padding: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  line-height: 1;
+  font-size: 0.9rem;
+  border-radius: 999px;
 }

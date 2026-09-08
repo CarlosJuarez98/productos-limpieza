@@ -27,4 +27,6 @@ public interface PrecioHistoricoRepository extends JpaRepository<PrecioHistorico
     List<PrecioHistorico> list = findVigentes(producto, fecha);
     return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
   }
+
+  void deleteByProducto(Producto producto);
 }

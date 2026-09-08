@@ -8,6 +8,7 @@ import { PreciosComponent } from './paginas/precios/precios.component';
 import { ListaPreciosComponent } from './paginas/lista-precios/lista-precios.component';
 import { UsoCasaComponent } from './paginas/uso-casa/uso-casa.component';
 import { TraspasosComponent } from './paginas/traspasos/traspasos.component';
+import { InversionComponent } from './paginas/inversion/inversion.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'ventas', pathMatch: 'full' },
@@ -18,6 +19,7 @@ export const routes: Routes = [
   { path: 'traspasos', component: TraspasosComponent },
   { path: 'caja', component: CajaComponent },
   { path: 'apartados', component: ApartadosComponent },
+  { path: 'inversion', component: InversionComponent },
   { path: 'precios', component: PreciosComponent },
   { path: 'lista-precios', component: ListaPreciosComponent },
 ];

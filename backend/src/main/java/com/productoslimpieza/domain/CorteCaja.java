@@ -32,6 +32,13 @@ public class CorteCaja {
   @Column(precision = 14, scale = 4)
   private BigDecimal totalCalculadora;
 
+  /**
+   * Monto a apartar tras el corte = contado (o total caja) − fondo que queda en caja.
+   * Por defecto fondo $200.
+   */
+  @Column(precision = 14, scale = 4)
+  private BigDecimal paraApartar;
+
   public Long getId() {
     return id;
   }
@@ -78,5 +85,13 @@ public class CorteCaja {
 
   public void setTotalCalculadora(BigDecimal totalCalculadora) {
     this.totalCalculadora = totalCalculadora;
+  }
+
+  public BigDecimal getParaApartar() {
+    return paraApartar;
+  }
+
+  public void setParaApartar(BigDecimal paraApartar) {
+    this.paraApartar = paraApartar;
   }
 }

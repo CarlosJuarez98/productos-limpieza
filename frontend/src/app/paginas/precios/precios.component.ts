@@ -2,9 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
-import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { InventarioItem, PrecioHistorico } from '../../modelos';
-import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 
 interface PrecioAnterior extends PrecioHistorico {
@@ -14,16 +12,14 @@ interface PrecioAnterior extends PrecioHistorico {
 interface PrecioActual {
   productoId: number;
   productoNombre: string;
-  /** Menudeo = mismo valor que Inventario. */
   precioMenudeo: number;
   vigenteDesde: string | null;
-  historicoId: number | null;
 }
 
 @Component({
   selector: 'app-precios',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProductoAutocompleteComponent, FechaDmYPipe],
+  imports: [CommonModule, FormsModule, FechaDmYPipe],
   templateUrl: './precios.component.html',
   styleUrl: './precios.component.scss',
 })
@@ -32,22 +28,13 @@ export class PreciosComponent implements OnInit {
   productos: InventarioItem[] = [];
   filtro = '';
   error = '';
-  form = {
-    productoId: null as number | null,
-    fechaVigencia: new Date().toISOString().slice(0, 10),
-    precio: 0,
-  };
 
-  constructor(
-    private api: ApiService,
-    private confirmDlg: ConfirmDialogService
-  ) {}
+  constructor(private api: ApiService) {}
 
   ngOnInit(): void {
     this.cargar();
   }
 
-  /** Igual que la columna Menudeo de Inventario. */
   get preciosActuales(): PrecioActual[] {
     const q = this.filtro.trim().toLowerCase();
     const list = !q
@@ -63,12 +50,10 @@ export class PreciosComponent implements OnInit {
           productoNombre: p.nombre,
           precioMenudeo: Number(p.precioVentaHoy),
           vigenteDesde: vigente?.fechaVigencia ?? null,
-          historicoId: vigente?.id ?? null,
         };
       });
   }
 
-  /** Cambios anteriores (ya no vigentes). */
   get preciosAnteriores(): PrecioAnterior[] {
     const idsActuales = new Set(
       this.productos
@@ -92,7 +77,6 @@ export class PreciosComponent implements OnInit {
         const porFecha = b.fechaVigencia.localeCompare(a.fechaVigencia);
         return porFecha !== 0 ? porFecha : b.id - a.id;
       });
-      // También ordenamos incluyendo el actual para calcular "hasta"
       const todos = this.precios
         .filter((x) => x.productoId === ordenados[0]?.productoId)
         .sort((a, b) => {
@@ -144,27 +128,5 @@ export class PreciosComponent implements OnInit {
       next: (p) => (this.productos = p),
       error: (e) => (this.error = e.error?.error || 'No se pudo cargar inventario'),
     });
-  }
-
-  guardar(): void {
-    this.error = '';
-    if (this.form.productoId == null) {
-      this.error = 'Elige un producto del inventario';
-      return;
-    }
-    this.api.crearPrecio(this.form).subscribe({
-      next: () => {
-        this.form.precio = 0;
-        this.form.productoId = null;
-        this.cargar();
-      },
-      error: (e) => (this.error = e.error?.error || 'Error al guardar precio'),
-    });
-  }
-
-  async eliminar(id: number): Promise<void> {
-    const ok = await this.confirmDlg.ask('¿Eliminar precio histórico?');
-    if (!ok) return;
-    this.api.eliminarPrecio(id).subscribe({ next: () => this.cargar() });
   }
 }

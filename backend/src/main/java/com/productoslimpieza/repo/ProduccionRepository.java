@@ -17,4 +17,8 @@ public interface ProduccionRepository extends JpaRepository<Produccion, Long> {
 
   @Query("select coalesce(sum(p.cantidadInsumo), 0) from Produccion p where p.productoInsumo = :producto")
   BigDecimal sumInsumoByProducto(@Param("producto") Producto producto);
+
+  long countByProductoResultado(Producto productoResultado);
+
+  long countByProductoInsumo(Producto productoInsumo);
 }

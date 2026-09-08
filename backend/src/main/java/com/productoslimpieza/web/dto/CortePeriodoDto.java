@@ -26,6 +26,8 @@ public record CortePeriodoDto(
     BigDecimal totalCalculadora,
     /** Calculadora − total caja; null si no hay contado. */
     BigDecimal diferencia,
+    /** Contado − fondo que queda (= lo que corresponde apartar). */
+    BigDecimal paraApartar,
     List<MovimientoCajaDto> retiros,
     List<MovimientoCajaDto> ingresos,
     List<MovimientoCajaDto> retirosTransferencia,

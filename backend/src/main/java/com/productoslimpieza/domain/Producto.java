@@ -28,6 +28,11 @@ public class Producto {
   @Column(precision = 14, scale = 4)
   private BigDecimal precioMayoreo10;
 
+  /** Cómo se vende al menudeo: LITROS o PIEZA. */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "vende_por", length = 20)
+  private UnidadVenta vendePor = UnidadVenta.LITROS;
+
   @Column(nullable = false)
   private boolean activo = true;
 
@@ -43,6 +48,8 @@ public class Producto {
   public void setPrecioMayoreo5(BigDecimal precioMayoreo5) { this.precioMayoreo5 = precioMayoreo5; }
   public BigDecimal getPrecioMayoreo10() { return precioMayoreo10; }
   public void setPrecioMayoreo10(BigDecimal precioMayoreo10) { this.precioMayoreo10 = precioMayoreo10; }
+  public UnidadVenta getVendePor() { return vendePor; }
+  public void setVendePor(UnidadVenta vendePor) { this.vendePor = vendePor; }
   public boolean isActivo() { return activo; }
   public void setActivo(boolean activo) { this.activo = activo; }
 }

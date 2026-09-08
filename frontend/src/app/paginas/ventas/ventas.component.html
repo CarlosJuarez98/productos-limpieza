@@ -28,8 +28,8 @@
       <thead>
         <tr>
           <th>#</th>
-          <th>Tipo</th>
           <th>Producto</th>
+          <th>Modo</th>
           <th>Cantidad / Monto</th>
           <th>Precio $</th>
           <th>Total $</th>
@@ -41,28 +41,24 @@
           <tr>
             <td class="muted">{{ i + 1 }}</td>
             <td>
+              <app-producto-autocomplete
+                [productos]="productos"
+                [productoId]="l.productoId"
+                [inputName]="'prod' + l.key"
+                (productoIdChange)="l.productoId = $event; sugerirTotalMayoreo(l)"
+                (enterConfirmado)="onProductoEnter(i)"
+              />
+            </td>
+            <td>
               <select
-                [(ngModel)]="l.tipoVenta"
-                [name]="'tipo' + l.key"
+                [(ngModel)]="l.modo"
+                [name]="'modo' + l.key"
                 (ngModelChange)="sugerirTotalMayoreo(l)"
               >
-                @for (t of tipos; track t.value) {
+                @for (t of modos; track t.value) {
                   <option [value]="t.value">{{ t.label }}</option>
                 }
               </select>
-            </td>
-            <td>
-              @if (requiereProducto(l.tipoVenta)) {
-                <app-producto-autocomplete
-                  [productos]="productos"
-                  [productoId]="l.productoId"
-                  [inputName]="'prod' + l.key"
-                  (productoIdChange)="l.productoId = $event; sugerirTotalMayoreo(l)"
-                  (enterConfirmado)="onProductoEnter(i)"
-                />
-              } @else {
-                <span class="muted">—</span>
-              }
             </td>
             <td>
               <input
@@ -71,13 +67,13 @@
                 inputmode="decimal"
                 [(ngModel)]="l.cantidad"
                 [name]="'cant' + l.key"
-                [placeholder]="esMayoreo(l.tipoVenta) ? 'Cantidad' : '0'"
+                [placeholder]="'0'"
                 (ngModelChange)="sugerirTotalMayoreo(l)"
                 (keydown.enter)="onCantidadEnter($event, i)"
               />
             </td>
             <td>
-              @if (permitePrecioManual(l.tipoVenta)) {
+              @if (permitePrecioManual(l)) {
                 <div class="precio-input">
                   <span class="peso">$</span>
                   <input
@@ -85,12 +81,12 @@
                     inputmode="decimal"
                     [(ngModel)]="l.precioManual"
                     [name]="'precio' + l.key"
-                    [placeholder]="precioLista(l) > 0 ? (precioLista(l) | number: '1.2-2') : 'auto'"
+                    [placeholder]="'0'"
                     title="Mayoreo: vacío usa tramos ≥5/≥10. Si lo llenas, ese precio manda."
                     (keydown.enter)="onCantidadEnter($event, i)"
                   />
                 </div>
-              } @else if (muestraPrecioLista(l.tipoVenta)) {
+              } @else if (muestraPrecioLista(l)) {
                 @if (precioLista(l) > 0) {
                   <span class="money" title="Menudeo del histórico de precios">${{ precioLista(l) | number: '1.2-2' }}</span>
                 } @else {
@@ -101,13 +97,13 @@
               }
             </td>
             <td>
-              @if (esMayoreo(l.tipoVenta) && !tienePrecioManual(l)) {
+              @if (esMayoreo(l) && !tienePrecioManual(l)) {
                 <input
                   type="text"
                   inputmode="decimal"
                   [(ngModel)]="l.total"
                   [name]="'total' + l.key"
-                  placeholder="Total cobrado"
+                  placeholder="0"
                   (keydown.enter)="onCantidadEnter($event, i)"
                 />
               } @else if (totalEstimado(l) != null) {

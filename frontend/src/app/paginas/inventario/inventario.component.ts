@@ -5,6 +5,16 @@ import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { InventarioItem, MargenConfig } from '../../modelos';
 
+type FormProducto = {
+  nombre: string;
+  precioCompra: number | null;
+  cantidadInicial: number | null;
+  precioVenta: number | null;
+  precioMayoreo5: number | null;
+  precioMayoreo10: number | null;
+  vendePor: 'LITROS' | 'PIEZA';
+};
+
 @Component({
   selector: 'app-inventario',
   standalone: true,
@@ -29,21 +39,16 @@ export class InventarioComponent implements OnInit {
     porcentajeMayoreo5: 40,
     porcentajeMayoreo10: 30,
   };
-  /** Valores editables en % (inputs). */
   pct = {
     min: 46.5,
     max: 63,
     mayoreo5: 40,
     mayoreo10: 30,
   };
-  form = {
-    nombre: '',
-    precioCompra: 0,
-    cantidadInicial: 0,
-    precioVenta: null as number | null,
-    precioMayoreo5: null as number | null,
-    precioMayoreo10: null as number | null,
-  };
+  /** Formulario de alta (arriba). */
+  formAlta: FormProducto = this.formVacio();
+  /** Formulario de edición en la fila. */
+  form: FormProducto = this.formVacio();
 
   constructor(
     private api: ApiService,
@@ -54,56 +59,92 @@ export class InventarioComponent implements OnInit {
     this.cargar();
   }
 
+  private formVacio(): FormProducto {
+    return {
+      nombre: '',
+      precioCompra: null,
+      cantidadInicial: null,
+      precioVenta: null,
+      precioMayoreo5: null,
+      precioMayoreo10: null,
+      vendePor: 'LITROS',
+    };
+  }
+
   get filtrados(): InventarioItem[] {
     const q = this.filtro.trim().toLowerCase();
     if (!q) return this.items;
     return this.items.filter((i) => i.nombre.toLowerCase().includes(q));
   }
 
-  /** Guía al dar de alta: compra × (1 + % mín/máx). */
-  get sugeridoMinForm(): number {
-    const c = Number(this.form.precioCompra) || 0;
+  esPieza(i: InventarioItem): boolean {
+    return i.vendePor === 'PIEZA' || i.vendePorLabel === 'Pieza';
+  }
+
+  etiquetaUnidad(i: InventarioItem): string {
+    if (this.esPieza(i)) return 'Pieza';
+    return i.vendePorLabel || 'Litros';
+  }
+
+  private sugeridoMin(compra: number | null): number {
+    const c = Number(compra) || 0;
     if (c <= 0) return 0;
     return Math.round(c * (1 + Number(this.pct.min) / 100) * 100) / 100;
   }
 
-  get sugeridoMaxForm(): number {
-    const c = Number(this.form.precioCompra) || 0;
+  private sugeridoMax(compra: number | null): number {
+    const c = Number(compra) || 0;
     if (c <= 0) return 0;
     return Math.round(c * (1 + Number(this.pct.max) / 100) * 100) / 100;
   }
 
   get sugeridoPlaceholder(): string {
-    if (this.sugeridoMinForm <= 0) return '';
-    return `${this.sugeridoMinForm} – ${this.sugeridoMaxForm}`;
+    const min = this.sugeridoMin(this.form.precioCompra);
+    if (min <= 0) return '';
+    return `mín $${min} – máx $${this.sugeridoMax(this.form.precioCompra)}`;
+  }
+
+  get sugeridoPlaceholderAlta(): string {
+    const min = this.sugeridoMin(this.formAlta.precioCompra);
+    if (min <= 0) return '';
+    return `mín $${min} – máx $${this.sugeridoMax(this.formAlta.precioCompra)}`;
   }
 
   onCompraChange(): void {
-    // Si ya hay menudeo, refresca mayoreo; si no, solo actualiza la guía (getters).
     if (this.form.precioVenta != null && Number(this.form.precioVenta) > 0) {
-      this.calcularMayoreoDesdeCompra();
+      this.calcularMayoreo(this.form);
     }
   }
 
   onMenudeoChange(): void {
     if (this.form.precioVenta == null || Number(this.form.precioVenta) <= 0) {
-      if (!this.editando) {
-        this.form.precioMayoreo5 = null;
-        this.form.precioMayoreo10 = null;
-      }
+      this.form.precioMayoreo5 = null;
+      this.form.precioMayoreo10 = null;
       return;
     }
-    this.calcularMayoreoDesdeCompra();
+    this.calcularMayoreo(this.form);
   }
 
-  /** Mayoreo = compra × (1 + % mayoreo), igual que en backend. */
-  private calcularMayoreoDesdeCompra(): void {
-    const c = Number(this.form.precioCompra) || 0;
+  onCompraAltaChange(): void {
+    if (this.formAlta.precioVenta != null && Number(this.formAlta.precioVenta) > 0) {
+      this.calcularMayoreo(this.formAlta);
+    }
+  }
+
+  onMenudeoAltaChange(): void {
+    if (this.formAlta.precioVenta == null || Number(this.formAlta.precioVenta) <= 0) {
+      this.formAlta.precioMayoreo5 = null;
+      this.formAlta.precioMayoreo10 = null;
+      return;
+    }
+    this.calcularMayoreo(this.formAlta);
+  }
+
+  private calcularMayoreo(f: FormProducto): void {
+    const c = Number(f.precioCompra) || 0;
     if (c <= 0) return;
-    this.form.precioMayoreo5 =
-      Math.round(c * (1 + Number(this.pct.mayoreo5) / 100) * 100) / 100;
-    this.form.precioMayoreo10 =
-      Math.round(c * (1 + Number(this.pct.mayoreo10) / 100) * 100) / 100;
+    f.precioMayoreo5 = Math.round(c * (1 + Number(this.pct.mayoreo5) / 100) * 100) / 100;
+    f.precioMayoreo10 = Math.round(c * (1 + Number(this.pct.mayoreo10) / 100) * 100) / 100;
   }
 
   cargar(): void {
@@ -172,7 +213,8 @@ export class InventarioComponent implements OnInit {
   async aplicarPreciosDesdeMargenes(): Promise<void> {
     this.normalizarPct();
     const ok = await this.confirmDlg.ask(
-      '¿Recalcular solo mayoreo (≥5 / ≥10) con los márgenes? El menudeo del histórico no se toca.'
+      '¿Recalcular Mín/Máx sugerido y mayoreo (≥5 / ≥10) con estos %?',
+      { confirmarTexto: 'Recalcular' }
     );
     if (!ok) return;
     this.error = '';
@@ -190,13 +232,19 @@ export class InventarioComponent implements OnInit {
           this.api.aplicarPreciosDesdeMargenes().subscribe({
             next: (m) => {
               this.margen = m;
+              this.pct = {
+                min: Number(m.porcentajeMin),
+                max: Number(m.porcentajeMax),
+                mayoreo5: Number(m.porcentajeMayoreo5),
+                mayoreo10: Number(m.porcentajeMayoreo10),
+              };
               this.guardandoMargen = false;
-              this.ok = 'Mayoreo recalculado (menudeo del histórico intacto)';
+              this.ok = 'Columnas recalculadas';
               this.cargar();
             },
             error: (e) => {
               this.guardandoMargen = false;
-              this.error = e.error?.error || 'No se pudieron aplicar los precios';
+              this.error = e.error?.error || 'No se pudieron recalcular las columnas';
             },
           });
         },
@@ -207,33 +255,64 @@ export class InventarioComponent implements OnInit {
       });
   }
 
-  guardar(): void {
-    this.error = '';
-    const body: Record<string, unknown> = {
-      nombre: this.form.nombre,
-      precioCompra: this.form.precioCompra,
-      cantidadInicial: this.form.cantidadInicial,
-      precioMayoreo5: this.form.precioMayoreo5,
-      precioMayoreo10: this.form.precioMayoreo10,
+  private bodyDesde(f: FormProducto): Record<string, unknown> {
+    this.calcularMayoreo(f);
+    return {
+      nombre: f.nombre,
+      precioCompra: Number(f.precioCompra) || 0,
+      cantidadInicial: Number(f.cantidadInicial) || 0,
+      precioMayoreo5: f.precioMayoreo5,
+      precioMayoreo10: f.precioMayoreo10,
+      precioVenta: f.precioVenta,
+      vendePor: f.vendePor || 'LITROS',
     };
-    // Menudeo solo al dar de alta (crea histórico). Al editar no se envía.
-    if (!this.editando) {
-      body['precioVenta'] = this.form.precioVenta;
+  }
+
+  guardarNuevo(): void {
+    this.error = '';
+    if (!this.formAlta.nombre?.trim()) {
+      this.error = 'Indica el nombre del producto';
+      return;
     }
-    const req = this.editando
-      ? this.api.actualizarProducto(this.editando.id, body)
-      : this.api.crearProducto(body);
-    req.subscribe({
+    const body = this.bodyDesde(this.formAlta);
+    this.api.crearProducto(body).subscribe({
       next: () => {
-        this.editando = null;
-        this.form = {
-          nombre: '',
-          precioCompra: 0,
-          cantidadInicial: 0,
-          precioVenta: null,
-          precioMayoreo5: null,
-          precioMayoreo10: null,
-        };
+        this.formAlta = this.formVacio();
+        this.ok = 'Producto agregado';
+        this.cargar();
+      },
+      error: (e) => (this.error = e.error?.error || 'Error al guardar producto'),
+    });
+  }
+
+  async guardarEdicion(): Promise<void> {
+    if (!this.editando) return;
+    this.error = '';
+    if (!this.form.nombre?.trim()) {
+      this.error = 'Indica el nombre del producto';
+      return;
+    }
+    const body = this.bodyDesde(this.form);
+    const anterior = Number(this.editando.precioVentaHoy);
+    const nuevo = Number(this.form.precioVenta);
+    const cambioMenudeo =
+      Number.isFinite(nuevo) &&
+      nuevo > 0 &&
+      (!Number.isFinite(anterior) || Math.abs(anterior - nuevo) > 0.009);
+    if (cambioMenudeo) {
+      const ok = await this.confirmDlg.ask(
+        `¿Modificar el menudeo de $${anterior.toFixed(2)} a $${nuevo.toFixed(2)}?\nSe registrará en el histórico de precios.`,
+        { titulo: 'Cambiar menudeo', confirmarTexto: 'Confirmar' }
+      );
+      if (!ok) return;
+    } else {
+      delete body['precioVenta'];
+    }
+
+    this.api.actualizarProducto(this.editando.id, body).subscribe({
+      next: () => {
+        this.cancelar();
+        this.ok = 'Producto actualizado';
         this.cargar();
       },
       error: (e) => (this.error = e.error?.error || 'Error al guardar producto'),
@@ -249,18 +328,35 @@ export class InventarioComponent implements OnInit {
       precioVenta: item.precioVentaHoy,
       precioMayoreo5: item.precioMayoreo5,
       precioMayoreo10: item.precioMayoreo10,
+      vendePor: item.vendePor === 'PIEZA' ? 'PIEZA' : 'LITROS',
     };
+    this.error = '';
+    setTimeout(() => {
+      document.querySelector('.fila-edicion')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 0);
   }
 
   cancelar(): void {
     this.editando = null;
-    this.form = {
-      nombre: '',
-      precioCompra: 0,
-      cantidadInicial: 0,
-      precioVenta: null,
-      precioMayoreo5: null,
-      precioMayoreo10: null,
-    };
+    this.form = this.formVacio();
+  }
+
+  async eliminar(item: InventarioItem): Promise<void> {
+    const ok = await this.confirmDlg.ask(
+      `¿Quitar «${item.nombre}» del inventario?\n\nSi tiene ventas o compras, se oculta pero el historial se conserva.`,
+      {
+        titulo: 'Quitar del inventario',
+        confirmarTexto: 'Quitar',
+      }
+    );
+    if (!ok) return;
+    this.error = '';
+    this.api.eliminarProducto(item.id).subscribe({
+      next: () => {
+        if (this.editando?.id === item.id) this.cancelar();
+        this.cargar();
+      },
+      error: (e) => (this.error = e.error?.error || 'No se pudo quitar el producto'),
+    });
   }
 }

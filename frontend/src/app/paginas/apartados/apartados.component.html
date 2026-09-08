@@ -9,7 +9,7 @@
 
 <div class="stats">
   <div class="stat destacado">
-    <span>Apartados general</span>
+    <span>Total</span>
     <strong>${{ totalSubapartados | number: '1.2-2' }}</strong>
   </div>
   <div class="stat">
@@ -30,7 +30,12 @@
   <section class="panel">
     <h3>Apartar de caja</h3>
     <p class="muted hint">
-      Disponible: <strong>${{ disponibleCaja | number: '1.2-2' }}</strong>
+      Disponible:
+      <strong>${{ disponibleCaja | number: '1.2-2' }}</strong>
+      · Restante:
+      <strong [class.error]="restanteApartar <= 0 && totalApartar > 0">
+        ${{ restanteApartar | number: '1.2-2' }}
+      </strong>
     </p>
     <div class="form-grid form-compact">
       <label>
@@ -46,27 +51,45 @@
         Productos
         <div class="precio-input">
           <span class="peso">$</span>
-          <input type="text" inputmode="decimal" [(ngModel)]="montos.productos" name="montoProd" placeholder="0" />
+          <input
+            type="text"
+            inputmode="decimal"
+            [ngModel]="montos.productos"
+            (input)="onMontoInput('productos', $event)"
+            name="montoProd"
+            placeholder="0"
+          />
         </div>
       </label>
       <label>
         Casa
         <div class="precio-input">
           <span class="peso">$</span>
-          <input type="text" inputmode="decimal" [(ngModel)]="montos.casa" name="montoCasa" placeholder="0" />
+          <input
+            type="text"
+            inputmode="decimal"
+            [ngModel]="montos.casa"
+            (input)="onMontoInput('casa', $event)"
+            name="montoCasa"
+            placeholder="0"
+          />
         </div>
       </label>
       <label>
         Salarios
         <div class="precio-input">
           <span class="peso">$</span>
-          <input type="text" inputmode="decimal" [(ngModel)]="montos.salarios" name="montoSal" placeholder="0" />
+          <input
+            type="text"
+            inputmode="decimal"
+            [ngModel]="montos.salarios"
+            (input)="onMontoInput('salarios', $event)"
+            name="montoSal"
+            placeholder="0"
+          />
         </div>
       </label>
       <div class="reparto-actions">
-        <p class="muted total-line" [class.error]="!cabeEnCaja && totalApartar > 0">
-          Total: <strong>${{ totalApartar | number: '1.2-2' }}</strong>
-        </p>
         <button type="button" (click)="registrarReparto()" [disabled]="!puedeRegistrarReparto">
           Registrar
         </button>
@@ -76,84 +99,161 @@
 
   <section class="panel">
     <h3>Usar dinero (gasto)</h3>
-    <form class="form-grid form-compact" (ngSubmit)="guardarGasto()">
+    <div class="gasto-toolbar">
       <label>
         Fecha
-        <input type="date" [(ngModel)]="formGasto.fecha" name="fechaGasto" required />
+        <input
+          type="date"
+          [(ngModel)]="fechaGasto"
+          name="fechaGasto"
+          [max]="hoyLocal()"
+          required
+        />
       </label>
-      <label>
-        Subapartado
-        <select [(ngModel)]="formGasto.categoria" name="catGasto">
-          <option value="PRODUCTOS">Productos</option>
-          <option value="CASA">Casa</option>
-          <option value="SALARIOS">Salarios</option>
-        </select>
-      </label>
-      <label>
-        Monto
-        <div class="precio-input">
-          <span class="peso">$</span>
-          <input
-            type="text"
-            inputmode="decimal"
-            [(ngModel)]="formGasto.ingreso"
-            name="montoGasto"
-            required
-          />
-        </div>
-      </label>
-      <label>
-        Motivo
-        <input [(ngModel)]="formGasto.motivo" name="motivoGasto" required placeholder="Agua, Doctor..." />
-      </label>
-      <div class="reparto-actions">
-        <button type="submit">Registrar gasto</button>
-      </div>
-    </form>
+      <span class="muted">Total: <strong>${{ totalGastosForm | number: '1.2-2' }}</strong></span>
+    </div>
+    <div class="table-wrap gasto-wrap">
+      <table class="gasto-lote">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Subapartado</th>
+            <th>Monto</th>
+            <th>Motivo</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (g of gastos; track g.key; let i = $index) {
+            <tr>
+              <td class="muted">{{ i + 1 }}</td>
+              <td>
+                <select [(ngModel)]="g.categoria" [name]="'catGasto' + g.key">
+                  <option value="PRODUCTOS">Productos</option>
+                  <option value="CASA">Casa</option>
+                  <option value="SALARIOS">Salarios</option>
+                </select>
+              </td>
+              <td>
+                <div class="precio-input">
+                  <span class="peso">$</span>
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    [(ngModel)]="g.ingreso"
+                    [name]="'montoGasto' + g.key"
+                    placeholder="0"
+                  />
+                </div>
+              </td>
+              <td>
+                <input
+                  [(ngModel)]="g.motivo"
+                  [name]="'motivoGasto' + g.key"
+                  placeholder="Agua, Doctor..."
+                />
+              </td>
+              <td class="actions">
+                <button type="button" class="danger" (click)="quitarGasto(i)" title="Quitar fila">×</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="reparto-actions gasto-actions">
+      <button type="button" class="secondary" (click)="agregarGasto()">+ Agregar fila</button>
+      <button type="button" (click)="guardarGastos()" [disabled]="totalGastosForm <= 0">
+        Registrar gastos
+      </button>
+    </div>
   </section>
 </div>
 
 <section class="panel registros-panel">
   <h3>Registros</h3>
-  <div class="registros-grid">
-    @for (col of columnasRegistros; track col.titulo) {
-      <div class="registro-col">
-        <h4>
-          {{ col.titulo }}
-          <span class="saldo-inline">${{ saldo(col.categoria) | number: '1.2-2' }}</span>
-        </h4>
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              @if (col.tipo === 'INGRESO') {
-                <th>Ingreso</th>
-              } @else {
-                <th>Gastado</th>
-                <th>Motivo</th>
-              }
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (a of movimientosDe(col.categoria, col.tipo); track a.id) {
-              <tr [class.gasto]="col.tipo === 'GASTO'">
-                <td>{{ a.fecha | fechaDmY }}</td>
-                <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
-                @if (col.tipo === 'GASTO') {
-                  <td>{{ a.motivo }}</td>
-                }
-                <td class="actions">
-                  <button type="button" class="danger" (click)="eliminar(a.id)">×</button>
-                </td>
-              </tr>
-            } @empty {
-              <tr>
-                <td [attr.colspan]="col.tipo === 'GASTO' ? 4 : 3" class="muted">Sin registros</td>
-              </tr>
-            }
-          </tbody>
-        </table>
+  <div class="registros-bloques">
+    @for (bloque of bloquesRegistros; track bloque.tipo) {
+      <div class="registro-bloque" [class.es-gasto]="bloque.tipo === 'GASTO'">
+        <header class="bloque-head">
+          <h4>{{ bloque.titulo }}</h4>
+          <strong class="bloque-total">${{ totalBloque(bloque.tipo) | number: '1.2-2' }}</strong>
+        </header>
+
+        <div
+          class="chart-bars"
+          role="img"
+          [attr.aria-label]="bloque.titulo + ' por categoría'"
+        >
+          @for (cat of categoriasRegistros; track cat.key) {
+            <div
+              class="bar-col"
+              [class.vacio]="totalColumna(cat.key, bloque.tipo) <= 0"
+            >
+              <span
+                class="bar-valor"
+                [class.oculto]="totalColumna(cat.key, bloque.tipo) <= 0"
+              >
+                ${{ totalColumna(cat.key, bloque.tipo) | number: '1.0-0' }}
+              </span>
+              <span class="bar-track">
+                <span
+                  class="bar-fill"
+                  [class.gasto-fill]="bloque.tipo === 'GASTO'"
+                  [style.height.%]="alturaBarra(bloque.tipo, cat.key)"
+                ></span>
+              </span>
+              <span class="bar-label">{{ cat.label }}</span>
+            </div>
+          }
+        </div>
+
+        <div class="bloque-cols">
+          @for (cat of categoriasRegistros; track cat.key) {
+            <div class="registro-col">
+              <h5>
+                {{ cat.label }}
+                <span class="saldo-inline"
+                  >${{ totalColumna(cat.key, bloque.tipo) | number: '1.2-2' }}</span
+                >
+              </h5>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    @if (bloque.tipo === 'INGRESO') {
+                      <th>Ingreso</th>
+                    } @else {
+                      <th>Monto</th>
+                      <th>Motivo</th>
+                    }
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (a of movimientosDe(cat.key, bloque.tipo); track a.id) {
+                    <tr>
+                      <td>{{ a.fecha | fechaDmY }}</td>
+                      <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
+                      @if (bloque.tipo === 'GASTO') {
+                        <td class="motivo">{{ a.motivo }}</td>
+                      }
+                      <td class="actions">
+                        <button type="button" class="danger" (click)="eliminar(a.id)">×</button>
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td [attr.colspan]="bloque.tipo === 'GASTO' ? 4 : 3" class="muted">
+                        Sin registros
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
       </div>
     }
   </div>

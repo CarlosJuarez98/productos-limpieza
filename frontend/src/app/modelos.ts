@@ -8,6 +8,11 @@ export type TipoVenta =
   | 'RECARGA'
   | 'PAGO_DE_SERVICIOS';
 
+/** Cómo se captura la venta en UI (menudeo usa vendePor del producto). */
+export type ModoVenta = 'MENUDEO' | 'MAYOREO' | 'MUESTRA' | 'PESOS';
+
+export type UnidadVenta = 'LITROS' | 'PIEZA';
+
 export type TipoMovimientoCaja =
   | 'RETIRO'
   | 'INGRESO'
@@ -36,8 +41,10 @@ export interface Entrada {
   cantidad: number;
   precioProveedor: number | null;
   total: number | null;
-  precioCompraAnterior: number;
+  /** Precio de la última compra previa de ese producto. */
+  precioCompraAnterior: number | null;
   precioMayor: boolean;
+  precioMenor: boolean;
 }
 
 export interface InventarioItem {
@@ -55,6 +62,8 @@ export interface InventarioItem {
   utilizadoEnCasaMonto: number;
   porcentajeGanancia: number;
   precioVentaBajoMinimo: boolean;
+  vendePor: UnidadVenta;
+  vendePorLabel: string;
 }
 
 export interface PrecioHistorico {
@@ -92,6 +101,8 @@ export interface CajaResumen {
   /** Fechas de corte registradas en BD. */
   fechasCorte: string[];
   fechaUltimoCorte: string | null;
+  /** Efectivo del último corte aún disponible para apartar (no el fondo $200 del periodo nuevo). */
+  disponibleParaApartar: number;
   retiros: MovimientoCaja[];
   ingresos: MovimientoCaja[];
   retirosTransferencia: MovimientoCaja[];
@@ -117,6 +128,8 @@ export interface CortePeriodo {
   totalNegocio: number;
   totalCalculadora: number | null;
   diferencia: number | null;
+  /** Contado − fondo que queda. */
+  paraApartar: number | null;
   retiros: MovimientoCaja[];
   ingresos: MovimientoCaja[];
   retirosTransferencia: MovimientoCaja[];
@@ -170,40 +183,103 @@ export interface MargenConfig {
   porcentajeMayoreo10: number;
 }
 
-export interface Traspaso {
-  id: number;
-  fecha: string;
+export interface TraspasoLinea {
+  id?: number;
   productoId: number;
   productoNombre: string;
   cantidad: number;
   precioCompra: number;
   total: number;
+}
+
+export interface Traspaso {
+  id: number;
+  fecha: string;
+  personaId: number | null;
   persona: string | null;
   nota: string | null;
+  total: number;
+  lineas: TraspasoLinea[];
 }
 
 export interface TraspasoAbono {
   id: number;
   fecha: string;
   monto: number;
+  personaId: number | null;
   persona: string | null;
   nota: string | null;
+}
+
+export interface Persona {
+  id: number;
+  nombre: string;
+}
+
+export interface TraspasoSaldoPersona {
+  personaId: number;
+  persona: string;
+  totalTraspasado: number;
+  totalAbonado: number;
+  saldo: number;
+  estado: 'DEBE' | 'AL_CORRIENTE' | 'A_FAVOR' | string;
 }
 
 export interface TraspasosResumen {
   totalTraspasado: number;
   totalAbonado: number;
   saldoPendiente: number;
+  personas: Persona[];
+  saldosPorPersona: TraspasoSaldoPersona[];
   traspasos: Traspaso[];
   abonos: TraspasoAbono[];
 }
 
+export interface InversionItem {
+  id: number;
+  tipo: 'PRODUCTO' | 'INFRAESTRUCTURA' | string;
+  concepto: string;
+  cantidad: number | null;
+  precioUnidad: number | null;
+  monto: number;
+}
+
+export interface InversionResumen {
+  /** Mercancía del arranque (ítems PRODUCTO). */
+  totalProductosIniciales: number;
+  totalInfraestructura: number;
+  /** Productos iniciales + infraestructura = lo que hay que recuperar. */
+  inversionInicial: number;
+  totalStockAlta: number;
+  totalEntradas: number;
+  /** Compras posteriores con lo ganado (no suma al “faltante inicial”). */
+  totalReinversion: number;
+  totalVentas: number;
+  retornoSobreInicial: number;
+  inversionInicialRecuperada: boolean;
+  faltantePorRecuperarInicial: number;
+  gananciaSobreInicial: number;
+  /** Costo de compra de lo vendido. */
+  costoMercanciaVendida: number;
+  /** Ventas − costo. */
+  gananciaBruta: number;
+  /** % sobre ventas. */
+  margenPorcentaje: number;
+  items: InversionItem[];
+}
+
+export const MODOS_VENTA: { value: ModoVenta; label: string }[] = [
+  { value: 'MENUDEO', label: 'Menudeo' },
+  { value: 'MAYOREO', label: 'Mayoreo' },
+  { value: 'MUESTRA', label: 'Muestra' },
+  { value: 'PESOS', label: 'Pesos' },
+];
+
+/** @deprecated Usar MODOS_VENTA; se mantiene por compatibilidad. */
 export const TIPOS_VENTA: { value: TipoVenta; label: string }[] = [
   { value: 'LITROS', label: 'Litros' },
   { value: 'PIEZA', label: 'Pieza' },
   { value: 'MAYOREO', label: 'Mayoreo' },
   { value: 'MUESTRA', label: 'Muestra' },
   { value: 'PESOS', label: 'Pesos' },
-  { value: 'RECARGA', label: 'Recarga' },
-  { value: 'PAGO_DE_SERVICIOS', label: 'Pago de servicios' },
 ];

@@ -8,6 +8,8 @@ import {
   CortePeriodo,
   Entrada,
   InventarioItem,
+  InversionItem,
+  InversionResumen,
   MargenConfig,
   MovimientoCaja,
   PrecioHistorico,
@@ -56,6 +58,10 @@ export class ApiService {
     return this.http.post<Entrada>(`${this.base}/entradas`, body);
   }
 
+  crearEntradasLote(body: unknown): Observable<Entrada[]> {
+    return this.http.post<Entrada[]>(`${this.base}/entradas/lote`, body);
+  }
+
   eliminarEntrada(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/entradas/${id}`);
   }
@@ -86,6 +92,10 @@ export class ApiService {
 
   actualizarProducto(id: number, body: unknown): Observable<InventarioItem> {
     return this.http.put<InventarioItem>(`${this.base}/inventario/${id}`, body);
+  }
+
+  eliminarProducto(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/inventario/${id}`);
   }
 
   margenes(): Observable<MargenConfig> {
@@ -176,5 +186,21 @@ export class ApiService {
 
   eliminarApartado(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/apartados/${id}`);
+  }
+
+  inversion(): Observable<InversionResumen> {
+    return this.http.get<InversionResumen>(`${this.base}/inversion`);
+  }
+
+  crearInversion(body: unknown): Observable<InversionItem> {
+    return this.http.post<InversionItem>(`${this.base}/inversion`, body);
+  }
+
+  actualizarInversion(id: number, body: unknown): Observable<InversionItem> {
+    return this.http.put<InversionItem>(`${this.base}/inversion/${id}`, body);
+  }
+
+  eliminarInversion(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/inversion/${id}`);
   }
 }

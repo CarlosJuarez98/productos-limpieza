@@ -42,4 +42,32 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
       @Param("desde") LocalDate desde,
       @Param("hasta") LocalDate hasta,
       @Param("tipos") List<TipoVenta> tipos);
+
+  long countByProducto(Producto producto);
+
+  @Query("""
+      select coalesce(sum(v.total), 0) from Venta v
+      where v.tipoVenta not in :excluidos
+      """)
+  BigDecimal sumTotalExcludingTipos(@Param("excluidos") List<TipoVenta> excluidos);
+
+  @Query("""
+      select coalesce(sum(v.total), 0) from Venta v
+      where v.tipoVenta in :tipos
+      """)
+  BigDecimal sumTotalByTipos(@Param("tipos") List<TipoVenta> tipos);
+
+  /** Costo = cantidad × precioCompra (Litros/Pieza/Mayoreo/etc.). */
+  @Query("""
+      select coalesce(sum(v.cantidad * coalesce(p.precioCompra, 0)), 0)
+      from Venta v join v.producto p
+      where v.tipoVenta in :tipos
+      """)
+  BigDecimal sumCostoUnidadesByTipos(@Param("tipos") List<TipoVenta> tipos);
+
+  @Query("""
+      select v from Venta v join fetch v.producto
+      where v.tipoVenta = :tipo
+      """)
+  List<Venta> findByTipoConProducto(@Param("tipo") TipoVenta tipo);
 }

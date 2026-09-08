@@ -12,12 +12,13 @@ import { ConfirmDialogComponent } from './confirm-dialog.component';
 export class AppComponent {
   readonly links = [
     { path: '/ventas', label: 'Ventas' },
-    { path: '/entradas', label: 'Entradas' },
+    { path: '/entradas', label: 'Entrada de proveedor' },
     { path: '/inventario', label: 'Inventario' },
     { path: '/uso-casa', label: 'Uso en casa' },
     { path: '/traspasos', label: 'Traspasos' },
     { path: '/caja', label: 'Caja' },
     { path: '/apartados', label: 'Apartados' },
+    { path: '/inversion', label: 'Inversión' },
     { path: '/precios', label: 'Histórico precios' },
     { path: '/lista-precios', label: 'Lista precios' },
   ];

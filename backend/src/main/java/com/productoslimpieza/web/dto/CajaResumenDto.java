@@ -27,6 +27,11 @@ public record CajaResumenDto(
     List<LocalDate> fechasCorte,
     /** Último corte marcado (= día anterior al inicio del periodo). */
     LocalDate fechaUltimoCorte,
+    /**
+     * Efectivo del último corte aún disponible para apartar
+     * (contado − fondo − apartados del periodo nuevo). No sube con ventas hasta el siguiente corte.
+     */
+    BigDecimal disponibleParaApartar,
     List<MovimientoCajaDto> retiros,
     List<MovimientoCajaDto> ingresos,
     List<MovimientoCajaDto> retirosTransferencia,

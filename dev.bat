@@ -11,7 +11,7 @@ echo  Productos de limpieza - modo desarrollo
 echo  Oracle (Docker) + API local + Angular hot-reload
 echo ========================================
 echo.
-echo  Este proyecto (no choca con los otros):
+echo  Este proyecto (puertos FIJOS — no usa otros):
 echo    Front  http://127.0.0.1:4202/
 echo    API    http://127.0.0.1:8083/
 echo    Oracle host 1551
@@ -76,10 +76,10 @@ echo [4/4] Liberando puertos 8083 / 4202 si hay Java/Node local viejo...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; foreach($port in 8083,4202){ foreach($c in @(Get-NetTCPConnection -LocalPort $port -State Listen)){ $p=Get-Process -Id $c.OwningProcess -EA SilentlyContinue; if($p -and $p.ProcessName -match 'java|node'){ Write-Host ('  Cerrando ' + $p.ProcessName + ' PID ' + $p.Id); Stop-Process -Id $p.Id -Force } } }"
 
 echo.
-echo Arrancando API (Spring Boot) en otra ventana...
-start "productos-limpieza-api" cmd /k "cd /d ""%~dp0backend"" && mvn spring-boot:run"
+echo Arrancando API (Spring Boot :8083) en otra ventana...
+start "productos-limpieza-api" cmd /k "cd /d ""%~dp0backend"" && mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=8083"
 
-echo Arrancando Angular (hot-reload) en otra ventana...
+echo Arrancando Angular (ng serve :4202 estricto) en otra ventana...
 start "productos-limpieza-front" cmd /k "cd /d ""%~dp0frontend"" && npm start"
 
 echo Esperando front en 4202 y abriendo navegador...

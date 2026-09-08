@@ -29,7 +29,7 @@ export class ConfirmDialogService {
         request: {
           mensaje,
           titulo: opts?.titulo ?? 'Confirmar',
-          confirmarTexto: opts?.confirmarTexto ?? 'Eliminar',
+          confirmarTexto: opts?.confirmarTexto ?? 'Confirmar',
           cancelarTexto: opts?.cancelarTexto ?? 'Cancelar',
         },
         resolve,

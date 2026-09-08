@@ -68,6 +68,8 @@ public class CajaService {
     LocalDate ultimoCorte = corteRepo.findMaxFecha().orElseGet(() ->
         cfg.getFechaInicio() != null ? cfg.getFechaInicio().minusDays(1) : null);
 
+    BigDecimal disponibleApartar = calcularDisponibleParaApartar(cfg, t, desde, hasta);
+
     return new CajaResumenDto(
         cfg.getFechaInicio(),
         cfg.getFechaFin(),
@@ -86,11 +88,72 @@ public class CajaService {
         t.totalNegocio,
         fechasCorte,
         ultimoCorte,
+        disponibleApartar,
         mapMovs(TipoMovimientoCaja.RETIRO, desde, hasta),
         mapMovs(TipoMovimientoCaja.INGRESO, desde, hasta),
         mapMovs(TipoMovimientoCaja.RETIRO_TRANSFERENCIA, desde, hasta),
         mapMovs(TipoMovimientoCaja.TRANSFERENCIA, desde, hasta)
     );
+  }
+
+  /**
+   * Tras un corte: lo apartable = (contado − fondo $200) − ya apartado en el periodo nuevo.
+   * Las ventas del periodo nuevo no aumentan el disponible hasta el siguiente corte.
+   */
+  private BigDecimal calcularDisponibleParaApartar(
+      CajaConfig cfg, Totales tPeriodo, LocalDate desdePeriodo, LocalDate hastaPeriodo) {
+    BigDecimal fondo = nz(cfg.getFondoInicial());
+    if (fondo.compareTo(BigDecimal.ZERO) <= 0) {
+      fondo = FONDO_DEFAULT;
+    }
+    var ultimoOpt = corteRepo.findMaxFecha().flatMap(corteRepo::findByFecha);
+    if (ultimoOpt.isEmpty()) {
+      return tPeriodo.totalCaja.subtract(fondo).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+    }
+    CorteCaja ultimo = ultimoOpt.get();
+    BigDecimal aApartarDelCorte = montoParaApartar(ultimo, fondo);
+    List<CategoriaApartado> cats = List.of(
+        CategoriaApartado.PRODUCTOS, CategoriaApartado.CASA, CategoriaApartado.SALARIOS);
+    BigDecimal apartadosNuevos = nz(apartadoRepo.sumIngresosByCategoriasAndFecha(
+        cats, desdePeriodo, hastaPeriodo));
+    return aApartarDelCorte
+        .subtract(apartadosNuevos)
+        .max(BigDecimal.ZERO)
+        .setScale(2, RoundingMode.HALF_UP);
+  }
+
+  /** Contado − fondo que queda (siempre recalculado). */
+  private BigDecimal montoParaApartar(CorteCaja corte, BigDecimal fondoQueQueda) {
+    return contadoDelCorte(corte)
+        .subtract(fondoQueQueda)
+        .max(BigDecimal.ZERO)
+        .setScale(2, RoundingMode.HALF_UP);
+  }
+
+  private BigDecimal contadoDelCorte(CorteCaja corte) {
+    BigDecimal caja = nz(corte.getTotalCaja());
+    BigDecimal calc =
+        corte.getTotalCalculadora() != null
+                && corte.getTotalCalculadora().compareTo(BigDecimal.ZERO) > 0
+            ? corte.getTotalCalculadora()
+            : BigDecimal.ZERO;
+    return calc.max(caja);
+  }
+
+  /** Completa / corrige paraApartar en cortes (contado − fondo). */
+  @Transactional
+  public void normalizarParaApartarCortes(BigDecimal fondoDefault) {
+    BigDecimal fondo = fondoDefault != null && fondoDefault.compareTo(BigDecimal.ZERO) > 0
+        ? fondoDefault
+        : FONDO_DEFAULT;
+    for (CorteCaja c : corteRepo.findAllByOrderByFechaAsc()) {
+      BigDecimal para = montoParaApartar(c, fondo);
+      if (c.getParaApartar() != null && c.getParaApartar().compareTo(para) == 0) {
+        continue;
+      }
+      c.setParaApartar(para);
+      corteRepo.save(c);
+    }
   }
 
   /**
@@ -141,6 +204,17 @@ public class CajaService {
       diferencia = calculadora.subtract(t.totalCaja).setScale(2, RoundingMode.HALF_UP);
     }
 
+    BigDecimal fondoNuevo = FONDO_DEFAULT;
+    CajaConfig cfgActual = configRepo.findById(1L).orElse(null);
+    if (cfgActual != null && cfgActual.getFondoInicial() != null
+        && cfgActual.getFondoInicial().compareTo(BigDecimal.ZERO) > 0) {
+      fondoNuevo = cfgActual.getFondoInicial();
+    }
+    BigDecimal paraApartar = montoParaApartar(guardado, fondoNuevo);
+    if (guardado.getParaApartar() == null || guardado.getParaApartar().compareTo(paraApartar) != 0) {
+      // detalleCorte es readOnly; el valor va en el DTO. Persistencia al normalizar/marcar.
+    }
+
     return new CortePeriodoDto(
         fechaCorte,
         desde,
@@ -160,6 +234,7 @@ public class CajaService {
         totalNegocio,
         calculadora,
         diferencia,
+        paraApartar,
         mapMovs(TipoMovimientoCaja.RETIRO, desde, hasta),
         mapMovs(TipoMovimientoCaja.INGRESO, desde, hasta),
         mapMovs(TipoMovimientoCaja.RETIRO_TRANSFERENCIA, desde, hasta),
@@ -208,12 +283,21 @@ public class CajaService {
     if (req.totalCalculadora() != null) {
       c.setTotalCalculadora(req.totalCalculadora().setScale(2, RoundingMode.HALF_UP));
     }
-    corteRepo.save(c);
 
     LocalDate inicio = corte.plusDays(1);
     LocalDate hoy = LocalDate.now(ZONA);
     LocalDate fin = hoy.isBefore(inicio) ? inicio : hoy;
     BigDecimal fondo = req.fondoInicial() != null ? req.fondoInicial() : FONDO_DEFAULT;
+
+    // Automático: contado − fondo que queda en caja (default $200).
+    BigDecimal cajaTot = nz(t.totalCaja);
+    BigDecimal calc =
+        c.getTotalCalculadora() != null && c.getTotalCalculadora().compareTo(BigDecimal.ZERO) > 0
+            ? c.getTotalCalculadora()
+            : BigDecimal.ZERO;
+    BigDecimal contado = calc.max(cajaTot);
+    c.setParaApartar(contado.subtract(fondo).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP));
+    corteRepo.save(c);
 
     cfg.setFechaInicio(inicio);
     cfg.setFechaFin(fin);

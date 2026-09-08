@@ -1,21 +1,20 @@
-import { Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { InventarioItem, TIPOS_VENTA, TipoVenta, Venta } from '../../modelos';
+import { InventarioItem, MODOS_VENTA, ModoVenta, TipoVenta, Venta } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 
 interface LineaVenta {
   key: number;
-  tipoVenta: TipoVenta;
+  /** Captura en UI; Menudeo se resuelve a Litros/Pieza según el producto. */
+  modo: ModoVenta;
   productoId: number | null;
   cantidad: number | null;
-  /** Precio unitario cobrado a mano (si va vacío, usa lista/mayoreo). */
   precioManual: number | null;
-  /** Solo mayoreo: total cobrado a mano (alternativa a precio × cantidad). */
   total: number | null;
 }
 
@@ -29,19 +28,15 @@ interface LineaVenta {
 export class VentasComponent implements OnInit {
   ventas: Venta[] = [];
   productos: InventarioItem[] = [];
-  tipos = TIPOS_VENTA;
+  modos = MODOS_VENTA;
   error = '';
   ok = '';
   filtro = '';
   guardando = false;
   fecha = this.hoyLocal();
-  /** Primer día permitido para ventas (= día siguiente al último corte / caja.fechaInicio). */
   fechaMin: string | null = null;
-  /** Día del último corte (no se pueden registrar ventas ≤ esta fecha). */
   fechaUltimoCorte: string | null = null;
-  /** Todas las fechas de corte (BD). */
   private fechasCorte = new Set<string>();
-  /** Último registro (producto) de cada fecha de corte → naranja. */
   private idMarcadoresCorte = new Set<number>();
   lineas: LineaVenta[] = [];
   private nextKey = 1;
@@ -51,7 +46,8 @@ export class VentasComponent implements OnInit {
 
   constructor(
     private api: ApiService,
-    private confirmDlg: ConfirmDialogService
+    private confirmDlg: ConfirmDialogService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   hoyLocal(): string {
@@ -66,7 +62,6 @@ export class VentasComponent implements OnInit {
     return this.hoyLocal();
   }
 
-  /** Suma (o resta) días a yyyy-MM-dd. */
   private sumarDias(iso: string, dias: number): string {
     const [y, m, d] = iso.split('-').map(Number);
     const dt = new Date(y, m - 1, d);
@@ -77,7 +72,6 @@ export class VentasComponent implements OnInit {
     return `${yy}-${mm}-${dd}`;
   }
 
-  /** Ajusta la fecha del lote si queda fuera del rango permitido. */
   private asegurarFechaValida(): void {
     const hoy = this.hoyLocal();
     if (this.fecha > hoy) this.fecha = hoy;
@@ -105,47 +99,48 @@ export class VentasComponent implements OnInit {
     });
   }
 
-  requiereProducto(tipo: TipoVenta): boolean {
-    return !['RECARGA', 'PAGO_DE_SERVICIOS'].includes(tipo);
+  productoDe(l: LineaVenta): InventarioItem | undefined {
+    return this.productos.find((x) => x.id === l.productoId);
   }
 
-  esMayoreo(tipo: TipoVenta): boolean {
-    return tipo === 'MAYOREO';
+  /** Tipo real que se guarda en BD (menudeo → Litros/Pieza del producto). */
+  tipoVentaEfectivo(l: LineaVenta): TipoVenta {
+    if (l.modo === 'MENUDEO') {
+      return this.productoDe(l)?.vendePor === 'PIEZA' ? 'PIEZA' : 'LITROS';
+    }
+    return l.modo;
   }
 
-  /** Solo mayoreo permite precio/total a mano. Litros/Pieza usan histórico. */
-  permitePrecioManual(tipo: TipoVenta): boolean {
-    return tipo === 'MAYOREO';
+  esMayoreo(l: LineaVenta): boolean {
+    return l.modo === 'MAYOREO';
   }
 
-  /** Muestra el menudeo vigente (solo lectura) en Litros/Pieza. */
-  muestraPrecioLista(tipo: TipoVenta): boolean {
-    return tipo === 'LITROS' || tipo === 'PIEZA';
+  permitePrecioManual(l: LineaVenta): boolean {
+    return l.modo === 'MAYOREO';
+  }
+
+  muestraPrecioLista(l: LineaVenta): boolean {
+    return l.modo === 'MENUDEO';
   }
 
   tienePrecioManual(l: LineaVenta): boolean {
     return l.precioManual != null && String(l.precioManual) !== '' && Number(l.precioManual) > 0;
   }
 
-  /** Precio de lista (menudeo) del producto elegido. */
   precioLista(l: LineaVenta): number {
-    const p = this.productos.find((x) => x.id === l.productoId);
+    const p = this.productoDe(l);
     return p ? Number(p.precioVentaHoy) || 0 : 0;
   }
 
-  /** Total que se cobrará (vista previa en la fila). */
   totalEstimado(l: LineaVenta): number | null {
     const cant = Number(l.cantidad);
     if (!Number.isFinite(cant) || cant <= 0) return null;
+    const tipo = this.tipoVentaEfectivo(l);
 
-    if (l.tipoVenta === 'MUESTRA' || l.tipoVenta === 'CASA') {
-      return 0;
-    }
-    if (l.tipoVenta === 'PESOS' || l.tipoVenta === 'RECARGA' || l.tipoVenta === 'PAGO_DE_SERVICIOS') {
-      return Math.round(cant * 100) / 100;
-    }
+    if (tipo === 'MUESTRA' || tipo === 'CASA') return 0;
+    if (tipo === 'PESOS') return Math.round(cant * 100) / 100;
 
-    if (l.tipoVenta === 'MAYOREO') {
+    if (tipo === 'MAYOREO') {
       if (this.tienePrecioManual(l)) {
         return Math.round(Number(l.precioManual) * cant * 100) / 100;
       }
@@ -156,15 +151,13 @@ export class VentasComponent implements OnInit {
       return unitMay > 0 ? Math.round(unitMay * cant * 100) / 100 : null;
     }
 
-    // Litros / Pieza: siempre menudeo del histórico
     if (l.productoId == null) return null;
     const unit = this.precioLista(l);
     return unit > 0 ? Math.round(unit * cant * 100) / 100 : null;
   }
 
-  /** Precio unitario según tramos ≥5 / ≥10. */
   precioUnitarioMayoreo(l: LineaVenta): number {
-    const p = this.productos.find((x) => x.id === l.productoId);
+    const p = this.productoDe(l);
     if (!p) return 0;
     const cant = Number(l.cantidad) || 0;
     if (cant >= 10) return Number(p.precioMayoreo10) || Number(p.precioVentaHoy) || 0;
@@ -173,7 +166,7 @@ export class VentasComponent implements OnInit {
   }
 
   sugerirTotalMayoreo(l: LineaVenta): void {
-    if (!this.esMayoreo(l.tipoVenta) || this.tienePrecioManual(l)) return;
+    if (!this.esMayoreo(l) || this.tienePrecioManual(l)) return;
     if (l.productoId == null || l.cantidad == null) return;
     const unit = this.precioUnitarioMayoreo(l);
     const cant = Number(l.cantidad);
@@ -182,16 +175,14 @@ export class VentasComponent implements OnInit {
     }
   }
 
-  /** Total a enviar al API (null = que calcule el backend con histórico). */
   totalParaGuardar(l: LineaVenta): number | null {
-    if (l.tipoVenta === 'LITROS' || l.tipoVenta === 'PIEZA') {
-      return null; // backend usa menudeo del histórico
-    }
+    const tipo = this.tipoVentaEfectivo(l);
+    if (tipo === 'LITROS' || tipo === 'PIEZA') return null;
     if (this.tienePrecioManual(l)) {
       const t = this.totalEstimado(l);
       return t != null ? t : null;
     }
-    if (this.esMayoreo(l.tipoVenta) && l.total != null && Number(l.total) > 0) {
+    if (tipo === 'MAYOREO' && l.total != null && Number(l.total) > 0) {
       return Number(l.total);
     }
     return null;
@@ -218,7 +209,6 @@ export class VentasComponent implements OnInit {
     });
   }
 
-  /** Solo el último producto/venta de cada fecha de corte. */
   esRegistroCorte(v: Venta): boolean {
     return this.idMarcadoresCorte.has(v.id);
   }
@@ -238,34 +228,22 @@ export class VentasComponent implements OnInit {
     this.lineas.push(this.nuevaLinea());
   }
 
-  /** Enter en producto → cantidad de la misma fila. */
   onProductoEnter(index: number): void {
     setTimeout(() => this.focusCantidad(index), 0);
   }
 
-  /** Enter en cantidad → producto de la siguiente fila (crea fila si hace falta). */
   onCantidadEnter(ev: Event, index: number): void {
     ev.preventDefault();
     const irA = index + 1;
     if (irA >= this.lineas.length) {
       this.agregarLinea();
+      this.cdr.detectChanges();
     }
-    setTimeout(() => {
-      const l = this.lineas[irA];
-      if (l && this.requiereProducto(l.tipoVenta)) {
-        this.focusProducto(irA);
-      } else {
-        this.focusCantidad(irA);
-      }
-    }, 0);
+    setTimeout(() => this.focusProducto(irA), 0);
   }
 
   private focusProducto(index: number): void {
-    // ViewChildren solo incluye filas con autocomplete
-    const autoIndex =
-      this.lineas.slice(0, index + 1).filter((l) => this.requiereProducto(l.tipoVenta)).length - 1;
-    if (autoIndex < 0) return;
-    this.prodAutos?.get(autoIndex)?.focus();
+    this.prodAutos?.get(index)?.focus();
   }
 
   private focusCantidad(index: number): void {
@@ -314,11 +292,11 @@ export class VentasComponent implements OnInit {
         this.error = 'Cada venta necesita cantidad mayor a 0';
         return;
       }
-      if (this.requiereProducto(l.tipoVenta) && l.productoId == null) {
-        this.error = 'Elige un producto del inventario en cada fila que lo requiera';
+      if (l.productoId == null) {
+        this.error = 'Elige un producto del inventario en cada fila';
         return;
       }
-      if (this.esMayoreo(l.tipoVenta) && !this.tienePrecioManual(l)) {
+      if (this.esMayoreo(l) && !this.tienePrecioManual(l)) {
         if (l.total == null || Number(l.total) <= 0) {
           this.sugerirTotalMayoreo(l);
         }
@@ -333,8 +311,8 @@ export class VentasComponent implements OnInit {
     const requests = pendientes.map((l) =>
       this.api.crearVenta({
         fecha: this.fecha,
-        productoId: this.requiereProducto(l.tipoVenta) ? l.productoId : null,
-        tipoVenta: l.tipoVenta,
+        productoId: l.productoId,
+        tipoVenta: this.tipoVentaEfectivo(l),
         cantidad: Number(l.cantidad),
         total: this.totalParaGuardar(l),
       })
@@ -356,7 +334,7 @@ export class VentasComponent implements OnInit {
   }
 
   async eliminar(id: number): Promise<void> {
-    const ok = await this.confirmDlg.ask('¿Eliminar esta venta?');
+    const ok = await this.confirmDlg.ask('¿Eliminar esta venta?', { confirmarTexto: 'Eliminar' });
     if (!ok) return;
     this.api.eliminarVenta(id).subscribe({
       next: () => this.cargar(),
@@ -380,7 +358,7 @@ export class VentasComponent implements OnInit {
   private nuevaLinea(): LineaVenta {
     return {
       key: this.nextKey++,
-      tipoVenta: 'LITROS',
+      modo: 'MENUDEO',
       productoId: null,
       cantidad: null,
       precioManual: null,
