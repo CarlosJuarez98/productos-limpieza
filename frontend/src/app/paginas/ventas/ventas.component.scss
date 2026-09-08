@@ -22,9 +22,13 @@ table.lote input[type='text'] {
   min-width: 0;
 }
 
-table.lote td:nth-child(3) {
+table.lote td:nth-child(2) {
   min-width: 0;
   width: 28%;
+}
+
+table.lote td:nth-child(3) {
+  width: 8.5rem;
 }
 
 table.lote td:nth-child(5) .precio-input {

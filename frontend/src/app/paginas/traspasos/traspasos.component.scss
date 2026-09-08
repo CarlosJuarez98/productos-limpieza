@@ -1,0 +1,102 @@
+.stat.warn-stat strong {
+  color: var(--danger);
+}
+
+.hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.9rem;
+}
+
+.dos-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+tr.debe td {
+  background: #fff5f4;
+}
+
+tr.ok-row td {
+  background: #f3faf5;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.badge.debe {
+  background: #fdeceb;
+  color: var(--danger);
+}
+
+.badge.ok {
+  background: #e6f6ec;
+  color: var(--ok);
+}
+
+.badge.favor {
+  background: #eef4ff;
+  color: #2a4d8f;
+}
+
+.actions {
+  white-space: nowrap;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.icon-btn svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: currentColor;
+}
+
+.icon-btn.danger {
+  color: var(--danger);
+}
+
+.icon-btn.danger:hover {
+  background: #fdeceb;
+}
+
+.lineas-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.lineas-list li {
+  margin: 0.1rem 0;
+}
+
+table.lote td input,
+table.lote td app-producto-autocomplete {
+  min-width: 10rem;
+  width: 100%;
+}
+
+.lote-wrap {
+  overflow: visible;
+}
+
+.lote-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

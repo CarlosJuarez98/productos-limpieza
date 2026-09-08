@@ -215,7 +215,7 @@ export class UsoCasaComponent implements OnInit {
   }
 
   async eliminar(id: number): Promise<void> {
-    const ok = await this.confirmDlg.ask('¿Eliminar este uso en casa?');
+    const ok = await this.confirmDlg.ask('¿Eliminar este uso en casa?', { confirmarTexto: 'Eliminar' });
     if (!ok) return;
     this.api.eliminarVenta(id).subscribe({
       next: () => this.cargar(),

@@ -12,3 +12,60 @@ h3 {
   color: var(--ok);
   margin: 0.4rem 0 0;
 }
+
+.lote-wrap {
+  overflow: visible;
+  margin-top: 0.75rem;
+}
+
+.lote-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.65rem;
+}
+
+table.lote td input,
+table.lote td app-producto-autocomplete {
+  min-width: 8rem;
+  width: 100%;
+}
+
+.precio-input {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.precio-input .peso {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.precio-input input {
+  min-width: 0;
+  width: 100%;
+}
+
+tr.bajo td {
+  background: rgba(31, 107, 79, 0.08);
+}
+
+.badge-cambio {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-cambio.subio {
+  color: var(--warn);
+}
+
+.badge-cambio.bajo {
+  color: var(--ok);
+}
+
+.badge-cambio.igual {
+  color: var(--muted);
+}

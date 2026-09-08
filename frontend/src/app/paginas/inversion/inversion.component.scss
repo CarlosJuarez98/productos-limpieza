@@ -1,0 +1,80 @@
+.stat small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+}
+
+.al-dia {
+  margin: -0.35rem 0 0.85rem;
+  font-size: 0.88rem;
+}
+
+.stat.destacado.ok strong {
+  color: var(--ok);
+}
+
+.stat.destacado.malo strong {
+  color: var(--danger);
+}
+
+.ok-msg {
+  color: var(--ok);
+  margin: 0 0 0.75rem;
+}
+
+.precio-input {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.precio-input .peso {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.precio-input input {
+  width: 100%;
+  min-width: 0;
+}
+
+.form-infra {
+  margin-bottom: 0.75rem;
+}
+
+.actions {
+  white-space: nowrap;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.icon-btn svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: currentColor;
+}
+
+.icon-btn:hover {
+  background: #f4f8f5;
+}
+
+.icon-btn.danger {
+  color: var(--danger);
+}
+
+.icon-btn.danger:hover {
+  background: #fdeceb;
+}

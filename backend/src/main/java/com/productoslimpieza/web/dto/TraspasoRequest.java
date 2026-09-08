@@ -1,14 +1,15 @@
 package com.productoslimpieza.web.dto;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record TraspasoRequest(
     @NotNull LocalDate fecha,
-    @NotNull Long productoId,
-    @NotNull @Positive BigDecimal cantidad,
-    String persona,
-    String nota
+    @NotBlank String persona,
+    String nota,
+    @NotEmpty @Valid List<TraspasoLineaRequest> lineas
 ) {}

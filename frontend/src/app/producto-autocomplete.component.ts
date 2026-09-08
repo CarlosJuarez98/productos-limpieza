@@ -45,6 +45,12 @@ import { InventarioItem } from './modelos';
               (mouseenter)="indiceActivo = i"
             >
               {{ p.nombre }}
+              @if (mostrarExtra === 'stock') {
+                <span class="extra">stock {{ p.stockActual | number: '1.0-2' }}</span>
+              }
+              @if (mostrarExtra === 'compra') {
+                <span class="extra">compra \${{ p.precioCompra | number: '1.2-2' }}</span>
+              }
             </li>
           } @empty {
             <li class="vacio">Sin coincidencia en inventario</li>
@@ -103,6 +109,11 @@ import { InventarioItem } from './modelos';
       .sugerencias li.vacio:hover {
         background: transparent;
       }
+      .sugerencias li .extra {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
     `,
   ],
 })
@@ -112,6 +123,8 @@ export class ProductoAutocompleteComponent implements OnChanges {
   @Input() required = false;
   @Input() placeholder = 'Escribe el producto...';
   @Input() inputName = 'productoTexto';
+  /** Extra en sugerencias: stock (inventario) o precio compra. */
+  @Input() mostrarExtra: 'ninguno' | 'stock' | 'compra' = 'ninguno';
   @Output() productoIdChange = new EventEmitter<number | null>();
   /** Enter con producto listo: el padre puede pasar a cantidad / siguiente fila. */
   @Output() enterConfirmado = new EventEmitter<void>();

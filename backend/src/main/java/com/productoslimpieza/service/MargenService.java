@@ -68,7 +68,7 @@ public class MargenService {
     return toDto(c);
   }
 
-  /** Recalcula y sobrescribe menudeo + mayoreo según márgenes y precio de compra. */
+  /** Recalcula solo ≥5 L / ≥10 L desde % mayoreo y compra. No toca menudeo ni histórico. */
   @Transactional
   public MargenConfigDto aplicarPrecios() {
     MargenConfig c = getConfig();

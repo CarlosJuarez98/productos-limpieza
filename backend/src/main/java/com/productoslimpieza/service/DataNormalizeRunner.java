@@ -2,12 +2,16 @@ package com.productoslimpieza.service;
 
 import com.productoslimpieza.domain.Apartado;
 import com.productoslimpieza.domain.CajaConfig;
+import com.productoslimpieza.domain.CorteCaja;
+import com.productoslimpieza.domain.Producto;
 import com.productoslimpieza.domain.TipoMovimientoApartado;
 import com.productoslimpieza.domain.TipoVenta;
+import com.productoslimpieza.domain.UnidadVenta;
 import com.productoslimpieza.domain.Venta;
 import com.productoslimpieza.repo.ApartadoRepository;
 import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.CorteCajaRepository;
+import com.productoslimpieza.repo.ProductoRepository;
 import com.productoslimpieza.repo.VentaRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -41,6 +45,7 @@ public class DataNormalizeRunner implements ApplicationRunner {
   private final ApartadoRepository apartadoRepo;
   private final CorteCajaRepository corteRepo;
   private final CajaConfigRepository cajaConfigRepo;
+  private final ProductoRepository productoRepo;
   private final DataSource dataSource;
   private final TransactionTemplate txTemplate;
 
@@ -49,12 +54,14 @@ public class DataNormalizeRunner implements ApplicationRunner {
       ApartadoRepository apartadoRepo,
       CorteCajaRepository corteRepo,
       CajaConfigRepository cajaConfigRepo,
+      ProductoRepository productoRepo,
       DataSource dataSource,
       PlatformTransactionManager txManager) {
     this.ventaRepo = ventaRepo;
     this.apartadoRepo = apartadoRepo;
     this.corteRepo = corteRepo;
     this.cajaConfigRepo = cajaConfigRepo;
+    this.productoRepo = productoRepo;
     this.dataSource = dataSource;
     this.txTemplate = new TransactionTemplate(txManager);
   }
@@ -66,6 +73,8 @@ public class DataNormalizeRunner implements ApplicationRunner {
       normalizarVentasMuestraCero();
       normalizarApartadosTipo();
       alinearPeriodoAlUltimoCorte();
+      normalizarParaApartarCortes();
+      normalizarVendePorProductos();
     });
   }
 
@@ -155,6 +164,61 @@ public class DataNormalizeRunner implements ApplicationRunner {
           cfg.getFechaInicio(),
           cfg.getFechaFin(),
           cfg.getFondoInicial());
+    }
+  }
+
+  /** paraApartar = contado (o total caja) − fondo $200 que queda en caja. */
+  private void normalizarParaApartarCortes() {
+    BigDecimal fondo = FONDO_POST_CORTE;
+    CajaConfig cfg = cajaConfigRepo.findById(1L).orElse(null);
+    if (cfg != null && cfg.getFondoInicial() != null && cfg.getFondoInicial().compareTo(BigDecimal.ZERO) > 0) {
+      fondo = cfg.getFondoInicial();
+    }
+    int n = 0;
+    for (CorteCaja c : corteRepo.findAllByOrderByFechaAsc()) {
+      BigDecimal cajaTot = c.getTotalCaja() != null ? c.getTotalCaja() : BigDecimal.ZERO;
+      BigDecimal calc =
+          c.getTotalCalculadora() != null && c.getTotalCalculadora().compareTo(BigDecimal.ZERO) > 0
+              ? c.getTotalCalculadora()
+              : BigDecimal.ZERO;
+      BigDecimal contado = calc.max(cajaTot);
+      BigDecimal para = contado.subtract(fondo).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+      if (c.getParaApartar() != null && c.getParaApartar().compareTo(para) == 0) {
+        continue;
+      }
+      c.setParaApartar(para);
+      corteRepo.save(c);
+      n++;
+      log.info(
+          "Corte {}: paraApartar=${} (contado ${} − fondo ${})",
+          c.getFecha(),
+          para,
+          contado,
+          fondo);
+    }
+    if (n > 0) {
+      log.info("Completado paraApartar en {} corte(s)", n);
+    }
+  }
+
+  /** Completa vendePor en productos (default Litros; Pieza si el nombre lo sugiere). */
+  private void normalizarVendePorProductos() {
+    int n = 0;
+    for (Producto p : productoRepo.findAll()) {
+      if (p.getVendePor() != null) {
+        continue;
+      }
+      String nom = p.getNombre() != null ? p.getNombre().toLowerCase() : "";
+      UnidadVenta u =
+          nom.contains("pieza") || nom.contains(" pza") || nom.endsWith(" pza") || nom.contains("pz ")
+              ? UnidadVenta.PIEZA
+              : UnidadVenta.LITROS;
+      p.setVendePor(u);
+      productoRepo.save(p);
+      n++;
+    }
+    if (n > 0) {
+      log.info("Asignado vendePor a {} producto(s)", n);
     }
   }
 }

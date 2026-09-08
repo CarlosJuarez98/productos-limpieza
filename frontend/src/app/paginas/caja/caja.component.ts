@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
@@ -25,6 +25,8 @@ interface BloqueMov {
   styleUrl: './caja.component.scss',
 })
 export class CajaComponent implements OnInit {
+  @ViewChildren('denInput') denInputs!: QueryList<ElementRef<HTMLInputElement>>;
+
   caja: CajaResumen | null = null;
   error = '';
   ok = '';
@@ -57,7 +59,7 @@ export class CajaComponent implements OnInit {
   mov = {
     fecha: this.hoyLocal(),
     tipo: 'RETIRO' as TipoMovimientoCaja,
-    monto: 0,
+    monto: null as number | null,
     motivo: '',
   };
 
@@ -127,7 +129,7 @@ export class CajaComponent implements OnInit {
       return 'Sin conteo de billetes guardado en este corte (solo totales del periodo).';
     }
     const x = Number(d.diferencia);
-    if (Math.abs(x) < 0.005) return 'Cuadró: contado = total caja.';
+    if (Math.abs(x) < 0.005) return '';
     if (x < 0) return `Faltaron $${Math.abs(x).toFixed(2)}.`;
     return `Sobraron $${x.toFixed(2)}.`;
   }
@@ -178,6 +180,15 @@ export class CajaComponent implements OnInit {
     return Math.round(d.valor * c * 100) / 100;
   }
 
+  /** Enter en una denominación → siguiente campo. */
+  onDenEnter(ev: Event, index: number): void {
+    ev.preventDefault();
+    const siguiente = this.denInputs?.get(index + 1)?.nativeElement;
+    if (!siguiente) return;
+    siguiente.focus();
+    siguiente.select();
+  }
+
   /** Total de la calculadora de efectivo. */
   get totalCalculadora(): number {
     return Math.round(this.denominaciones.reduce((s, d) => s + this.totalLinea(d), 0) * 100) / 100;
@@ -187,22 +198,6 @@ export class CajaComponent implements OnInit {
   get diferenciaCaja(): number {
     if (!this.caja) return 0;
     return Math.round((this.totalCalculadora - Number(this.caja.totalCaja)) * 100) / 100;
-  }
-
-  get mensajeDiferencia(): string {
-    if (!this.caja || this.totalCalculadora <= 0) return '';
-    const d = this.diferenciaCaja;
-    const periodo =
-      this.caja.fechaInicio && this.caja.fechaFin
-        ? ` del periodo (${formatFechaDmY(this.caja.fechaInicio)} → ${formatFechaDmY(this.caja.fechaFin)})`
-        : ' del periodo';
-    if (Math.abs(d) < 0.005) {
-      return `Cuadra: el efectivo contado coincide con las ventas y movimientos${periodo}.`;
-    }
-    if (d < 0) {
-      return `Faltan $${Math.abs(d).toFixed(2)}: el contado es menor que el total caja${periodo}.`;
-    }
-    return `Sobran $${d.toFixed(2)} vs el total caja${periodo}.`;
   }
 
   get estadoDiferencia(): 'ok' | 'faltante' | 'sobrante' | null {
@@ -317,18 +312,31 @@ export class CajaComponent implements OnInit {
   }
 
   guardarMovimiento(): void {
-    this.api.crearMovimientoCaja(this.mov).subscribe({
-      next: () => {
-        this.mov.monto = 0;
-        this.mov.motivo = '';
-        this.cargar();
-      },
-      error: (e) => (this.error = e.error?.error || 'Error al guardar movimiento'),
-    });
+    this.error = '';
+    const monto = Number(this.mov.monto);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      this.error = 'Indica el monto del movimiento';
+      return;
+    }
+    this.api
+      .crearMovimientoCaja({
+        fecha: this.mov.fecha,
+        tipo: this.mov.tipo,
+        monto,
+        motivo: this.mov.motivo || null,
+      })
+      .subscribe({
+        next: () => {
+          this.mov.monto = null;
+          this.mov.motivo = '';
+          this.cargar();
+        },
+        error: (e) => (this.error = e.error?.error || 'Error al guardar movimiento'),
+      });
   }
 
   async eliminar(id: number): Promise<void> {
-    const ok = await this.confirmDlg.ask('¿Eliminar movimiento?');
+    const ok = await this.confirmDlg.ask('¿Eliminar movimiento?', { confirmarTexto: 'Eliminar' });
     if (!ok) return;
     this.api.eliminarMovimientoCaja(id).subscribe({ next: () => this.cargar() });
   }

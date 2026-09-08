@@ -172,6 +172,26 @@ th {
   color: #335244;
 }
 
+tbody tr:hover:not(.fila-edicion):not(.editando-fila) > td {
+  background: #e8f3ec;
+}
+
+tbody tr.warn:hover:not(.fila-edicion):not(.editando-fila) > td {
+  background: #f0e6dc;
+}
+
+tbody tr.danger:hover:not(.fila-edicion):not(.editando-fila) > td {
+  background: #f3e0e0;
+}
+
+tbody tr.ganancia-alta:hover:not(.fila-edicion):not(.editando-fila) > td {
+  background: #dcebE4;
+}
+
+tbody tr.gasto:hover:not(.fila-edicion):not(.editando-fila) > td {
+  background: #f3e8e8;
+}
+
 tr.warn td {
   background: rgba(154, 75, 31, 0.08);
 }

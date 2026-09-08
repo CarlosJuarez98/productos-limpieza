@@ -84,6 +84,11 @@ public class ApiController {
     return entradaService.crear(req);
   }
 
+  @PostMapping("/entradas/lote")
+  public List<EntradaDto> crearEntradasLote(@Valid @RequestBody EntradasLoteRequest req) {
+    return entradaService.crearLote(req);
+  }
+
   @PutMapping("/entradas/{id}")
   public EntradaDto actualizarEntrada(@PathVariable Long id, @Valid @RequestBody EntradaRequest req) {
     return entradaService.actualizar(id, req);
@@ -127,6 +132,11 @@ public class ApiController {
   @PutMapping("/inventario/{id}")
   public InventarioDto actualizarProducto(@PathVariable Long id, @Valid @RequestBody ProductoRequest req) {
     return inventarioService.actualizar(id, req);
+  }
+
+  @DeleteMapping("/inventario/{id}")
+  public void eliminarProducto(@PathVariable Long id) {
+    inventarioService.eliminar(id);
   }
 
   @GetMapping("/margenes")
@@ -238,5 +248,21 @@ public class ApiController {
   @GetMapping("/inversion")
   public InversionResumenDto inversion() {
     return inversionService.resumen();
+  }
+
+  @PostMapping("/inversion")
+  public InversionItemDto crearInversion(@Valid @RequestBody InversionItemRequest req) {
+    return inversionService.crear(req);
+  }
+
+  @PutMapping("/inversion/{id}")
+  public InversionItemDto actualizarInversion(
+      @PathVariable Long id, @Valid @RequestBody InversionItemRequest req) {
+    return inversionService.actualizar(id, req);
+  }
+
+  @DeleteMapping("/inversion/{id}")
+  public void eliminarInversion(@PathVariable Long id) {
+    inversionService.eliminar(id);
   }
 }

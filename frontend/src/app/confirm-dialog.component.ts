@@ -12,6 +12,7 @@ import { ConfirmDialogService, ConfirmRequest } from './confirm-dialog.service';
       <div class="overlay" (click)="cancelar()" role="presentation">
         <div
           class="dialog"
+          tabindex="-1"
           (click)="$event.stopPropagation()"
           role="dialog"
           aria-modal="true"
@@ -55,6 +56,7 @@ import { ConfirmDialogService, ConfirmRequest } from './confirm-dialog.service';
         border-radius: 0.75rem;
         padding: 1.25rem 1.35rem;
         box-shadow: 0 20px 50px rgba(22, 53, 40, 0.22);
+        outline: none;
       }
       .dialog h3 {
         margin: 0 0 0.55rem;
@@ -78,6 +80,7 @@ export class ConfirmDialogComponent implements OnInit, OnDestroy {
   abierto = false;
   req: ConfirmRequest | null = null;
   private sub?: Subscription;
+  private abiertoEn = 0;
 
   constructor(private confirm: ConfirmDialogService) {}
 
@@ -91,8 +94,10 @@ export class ConfirmDialogComponent implements OnInit, OnDestroy {
       this.abierto = !!pending;
       this.req = pending?.request ?? null;
       if (this.abierto) {
+        this.abiertoEn = Date.now();
+        // Evita que Enter del submit abra y confirme en el mismo golpe.
         setTimeout(() => {
-          document.querySelector<HTMLButtonElement>('.dialog .actions button:last-child')?.focus();
+          document.querySelector<HTMLElement>('.dialog')?.focus();
         });
       }
     });
@@ -105,11 +110,14 @@ export class ConfirmDialogComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   onKeydown(ev: KeyboardEvent): void {
     if (!this.abierto) return;
+    if (Date.now() - this.abiertoEn < 120) return;
     if (ev.key === 'Enter') {
       ev.preventDefault();
+      ev.stopPropagation();
       this.aceptar();
     } else if (ev.key === 'Escape') {
       ev.preventDefault();
+      ev.stopPropagation();
       this.cancelar();
     }
   }

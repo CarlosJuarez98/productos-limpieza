@@ -68,6 +68,11 @@ public class PrecioHistoricoService {
     precioRepo.deleteById(id);
   }
 
+  @Transactional
+  public void eliminarPorProducto(Producto producto) {
+    precioRepo.deleteByProducto(producto);
+  }
+
   private PrecioHistoricoDto toDto(PrecioHistorico p) {
     return new PrecioHistoricoDto(
         p.getId(),

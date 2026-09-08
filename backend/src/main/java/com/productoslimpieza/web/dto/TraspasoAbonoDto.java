@@ -7,6 +7,7 @@ public record TraspasoAbonoDto(
     Long id,
     LocalDate fecha,
     BigDecimal monto,
+    Long personaId,
     String persona,
     String nota
 ) {}

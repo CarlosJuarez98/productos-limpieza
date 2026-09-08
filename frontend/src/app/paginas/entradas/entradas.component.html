@@ -1,37 +1,132 @@
-<h2 class="page-title">Entradas</h2>
+<h2 class="page-title">Entrada de proveedor</h2>
 
 <section class="panel">
-  <h3>Compra / entrada de proveedor</h3>
-  <form class="form-grid" (ngSubmit)="guardar()">
+  <div class="toolbar">
     <label>
-      Fecha
-      <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
-    </label>
-    <label>
-      Producto
-      <app-producto-autocomplete
-        [productos]="productos"
-        [(productoId)]="form.productoId"
-        [required]="true"
+      Fecha (todas las filas)
+      <input
+        type="date"
+        [(ngModel)]="fecha"
+        name="fechaLote"
+        [max]="fechaMax"
+        required
       />
     </label>
     <label>
-      Cantidad agregada
-      <input type="number" step="0.01" min="0" [(ngModel)]="form.cantidad" name="cantidad" required />
-    </label>
-    <label>
-      Precio proveedor
-      <input type="number" step="0.01" min="0" [(ngModel)]="form.precioProveedor" name="precioProveedor" />
-    </label>
-    <label>
       Actualizar precio compra
-      <select [(ngModel)]="form.actualizarPrecioCompra" name="actualizarPrecioCompra">
+      <select [(ngModel)]="actualizarPrecioCompra" name="actualizarPrecioCompra">
         <option [ngValue]="true">Sí</option>
         <option [ngValue]="false">No</option>
       </select>
     </label>
-    <button type="submit">Registrar entrada</button>
-  </form>
+    <span class="muted">Total lote: ${{ totalLote | number: '1.2-2' }}</span>
+  </div>
+
+  <div class="table-wrap lote-wrap">
+    <table class="lote">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Precio proveedor $</th>
+          <th>Última compra</th>
+          <th>Cambio</th>
+          <th>Total $</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of lineas; track l.key; let i = $index) {
+          <tr
+            [class.warn]="cambioLinea(l) === 'SUBIO'"
+            [class.bajo]="cambioLinea(l) === 'BAJO'"
+          >
+            <td class="muted">{{ i + 1 }}</td>
+            <td>
+              <app-producto-autocomplete
+                #prodLote
+                [productos]="productos"
+                [productoId]="l.productoId"
+                [inputName]="'prod' + l.key"
+                (productoIdChange)="onProductoChange(l, $event)"
+                (enterConfirmado)="onProductoEnter(i)"
+              />
+            </td>
+            <td>
+              <input
+                #cantInput
+                type="text"
+                inputmode="decimal"
+                [(ngModel)]="l.cantidad"
+                [name]="'cant' + l.key"
+                placeholder="0"
+                (keydown.enter)="onCantidadEnter($event, i)"
+              />
+            </td>
+            <td>
+              <div class="precio-input">
+                <span class="peso">$</span>
+                <input
+                  #precioInput
+                  type="text"
+                  inputmode="decimal"
+                  [(ngModel)]="l.precioProveedor"
+                  [name]="'precio' + l.key"
+                  [placeholder]="ultimaCompra(l.productoId) != null ? (ultimaCompra(l.productoId) | number: '1.2-2') : '0'"
+                  (keydown.enter)="onPrecioEnter($event, i)"
+                />
+              </div>
+            </td>
+            <td>
+              @if (ultimaCompra(l.productoId) != null) {
+                <span class="money muted">${{ ultimaCompra(l.productoId) | number: '1.2-2' }}</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td>
+              @switch (cambioLinea(l)) {
+                @case ('SUBIO') {
+                  <span class="badge-cambio subio" title="Subió vs última compra">
+                    Subió +${{ diffAbsLinea(l) | number: '1.2-2' }}
+                  </span>
+                }
+                @case ('BAJO') {
+                  <span class="badge-cambio bajo" title="Bajó vs última compra">
+                    Bajó −${{ diffAbsLinea(l) | number: '1.2-2' }}
+                  </span>
+                }
+                @case ('IGUAL') {
+                  <span class="badge-cambio igual">Igual</span>
+                }
+                @default {
+                  <span class="muted">—</span>
+                }
+              }
+            </td>
+            <td>
+              @if (totalLinea(l) != null) {
+                <span class="money">${{ totalLinea(l) | number: '1.2-2' }}</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="actions">
+              <button type="button" class="danger" (click)="quitarLinea(i)" title="Quitar fila">×</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="toolbar lote-actions">
+    <button type="button" class="secondary" (click)="agregarLinea()">+ Agregar fila</button>
+    <button type="button" (click)="guardar()" [disabled]="guardando">
+      {{ guardando ? 'Guardando...' : 'Registrar entradas' }}
+    </button>
+  </div>
   @if (error) {
     <p class="error">{{ error }}</p>
   }
@@ -42,7 +137,13 @@
   <form class="form-grid" (ngSubmit)="guardarPreparacion()">
     <label>
       Fecha
-      <input type="date" [(ngModel)]="prep.fecha" name="prepFecha" required />
+      <input
+        type="date"
+        [(ngModel)]="prep.fecha"
+        name="prepFecha"
+        [max]="fechaMax"
+        required
+      />
     </label>
     <label>
       Producto preparado
@@ -57,11 +158,11 @@
     <label>
       Cantidad preparada
       <input
-        type="number"
-        step="0.01"
-        min="0"
+        type="text"
+        inputmode="decimal"
         [(ngModel)]="prep.cantidadResultado"
         name="prepCantRes"
+        placeholder="0"
         required
       />
     </label>
@@ -76,6 +177,7 @@
         inputmode="decimal"
         [(ngModel)]="prep.cantidadInsumo"
         name="prepCantIns"
+        placeholder="0"
         required
       />
     </label>
@@ -129,21 +231,38 @@
           <th>Cantidad</th>
           <th>Precio proveedor</th>
           <th>Total</th>
-          <th>Precio compra anterior</th>
-          <th>¿Subió?</th>
+          <th>Última compra</th>
+          <th>Cambio</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         @for (e of entradas; track e.id) {
-          <tr [class.warn]="e.precioMayor">
+          <tr [class.warn]="e.precioMayor" [class.bajo]="e.precioMenor">
             <td>{{ e.fecha | fechaDmY }}</td>
             <td>{{ e.productoNombre }}</td>
             <td class="money">{{ e.cantidad | number: '1.2-2' }}</td>
             <td class="money">{{ e.precioProveedor != null ? ('$' + (e.precioProveedor | number: '1.2-2')) : '—' }}</td>
             <td class="money">{{ e.total != null ? ('$' + (e.total | number: '1.2-2')) : '—' }}</td>
-            <td class="money">${{ e.precioCompraAnterior | number: '1.2-2' }}</td>
-            <td>{{ e.precioMayor ? 'SÍ' : 'No' }}</td>
+            <td class="money">
+              {{ e.precioCompraAnterior != null ? ('$' + (e.precioCompraAnterior | number: '1.2-2')) : '—' }}
+            </td>
+            <td>
+              @switch (cambioEntrada(e)) {
+                @case ('SUBIO') {
+                  <span class="badge-cambio subio">Subió</span>
+                }
+                @case ('BAJO') {
+                  <span class="badge-cambio bajo">Bajó</span>
+                }
+                @case ('IGUAL') {
+                  <span class="badge-cambio igual">Igual</span>
+                }
+                @default {
+                  <span class="muted">—</span>
+                }
+              }
+            </td>
             <td class="actions">
               <button type="button" class="danger" (click)="eliminar(e.id)">Eliminar</button>
             </td>

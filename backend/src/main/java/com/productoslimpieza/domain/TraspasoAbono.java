@@ -18,8 +18,13 @@ public class TraspasoAbono {
   @Column(nullable = false, precision = 14, scale = 4)
   private BigDecimal monto;
 
-  @Column(length = 120)
-  private String persona;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "persona_id")
+  private Persona persona;
+
+  /** Legado: texto libre; se migra a persona_id. */
+  @Column(name = "persona", length = 120)
+  private String personaNombre;
 
   @Column(length = 255)
   private String nota;
@@ -30,8 +35,10 @@ public class TraspasoAbono {
   public void setFecha(LocalDate fecha) { this.fecha = fecha; }
   public BigDecimal getMonto() { return monto; }
   public void setMonto(BigDecimal monto) { this.monto = monto; }
-  public String getPersona() { return persona; }
-  public void setPersona(String persona) { this.persona = persona; }
+  public Persona getPersona() { return persona; }
+  public void setPersona(Persona persona) { this.persona = persona; }
+  public String getPersonaNombre() { return personaNombre; }
+  public void setPersonaNombre(String personaNombre) { this.personaNombre = personaNombre; }
   public String getNota() { return nota; }
   public void setNota(String nota) { this.nota = nota; }
 }

@@ -140,6 +140,10 @@ public class VentaService {
       }
       producto = productoRepo.findById(req.productoId())
           .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
+      if (!producto.isActivo()) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST, "El producto está dado de baja del inventario");
+      }
     }
     v.setFecha(req.fecha());
     v.setProducto(producto);

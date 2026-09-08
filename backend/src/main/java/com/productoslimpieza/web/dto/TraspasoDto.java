@@ -2,15 +2,14 @@ package com.productoslimpieza.web.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record TraspasoDto(
     Long id,
     LocalDate fecha,
-    Long productoId,
-    String productoNombre,
-    BigDecimal cantidad,
-    BigDecimal precioCompra,
-    BigDecimal total,
+    Long personaId,
     String persona,
-    String nota
+    String nota,
+    BigDecimal total,
+    List<TraspasoLineaDto> lineas
 ) {}

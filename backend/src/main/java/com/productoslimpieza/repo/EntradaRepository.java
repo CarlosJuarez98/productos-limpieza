@@ -13,4 +13,16 @@ public interface EntradaRepository extends JpaRepository<Entrada, Long> {
 
   @Query("select coalesce(sum(e.cantidad), 0) from Entrada e where e.producto = :producto")
   BigDecimal sumCantidadByProducto(@Param("producto") Producto producto);
+
+  @Query("select coalesce(sum(e.total), 0) from Entrada e")
+  BigDecimal sumTotal();
+
+  long countByProducto(Producto producto);
+
+  java.util.Optional<Entrada> findFirstByProductoIdAndPrecioProveedorIsNotNullOrderByFechaDescIdDesc(
+      Long productoId);
+
+  java.util.Optional<Entrada>
+      findFirstByProductoIdAndIdNotAndPrecioProveedorIsNotNullOrderByFechaDescIdDesc(
+          Long productoId, Long id);
 }

@@ -1,90 +1,229 @@
 <h2 class="page-title">Traspasos</h2>
-<p class="muted" style="margin-top: -0.5rem; margin-bottom: 1rem">
-  Producto que das a otra persona (ej. mamá) al precio de compra. Se descuenta del inventario y queda como deuda.
-</p>
 
 @if (data) {
   <div class="stats">
     <div class="stat"><span>Total traspasado</span><strong>${{ data.totalTraspasado | number: '1.2-2' }}</strong></div>
     <div class="stat"><span>Total abonado</span><strong>${{ data.totalAbonado | number: '1.2-2' }}</strong></div>
-    <div class="stat"><span>Saldo pendiente</span><strong>${{ data.saldoPendiente | number: '1.2-2' }}</strong></div>
+    <div class="stat" [class.warn-stat]="data.saldoPendiente > 0">
+      <span>Saldo pendiente</span>
+      <strong>${{ data.saldoPendiente | number: '1.2-2' }}</strong>
+    </div>
   </div>
 }
 
-<section class="panel">
+@if (data && data.saldosPorPersona.length) {
+  <section class="panel">
+    <h3>Cuenta por persona</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Persona</th>
+            <th>Traspasado</th>
+            <th>Abonado</th>
+            <th>Saldo</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of data.saldosPorPersona; track s.personaId) {
+            <tr [class.debe]="s.estado === 'DEBE'" [class.ok-row]="s.estado === 'AL_CORRIENTE'">
+              <td>{{ s.persona }}</td>
+              <td class="money">${{ s.totalTraspasado | number: '1.2-2' }}</td>
+              <td class="money">${{ s.totalAbonado | number: '1.2-2' }}</td>
+              <td class="money">${{ s.saldo | number: '1.2-2' }}</td>
+              <td>
+                @switch (s.estado) {
+                  @case ('DEBE') {
+                    <span class="badge debe">Debe</span>
+                  }
+                  @case ('AL_CORRIENTE') {
+                    <span class="badge ok">Pagado</span>
+                  }
+                  @case ('A_FAVOR') {
+                    <span class="badge favor">A favor</span>
+                  }
+                  @default {
+                    {{ s.estado }}
+                  }
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+<section class="panel" style="margin-top: 1rem">
   <h3>Nuevo traspaso</h3>
-  <form class="form-grid" (ngSubmit)="guardar()">
-    <label>
-      Fecha
-      <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
-    </label>
-    <label>
-      Producto
-      <app-producto-autocomplete
-        [productos]="productos"
-        [(productoId)]="form.productoId"
-        [required]="true"
-      />
-    </label>
-    <label>
-      Cantidad
-      <input type="number" step="0.01" min="0" [(ngModel)]="form.cantidad" name="cantidad" required />
-    </label>
-    <label>
-      Persona
-      <input [(ngModel)]="form.persona" name="persona" placeholder="Mamá" />
-    </label>
-    <label>
-      Nota
-      <input [(ngModel)]="form.nota" name="nota" />
-    </label>
-    <label>
-      Total al costo
-      <input [value]="'$' + (totalEstimado | number: '1.2-2')" disabled />
-    </label>
-    <button type="submit">Registrar traspaso</button>
+  <form (ngSubmit)="guardar()">
+    <div class="form-grid">
+      <label>
+        Fecha
+        <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
+      </label>
+      <label>
+        Persona
+        <input
+          [(ngModel)]="form.persona"
+          name="persona"
+          list="personas-existentes"
+          required
+          placeholder="Nombre"
+        />
+      </label>
+      <label>
+        Nota
+        <input [(ngModel)]="form.nota" name="nota" />
+      </label>
+      <label>
+        Total
+        <input [value]="'$' + (totalEstimado | number: '1.2-2')" disabled />
+      </label>
+    </div>
+
+    <div class="table-wrap lote-wrap" style="margin-top: 0.85rem">
+      <table class="lote">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Producto (inventario)</th>
+            <th>Cantidad</th>
+            <th>Precio compra $</th>
+            <th>Total $</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of lineas; track l.key; let i = $index) {
+            <tr>
+              <td class="muted">{{ i + 1 }}</td>
+              <td>
+                <app-producto-autocomplete
+                  #prodLote
+                  [productos]="productos"
+                  [productoId]="l.productoId"
+                  [inputName]="'prod' + l.key"
+                  mostrarExtra="compra"
+                  (productoIdChange)="l.productoId = $event"
+                  (enterConfirmado)="onProductoEnter(i)"
+                />
+              </td>
+              <td>
+                <input
+                  #cantInput
+                  type="text"
+                  inputmode="decimal"
+                  [(ngModel)]="l.cantidad"
+                  [name]="'cant' + l.key"
+                  placeholder="0"
+                  (keydown.enter)="onCantidadEnter($event, i)"
+                />
+              </td>
+              <td>
+                @if (l.productoId != null && precioCompra(l.productoId) > 0) {
+                  <span class="money" title="Precio de compra del inventario">
+                    ${{ precioCompra(l.productoId) | number: '1.2-2' }}
+                  </span>
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td>
+                @if (totalLinea(l) > 0) {
+                  <span class="money">${{ totalLinea(l) | number: '1.2-2' }}</span>
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td class="actions">
+                <button type="button" class="danger" (click)="quitarLinea(i)" title="Quitar fila">×</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="toolbar lote-actions" style="margin-top: 0.65rem">
+      <button type="button" class="secondary" (click)="agregarLinea()">+ Agregar fila</button>
+      <button type="submit">Registrar traspaso</button>
+    </div>
   </form>
 </section>
 
 <section class="panel" style="margin-top: 1rem">
-  <h3>Abono / pago de deuda</h3>
+  <h3>Abono / pago</h3>
   <form class="form-grid" (ngSubmit)="guardarAbono()">
     <label>
       Fecha
       <input type="date" [(ngModel)]="abono.fecha" name="abonoFecha" required />
     </label>
     <label>
-      Monto
-      <input type="number" step="0.01" min="0" [(ngModel)]="abono.monto" name="abonoMonto" required />
+      Persona
+      <select [(ngModel)]="abono.personaId" name="abonoPersonaId" required>
+        <option [ngValue]="null">Selecciona…</option>
+        @for (p of personasParaAbono; track p.id) {
+          <option [ngValue]="p.id">
+            {{ p.nombre }}
+            @if (p.saldo > 0) {
+              (debe ${{ p.saldo | number: '1.2-2' }})
+            } @else if (p.saldo < 0) {
+              (a favor ${{ -p.saldo | number: '1.2-2' }})
+            } @else {
+              (pagado)
+            }
+          </option>
+        }
+      </select>
     </label>
     <label>
-      Persona
-      <input [(ngModel)]="abono.persona" name="abonoPersona" />
+      Monto
+      <input
+        type="text"
+        inputmode="decimal"
+        [(ngModel)]="abono.monto"
+        name="abonoMonto"
+        placeholder="0"
+        required
+      />
     </label>
+    @if (abono.personaId != null && saldoPersonaAbono != null) {
+      <label>
+        Debe ahora
+        <input [value]="'$' + (saldoPersonaAbono | number: '1.2-2')" disabled />
+      </label>
+    }
     <label>
       Nota
       <input [(ngModel)]="abono.nota" name="abonoNota" />
     </label>
-    <button type="submit">Registrar abono</button>
+    <button type="submit" [disabled]="!personasParaAbono.length">Registrar abono</button>
   </form>
   @if (error) {
     <p class="error">{{ error }}</p>
   }
 </section>
 
+<datalist id="personas-existentes">
+  @for (p of data?.personas || []; track p.id) {
+    <option [value]="p.nombre"></option>
+  }
+</datalist>
+
 @if (data) {
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; margin-top: 1rem">
+  <div class="dos-cols" style="margin-top: 1rem">
     <section class="panel">
-      <h3>Traspasos</h3>
+      <h3>Historial de traspasos</h3>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Fecha</th>
-              <th>Producto</th>
-              <th>Cant.</th>
-              <th>Total</th>
               <th>Persona</th>
+              <th>Productos</th>
+              <th>Total</th>
               <th></th>
             </tr>
           </thead>
@@ -92,21 +231,38 @@
             @for (t of data.traspasos; track t.id) {
               <tr>
                 <td>{{ t.fecha | fechaDmY }}</td>
-                <td>{{ t.productoNombre }}</td>
-                <td class="money">{{ t.cantidad | number: '1.2-2' }}</td>
-                <td class="money">${{ t.total | number: '1.2-2' }}</td>
                 <td>{{ t.persona || '—' }}</td>
+                <td>
+                  <ul class="lineas-list">
+                    @for (l of t.lineas; track l.id) {
+                      <li>
+                        {{ l.productoNombre }}
+                        · {{ l.cantidad | number: '1.2-2' }}
+                        · ${{ l.total | number: '1.2-2' }}
+                      </li>
+                    }
+                  </ul>
+                </td>
+                <td class="money">${{ t.total | number: '1.2-2' }}</td>
                 <td class="actions">
-                  <button type="button" class="danger" (click)="eliminar(t.id)">X</button>
+                  <button type="button" class="icon-btn danger" title="Eliminar" (click)="eliminar(t.id)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z"
+                      />
+                    </svg>
+                  </button>
                 </td>
               </tr>
+            } @empty {
+              <tr><td colspan="5" class="muted">Sin traspasos.</td></tr>
             }
           </tbody>
         </table>
       </div>
     </section>
     <section class="panel">
-      <h3>Abonos</h3>
+      <h3>Historial de abonos</h3>
       <div class="table-wrap">
         <table>
           <thead>
@@ -126,9 +282,17 @@
                 <td>{{ a.persona || '—' }}</td>
                 <td>{{ a.nota || '—' }}</td>
                 <td class="actions">
-                  <button type="button" class="danger" (click)="eliminarAbono(a.id)">X</button>
+                  <button type="button" class="icon-btn danger" title="Eliminar" (click)="eliminarAbono(a.id)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z"
+                      />
+                    </svg>
+                  </button>
                 </td>
               </tr>
+            } @empty {
+              <tr><td colspan="5" class="muted">Sin abonos.</td></tr>
             }
           </tbody>
         </table>

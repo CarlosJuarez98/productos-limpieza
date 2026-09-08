@@ -8,6 +8,6 @@ import java.time.LocalDate;
 public record TraspasoAbonoRequest(
     @NotNull LocalDate fecha,
     @NotNull @Positive BigDecimal monto,
-    String persona,
+    @NotNull Long personaId,
     String nota
 ) {}
