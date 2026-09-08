@@ -23,7 +23,7 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  private readonly base = 'http://127.0.0.1:8083/api';
+  private readonly base = '/api';
 
   constructor(private http: HttpClient) {}
 

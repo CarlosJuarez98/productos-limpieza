@@ -180,14 +180,17 @@
     </label>
     <label>
       Monto
-      <input
-        type="text"
-        inputmode="decimal"
-        [(ngModel)]="abono.monto"
-        name="abonoMonto"
-        placeholder="0"
-        required
-      />
+      <div class="precio-input">
+        <span class="peso">$</span>
+        <input
+          type="text"
+          inputmode="decimal"
+          [(ngModel)]="abono.monto"
+          name="abonoMonto"
+          placeholder="0"
+          required
+        />
+      </div>
     </label>
     @if (abono.personaId != null && saldoPersonaAbono != null) {
       <label>
@@ -245,13 +248,7 @@
                 </td>
                 <td class="money">${{ t.total | number: '1.2-2' }}</td>
                 <td class="actions">
-                  <button type="button" class="icon-btn danger" title="Eliminar" (click)="eliminar(t.id)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z"
-                      />
-                    </svg>
-                  </button>
+                  <button type="button" class="danger" title="Eliminar" (click)="eliminar(t.id)">×</button>
                 </td>
               </tr>
             } @empty {
@@ -282,13 +279,7 @@
                 <td>{{ a.persona || '—' }}</td>
                 <td>{{ a.nota || '—' }}</td>
                 <td class="actions">
-                  <button type="button" class="icon-btn danger" title="Eliminar" (click)="eliminarAbono(a.id)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z"
-                      />
-                    </svg>
-                  </button>
+                  <button type="button" class="danger" title="Eliminar" (click)="eliminarAbono(a.id)">×</button>
                 </td>
               </tr>
             } @empty {

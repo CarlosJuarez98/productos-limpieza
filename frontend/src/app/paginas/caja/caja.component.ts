@@ -143,29 +143,24 @@ export class CajaComponent implements OnInit {
     ];
   }
 
-  /** Transferencias del periodo (o del corte consultado). */
+  /** Transferencias del banco: siempre globales (no por periodo/corte). */
   get transferenciasVista(): MovimientoCaja[] {
-    const src = this.detalleCorte || this.caja;
-    return src?.transferencias || [];
+    return this.caja?.transferencias || [];
   }
 
   get retirosTransferenciaVista(): MovimientoCaja[] {
-    const src = this.detalleCorte || this.caja;
-    return src?.retirosTransferencia || [];
+    return this.caja?.retirosTransferencia || [];
   }
 
   get saldoBanco(): number {
-    if (this.detalleCorte) return Number(this.detalleCorte.totalTransferenciasNetas) || 0;
     return Number(this.caja?.totalTransferenciasNetas) || 0;
   }
 
   get totalTransferenciasVista(): number {
-    if (this.detalleCorte) return Number(this.detalleCorte.totalTransferencias) || 0;
     return Number(this.caja?.totalTransferencias) || 0;
   }
 
   get totalRetirosTxVista(): number {
-    if (this.detalleCorte) return Number(this.detalleCorte.totalRetirosTransferencia) || 0;
     return Number(this.caja?.totalRetirosTransferencia) || 0;
   }
 
@@ -313,6 +308,7 @@ export class CajaComponent implements OnInit {
 
   guardarMovimiento(): void {
     this.error = '';
+    this.ok = '';
     const monto = Number(this.mov.monto);
     if (!Number.isFinite(monto) || monto <= 0) {
       this.error = 'Indica el monto del movimiento';
@@ -327,8 +323,14 @@ export class CajaComponent implements OnInit {
       })
       .subscribe({
         next: () => {
+          const tipo = this.mov.tipo;
+          this.ok =
+            tipo === 'TRANSFERENCIA' || tipo === 'RETIRO_TRANSFERENCIA'
+              ? 'Movimiento guardado. Revisa la sección de banco / transferencias.'
+              : 'Movimiento guardado.';
           this.mov.monto = null;
           this.mov.motivo = '';
+          this.limpiarCorteSeleccionado();
           this.cargar();
         },
         error: (e) => (this.error = e.error?.error || 'Error al guardar movimiento'),

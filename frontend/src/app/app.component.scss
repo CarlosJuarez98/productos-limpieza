@@ -26,17 +26,13 @@
 }
 
 .mark {
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 3.25rem;
+  height: 3.25rem;
   flex-shrink: 0;
-  display: grid;
-  place-items: center;
+  display: block;
   border-radius: 0.55rem;
+  object-fit: cover;
   background: #1f6b4f;
-  color: #f4fbf7;
-  font-family: 'Segoe UI', sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 
 .brand h1 {

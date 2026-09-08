@@ -48,6 +48,30 @@ tr.ok-row td {
   white-space: nowrap;
 }
 
+table.lote td {
+  vertical-align: middle;
+}
+
+table.lote td.actions {
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+  width: 2.5rem;
+  padding: 0.25rem 0.2rem;
+  white-space: nowrap;
+}
+
+table.lote td.actions .danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  line-height: 1;
+  font-size: 1.15rem;
+}
+
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -99,4 +123,20 @@ table.lote td app-producto-autocomplete {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.precio-input {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.precio-input .peso {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.precio-input input {
+  width: 100%;
+  min-width: 0;
 }

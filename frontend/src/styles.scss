@@ -250,14 +250,68 @@ tr.danger td {
   font-variant-numeric: tabular-nums;
 }
 
+/* Fuera de tablas: grupo de botones en fila. */
 .actions {
   display: flex;
   gap: 0.35rem;
+  align-items: center;
 }
 
 .actions button {
   padding: 0.3rem 0.55rem;
   font-size: 0.82rem;
+}
+
+/* Solo celdas de acción: flex en td desalineaba las ×. */
+td.actions {
+  display: table-cell;
+  width: 1%;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+td.actions > button + button,
+td.actions > .icon-btn + .icon-btn,
+td.actions > button + .icon-btn,
+td.actions > .icon-btn + button {
+  margin-left: 0.35rem;
+}
+
+td.actions button.danger:not(.icon-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  min-width: 1.85rem;
+  padding: 0;
+  line-height: 1;
+  font-size: 1.15rem;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.icon-btn svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: currentColor;
+}
+
+.icon-btn:hover {
+  background: #f4f8f5;
 }
 
 .search {

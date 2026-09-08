@@ -1,1 +1,5 @@
-SELECT table_name FROM user_tables ORDER BY 1;
+SET PAGESIZE 0
+SET FEEDBACK OFF
+SET HEADING OFF
+SET LINESIZE 200
+SELECT table_name FROM user_tables ORDER BY table_name;

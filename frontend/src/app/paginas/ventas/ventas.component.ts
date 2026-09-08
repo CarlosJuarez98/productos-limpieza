@@ -30,8 +30,9 @@ export class VentasComponent implements OnInit {
   productos: InventarioItem[] = [];
   modos = MODOS_VENTA;
   error = '';
-  ok = '';
   filtro = '';
+  /** Historial: solo el día de la fecha de captura, o todo. */
+  soloHoy = true;
   guardando = false;
   fecha = this.hoyLocal();
   fechaMin: string | null = null;
@@ -80,27 +81,66 @@ export class VentasComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
-    this.resetLineas(3);
+    this.resetLineas(1);
   }
 
   get filtradas(): Venta[] {
     const q = this.filtro.trim().toLowerCase();
     const sinCasa = this.ventas.filter((v) => v.tipoVenta !== 'CASA');
-    const base = !q
-      ? sinCasa
-      : sinCasa.filter(
-          (v) =>
-            (v.productoNombre ?? '').toLowerCase().includes(q) ||
-            v.tipoVentaLabel.toLowerCase().includes(q)
-        );
+    let base = sinCasa;
+    if (this.soloHoy) {
+      base = base.filter((v) => v.fecha === this.fecha);
+    }
+    if (q) {
+      base = base.filter(
+        (v) =>
+          (v.productoNombre ?? '').toLowerCase().includes(q) ||
+          v.tipoVentaLabel.toLowerCase().includes(q)
+      );
+    }
     return [...base].sort((a, b) => {
       const porFecha = b.fecha.localeCompare(a.fecha);
       return porFecha !== 0 ? porFecha : b.id - a.id;
     });
   }
 
+  /** Suma de ventas del día de captura (ya guardadas). */
+  get totalVentasDia(): number {
+    return (
+      Math.round(
+        this.ventas
+          .filter((v) => v.tipoVenta !== 'CASA' && v.fecha === this.fecha)
+          .reduce((s, v) => s + (Number(v.total) || 0), 0) * 100
+      ) / 100
+    );
+  }
+
+  /** Total del ticket en captura (aún no guardado). */
+  get totalTicket(): number {
+    return (
+      Math.round(
+        this.lineas.reduce((s, l) => {
+          if (!this.tieneDatos(l) || l.productoId == null) return s;
+          const t = this.totalEstimado(l);
+          return s + (t != null ? t : 0);
+        }, 0) * 100
+      ) / 100
+    );
+  }
+
+  get lineasConDatos(): number {
+    return this.lineas.filter((l) => this.tieneDatos(l) && l.productoId != null).length;
+  }
+
   productoDe(l: LineaVenta): InventarioItem | undefined {
     return this.productos.find((x) => x.id === l.productoId);
+  }
+
+  unidadDe(l: LineaVenta): string {
+    if (l.modo === 'PESOS') return '$';
+    if (l.modo === 'MUESTRA') return 'u';
+    const p = this.productoDe(l);
+    return p?.vendePor === 'PIEZA' ? 'pza' : 'L';
   }
 
   /** Tipo real que se guarda en BD (menudeo → Litros/Pieza del producto). */
@@ -175,6 +215,16 @@ export class VentasComponent implements OnInit {
     }
   }
 
+  setModo(l: LineaVenta, modo: ModoVenta): void {
+    l.modo = modo;
+    if (modo !== 'MAYOREO') {
+      l.precioManual = null;
+      l.total = null;
+    } else {
+      this.sugerirTotalMayoreo(l);
+    }
+  }
+
   totalParaGuardar(l: LineaVenta): number | null {
     const tipo = this.tipoVentaEfectivo(l);
     if (tipo === 'LITROS' || tipo === 'PIEZA') return null;
@@ -226,6 +276,8 @@ export class VentasComponent implements OnInit {
 
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
+    this.cdr.detectChanges();
+    setTimeout(() => this.focusProducto(this.lineas.length - 1), 0);
   }
 
   onProductoEnter(index: number): void {
@@ -237,7 +289,7 @@ export class VentasComponent implements OnInit {
     const irA = index + 1;
     if (irA >= this.lineas.length) {
       this.agregarLinea();
-      this.cdr.detectChanges();
+      return;
     }
     setTimeout(() => this.focusProducto(irA), 0);
   }
@@ -263,7 +315,6 @@ export class VentasComponent implements OnInit {
 
   guardarTodas(): void {
     this.error = '';
-    this.ok = '';
     if (!this.fecha) {
       this.error = 'Indica la fecha';
       return;
@@ -320,10 +371,10 @@ export class VentasComponent implements OnInit {
 
     forkJoin(requests).subscribe({
       next: () => {
-        this.ok = `Se guardaron ${pendientes.length} venta(s)`;
         this.guardando = false;
-        this.resetLineas(3);
+        this.resetLineas(1);
         this.cargar();
+        setTimeout(() => this.focusProducto(0), 50);
       },
       error: (e) => {
         this.guardando = false;

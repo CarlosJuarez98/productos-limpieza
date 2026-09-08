@@ -4,3 +4,6 @@
 **/.angular
 **/.git
 **/*.md
+_migrate
+wallet
+.env.cloud

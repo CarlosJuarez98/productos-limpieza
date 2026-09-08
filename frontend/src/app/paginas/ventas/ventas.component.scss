@@ -1,63 +1,174 @@
-.lote-wrap {
-  max-height: none;
-  overflow: visible;
-  margin-bottom: 0.75rem;
+.captura-panel {
+  padding-bottom: 1rem;
 }
 
-/* Que el desplegable de producto no quede bajo otras filas */
-table.lote {
-  overflow: visible;
+.captura-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
 }
 
-table.lote td,
-table.lote th {
-  vertical-align: middle;
-  overflow: visible;
+.fecha-field {
+  margin: 0;
+  min-width: 10rem;
 }
 
-table.lote select,
-table.lote input[type='number'],
-table.lote input[type='text'] {
-  width: 100%;
-  min-width: 0;
+.totales-rapidos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
-table.lote td:nth-child(2) {
-  min-width: 0;
-  width: 28%;
+.tot-chip {
+  background: #f4f7f5;
+  border: 1px solid #c5d4cb;
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  min-width: 7.5rem;
 }
 
-table.lote td:nth-child(3) {
-  width: 8.5rem;
+.tot-chip span {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-table.lote td:nth-child(5) .precio-input {
-  min-width: 0;
+.tot-chip strong {
+  font-size: 1.25rem;
+  color: #1f3d2a;
 }
 
-table.lote th:last-child,
-table.lote td.actions {
-  display: table-cell;
-  width: 2.75rem;
-  min-width: 2.75rem;
-  max-width: 2.75rem;
-  padding-left: 0.35rem;
-  padding-right: 0.35rem;
-  text-align: center;
-  vertical-align: middle;
+.tot-chip.dia {
+  background: #eef6f1;
+  border-color: #9fbfab;
 }
 
-table.lote td.actions button {
+.ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.linea-card {
+  border: 1px solid #d5e0d8;
+  border-radius: 0.75rem;
+  background: #fbfcfb;
+  padding: 0.75rem 0.85rem 0.9rem;
+}
+
+.linea-top {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+}
+
+.linea-num {
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: #2f5d3a;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+}
+
+.modo-chips,
+.filtro-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex: 1;
+}
+
+.modo-chip {
+  border: 1px solid #b9c9be;
+  background: #fff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 2.1rem;
+}
+
+.modo-chip.activo {
+  background: #2f5d3a;
+  border-color: #2f5d3a;
+  color: #fff;
+}
+
+.quitar {
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
   padding: 0;
-  margin: 0;
-  line-height: 1;
-  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
   font-weight: 700;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.campo-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.producto-campo {
+  margin-bottom: 0.65rem;
+}
+
+.producto-campo app-producto-autocomplete,
+.producto-campo ::ng-deep .producto-ac input {
+  font-size: 1.05rem;
+  min-height: 2.55rem;
+}
+
+.linea-grid {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 1fr) minmax(7rem, 1.1fr);
+  gap: 0.65rem;
+}
+
+.cant-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cant-wrap input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.4rem;
+  font-size: 1.05rem;
+}
+
+.unidad {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: #1f3d2a;
+  min-width: 1.6rem;
 }
 
 .precio-input {
@@ -69,21 +180,48 @@ table.lote td.actions button {
 .precio-input .peso {
   color: var(--muted);
   font-weight: 600;
-  flex-shrink: 0;
 }
 
 .precio-input input {
   width: 100%;
-  min-width: 70px;
+  min-height: 2.4rem;
+  font-size: 1.05rem;
 }
 
-.lote-actions {
-  justify-content: flex-start;
+.precio-fijo,
+.total-fijo {
+  min-height: 2.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 700;
 }
 
-.ok-msg {
-  color: var(--ok);
-  margin: 0.4rem 0 0;
+.precio-fijo small {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.total-campo .total-fijo {
+  color: #1f3d2a;
+}
+
+.captura-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+  align-items: center;
+}
+
+.guardar-ticket {
+  flex: 1;
+  min-width: 12rem;
+  min-height: 2.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .corte-aviso {
@@ -112,4 +250,34 @@ td.fecha-naranja {
   margin-left: 0.35rem;
   padding: 0.15rem 0.5rem;
   border-radius: 0.3rem;
+}
+
+.historial-toolbar {
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.historial-titulo {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.buscar-hist {
+  margin: 0;
+  min-width: 10rem;
+  flex: 1;
+}
+
+@media (max-width: 720px) {
+  .linea-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .total-campo {
+    grid-column: 1 / -1;
+  }
+
+  .modo-chip {
+    padding: 0.4rem 0.65rem;
+  }
 }

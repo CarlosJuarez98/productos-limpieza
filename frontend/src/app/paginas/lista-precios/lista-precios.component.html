@@ -1,4 +1,5 @@
-<h2 class="page-title">Lista de precios · {{ hoy }}</h2>
+<h2 class="page-title">{{ marca }}</h2>
+<p class="muted lista-subtitulo">Lista de precios · {{ fechaLista }}</p>
 
 <section class="panel">
   <div class="toolbar">
@@ -6,7 +7,20 @@
       Buscar
       <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto..." />
     </label>
-    <button type="button" class="secondary" (click)="exportarLista()">Exportar lista (.xlsx)</button>
+    <fieldset class="export-cols">
+      <legend>Exportar (menudeo siempre)</legend>
+      <label class="chk">
+        <input type="checkbox" [(ngModel)]="cols.mayoreo5" name="colMay5" />
+        Mayoreo ≥ 5
+      </label>
+      <label class="chk">
+        <input type="checkbox" [(ngModel)]="cols.mayoreo10" name="colMay10" />
+        Mayoreo ≥ 10
+      </label>
+    </fieldset>
+    <button type="button" class="secondary" (click)="exportarLista()" [disabled]="exportando">
+      {{ exportando ? 'Exportando…' : 'Exportar lista (.xlsx)' }}
+    </button>
   </div>
   <div class="table-wrap">
     <table>

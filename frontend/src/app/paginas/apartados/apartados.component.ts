@@ -92,7 +92,21 @@ export class ApartadosComponent implements OnInit {
     });
   }
 
-  /** Contado − fondo del último corte, menos lo ya apartado (sin ventas del periodo nuevo). */
+  /** Contado − fondo del último corte (lo que salió / debe salir a apartados). */
+  get delCorteParaApartar(): number {
+    const v = Number(this.caja?.paraApartarUltimoCorte);
+    if (Number.isFinite(v)) return v;
+    return Math.round((this.yaApartadoDelCorte + this.disponibleCaja) * 100) / 100;
+  }
+
+  /** Ya registrado como ingreso a apartados tras el último corte. */
+  get yaApartadoDelCorte(): number {
+    const v = Number(this.caja?.yaApartadoDesdeUltimoCorte);
+    if (Number.isFinite(v)) return v;
+    return 0;
+  }
+
+  /** Lo que aún falta por apartar del último corte. */
   get disponibleCaja(): number {
     const v = Number(this.caja?.disponibleParaApartar);
     if (Number.isFinite(v)) return v;
