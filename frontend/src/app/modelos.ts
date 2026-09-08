@@ -96,16 +96,23 @@ export interface CajaResumen {
   totalApartadosProductos: number;
   totalApartadosServicios: number;
   totalCaja: number;
+  /** Saldo en banco global. */
   totalTransferenciasNetas: number;
   totalNegocio: number;
   /** Fechas de corte registradas en BD. */
   fechasCorte: string[];
   fechaUltimoCorte: string | null;
-  /** Efectivo del último corte aún disponible para apartar (no el fondo $200 del periodo nuevo). */
+  /** Sobrante del último corte a repartir (contado − fondo). */
+  paraApartarUltimoCorte: number;
+  /** Ya registrado en apartados tras ese corte. */
+  yaApartadoDesdeUltimoCorte: number;
+  /** Lo que aún falta por apartar del último corte. */
   disponibleParaApartar: number;
   retiros: MovimientoCaja[];
   ingresos: MovimientoCaja[];
+  /** Histórico global de retiros del banco. */
   retirosTransferencia: MovimientoCaja[];
+  /** Histórico global de transferencias a banco. */
   transferencias: MovimientoCaja[];
 }
 

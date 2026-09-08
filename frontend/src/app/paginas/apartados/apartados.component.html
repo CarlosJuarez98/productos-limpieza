@@ -30,12 +30,22 @@
   <section class="panel">
     <h3>Apartar de caja</h3>
     <p class="muted hint">
-      Disponible:
-      <strong>${{ disponibleCaja | number: '1.2-2' }}</strong>
-      · Restante:
-      <strong [class.error]="restanteApartar <= 0 && totalApartar > 0">
-        ${{ restanteApartar | number: '1.2-2' }}
-      </strong>
+      @if (caja?.fechaUltimoCorte) {
+        Del corte ({{ caja!.fechaUltimoCorte | fechaDmY }}):
+        <strong>${{ delCorteParaApartar | number: '1.2-2' }}</strong>
+        · Ya apartado:
+        <strong>${{ yaApartadoDelCorte | number: '1.2-2' }}</strong>
+        · Disponible:
+        <strong>${{ disponibleCaja | number: '1.2-2' }}</strong>
+      } @else {
+        Sin corte aún. Marca un corte en Caja para saber cuánto apartar.
+      }
+      @if (totalApartar > 0) {
+        · Restante al capturar:
+        <strong [class.error]="restanteApartar <= 0">
+          ${{ restanteApartar | number: '1.2-2' }}
+        </strong>
+      }
     </p>
     <div class="form-grid form-compact">
       <label>
@@ -239,7 +249,7 @@
                         <td class="motivo">{{ a.motivo }}</td>
                       }
                       <td class="actions">
-                        <button type="button" class="danger" (click)="eliminar(a.id)">×</button>
+                        <button type="button" class="danger" (click)="eliminar(a.id)" title="Eliminar">×</button>
                       </td>
                     </tr>
                   } @empty {

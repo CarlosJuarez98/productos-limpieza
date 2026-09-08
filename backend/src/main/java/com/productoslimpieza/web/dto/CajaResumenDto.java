@@ -17,23 +17,32 @@ public record CajaResumenDto(
     BigDecimal totalTransferencias,
     BigDecimal totalApartadosProductos,
     BigDecimal totalApartadosServicios,
-    /** Fondo + ventas + ingresos − retiros − transferencias − apartados */
+    /** Fondo + ventas + ingresos + retiros del banco − retiros − transferencias − apartados */
     BigDecimal totalCaja,
-    /** Transferencias − retiros transferencia */
+    /** Saldo en banco global: todas las transferencias − todos los retiros transferencia */
     BigDecimal totalTransferenciasNetas,
-    /** Total caja + transferencias netas (debe acercarse al efectivo contado) */
+    /** Efectivo del periodo + saldo en banco (global). */
     BigDecimal totalNegocio,
     /** Fechas de corte registradas en BD. */
     List<LocalDate> fechasCorte,
     /** Último corte marcado (= día anterior al inicio del periodo). */
     LocalDate fechaUltimoCorte,
     /**
-     * Efectivo del último corte aún disponible para apartar
-     * (contado − fondo − apartados del periodo nuevo). No sube con ventas hasta el siguiente corte.
+     * Sobrante del último corte (contado − fondo) a repartir en apartados.
+     * Solo viene del corte; no crece con ventas del periodo nuevo.
+     */
+    BigDecimal paraApartarUltimoCorte,
+    /** Ingresos a apartados (productos/casa/salarios) ya registrados tras ese corte. */
+    BigDecimal yaApartadoDesdeUltimoCorte,
+    /**
+     * Lo que aún falta por apartar del último corte
+     * ({@code paraApartarUltimoCorte − yaApartadoDesdeUltimoCorte}).
      */
     BigDecimal disponibleParaApartar,
     List<MovimientoCajaDto> retiros,
     List<MovimientoCajaDto> ingresos,
+    /** Todos los retiros del banco (histórico global). */
     List<MovimientoCajaDto> retirosTransferencia,
+    /** Todas las transferencias a banco (histórico global). */
     List<MovimientoCajaDto> transferencias
 ) {}

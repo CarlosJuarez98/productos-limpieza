@@ -1,7 +1,9 @@
 package com.productoslimpieza.service;
 
+import com.productoslimpieza.domain.CajaConfig;
 import com.productoslimpieza.domain.Entrada;
 import com.productoslimpieza.domain.Producto;
+import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.EntradaRepository;
 import com.productoslimpieza.repo.ProductoRepository;
 import com.productoslimpieza.web.dto.EntradaDto;
@@ -10,6 +12,8 @@ import com.productoslimpieza.web.dto.EntradaRequest;
 import com.productoslimpieza.web.dto.EntradasLoteRequest;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,12 +27,19 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class EntradaService {
 
+  private static final ZoneId ZONA = ZoneId.of("America/Mexico_City");
+
   private final EntradaRepository entradaRepo;
   private final ProductoRepository productoRepo;
+  private final CajaConfigRepository cajaConfigRepo;
 
-  public EntradaService(EntradaRepository entradaRepo, ProductoRepository productoRepo) {
+  public EntradaService(
+      EntradaRepository entradaRepo,
+      ProductoRepository productoRepo,
+      CajaConfigRepository cajaConfigRepo) {
     this.entradaRepo = entradaRepo;
     this.productoRepo = productoRepo;
+    this.cajaConfigRepo = cajaConfigRepo;
   }
 
   @Transactional(readOnly = true)
@@ -47,10 +58,7 @@ public class EntradaService {
     Entrada e = new Entrada();
     aplicar(e, req.fecha(), producto, req.cantidad(), req.precioProveedor());
     Entrada saved = entradaRepo.save(e);
-    if (req.actualizarPrecioCompra() && req.precioProveedor() != null) {
-      producto.setPrecioCompra(req.precioProveedor());
-      productoRepo.save(producto);
-    }
+    actualizarPrecioCompraSiCambio(producto, req.precioProveedor());
     return toDto(saved, anterior);
   }
 
@@ -71,10 +79,7 @@ public class EntradaService {
       Entrada e = new Entrada();
       aplicar(e, req.fecha(), producto, linea.cantidad(), linea.precioProveedor());
       Entrada saved = entradaRepo.save(e);
-      if (req.actualizarPrecioCompra() && linea.precioProveedor() != null) {
-        producto.setPrecioCompra(linea.precioProveedor());
-        productoRepo.save(producto);
-      }
+      actualizarPrecioCompraSiCambio(producto, linea.precioProveedor());
       if (linea.precioProveedor() != null) {
         ultimaEnLote.put(producto.getId(), linea.precioProveedor());
       }
@@ -92,10 +97,7 @@ public class EntradaService {
     exigirActivo(producto);
     aplicar(e, req.fecha(), producto, req.cantidad(), req.precioProveedor());
     Entrada saved = entradaRepo.save(e);
-    if (req.actualizarPrecioCompra() && req.precioProveedor() != null) {
-      producto.setPrecioCompra(req.precioProveedor());
-      productoRepo.save(producto);
-    }
+    actualizarPrecioCompraSiCambio(producto, req.precioProveedor());
     BigDecimal anterior = ultimaCompraAntesDe(saved);
     return toDto(saved, anterior);
   }
@@ -115,15 +117,29 @@ public class EntradaService {
     }
   }
 
+  /**
+   * Actualiza el precio de compra del inventario solo si el precio de proveedor
+   * viene informado y es distinto al precio de compra actual.
+   */
+  private void actualizarPrecioCompraSiCambio(Producto producto, BigDecimal precioProveedor) {
+    if (precioProveedor == null) {
+      return;
+    }
+    BigDecimal actual = producto.getPrecioCompra();
+    if (actual != null && actual.compareTo(precioProveedor) == 0) {
+      return;
+    }
+    producto.setPrecioCompra(precioProveedor);
+    productoRepo.save(producto);
+  }
+
   private void aplicar(
       Entrada e,
       java.time.LocalDate fecha,
       Producto producto,
       BigDecimal cantidad,
       BigDecimal precioProveedor) {
-    if (fecha != null && fecha.isAfter(java.time.LocalDate.now())) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se permiten fechas futuras");
-    }
+    validarFechaPermitida(fecha);
     e.setFecha(fecha);
     e.setProducto(producto);
     e.setCantidad(cantidad);
@@ -132,6 +148,27 @@ public class EntradaService {
       e.setTotal(cantidad.multiply(precioProveedor).setScale(2, RoundingMode.HALF_UP));
     } else {
       e.setTotal(null);
+    }
+  }
+
+  private void validarFechaPermitida(LocalDate fecha) {
+    if (fecha == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fecha requerida");
+    }
+    LocalDate hoy = LocalDate.now(ZONA);
+    if (fecha.isAfter(hoy)) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "No se permiten fechas futuras");
+    }
+    LocalDate inicioPeriodo = cajaConfigRepo.findById(1L)
+        .map(CajaConfig::getFechaInicio)
+        .orElse(null);
+    if (inicioPeriodo != null && fecha.isBefore(inicioPeriodo)) {
+      LocalDate ultimoCorte = inicioPeriodo.minusDays(1);
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "No se pueden registrar entradas el " + ultimoCorte
+              + " ni antes (ya hubo corte). Usa una fecha desde " + inicioPeriodo);
     }
   }
 

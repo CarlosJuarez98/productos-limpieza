@@ -12,6 +12,7 @@
     <div class="banco-head">
       <div>
         <h3>Banco (transferencias)</h3>
+        <p class="muted hint-banco">Saldo e historial globales (no se reinician con el corte).</p>
       </div>
       <div class="banco-saldo">
         <span>Saldo en banco</span>
@@ -47,7 +48,7 @@
                   <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
                   <td class="actions">
                     @if (!detalleCorte) {
-                      <button type="button" class="danger" (click)="eliminar(m.id)">×</button>
+                      <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
                     }
                   </td>
                 </tr>
@@ -78,7 +79,7 @@
                   <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
                   <td class="actions">
                     @if (!detalleCorte) {
-                      <button type="button" class="danger" (click)="eliminar(m.id)">×</button>
+                      <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
                     }
                   </td>
                 </tr>
@@ -113,16 +114,12 @@
       <div class="stat"><span>Retiros</span><strong>${{ caja.totalRetiros | number: '1.2-2' }}</strong></div>
       <div class="stat"><span>Apartados</span><strong>${{ caja.totalApartadosProductos | number: '1.2-2' }}</strong></div>
       <div class="stat destacado"><span>Total caja (efectivo)</span><strong>${{ caja.totalCaja | number: '1.2-2' }}</strong></div>
-      <div class="stat banco-stat">
-        <span>En banco</span>
-        <strong>${{ caja.totalTransferenciasNetas | number: '1.2-2' }}</strong>
-      </div>
-      <div class="stat destacado"><span>Total negocio</span><strong>${{ caja.totalNegocio | number: '1.2-2' }}</strong></div>
       <div class="stat destacado"><span>Total calculadora</span><strong>${{ totalCalculadora | number: '1.2-2' }}</strong></div>
     </div>
     <p class="muted formula">
-      Total caja = fondo + vendido + ingresos − retiros − transferencias − apartados.
-      En banco = transferencias − retiros transferencia.
+      Total caja = fondo + vendido + ingresos + retiros del banco − retiros − transferencias − apartados
+      (los apartados del sobrante del último corte no se restan otra vez: el fondo ya quedó en $200).
+      El saldo en banco está arriba, en la sección Banco (global).
     </p>
   </section>
 
@@ -235,7 +232,7 @@
                   }
                   <td class="actions">
                     @if (!detalleCorte) {
-                      <button type="button" class="danger" (click)="eliminar(m.id)">×</button>
+                      <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
                     }
                   </td>
                 </tr>

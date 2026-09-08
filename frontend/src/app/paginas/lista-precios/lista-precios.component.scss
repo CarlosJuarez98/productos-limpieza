@@ -1,0 +1,39 @@
+:host {
+  display: block;
+}
+
+.lista-subtitulo {
+  margin: -0.35rem 0 0.85rem;
+  font-size: 0.95rem;
+}
+
+.export-cols {
+  border: 1px solid var(--border, #d5dde6);
+  border-radius: 8px;
+  padding: 0.35rem 0.65rem 0.5rem;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+}
+
+.export-cols legend {
+  padding: 0 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted, #64748b);
+}
+
+.export-cols .chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  margin: 0;
+  cursor: pointer;
+}
+
+.export-cols .chk input {
+  width: auto;
+  margin: 0;
+}

@@ -12,6 +12,12 @@ No hay dependencia del Excel. Los JSON en `backend/src/main/resources/data/` son
 
 Stack: **Spring Boot 3** + **Angular 19** + **Oracle XE en Docker**.
 
+## Local primero, nube después
+
+Igual que control-gastos: trabajas en **local**; la nube no se toca hasta que digas **“sube a la nube”**.
+Detalle: [`DEPLOY-NUBE.md`](DEPLOY-NUBE.md) · sync de datos: [`SYNC-DATOS.md`](SYNC-DATOS.md).
+Nube: http://163.192.146.143:8083/
+
 ## Uso diario
 
 Doble clic en `iniciar.bat` (o el acceso directo del escritorio):

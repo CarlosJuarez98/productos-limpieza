@@ -24,3 +24,9 @@ Desktop.ini
 *.log
 .env
 .env.local
+
+.env.cloud
+_migrate/.env.cloud
+_migrate/full_dump.json
+_migrate/*.tar.gz
+

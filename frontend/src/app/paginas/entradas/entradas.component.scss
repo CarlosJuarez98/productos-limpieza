@@ -51,21 +51,34 @@ tr.bajo td {
   background: rgba(31, 107, 79, 0.08);
 }
 
-.badge-cambio {
-  display: inline-block;
-  font-size: 0.82rem;
-  font-weight: 600;
-  white-space: nowrap;
+.col-cambio {
+  text-align: center;
+  width: 2.5rem;
 }
 
-.badge-cambio.subio {
+.icono-cambio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 0.35rem;
+}
+
+.icono-cambio.subio {
   color: var(--warn);
+  background: rgba(154, 75, 31, 0.12);
 }
 
-.badge-cambio.bajo {
+.icono-cambio.bajo {
   color: var(--ok);
+  background: rgba(31, 107, 79, 0.12);
 }
 
-.badge-cambio.igual {
+.icono-cambio.igual {
   color: var(--muted);
+  background: rgba(91, 113, 102, 0.1);
 }

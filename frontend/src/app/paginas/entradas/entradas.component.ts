@@ -5,7 +5,7 @@ import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { Entrada, InventarioItem, Produccion } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
-import { FechaDmYPipe } from '../../fecha-dmy.pipe';
+import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 
 interface LineaForm {
   key: number;
@@ -37,7 +37,8 @@ export class EntradasComponent implements OnInit {
   guardando = false;
   private nextKey = 1;
   fecha = this.hoyLocal();
-  actualizarPrecioCompra = true;
+  fechaMin: string | null = null;
+  fechaUltimoCorte: string | null = null;
   lineas: LineaForm[] = [this.nuevaLinea(), this.nuevaLinea(), this.nuevaLinea()];
   prep = {
     fecha: this.hoyLocal(),
@@ -70,10 +71,43 @@ export class EntradasComponent implements OnInit {
     return this.hoyLocal();
   }
 
-  private asegurarFechaNoFutura(): void {
+  private sumarDias(iso: string, dias: number): string {
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + dias);
+    const yy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  private asegurarFechaValida(): void {
     const hoy = this.hoyLocal();
     if (this.fecha > hoy) this.fecha = hoy;
+    if (this.fechaMin && this.fecha < this.fechaMin) this.fecha = this.fechaMin;
     if (this.prep.fecha > hoy) this.prep.fecha = hoy;
+    if (this.fechaMin && this.prep.fecha < this.fechaMin) this.prep.fecha = this.fechaMin;
+  }
+
+  private validarFecha(fecha: string, destino: 'error' | 'errorPrep' = 'error'): boolean {
+    if (!fecha) {
+      this[destino] = 'Indica la fecha';
+      return false;
+    }
+    if (fecha > this.hoyLocal()) {
+      this[destino] = 'No se pueden registrar fechas futuras';
+      return false;
+    }
+    if (this.fechaUltimoCorte && fecha <= this.fechaUltimoCorte) {
+      this[destino] =
+        `No se pueden registrar el ${formatFechaDmY(this.fechaUltimoCorte)} ni antes (ya hubo corte). Usa una fecha desde ${formatFechaDmY(this.fechaMin)}.`;
+      return false;
+    }
+    if (this.fechaMin && fecha < this.fechaMin) {
+      this[destino] = `La fecha debe ser desde ${formatFechaDmY(this.fechaMin)} (día siguiente al último corte)`;
+      return false;
+    }
+    return true;
   }
 
   private nuevaLinea(): LineaForm {
@@ -209,6 +243,14 @@ export class EntradasComponent implements OnInit {
       error: () => (this.producciones = []),
     });
     this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
+    this.api.caja().subscribe({
+      next: (c) => {
+        this.fechaMin = c.fechaInicio || null;
+        this.fechaUltimoCorte =
+          c.fechaUltimoCorte || (c.fechaInicio ? this.sumarDias(c.fechaInicio, -1) : null);
+        this.asegurarFechaValida();
+      },
+    });
   }
 
   onResultadoChange(id: number | null): void {
@@ -231,11 +273,8 @@ export class EntradasComponent implements OnInit {
 
   guardar(): void {
     this.error = '';
-    this.asegurarFechaNoFutura();
-    if (this.fecha > this.hoyLocal()) {
-      this.error = 'No se pueden registrar entradas con fecha futura';
-      return;
-    }
+    this.asegurarFechaValida();
+    if (!this.validarFecha(this.fecha)) return;
     const lineas = this.lineas
       .filter((l) => l.productoId != null && Number(l.cantidad) > 0)
       .map((l) => ({
@@ -254,7 +293,6 @@ export class EntradasComponent implements OnInit {
     this.api
       .crearEntradasLote({
         fecha: this.fecha,
-        actualizarPrecioCompra: this.actualizarPrecioCompra,
         lineas,
       })
       .subscribe({
@@ -273,11 +311,8 @@ export class EntradasComponent implements OnInit {
   guardarPreparacion(): void {
     this.errorPrep = '';
     this.okPrep = '';
-    this.asegurarFechaNoFutura();
-    if (this.prep.fecha > this.hoyLocal()) {
-      this.errorPrep = 'No se pueden registrar preparaciones con fecha futura';
-      return;
-    }
+    this.asegurarFechaValida();
+    if (!this.validarFecha(this.prep.fecha, 'errorPrep')) return;
     const cantRes = Number(this.prep.cantidadResultado);
     const cantIns = Number(this.prep.cantidadInsumo);
     if (

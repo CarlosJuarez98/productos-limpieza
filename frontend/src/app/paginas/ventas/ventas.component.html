@@ -7,10 +7,10 @@
   </p>
 }
 
-<section class="panel">
-  <div class="toolbar">
-    <label>
-      Fecha (todas las filas)
+<section class="panel captura-panel">
+  <div class="captura-head">
+    <label class="fecha-field">
+      Fecha
       <input
         type="date"
         [(ngModel)]="fecha"
@@ -20,84 +20,102 @@
         required
       />
     </label>
-    <span class="muted">{{ lineas.length }} filas listas</span>
+    <div class="totales-rapidos">
+      <div class="tot-chip">
+        <span>Ticket</span>
+        <strong>${{ totalTicket | number: '1.2-2' }}</strong>
+      </div>
+      <div class="tot-chip dia">
+        <span>Ventas del día</span>
+        <strong>${{ totalVentasDia | number: '1.2-2' }}</strong>
+      </div>
+    </div>
   </div>
 
-  <div class="table-wrap lote-wrap">
-    <table class="lote">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Producto</th>
-          <th>Modo</th>
-          <th>Cantidad / Monto</th>
-          <th>Precio $</th>
-          <th>Total $</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (l of lineas; track l.key; let i = $index) {
-          <tr>
-            <td class="muted">{{ i + 1 }}</td>
-            <td>
-              <app-producto-autocomplete
-                [productos]="productos"
-                [productoId]="l.productoId"
-                [inputName]="'prod' + l.key"
-                (productoIdChange)="l.productoId = $event; sugerirTotalMayoreo(l)"
-                (enterConfirmado)="onProductoEnter(i)"
-              />
-            </td>
-            <td>
-              <select
-                [(ngModel)]="l.modo"
-                [name]="'modo' + l.key"
-                (ngModelChange)="sugerirTotalMayoreo(l)"
+  <div class="ticket">
+    @for (l of lineas; track l.key; let i = $index) {
+      <article class="linea-card">
+        <header class="linea-top">
+          <span class="linea-num">{{ i + 1 }}</span>
+          <div class="modo-chips" role="group" [attr.aria-label]="'Modo venta ' + (i + 1)">
+            @for (t of modos; track t.value) {
+              <button
+                type="button"
+                class="modo-chip"
+                [class.activo]="l.modo === t.value"
+                (click)="setModo(l, t.value)"
               >
-                @for (t of modos; track t.value) {
-                  <option [value]="t.value">{{ t.label }}</option>
-                }
-              </select>
-            </td>
-            <td>
+                {{ t.label }}
+              </button>
+            }
+          </div>
+          <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
+        </header>
+
+        <label class="campo producto-campo">
+          Producto
+          <app-producto-autocomplete
+            [productos]="productos"
+            [productoId]="l.productoId"
+            [inputName]="'prod' + l.key"
+            placeholder="Escribe para buscar…"
+            (productoIdChange)="l.productoId = $event; sugerirTotalMayoreo(l)"
+            (enterConfirmado)="onProductoEnter(i)"
+          />
+        </label>
+
+        <div class="linea-grid">
+          <label class="campo">
+            Cantidad
+            <div class="cant-wrap">
               <input
                 #cantInput
                 type="text"
                 inputmode="decimal"
                 [(ngModel)]="l.cantidad"
                 [name]="'cant' + l.key"
-                [placeholder]="'0'"
+                placeholder="0"
                 (ngModelChange)="sugerirTotalMayoreo(l)"
                 (keydown.enter)="onCantidadEnter($event, i)"
               />
-            </td>
-            <td>
-              @if (permitePrecioManual(l)) {
-                <div class="precio-input">
-                  <span class="peso">$</span>
-                  <input
-                    type="text"
-                    inputmode="decimal"
-                    [(ngModel)]="l.precioManual"
-                    [name]="'precio' + l.key"
-                    [placeholder]="'0'"
-                    title="Mayoreo: vacío usa tramos ≥5/≥10. Si lo llenas, ese precio manda."
-                    (keydown.enter)="onCantidadEnter($event, i)"
-                  />
+              <span class="unidad">{{ unidadDe(l) }}</span>
+            </div>
+          </label>
+
+          <div class="campo">
+            <span class="campo-label">Precio</span>
+            @if (permitePrecioManual(l)) {
+              <div class="precio-input">
+                <span class="peso">$</span>
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  [(ngModel)]="l.precioManual"
+                  [name]="'precio' + l.key"
+                  placeholder="unitario"
+                  title="Vacío: usa tramos ≥5 / ≥10. Si lo llenas, ese precio manda."
+                  (ngModelChange)="sugerirTotalMayoreo(l)"
+                  (keydown.enter)="onCantidadEnter($event, i)"
+                />
+              </div>
+            } @else if (muestraPrecioLista(l)) {
+              @if (precioLista(l) > 0) {
+                <div class="precio-fijo money">${{ precioLista(l) | number: '1.2-2' }}
+                  <small>/ {{ unidadDe(l) }}</small>
                 </div>
-              } @else if (muestraPrecioLista(l)) {
-                @if (precioLista(l) > 0) {
-                  <span class="money" title="Menudeo del histórico de precios">${{ precioLista(l) | number: '1.2-2' }}</span>
-                } @else {
-                  <span class="muted">Sin precio</span>
-                }
               } @else {
-                <span class="muted">—</span>
+                <span class="muted">Sin precio</span>
               }
-            </td>
-            <td>
-              @if (esMayoreo(l) && !tienePrecioManual(l)) {
+            } @else {
+              <span class="muted">—</span>
+            }
+          </div>
+
+          <div class="campo total-campo">
+            <span class="campo-label">Total</span>
+            @if (esMayoreo(l) && !tienePrecioManual(l)) {
+              <div class="precio-input">
+                <span class="peso">$</span>
                 <input
                   type="text"
                   inputmode="decimal"
@@ -106,43 +124,57 @@
                   placeholder="0"
                   (keydown.enter)="onCantidadEnter($event, i)"
                 />
-              } @else if (totalEstimado(l) != null) {
-                <span class="money">${{ totalEstimado(l) | number: '1.2-2' }}</span>
-              } @else {
-                <span class="muted">—</span>
-              }
-            </td>
-            <td class="actions">
-              <button type="button" class="danger" (click)="quitarLinea(i)" title="Quitar fila">×</button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
+              </div>
+            } @else if (totalEstimado(l) != null) {
+              <div class="total-fijo money">${{ totalEstimado(l) | number: '1.2-2' }}</div>
+            } @else {
+              <span class="muted">—</span>
+            }
+          </div>
+        </div>
+      </article>
+    }
   </div>
 
-  <div class="toolbar lote-actions">
-    <button type="button" class="secondary" (click)="agregarLinea()">+ Agregar fila</button>
-    <button type="button" (click)="guardarTodas()" [disabled]="guardando">
-      {{ guardando ? 'Guardando...' : 'Guardar todas' }}
+  <div class="captura-actions">
+    <button type="button" class="secondary" (click)="agregarLinea()">+ Otra venta</button>
+    <button
+      type="button"
+      class="guardar-ticket"
+      (click)="guardarTodas()"
+      [disabled]="guardando || lineasConDatos === 0"
+    >
+      {{
+        guardando
+          ? 'Guardando…'
+          : (lineasConDatos <= 1 ? 'Guardar venta' : 'Guardar ventas') +
+            ' · $' +
+            (totalTicket | number: '1.2-2')
+      }}
     </button>
   </div>
 
   @if (error) {
     <p class="error">{{ error }}</p>
   }
-  @if (ok) {
-    <p class="ok-msg">{{ ok }}</p>
-  }
 </section>
 
-<section class="panel" style="margin-top: 1rem">
-  <div class="toolbar">
-    <label>
+<section class="panel historial-panel" style="margin-top: 1rem">
+  <div class="toolbar historial-toolbar">
+    <h3 class="historial-titulo">Registradas</h3>
+    <div class="filtro-chips" role="group" aria-label="Filtro historial">
+      <button type="button" class="modo-chip" [class.activo]="soloHoy" (click)="soloHoy = true">
+        Del día
+      </button>
+      <button type="button" class="modo-chip" [class.activo]="!soloHoy" (click)="soloHoy = false">
+        Todas
+      </button>
+    </div>
+    <label class="buscar-hist">
       Buscar
       <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto o tipo..." />
     </label>
-    <span class="muted">{{ filtradas.length }} registros</span>
+    <span class="muted">{{ filtradas.length }} registro{{ filtradas.length === 1 ? '' : 's' }}</span>
   </div>
   <div class="table-wrap">
     <table>
@@ -167,8 +199,12 @@
             <td class="money">{{ v.cantidad | number: '1.2-2' }}</td>
             <td class="money">${{ v.total | number: '1.2-2' }}</td>
             <td class="actions">
-              <button type="button" class="danger" (click)="eliminar(v.id)">Eliminar</button>
+              <button type="button" class="danger" (click)="eliminar(v.id)" title="Eliminar">×</button>
             </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="muted">Sin ventas{{ soloHoy ? ' este día' : '' }}.</td>
           </tr>
         }
       </tbody>

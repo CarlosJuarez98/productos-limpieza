@@ -1,144 +1,131 @@
 <h2 class="page-title">Uso en casa</h2>
-<p class="muted" style="margin-top: -0.5rem; margin-bottom: 1rem">
-  Producto propio que se consume en casa. Se descuenta del inventario (al costo de compra).
-</p>
-
-<div class="stats">
-  <div class="stat">
-    <span>Total usado (al costo){{ mesSeleccionado ? ' · ' + labelMesSeleccionado : '' }}</span>
-    <strong>${{ totalCosto | number: '1.2-2' }}</strong>
-  </div>
-</div>
 
 <section class="panel chart-panel">
   <div class="toolbar chart-toolbar">
-    <h3>Consumo por mes</h3>
-    <div class="chart-toolbar-actions">
-      @if (mostrarGrafico && mesSeleccionado) {
-        <button type="button" class="secondary" (click)="limpiarMes()">Ver todos</button>
-      }
-      <button type="button" class="secondary" (click)="mostrarGrafico = !mostrarGrafico">
-        {{ mostrarGrafico ? 'Ocultar' : 'Ver gráfico' }}
-      </button>
+    <h3>Consumo por producto</h3>
+    <label class="periodo-picker">
+      Periodo / corte
+      <select [(ngModel)]="periodoId" name="periodoCorte">
+        @for (p of periodos; track p.id) {
+          <option [ngValue]="p.id">{{ p.label }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  <div class="stats compact-stats">
+    <div class="stat">
+      <span>Gastado ({{ labelPeriodo }})</span>
+      <strong>${{ totalImporte | number: '1.2-2' }}</strong>
     </div>
   </div>
 
-  @if (mostrarGrafico) {
-    <p class="muted hint chart-hint">Clic en una barra para filtrar ese mes</p>
-    <div class="chart-bars" role="img" [attr.aria-label]="'Consumo mensual al costo'">
-      @for (m of porMes; track m.key) {
-        <button
-          type="button"
+  @if (productosDelPeriodo.length) {
+    <div
+      class="chart-bars"
+      role="img"
+      [attr.aria-label]="'Consumo por producto en ' + labelPeriodo"
+    >
+      @for (p of productosDelPeriodo; track p.nombre + p.unidad) {
+        <div
           class="bar-col"
-          [class.activo]="mesSeleccionado === m.key"
-          [class.vacio]="m.costo <= 0"
-          (click)="seleccionarMes(m.key)"
-          [title]="m.label + ': $' + (m.costo | number: '1.2-2')"
+          [title]="p.nombre + ': ' + p.cantidad + ' ' + p.unidad + ' · $' + (p.importe | number: '1.2-2')"
         >
-          <span class="bar-valor" [class.oculto]="m.costo <= 0">
-            ${{ m.costo | number: '1.0-0' }}
+          <span class="bar-valor">
+            {{ p.cantidad | number: '1.0-2' }} {{ p.unidad }}
           </span>
           <span class="bar-track">
-            <span class="bar-fill" [style.height.%]="alturaBarra(m.costo)"></span>
+            <span
+              class="bar-fill"
+              [style.height.%]="alturaBarra(p.cantidad)"
+              [style.background]="p.color"
+            ></span>
           </span>
-          <span class="bar-label">{{ m.label }}</span>
-        </button>
+          <span class="bar-label">{{ p.nombre }}</span>
+        </div>
       }
     </div>
-
-    @if (productosDelMes.length) {
-      <div class="mes-detalle">
-        <h4>Por producto — {{ labelMesSeleccionado }}</h4>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th>Cantidad</th>
-                <th>Costo</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (p of productosDelMes; track p.nombre) {
-                <tr>
-                  <td>{{ p.nombre }}</td>
-                  <td class="money">{{ p.cantidad | number: '1.2-2' }}</td>
-                  <td class="money">${{ p.costo | number: '1.2-2' }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-    }
+  } @else {
+    <p class="muted vacio-mes">Sin consumo en {{ labelPeriodo }}.</p>
   }
 </section>
 
-<section class="panel" style="margin-top: 1rem">
-  <form class="form-grid" (ngSubmit)="guardar()">
-    <label>
+<section class="panel captura-panel" style="margin-top: 1rem">
+  <div class="captura-head">
+    <label class="fecha-field">
       Fecha
-      <input type="date" [(ngModel)]="form.fecha" name="fecha" [max]="fechaMax" required />
+      <input type="date" [(ngModel)]="fecha" name="fechaLote" [max]="fechaMax" required />
     </label>
-    <label>
-      Producto
-      <app-producto-autocomplete
-        [productos]="productos"
-        [(productoId)]="form.productoId"
-        [required]="true"
-      />
-    </label>
-    <label>
-      Cantidad
-      <input
-        type="text"
-        inputmode="decimal"
-        [(ngModel)]="form.cantidad"
-        name="cantidad"
-        placeholder="0"
-        required
-      />
-    </label>
-    <button type="submit">Registrar uso</button>
-  </form>
-  @if (error) {
-    <p class="error">{{ error }}</p>
-  }
-</section>
-
-<section class="panel" style="margin-top: 1rem">
-  <div class="toolbar">
-    <h3>Detalle{{ mesSeleccionado ? ' · ' + labelMesSeleccionado : '' }}</h3>
-    <span class="muted">{{ movimientosVista.length }} registros</span>
   </div>
-  <div class="table-wrap">
-    <table>
+
+  <div class="table-wrap lote-wrap">
+    <table class="lote">
       <thead>
         <tr>
-          <th>Fecha</th>
+          <th>#</th>
           <th>Producto</th>
           <th>Cantidad</th>
-          <th>Costo</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
-        @for (m of movimientosVista; track m.id) {
+        @for (l of lineas; track l.key; let i = $index) {
           <tr>
-            <td>{{ m.fecha | fechaDmY }}</td>
-            <td>{{ m.productoNombre }}</td>
-            <td class="money">{{ m.cantidad | number: '1.2-2' }}</td>
-            <td class="money">${{ costoDe(m) | number: '1.2-2' }}</td>
-            <td class="actions">
-              <button type="button" class="danger" (click)="eliminar(m.id)">Eliminar</button>
+            <td class="muted">{{ i + 1 }}</td>
+            <td>
+              <app-producto-autocomplete
+                [productos]="productos"
+                [productoId]="l.productoId"
+                [inputName]="'prod' + l.key"
+                (productoIdChange)="l.productoId = $event"
+                (enterConfirmado)="onProductoEnter(i)"
+              />
             </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="5" class="muted">Sin registros en este periodo</td>
+            <td>
+              <div class="cant-wrap">
+                <input
+                  #cantInput
+                  type="text"
+                  inputmode="decimal"
+                  [(ngModel)]="l.cantidad"
+                  [name]="'cant' + l.key"
+                  placeholder="0"
+                  (keydown.enter)="onCantidadEnter($event, i)"
+                />
+                <span class="unidad">{{ unidadDe(l.productoId) }}</span>
+              </div>
+            </td>
+            <td class="actions">
+              <button type="button" class="danger" (click)="quitarLinea(i)" title="Quitar fila">×</button>
+            </td>
           </tr>
         }
       </tbody>
     </table>
   </div>
+
+  <div class="captura-actions">
+    <button type="button" class="secondary" (click)="agregarLinea()">+ Otro producto</button>
+    <button
+      type="button"
+      class="guardar-lote"
+      (click)="guardar()"
+      [disabled]="guardando || lineasConDatos === 0"
+    >
+      {{
+        guardando
+          ? 'Guardando…'
+          : lineasConDatos <= 1
+            ? 'Registrar uso'
+            : 'Registrar usos'
+      }}
+    </button>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+  @if (ok) {
+    <p class="ok-msg">{{ ok }}</p>
+  }
 </section>

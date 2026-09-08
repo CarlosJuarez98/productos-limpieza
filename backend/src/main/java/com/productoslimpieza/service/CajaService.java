@@ -59,8 +59,11 @@ public class CajaService {
   public CajaResumenDto resumen() {
     CajaConfig cfg = getOrCreateConfig();
     LocalDate desde = cfg.getFechaInicio() != null ? cfg.getFechaInicio() : LocalDate.of(2000, 1, 1);
-    LocalDate hasta = cfg.getFechaFin() != null ? cfg.getFechaFin() : LocalDate.now(ZONA);
-    Totales t = calcularTotales(desde, hasta, nz(cfg.getFondoInicial()));
+    LocalDate hasta = finPeriodoAbierto(cfg);
+    // Tras un corte el fondo ya es el efectivo que quedó en cajón; los ingresos a
+    // apartados que liquidan el "para apartar" del corte no deben volver a restar.
+    BigDecimal exentoApartados = montoParaApartarUltimoCorte(nz(cfg.getFondoInicial()));
+    Totales t = calcularTotales(desde, hasta, nz(cfg.getFondoInicial()), exentoApartados);
 
     List<LocalDate> fechasCorte = corteRepo.findAllByOrderByFechaAsc().stream()
         .map(CorteCaja::getFecha)
@@ -68,31 +71,61 @@ public class CajaService {
     LocalDate ultimoCorte = corteRepo.findMaxFecha().orElseGet(() ->
         cfg.getFechaInicio() != null ? cfg.getFechaInicio().minusDays(1) : null);
 
-    BigDecimal disponibleApartar = calcularDisponibleParaApartar(cfg, t, desde, hasta);
+    BigDecimal fondoCfg = nz(cfg.getFondoInicial());
+    BigDecimal paraApartarCorte = montoParaApartarUltimoCorte(fondoCfg);
+    List<CategoriaApartado> catsApartar = List.of(
+        CategoriaApartado.PRODUCTOS, CategoriaApartado.CASA, CategoriaApartado.SALARIOS);
+    BigDecimal yaApartado = corteRepo.findMaxFecha().isPresent()
+        ? nz(apartadoRepo.sumIngresosByCategoriasAndFecha(catsApartar, desde, hasta))
+        : BigDecimal.ZERO;
+    BigDecimal disponibleApartar = paraApartarCorte
+        .subtract(yaApartado)
+        .max(BigDecimal.ZERO)
+        .setScale(2, RoundingMode.HALF_UP);
+    // Sin cortes: disponible = exceso de caja sobre el fondo (periodo abierto histórico).
+    if (corteRepo.findMaxFecha().isEmpty()) {
+      disponibleApartar = t.totalCaja.subtract(fondoCfg.max(FONDO_DEFAULT))
+          .max(BigDecimal.ZERO)
+          .setScale(2, RoundingMode.HALF_UP);
+      paraApartarCorte = disponibleApartar;
+      yaApartado = BigDecimal.ZERO;
+    }
+
+    BigDecimal saldoBancoGlobal = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
+        .subtract(nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA)))
+        .setScale(2, RoundingMode.HALF_UP);
+    BigDecimal transferenciasGlobal = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
+        .setScale(2, RoundingMode.HALF_UP);
+    BigDecimal retirosTxGlobal = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA))
+        .setScale(2, RoundingMode.HALF_UP);
+    // Negocio = efectivo del periodo + saldo de banco (global, no del periodo).
+    BigDecimal totalNegocio = t.totalCaja.add(saldoBancoGlobal).setScale(2, RoundingMode.HALF_UP);
 
     return new CajaResumenDto(
         cfg.getFechaInicio(),
-        cfg.getFechaFin(),
+        hasta,
         t.fondo,
         t.productos,
         t.recargas,
         t.servicios,
         t.retiros,
         t.ingresos,
-        t.retirosTx,
-        t.transferencias,
+        retirosTxGlobal,
+        transferenciasGlobal,
         t.apartadosProductos,
         t.apartadosServicios,
         t.totalCaja,
-        t.totalTx,
-        t.totalNegocio,
+        saldoBancoGlobal,
+        totalNegocio,
         fechasCorte,
         ultimoCorte,
+        paraApartarCorte.setScale(2, RoundingMode.HALF_UP),
+        yaApartado.setScale(2, RoundingMode.HALF_UP),
         disponibleApartar,
         mapMovs(TipoMovimientoCaja.RETIRO, desde, hasta),
         mapMovs(TipoMovimientoCaja.INGRESO, desde, hasta),
-        mapMovs(TipoMovimientoCaja.RETIRO_TRANSFERENCIA, desde, hasta),
-        mapMovs(TipoMovimientoCaja.TRANSFERENCIA, desde, hasta)
+        mapMovsTodos(TipoMovimientoCaja.RETIRO_TRANSFERENCIA),
+        mapMovsTodos(TipoMovimientoCaja.TRANSFERENCIA)
     );
   }
 
@@ -128,6 +161,48 @@ public class CajaService {
         .subtract(fondoQueQueda)
         .max(BigDecimal.ZERO)
         .setScale(2, RoundingMode.HALF_UP);
+  }
+
+  /** Sobrante del último corte (contado − fondo) que se liquida con ingresos a apartados. */
+  private BigDecimal montoParaApartarUltimoCorte(BigDecimal fondoQueQueda) {
+    return corteRepo.findMaxFecha()
+        .flatMap(corteRepo::findByFecha)
+        .map(c -> {
+          if (c.getParaApartar() != null && c.getParaApartar().compareTo(BigDecimal.ZERO) >= 0) {
+            return c.getParaApartar().setScale(2, RoundingMode.HALF_UP);
+          }
+          BigDecimal fondo = fondoQueQueda.compareTo(BigDecimal.ZERO) > 0 ? fondoQueQueda : FONDO_DEFAULT;
+          return montoParaApartar(c, fondo);
+        })
+        .orElse(BigDecimal.ZERO);
+  }
+
+  /**
+   * Al cerrar un periodo en {@code fechaCorte}, el sobrante del corte anterior (si hubo)
+   * ya quedó fuera del cajón vía el fondo; no debe restar otra vez.
+   */
+  private BigDecimal exentoApartadosDesdeCorteAnterior(LocalDate fechaCorte) {
+    List<LocalDate> cortes = corteRepo.findAllByOrderByFechaAsc().stream()
+        .map(CorteCaja::getFecha)
+        .toList();
+    LocalDate anterior = null;
+    for (LocalDate f : cortes) {
+      if (fechaCorte != null && !f.isBefore(fechaCorte)) {
+        break;
+      }
+      anterior = f;
+    }
+    if (anterior == null) {
+      return BigDecimal.ZERO;
+    }
+    CorteCaja prev = corteRepo.findByFecha(anterior).orElse(null);
+    if (prev == null) {
+      return BigDecimal.ZERO;
+    }
+    if (prev.getParaApartar() != null && prev.getParaApartar().compareTo(BigDecimal.ZERO) >= 0) {
+      return prev.getParaApartar().setScale(2, RoundingMode.HALF_UP);
+    }
+    return montoParaApartar(prev, FONDO_DEFAULT);
   }
 
   private BigDecimal contadoDelCorte(CorteCaja corte) {
@@ -183,7 +258,8 @@ public class CajaService {
         ? nz(guardado.getFondoPeriodo())
         : (anterior == null ? FONDO_HISTORICO : FONDO_DEFAULT);
 
-    Totales t = calcularTotales(desde, hasta, fondo);
+    // En un periodo cerrado, los apartados del propio periodo sí salieron del cajón.
+    Totales t = calcularTotales(desde, hasta, fondo, BigDecimal.ZERO);
 
     BigDecimal calculadora = guardado.getTotalCalculadora();
     BigDecimal diferencia = null;
@@ -273,7 +349,7 @@ public class CajaService {
     LocalDate desde = cfg.getFechaInicio() != null ? cfg.getFechaInicio() : INICIO_HISTORICO;
     LocalDate hasta = corte;
     BigDecimal fondoCierre = req.fondoPeriodo() != null ? nz(req.fondoPeriodo()) : nz(cfg.getFondoInicial());
-    Totales t = calcularTotales(desde, hasta, fondoCierre);
+    Totales t = calcularTotales(desde, hasta, fondoCierre, exentoApartadosDesdeCorteAnterior(corte));
 
     CorteCaja c = corteRepo.findByFecha(corte).orElseGet(CorteCaja::new);
     c.setFecha(corte);
@@ -307,6 +383,42 @@ public class CajaService {
 
   @Transactional
   public MovimientoCajaDto crearMovimiento(MovimientoCajaRequest req) {
+    if (req.monto() == null || req.monto().compareTo(BigDecimal.ZERO) <= 0) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El monto debe ser mayor a 0");
+    }
+    if (req.fecha() != null && req.fecha().isAfter(LocalDate.now(ZONA))) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha no puede ser posterior a hoy");
+    }
+    CajaConfig cfg = getOrCreateConfig();
+    LocalDate desde = cfg.getFechaInicio();
+    if (desde != null && req.fecha() != null && req.fecha().isBefore(desde)) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "La fecha es anterior al inicio del periodo (" + desde + "). ¿Quisiste el periodo actual?");
+    }
+    // El periodo abierto llega al menos hasta hoy / fecha del movimiento.
+    LocalDate hoy = LocalDate.now(ZONA);
+    LocalDate fin = cfg.getFechaFin();
+    LocalDate necesario = req.fecha() != null && req.fecha().isAfter(hoy) ? hoy : (req.fecha() != null ? req.fecha() : hoy);
+    if (necesario.isBefore(hoy)) {
+      necesario = hoy;
+    }
+    if (fin == null || fin.isBefore(necesario)) {
+      cfg.setFechaFin(necesario);
+      configRepo.save(cfg);
+    }
+
+    // Banco: saldo global (todas las fechas). No se filtra por periodo/corte.
+    if (req.tipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
+      BigDecimal saldoBanco = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
+          .subtract(nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA)));
+      if (req.monto().compareTo(saldoBanco) > 0) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "Saldo en banco insuficiente ($" + saldoBanco.setScale(2, RoundingMode.HALF_UP) + ")");
+      }
+    }
+
     MovimientoCaja m = new MovimientoCaja();
     m.setFecha(req.fecha());
     m.setTipo(req.tipo());
@@ -323,7 +435,8 @@ public class CajaService {
     movimientoRepo.deleteById(id);
   }
 
-  private Totales calcularTotales(LocalDate desde, LocalDate hasta, BigDecimal fondo) {
+  private Totales calcularTotales(
+      LocalDate desde, LocalDate hasta, BigDecimal fondo, BigDecimal apartadosExentosDelCorte) {
     BigDecimal productos = nz(ventaRepo.sumTotalByFechaAndTipos(desde, hasta,
         List.of(TipoVenta.LITROS, TipoVenta.PIEZA, TipoVenta.PESOS, TipoVenta.MAYOREO,
             TipoVenta.CASA, TipoVenta.MUESTRA)));
@@ -335,20 +448,30 @@ public class CajaService {
     BigDecimal retirosTx = nz(movimientoRepo.sumByTipoAndFecha(TipoMovimientoCaja.RETIRO_TRANSFERENCIA, desde, hasta));
     BigDecimal transferencias = nz(movimientoRepo.sumByTipoAndFecha(TipoMovimientoCaja.TRANSFERENCIA, desde, hasta));
 
-    BigDecimal apartadosProductos = nz(apartadoRepo.sumIngresosByCategoriasAndFecha(
+    BigDecimal apartadosProductosBruto = nz(apartadoRepo.sumIngresosByCategoriasAndFecha(
         List.of(CategoriaApartado.PRODUCTOS, CategoriaApartado.CASA, CategoriaApartado.SALARIOS),
         desde, hasta));
-    BigDecimal apartadosServicios = nz(apartadoRepo.sumIngresosByCategoriasAndFecha(
+    BigDecimal apartadosServiciosBruto = nz(apartadoRepo.sumIngresosByCategoriasAndFecha(
         List.of(CategoriaApartado.SERVICIOS), desde, hasta));
+
+    BigDecimal exento = nz(apartadosExentosDelCorte).max(BigDecimal.ZERO);
+    // Primero se liquida el sobrante del corte (productos/casa/salarios); el resto sí sale del cajón.
+    BigDecimal exentoProd = apartadosProductosBruto.min(exento);
+    BigDecimal restoExento = exento.subtract(exentoProd);
+    BigDecimal exentoServ = apartadosServiciosBruto.min(restoExento);
+    BigDecimal apartadosProductos = apartadosProductosBruto.subtract(exentoProd).max(BigDecimal.ZERO);
+    BigDecimal apartadosServicios = apartadosServiciosBruto.subtract(exentoServ).max(BigDecimal.ZERO);
 
     BigDecimal totalCaja = fondo
         .add(productos).add(recargas).add(servicios).add(ingresos)
+        .add(retirosTx) // retiro del banco → entra efectivo a la caja del periodo
         .subtract(retiros)
-        .subtract(transferencias)
+        .subtract(transferencias) // transferencia a banco → sale de caja
         .subtract(apartadosProductos)
         .subtract(apartadosServicios)
         .setScale(2, RoundingMode.HALF_UP);
 
+    // Neto banco del periodo (solo para snapshots de corte); el saldo global se calcula aparte.
     BigDecimal totalTx = transferencias.subtract(retirosTx).setScale(2, RoundingMode.HALF_UP);
     BigDecimal totalNegocio = totalCaja.add(totalTx).setScale(2, RoundingMode.HALF_UP);
 
@@ -374,6 +497,10 @@ public class CajaService {
         .stream().map(this::toDto).toList();
   }
 
+  private List<MovimientoCajaDto> mapMovsTodos(TipoMovimientoCaja tipo) {
+    return movimientoRepo.findByTipoOrderByFechaDescIdDesc(tipo).stream().map(this::toDto).toList();
+  }
+
   private MovimientoCajaDto toDto(MovimientoCaja m) {
     return new MovimientoCajaDto(m.getId(), m.getFecha(), m.getTipo(), m.getMonto(), m.getMotivo());
   }
@@ -385,6 +512,19 @@ public class CajaService {
       c.setFondoInicial(FONDO_DEFAULT);
       return configRepo.save(c);
     });
+  }
+
+  /**
+   * Fin del periodo abierto: al menos hasta hoy, para que retiros/transferencias
+   * del día se vean aunque la fecha fin del corte planeado se haya quedado atrás.
+   */
+  private LocalDate finPeriodoAbierto(CajaConfig cfg) {
+    LocalDate hoy = LocalDate.now(ZONA);
+    LocalDate fin = cfg.getFechaFin();
+    if (fin == null || fin.isBefore(hoy)) {
+      return hoy;
+    }
+    return fin;
   }
 
   private static BigDecimal nz(BigDecimal v) {

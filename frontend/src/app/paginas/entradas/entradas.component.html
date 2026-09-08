@@ -1,23 +1,24 @@
 <h2 class="page-title">Entrada de proveedor</h2>
 
+@if (fechaUltimoCorte) {
+  <p class="corte-aviso">
+    Última fecha de corte:
+    <strong class="fecha-naranja-caja">{{ fechaUltimoCorte | fechaDmY }}</strong>
+  </p>
+}
+
 <section class="panel">
   <div class="toolbar">
     <label>
-      Fecha (todas las filas)
+      Fecha
       <input
         type="date"
         [(ngModel)]="fecha"
         name="fechaLote"
+        [min]="fechaMin || null"
         [max]="fechaMax"
         required
       />
-    </label>
-    <label>
-      Actualizar precio compra
-      <select [(ngModel)]="actualizarPrecioCompra" name="actualizarPrecioCompra">
-        <option [ngValue]="true">Sí</option>
-        <option [ngValue]="false">No</option>
-      </select>
     </label>
     <span class="muted">Total lote: ${{ totalLote | number: '1.2-2' }}</span>
   </div>
@@ -85,20 +86,24 @@
                 <span class="muted">—</span>
               }
             </td>
-            <td>
+            <td class="col-cambio">
               @switch (cambioLinea(l)) {
                 @case ('SUBIO') {
-                  <span class="badge-cambio subio" title="Subió vs última compra">
-                    Subió +${{ diffAbsLinea(l) | number: '1.2-2' }}
-                  </span>
+                  <span
+                    class="icono-cambio subio"
+                    [title]="'Subió +$' + (diffAbsLinea(l) | number: '1.2-2')"
+                    aria-label="Subió"
+                  >↑</span>
                 }
                 @case ('BAJO') {
-                  <span class="badge-cambio bajo" title="Bajó vs última compra">
-                    Bajó −${{ diffAbsLinea(l) | number: '1.2-2' }}
-                  </span>
+                  <span
+                    class="icono-cambio bajo"
+                    [title]="'Bajó −$' + (diffAbsLinea(l) | number: '1.2-2')"
+                    aria-label="Bajó"
+                  >↓</span>
                 }
                 @case ('IGUAL') {
-                  <span class="badge-cambio igual">Igual</span>
+                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">→</span>
                 }
                 @default {
                   <span class="muted">—</span>
@@ -141,6 +146,7 @@
         type="date"
         [(ngModel)]="prep.fecha"
         name="prepFecha"
+        [min]="fechaMin || null"
         [max]="fechaMax"
         required
       />
@@ -211,7 +217,7 @@
             <td>{{ p.productoInsumoNombre }}</td>
             <td class="money">{{ p.cantidadInsumo | number: '1.2-2' }}</td>
             <td class="actions">
-              <button type="button" class="danger" (click)="eliminarProduccion(p.id)">Eliminar</button>
+              <button type="button" class="danger" (click)="eliminarProduccion(p.id)" title="Eliminar">×</button>
             </td>
           </tr>
         }
@@ -247,16 +253,16 @@
             <td class="money">
               {{ e.precioCompraAnterior != null ? ('$' + (e.precioCompraAnterior | number: '1.2-2')) : '—' }}
             </td>
-            <td>
+            <td class="col-cambio">
               @switch (cambioEntrada(e)) {
                 @case ('SUBIO') {
-                  <span class="badge-cambio subio">Subió</span>
+                  <span class="icono-cambio subio" title="Subió vs última compra" aria-label="Subió">↑</span>
                 }
                 @case ('BAJO') {
-                  <span class="badge-cambio bajo">Bajó</span>
+                  <span class="icono-cambio bajo" title="Bajó vs última compra" aria-label="Bajó">↓</span>
                 }
                 @case ('IGUAL') {
-                  <span class="badge-cambio igual">Igual</span>
+                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">→</span>
                 }
                 @default {
                   <span class="muted">—</span>
@@ -264,7 +270,7 @@
               }
             </td>
             <td class="actions">
-              <button type="button" class="danger" (click)="eliminar(e.id)">Eliminar</button>
+              <button type="button" class="danger" (click)="eliminar(e.id)" title="Eliminar">×</button>
             </td>
           </tr>
         }
