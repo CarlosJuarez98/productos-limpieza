@@ -89,19 +89,60 @@
 }
 
 .movs-efectivo {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 52rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-@media (max-width: 700px) {
+.movs-efectivo h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.movs-efectivo .mov-table {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.movs-efectivo .mov-table th,
+.movs-efectivo .mov-table td {
+  text-align: center;
+}
+
+.movs-efectivo .mov-table .col-motivo {
+  text-align: center;
+}
+
+.movs-efectivo .mov-table .col-tipo {
+  width: 4.5rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.movs-efectivo tr.es-retiro .col-tipo {
+  color: var(--danger);
+}
+
+.movs-efectivo tr.es-ingreso .col-tipo {
+  color: var(--ok);
+}
+
+@media (max-width: 767px) {
   .banco-grid,
-  .banco-stats,
-  .movs-efectivo {
+  .banco-stats {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .banco-saldo {
     align-items: flex-start;
     width: 100%;
+  }
+
+  .movs-efectivo {
+    max-width: none;
   }
 }
 
@@ -255,15 +296,51 @@ input[readonly] {
 }
 
 .mov-table {
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: auto;
   max-height: min(18rem, 40vh);
   width: 100%;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+}
+
+@media (max-width: 767px) {
+  .mov-table {
+    max-height: min(14rem, 35vh);
+  }
 }
 
 .mov-table table {
   width: 100%;
   table-layout: fixed;
+}
+
+@media (max-width: 767px) {
+  .mov-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mov-table table {
+    width: max-content;
+    min-width: 26rem;
+    table-layout: auto;
+  }
+
+  .mov-table th,
+  .mov-table td {
+    white-space: nowrap;
+    font-size: 0.88rem;
+    padding: 0.45rem 0.5rem;
+    vertical-align: middle;
+  }
+
+  .mov-table .col-motivo {
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .mov-table th,
@@ -300,13 +377,7 @@ input[readonly] {
   min-width: 0;
 }
 
-@media (max-width: 900px) {
-  .movs-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 520px) {
+@media (max-width: 767px) {
   .movs-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -382,9 +453,9 @@ input[readonly] {
 }
 
 .movs-periodo-hint {
-  grid-column: 1 / -1;
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.5rem;
   font-size: 0.85rem;
+  text-align: center;
 }
 
 button.linkish {

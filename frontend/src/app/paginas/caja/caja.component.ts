@@ -11,12 +11,6 @@ interface Denominacion {
   cantidad: number | null;
 }
 
-interface BloqueMov {
-  titulo: string;
-  items: MovimientoCaja[];
-  conMotivo: boolean;
-}
-
 @Component({
   selector: 'app-caja',
   standalone: true,
@@ -124,23 +118,29 @@ export class CajaComponent implements OnInit {
 
   get mensajeDetalleCorte(): string {
     const d = this.detalleCorte;
-    if (!d) return '';
-    if (d.diferencia == null) {
-      return 'Sin conteo de billetes guardado en este corte (solo totales del periodo).';
-    }
+    if (!d || d.diferencia == null) return '';
     const x = Number(d.diferencia);
     if (Math.abs(x) < 0.005) return '';
     if (x < 0) return `Faltaron $${Math.abs(x).toFixed(2)}.`;
     return `Sobraron $${x.toFixed(2)}.`;
   }
 
-  get bloquesMovimientos(): BloqueMov[] {
+  /** Retiros e ingresos del periodo/corte, juntos. */
+  get movimientosEfectivo(): MovimientoCaja[] {
     const src = this.detalleCorte || this.caja;
     if (!src) return [];
-    return [
-      { titulo: 'Retiros', items: src.retiros || [], conMotivo: true },
-      { titulo: 'Ingresos', items: src.ingresos || [], conMotivo: true },
-    ];
+    const lista = [...(src.retiros || []), ...(src.ingresos || [])];
+    return lista.sort((a, b) => {
+      const f = String(b.fecha).localeCompare(String(a.fecha));
+      if (f !== 0) return f;
+      return (b.id || 0) - (a.id || 0);
+    });
+  }
+
+  etiquetaTipoMov(tipo: TipoMovimientoCaja | string): string {
+    if (tipo === 'INGRESO') return 'Ingreso';
+    if (tipo === 'RETIRO') return 'Retiro';
+    return String(tipo || '—');
   }
 
   /** Transferencias del banco: siempre globales (no por periodo/corte). */
@@ -213,11 +213,11 @@ export class CajaComponent implements OnInit {
 
   get etiquetaBotonPeriodo(): string {
     if (this.guardandoPeriodo) return 'Guardando…';
-    if (!this.config.fechaFin) return 'Guardar periodo';
+    if (!this.config.fechaFin) return 'Guardar corte de caja';
     const cortes = this.caja?.fechasCorte || [];
-    if (cortes.includes(this.config.fechaFin)) return 'Periodo cerrado';
+    if (cortes.includes(this.config.fechaFin)) return 'Corte cerrado';
     if (this.config.fechaFin > this.hoyLocal()) return 'Fecha fin inválida';
-    return 'Guardar periodo';
+    return 'Guardar corte de caja';
   }
 
   cargar(): void {
@@ -268,7 +268,7 @@ export class CajaComponent implements OnInit {
       `Quedará registrado el corte. El periodo nuevo empieza el ${formatFechaDmY(inicioNuevo)} con fondo $200.`;
 
     const ok = await this.confirmDlg.ask(resumen, {
-      titulo: 'Guardar periodo',
+      titulo: 'Guardar corte de caja',
       confirmarTexto: 'Guardar',
     });
     if (!ok) return;

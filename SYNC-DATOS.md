@@ -1,25 +1,30 @@
-# Sync de datos local → nube (productos-limpieza)
+# Sync de datos local ↔ nube (productos-limpieza)
 
-## Acuerdo
+## Direcciones
 
-1. Desarrollas y registras en **local**.
-2. Cuando digas **“sube a la nube”**, se sube:
-   - **código** (solo si cambió; Docker usa caché)
-   - **datos** desde Oracle local → ATP
+| Acción | Script | Dirección |
+|--------|--------|-----------|
+| **Sube a la nube** | `scripts\sync-datos-completo.ps1` | Local → ATP (dump completo) |
+| **Baja de la nube** | `scripts\sync-datos-desde-nube.ps1` | ATP → Local (dump completo) |
 
-## Script actual
-
-Copia completa (todas las tablas de negocio):
-
-```powershell
-cd A:\Programas-java\Negocios\productos-limpieza
-powershell -ExecutionPolicy Bypass -File .\scripts\sync-datos-completo.ps1
-```
-
-Requisitos: Docker local (`oracle-productos-limpieza`), SSH a la VM, wallet en `~/productos-limpieza/wallet`.
+Convenio de los 3 proyectos: `A:\Programas-java\SYNC-BIDIRECCIONAL.md`.
 
 ## Notas
 
 - Fuente de verdad en operación: **Oracle** (local mientras desarrollas; ATP en la nube).
-- No reinyectar JSON de semillas en la nube si la BD ya tiene datos.
-- Si más adelante hace falta sync **incremental** (solo filas nuevas), se puede añadir como en control-gastos.
+- No reinyectar JSON de semillas si la BD ya tiene datos.
+- Duplicados (`ORA-00001`) se omiten al importar.
+
+## Comandos
+
+```powershell
+cd A:\Programas-java\Negocios\productos-limpieza
+
+# Subir
+powershell -ExecutionPolicy Bypass -File .\scripts\sync-datos-completo.ps1
+
+# Bajar (misma password de wallet ATP que usaste al generar el zip)
+powershell -ExecutionPolicy Bypass -File .\scripts\sync-datos-desde-nube.ps1 -WalletPassword 'WalletPass2798Aa'
+```
+
+Requisitos: Docker local (`oracle-productos-limpieza`), SSH a la VM, wallet en `~/productos-limpieza/wallet`.

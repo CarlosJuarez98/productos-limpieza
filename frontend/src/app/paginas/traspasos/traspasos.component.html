@@ -14,7 +14,7 @@
 @if (data && data.saldosPorPersona.length) {
   <section class="panel">
     <h3>Cuenta por persona</h3>
-    <div class="table-wrap">
+    <div class="table-wrap hist-tabla">
       <table>
         <thead>
           <tr>
@@ -53,6 +53,28 @@
         </tbody>
       </table>
     </div>
+
+    <ul class="hist-cards">
+      @for (s of data.saldosPorPersona; track s.personaId) {
+        <li>
+          <div class="item-meta">
+            <span>
+              @switch (s.estado) {
+                @case ('DEBE') { Debe }
+                @case ('AL_CORRIENTE') { Pagado }
+                @case ('A_FAVOR') { A favor }
+                @default { {{ s.estado }} }
+              }
+            </span>
+            <span class="item-tag">abonado ${{ s.totalAbonado | number: '1.2-2' }}</span>
+          </div>
+          <p class="item-motivo">{{ s.persona }}</p>
+          <div class="item-fila">
+            <strong class="money">${{ s.saldo | number: '1.2-2' }}</strong>
+          </div>
+        </li>
+      }
+    </ul>
   </section>
 }
 
@@ -89,8 +111,9 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Producto (inventario)</th>
+            <th>Producto</th>
             <th>Cantidad</th>
+            <th>Disponible</th>
             <th>Precio compra $</th>
             <th>Total $</th>
             <th></th>
@@ -98,7 +121,7 @@
         </thead>
         <tbody>
           @for (l of lineas; track l.key; let i = $index) {
-            <tr>
+            <tr [class.stock-warn]="excedeStock(l, i)">
               <td class="muted">{{ i + 1 }}</td>
               <td>
                 <app-producto-autocomplete
@@ -119,8 +142,22 @@
                   [(ngModel)]="l.cantidad"
                   [name]="'cant' + l.key"
                   placeholder="0"
+                  [class.input-warn]="excedeStock(l, i)"
                   (keydown.enter)="onCantidadEnter($event, i)"
                 />
+              </td>
+              <td>
+                @if (l.productoId != null && stockDisponible(l.productoId) != null) {
+                  <span
+                    class="disp"
+                    [class.disp-warn]="excedeStock(l, i)"
+                    [title]="excedeStock(l, i) ? 'Cantidad mayor al stock' : 'Stock actual'"
+                  >
+                    {{ stockDisponible(l.productoId) | number: '1.0-2' }}
+                  </span>
+                } @else {
+                  <span class="muted">—</span>
+                }
               </td>
               <td>
                 @if (l.productoId != null && precioCompra(l.productoId) > 0) {
@@ -147,9 +184,22 @@
       </table>
     </div>
     <div class="toolbar lote-actions" style="margin-top: 0.65rem">
-      <button type="button" class="secondary" (click)="agregarLinea()">+ Agregar fila</button>
-      <button type="submit">Registrar traspaso</button>
+      <button
+        type="button"
+        class="btn-agregar-linea"
+        (click)="agregarLinea()"
+        title="Agregar fila"
+        aria-label="Agregar fila"
+      >
+        +
+      </button>
+      <button type="submit" class="btn-guardar-filas" [disabled]="hayExcesoStock">
+        Registrar traspaso
+      </button>
     </div>
+    @if (error) {
+      <p class="error">{{ error }}</p>
+    }
   </form>
 </section>
 
@@ -219,7 +269,7 @@
   <div class="dos-cols" style="margin-top: 1rem">
     <section class="panel">
       <h3>Historial de traspasos</h3>
-      <div class="table-wrap">
+      <div class="table-wrap hist-tabla">
         <table>
           <thead>
             <tr>
@@ -257,10 +307,54 @@
           </tbody>
         </table>
       </div>
+
+      <ul class="hist-cards">
+        @for (t of data.traspasos; track t.id) {
+          <li>
+            <div class="item-meta">
+              <span>{{ t.fecha | fechaDmY }}</span>
+              <span class="item-tag">{{ t.persona || '—' }}</span>
+            </div>
+            <p class="item-motivo">
+              @if (t.lineas.length === 1) {
+                {{ t.lineas[0].productoNombre }}
+              } @else if (t.lineas.length > 1) {
+                {{ t.lineas[0].productoNombre }} · {{ t.lineas.length }} productos
+              } @else {
+                —
+              }
+            </p>
+            <div class="item-fila">
+              <strong class="money">${{ t.total | number: '1.2-2' }}</strong>
+              <div class="acciones">
+                <button
+                  type="button"
+                  class="icono peligro"
+                  title="Eliminar"
+                  aria-label="Eliminar"
+                  (click)="eliminar(t.id)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </li>
+        } @empty {
+          <li class="vacio muted">Sin traspasos.</li>
+        }
+      </ul>
     </section>
     <section class="panel">
       <h3>Historial de abonos</h3>
-      <div class="table-wrap">
+      <div class="table-wrap hist-tabla">
         <table>
           <thead>
             <tr>
@@ -288,6 +382,42 @@
           </tbody>
         </table>
       </div>
+
+      <ul class="hist-cards">
+        @for (a of data.abonos; track a.id) {
+          <li>
+            <div class="item-meta">
+              <span>{{ a.fecha | fechaDmY }}</span>
+              <span class="item-tag">{{ a.persona || '—' }}</span>
+            </div>
+            <p class="item-motivo">{{ a.nota || '—' }}</p>
+            <div class="item-fila">
+              <strong class="money">${{ a.monto | number: '1.2-2' }}</strong>
+              <div class="acciones">
+                <button
+                  type="button"
+                  class="icono peligro"
+                  title="Eliminar"
+                  aria-label="Eliminar"
+                  (click)="eliminarAbono(a.id)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </li>
+        } @empty {
+          <li class="vacio muted">Sin abonos.</li>
+        }
+      </ul>
     </section>
   </div>
 }

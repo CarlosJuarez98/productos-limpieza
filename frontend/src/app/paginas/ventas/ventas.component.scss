@@ -208,22 +208,6 @@
   color: #1f3d2a;
 }
 
-.captura-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: 0.9rem;
-  align-items: center;
-}
-
-.guardar-ticket {
-  flex: 1;
-  min-width: 12rem;
-  min-height: 2.75rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
 .corte-aviso {
   margin: 0 0 0.85rem;
   padding: 0.65rem 0.85rem;
@@ -268,16 +252,50 @@ td.fecha-naranja {
   flex: 1;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 767px) {
+  .captura-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .totales-rapidos {
+    width: 100%;
+  }
+
   .linea-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   .total-campo {
-    grid-column: 1 / -1;
+    grid-column: auto;
+  }
+
+  .modo-chips {
+    flex-wrap: wrap;
   }
 
   .modo-chip {
     padding: 0.4rem 0.65rem;
+  }
+
+  .historial-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .linea-card {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+  .linea-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .captura-head {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
   }
 }

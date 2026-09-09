@@ -12,7 +12,6 @@
     <div class="banco-head">
       <div>
         <h3>Banco (transferencias)</h3>
-        <p class="muted hint-banco">Saldo e historial globales (no se reinician con el corte).</p>
       </div>
       <div class="banco-saldo">
         <span>Saldo en banco</span>
@@ -32,7 +31,7 @@
     <div class="banco-grid">
       <div class="banco-col">
         <h4>Transferencias</h4>
-        <div class="table-wrap mov-table">
+        <div class="table-wrap mov-table hist-tabla">
           <table>
             <thead>
               <tr>
@@ -60,10 +59,47 @@
             </tbody>
           </table>
         </div>
+
+        <ul class="hist-cards">
+          @for (m of transferenciasVista; track m.id) {
+            <li>
+              <div class="item-meta">
+                <span>{{ m.fecha | fechaDmY }}</span>
+              </div>
+              <p class="item-motivo">Transferencia</p>
+              <div class="item-fila">
+                <strong class="money">${{ m.monto | number: '1.2-2' }}</strong>
+                @if (!detalleCorte) {
+                  <div class="acciones">
+                    <button
+                      type="button"
+                      class="icono peligro"
+                      title="Eliminar"
+                      aria-label="Eliminar"
+                      (click)="eliminar(m.id)"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M6 6l12 12M18 6L6 18"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                }
+              </div>
+            </li>
+          } @empty {
+            <li class="vacio muted">Sin transferencias</li>
+          }
+        </ul>
       </div>
       <div class="banco-col">
         <h4>Retiros transferencia</h4>
-        <div class="table-wrap mov-table">
+        <div class="table-wrap mov-table hist-tabla">
           <table>
             <thead>
               <tr>
@@ -91,6 +127,43 @@
             </tbody>
           </table>
         </div>
+
+        <ul class="hist-cards">
+          @for (m of retirosTransferenciaVista; track m.id) {
+            <li>
+              <div class="item-meta">
+                <span>{{ m.fecha | fechaDmY }}</span>
+              </div>
+              <p class="item-motivo">Retiro transferencia</p>
+              <div class="item-fila">
+                <strong class="money">${{ m.monto | number: '1.2-2' }}</strong>
+                @if (!detalleCorte) {
+                  <div class="acciones">
+                    <button
+                      type="button"
+                      class="icono peligro"
+                      title="Eliminar"
+                      aria-label="Eliminar"
+                      (click)="eliminar(m.id)"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M6 6l12 12M18 6L6 18"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                }
+              </div>
+            </li>
+          } @empty {
+            <li class="vacio muted">Sin retiros del banco</li>
+          }
+        </ul>
       </div>
     </div>
   </section>
@@ -98,13 +171,11 @@
   <section class="panel totales-panel" style="margin-top: 1rem">
     <h3>Totales del periodo</h3>
     <p class="muted hint">
-      Ventas desde el día siguiente al corte
       @if (caja.fechaInicio) {
-        ({{ caja.fechaInicio | fechaDmY }}
+        {{ caja.fechaInicio | fechaDmY }}
         @if (caja.fechaFin) {
           → {{ caja.fechaFin | fechaDmY }}
         }
-        )
       }
     </p>
     <div class="stats">
@@ -113,14 +184,9 @@
       <div class="stat"><span>Ingresos</span><strong>${{ caja.totalIngresos | number: '1.2-2' }}</strong></div>
       <div class="stat"><span>Retiros</span><strong>${{ caja.totalRetiros | number: '1.2-2' }}</strong></div>
       <div class="stat"><span>Apartados</span><strong>${{ caja.totalApartadosProductos | number: '1.2-2' }}</strong></div>
-      <div class="stat destacado"><span>Total caja (efectivo)</span><strong>${{ caja.totalCaja | number: '1.2-2' }}</strong></div>
+      <div class="stat destacado"><span>Total caja</span><strong>${{ caja.totalCaja | number: '1.2-2' }}</strong></div>
       <div class="stat destacado"><span>Total calculadora</span><strong>${{ totalCalculadora | number: '1.2-2' }}</strong></div>
     </div>
-    <p class="muted formula">
-      Total caja = fondo + vendido + ingresos + retiros del banco − retiros − transferencias − apartados
-      (los apartados del sobrante del último corte no se restan otra vez: el fondo ya quedó en $200).
-      El saldo en banco está arriba, en la sección Banco (global).
-    </p>
   </section>
 
   <section class="panel calc-panel" style="margin-top: 1rem">
@@ -176,14 +242,17 @@
     </label>
     <label>
       Monto
-      <input
-        type="text"
-        inputmode="decimal"
-        [(ngModel)]="mov.monto"
-        name="movMonto"
-        placeholder="0"
-        required
-      />
+      <div class="precio-input">
+        <span class="peso">$</span>
+        <input
+          type="text"
+          inputmode="decimal"
+          [(ngModel)]="mov.monto"
+          name="movMonto"
+          placeholder="0"
+          required
+        />
+      </div>
     </label>
     <label>
       Motivo
@@ -194,7 +263,7 @@
 </section>
 
 @if (caja) {
-  <div class="movs-grid movs-efectivo">
+  <section class="panel movs-efectivo">
     @if (detalleCorte) {
       <p class="muted movs-periodo-hint">
         Movimientos de efectivo del corte {{ detalleCorte.fechaCorte | fechaDmY }}
@@ -204,49 +273,79 @@
           Ver periodo actual
         </button>
       </p>
-    } @else {
-      <p class="muted movs-periodo-hint">Efectivo en caja (retiros e ingresos del periodo)</p>
     }
-    @for (bloque of bloquesMovimientos; track bloque.titulo) {
-      <section class="panel mov-panel">
-        <h3>{{ bloque.titulo }}</h3>
-        <div class="table-wrap mov-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Monto</th>
-                @if (bloque.conMotivo) {
-                  <th>Motivo</th>
+    <h3>Retiros e ingresos</h3>
+    <div class="table-wrap mov-table hist-tabla">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Monto</th>
+            <th>Motivo</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of movimientosEfectivo; track m.id) {
+            <tr [class.es-retiro]="m.tipo === 'RETIRO'" [class.es-ingreso]="m.tipo === 'INGRESO'">
+              <td class="col-fecha">{{ m.fecha | fechaDmY }}</td>
+              <td class="col-tipo">{{ etiquetaTipoMov(m.tipo) }}</td>
+              <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
+              <td class="col-motivo" [title]="m.motivo || ''">{{ m.motivo || '—' }}</td>
+              <td class="actions">
+                @if (!detalleCorte) {
+                  <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
                 }
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (m of bloque.items; track m.id) {
-                <tr>
-                  <td class="col-fecha">{{ m.fecha | fechaDmY }}</td>
-                  <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
-                  @if (bloque.conMotivo) {
-                    <td class="col-motivo" [title]="m.motivo || ''">{{ m.motivo || '—' }}</td>
-                  }
-                  <td class="actions">
-                    @if (!detalleCorte) {
-                      <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
-                    }
-                  </td>
-                </tr>
-              } @empty {
-                <tr>
-                  <td [attr.colspan]="bloque.conMotivo ? 4 : 3" class="muted">Sin movimientos</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </section>
-    }
-  </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="muted">Sin movimientos</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <ul class="hist-cards">
+      @for (m of movimientosEfectivo; track m.id) {
+        <li>
+          <div class="item-meta">
+            <span>{{ m.fecha | fechaDmY }}</span>
+            <span class="item-tag">{{ etiquetaTipoMov(m.tipo) }}</span>
+          </div>
+          <p class="item-motivo">{{ m.motivo || '—' }}</p>
+          <div class="item-fila">
+            <strong class="money">${{ m.monto | number: '1.2-2' }}</strong>
+            @if (!detalleCorte) {
+              <div class="acciones">
+                <button
+                  type="button"
+                  class="icono peligro"
+                  title="Eliminar"
+                  aria-label="Eliminar"
+                  (click)="eliminar(m.id)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            }
+          </div>
+        </li>
+      } @empty {
+        <li class="vacio muted">Sin movimientos</li>
+      }
+    </ul>
+  </section>
 }
 
 <section class="panel" style="margin-top: 1rem">
@@ -263,7 +362,7 @@
       <input type="date" [(ngModel)]="config.fechaInicio" name="fechaInicio" readonly />
     </label>
     <label>
-      Fecha fin (corte actual)
+      Fecha fin
       <input type="date" [(ngModel)]="config.fechaFin" name="fechaFin" [max]="hoyLocal()" />
     </label>
     <label>
@@ -277,10 +376,6 @@
       {{ etiquetaBotonPeriodo }}
     </button>
   </form>
-  <p class="muted hint" style="margin-top: 0.35rem">
-    Al guardar se cierra el corte con vendido, retiros, ingresos, contado y si faltó o sobró. Luego el
-    periodo nuevo empieza al día siguiente.
-  </p>
   @if (cortesAnteriores.length) {
     <div class="cortes-hist">
       <button type="button" class="secondary" (click)="mostrarCortes = !mostrarCortes">

@@ -1,7 +1,4 @@
 <h2 class="page-title">Inversión y ganancias</h2>
-<p class="muted hint al-dia">
-  Totales al día de hoy: se recalculan con todas las ventas, compras y altas registradas.
-</p>
 
 @if (error) {
   <p class="error">{{ error }}</p>
@@ -11,35 +8,41 @@
 }
 
 @if (data) {
-  <div class="stats">
+  <div class="stats stats-inversion">
     <div class="stat">
       <span>Inversión inicial · productos</span>
       <strong>${{ data.totalProductosIniciales | number: '1.2-2' }}</strong>
+      <small class="muted foot"></small>
     </div>
     <div class="stat">
       <span>Inversión inicial · infraestructura</span>
       <strong>${{ data.totalInfraestructura | number: '1.2-2' }}</strong>
+      <small class="muted foot"></small>
     </div>
     <div class="stat destacado">
       <span>Inversión inicial (total)</span>
       <strong>${{ data.inversionInicial | number: '1.2-2' }}</strong>
+      <small class="muted foot"></small>
     </div>
     <div class="stat">
       <span>Reinversión (con lo ganado)</span>
       <strong>${{ data.totalReinversion | number: '1.2-2' }}</strong>
+      <small class="muted foot"></small>
     </div>
     <div class="stat">
       <span>Ventas de producto</span>
       <strong>${{ data.totalVentas | number: '1.2-2' }}</strong>
+      <small class="muted foot"></small>
     </div>
     <div class="stat">
       <span>Costo de lo vendido</span>
       <strong>${{ data.costoMercanciaVendida | number: '1.2-2' }}</strong>
+      <small class="muted foot"></small>
     </div>
     <div class="stat destacado" [class.ok]="data.gananciaBruta >= 0" [class.malo]="data.gananciaBruta < 0">
       <span>Ganancia al comprar y revender</span>
       <strong>${{ data.gananciaBruta | number: '1.2-2' }}</strong>
-      <small class="muted">
+      <small class="muted foot">
         margen {{ data.margenPorcentaje | number: '1.0-1' }}%
         · ventas − costo
       </small>
@@ -47,16 +50,16 @@
     <div class="stat destacado" [class.ok]="retornoPositivo" [class.malo]="!retornoPositivo">
       @if (data.inversionInicialRecuperada) {
         <span>Ya recuperaron la inversión inicial</span>
-        <strong>Ganancia ${{ data.gananciaSobreInicial | number: '1.2-2' }}</strong>
-        <small class="muted">
-          Ventas ${{ data.totalVentas | number: '1.2-2' }}
+        <strong>${{ data.gananciaSobreInicial | number: '1.2-2' }}</strong>
+        <small class="muted foot">
+          Ganancia · Ventas ${{ data.totalVentas | number: '1.2-2' }}
           − inicial ${{ data.inversionInicial | number: '1.2-2' }}
         </small>
       } @else {
         <span>Aún falta recuperar la inversión inicial</span>
-        <strong>Faltan ${{ data.faltantePorRecuperarInicial | number: '1.2-2' }}</strong>
-        <small class="muted">
-          Inicial ${{ data.inversionInicial | number: '1.2-2' }},
+        <strong>${{ data.faltantePorRecuperarInicial | number: '1.2-2' }}</strong>
+        <small class="muted foot">
+          Faltan · Inicial ${{ data.inversionInicial | number: '1.2-2' }},
           ventas ${{ data.totalVentas | number: '1.2-2' }}
           ({{ pctRecuperado | number: '1.0-0' }}%)
         </small>
@@ -67,7 +70,7 @@
 
 <section class="panel" style="margin-top: 1rem">
   <h3>Productos de la inversión inicial</h3>
-  <div class="table-wrap">
+  <div class="table-wrap hist-tabla">
     <table>
       <thead>
         <tr>
@@ -103,6 +106,48 @@
       </tbody>
     </table>
   </div>
+
+  <ul class="hist-cards">
+    @for (i of productos; track i.id) {
+      <li>
+        <div class="item-meta">
+          <span>
+            {{ i.cantidad != null ? (i.cantidad | number: '1.2-2') : '—' }} ·
+            @if (i.precioUnidad != null) {
+              ${{ i.precioUnidad | number: '1.2-2' }}
+            } @else {
+              —
+            }
+          </span>
+        </div>
+        <p class="item-motivo">{{ i.concepto }}</p>
+        <div class="item-fila">
+          <strong class="money">${{ i.monto | number: '1.2-2' }}</strong>
+          <div class="acciones">
+            <button
+              type="button"
+              class="icono peligro"
+              title="Eliminar"
+              aria-label="Eliminar"
+              (click)="eliminar(i)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">Sin productos iniciales registrados.</li>
+    }
+  </ul>
 </section>
 
 <section class="panel" style="margin-top: 1rem">
@@ -127,7 +172,7 @@
     </label>
     <button type="submit">Agregar</button>
   </form>
-  <div class="table-wrap">
+  <div class="table-wrap hist-tabla">
     <table>
       <thead>
         <tr>
@@ -153,4 +198,39 @@
       </tbody>
     </table>
   </div>
+
+  <ul class="hist-cards">
+    @for (i of infraestructura; track i.id) {
+      <li>
+        <div class="item-meta">
+          <span>Infra</span>
+        </div>
+        <p class="item-motivo">{{ i.concepto }}</p>
+        <div class="item-fila">
+          <strong class="money">${{ i.monto | number: '1.2-2' }}</strong>
+          <div class="acciones">
+            <button
+              type="button"
+              class="icono peligro"
+              title="Eliminar"
+              aria-label="Eliminar"
+              (click)="eliminar(i)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">Sin ítems de infraestructura.</li>
+    }
+  </ul>
 </section>

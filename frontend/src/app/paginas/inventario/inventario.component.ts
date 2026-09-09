@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
@@ -15,6 +15,22 @@ type FormProducto = {
   vendePor: 'LITROS' | 'PIEZA';
 };
 
+type ColKey =
+  | 'producto'
+  | 'vende'
+  | 'menudeo'
+  | 'm5'
+  | 'm10'
+  | 'compra'
+  | 'minSug'
+  | 'maxSug'
+  | 'stock'
+  | 'ganancia';
+
+type ColDef = { key: ColKey; label: string; fijo?: boolean };
+
+const COLS_STORAGE = 'pl.inventario.columnas';
+
 @Component({
   selector: 'app-inventario',
   standalone: true,
@@ -29,6 +45,25 @@ export class InventarioComponent implements OnInit {
   ok = '';
   guardandoMargen = false;
   editando: InventarioItem | null = null;
+  menuColumnas = false;
+  menuMargenes = false;
+  readonly columnas: ColDef[] = [
+    { key: 'producto', label: 'Producto', fijo: true },
+    { key: 'vende', label: 'Se vende' },
+    { key: 'menudeo', label: 'Menudeo', fijo: true },
+    { key: 'm5', label: '≥ 5 L' },
+    { key: 'm10', label: '≥ 10 L' },
+    { key: 'compra', label: 'Compra' },
+    { key: 'minSug', label: 'Mín. sugerido' },
+    { key: 'maxSug', label: 'Máx. sugerido' },
+    { key: 'stock', label: 'Stock', fijo: true },
+    { key: 'ganancia', label: '% ganancia' },
+  ];
+
+  get columnasOpcionales(): ColDef[] {
+    return this.columnas.filter((c) => !c.fijo);
+  }
+  visible: Record<ColKey, boolean> = this.defaultsVisibles();
   margen: MargenConfig = {
     margenMin: 0.465,
     margenMax: 0.63,
@@ -56,7 +91,84 @@ export class InventarioComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.cargarVisibles();
     this.cargar();
+  }
+
+  @HostListener('document:click')
+  cerrarMenus(): void {
+    this.menuColumnas = false;
+    this.menuMargenes = false;
+  }
+
+  private defaultsVisibles(): Record<ColKey, boolean> {
+    const movil = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+    return {
+      producto: true,
+      vende: !movil,
+      menudeo: true,
+      m5: !movil,
+      m10: !movil,
+      compra: !movil,
+      minSug: !movil,
+      maxSug: !movil,
+      stock: true,
+      ganancia: true,
+    };
+  }
+
+  private cargarVisibles(): void {
+    try {
+      const raw = localStorage.getItem(COLS_STORAGE);
+      if (!raw) {
+        this.visible = this.defaultsVisibles();
+        return;
+      }
+      const saved = JSON.parse(raw) as Partial<Record<ColKey, boolean>>;
+      this.visible = {
+        ...this.defaultsVisibles(),
+        ...saved,
+        producto: true,
+        menudeo: true,
+        stock: true,
+      };
+    } catch {
+      this.visible = this.defaultsVisibles();
+    }
+  }
+
+  private guardarVisibles(): void {
+    localStorage.setItem(COLS_STORAGE, JSON.stringify(this.visible));
+  }
+
+  col(key: ColKey): boolean {
+    const def = this.columnas.find((c) => c.key === key);
+    if (def?.fijo) return true;
+    return this.visible[key] !== false;
+  }
+
+  toggleCol(key: ColKey, event?: Event): void {
+    event?.stopPropagation();
+    const def = this.columnas.find((c) => c.key === key);
+    if (def?.fijo) return;
+    this.visible[key] = !this.col(key);
+    this.guardarVisibles();
+  }
+
+  toggleMenuColumnas(event: Event): void {
+    event.stopPropagation();
+    this.menuMargenes = false;
+    this.menuColumnas = !this.menuColumnas;
+  }
+
+  toggleMenuMargenes(event: Event): void {
+    event.stopPropagation();
+    this.menuColumnas = false;
+    this.menuMargenes = !this.menuMargenes;
+  }
+
+  get colspanEdicion(): number {
+    return 1 + this.columnas.filter((c) => this.col(c.key)).length;
   }
 
   private formVacio(): FormProducto {
@@ -108,6 +220,20 @@ export class InventarioComponent implements OnInit {
     const min = this.sugeridoMin(this.formAlta.precioCompra);
     if (min <= 0) return '';
     return `mín $${min} – máx $${this.sugeridoMax(this.formAlta.precioCompra)}`;
+  }
+
+  /** Alta: todos los campos visibles con valor válido. */
+  get altaCompleta(): boolean {
+    const f = this.formAlta;
+    if (!f.nombre?.trim()) return false;
+    if (!f.vendePor) return false;
+    if (f.cantidadInicial == null || String(f.cantidadInicial).trim() === '') return false;
+    if (!Number.isFinite(Number(f.cantidadInicial)) || Number(f.cantidadInicial) < 0) return false;
+    if (f.precioCompra == null || String(f.precioCompra).trim() === '') return false;
+    if (!Number.isFinite(Number(f.precioCompra)) || Number(f.precioCompra) <= 0) return false;
+    if (f.precioVenta == null || String(f.precioVenta).trim() === '') return false;
+    if (!Number.isFinite(Number(f.precioVenta)) || Number(f.precioVenta) <= 0) return false;
+    return true;
   }
 
   onCompraChange(): void {
@@ -270,8 +396,35 @@ export class InventarioComponent implements OnInit {
 
   guardarNuevo(): void {
     this.error = '';
+    this.ok = '';
     if (!this.formAlta.nombre?.trim()) {
       this.error = 'Indica el nombre del producto';
+      return;
+    }
+    if (this.formAlta.cantidadInicial == null || String(this.formAlta.cantidadInicial).trim() === '') {
+      this.error = 'Indica la cantidad comprada';
+      return;
+    }
+    if (!Number.isFinite(Number(this.formAlta.cantidadInicial)) || Number(this.formAlta.cantidadInicial) < 0) {
+      this.error = 'La cantidad comprada no es válida';
+      return;
+    }
+    if (
+      this.formAlta.precioCompra == null ||
+      String(this.formAlta.precioCompra).trim() === '' ||
+      !Number.isFinite(Number(this.formAlta.precioCompra)) ||
+      Number(this.formAlta.precioCompra) <= 0
+    ) {
+      this.error = 'Indica el precio de compra';
+      return;
+    }
+    if (
+      this.formAlta.precioVenta == null ||
+      String(this.formAlta.precioVenta).trim() === '' ||
+      !Number.isFinite(Number(this.formAlta.precioVenta)) ||
+      Number(this.formAlta.precioVenta) <= 0
+    ) {
+      this.error = 'Indica el precio de menudeo';
       return;
     }
     const body = this.bodyDesde(this.formAlta);
@@ -332,7 +485,9 @@ export class InventarioComponent implements OnInit {
     };
     this.error = '';
     setTimeout(() => {
-      document.querySelector('.fila-edicion')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const el =
+        document.querySelector('.hist-edicion-movil') || document.querySelector('.fila-edicion');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 0);
   }
 

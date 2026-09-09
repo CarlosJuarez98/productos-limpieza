@@ -1,0 +1,174 @@
+# Sync nube → local (productos-limpieza)
+# Baja dump JSON desde ATP e importa a Oracle Docker local.
+#
+# Uso:
+#   powershell -ExecutionPolicy Bypass -File .\scripts\sync-datos-desde-nube.ps1 -WalletPassword 'WalletPass2798Aa'
+
+[CmdletBinding()]
+param(
+  [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+  [string]$SshKey = "A:\Descargas\ssh-key-2026-09-07.key",
+  [string]$VmHost = "opc@163.192.146.143",
+  [string]$OracleContainer = "oracle-productos-limpieza",
+  [string]$LocalUser = "productos_limpieza",
+  [string]$LocalPass = "ProductosLimpieza2026",
+  [string]$LocalDsn = "localhost:1551/XEPDB1",
+  [string]$WalletPassword = "",
+  [string]$CloudUser = "productos_limpieza",
+  [string]$CloudPass = "",
+  [string]$CloudDsn = "cgatodb_tp"
+)
+
+$ErrorActionPreference = "Stop"
+$Migrate = Join-Path $ProjectRoot "_migrate"
+New-Item -ItemType Directory -Force -Path $Migrate | Out-Null
+$Dump = Join-Path $Migrate "cloud_dump.json"
+$SshOpts = @("-i", $SshKey, "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes")
+
+Write-Host "== Sync nube → local (productos-limpieza) ==" -ForegroundColor Cyan
+
+$health = docker inspect -f "{{.State.Health.Status}}" $OracleContainer 2>$null
+if ($LASTEXITCODE -ne 0) {
+  throw "Oracle local '$OracleContainer' no corre. Abre Docker Desktop."
+}
+
+if (-not $WalletPassword) {
+  throw "Pasa -WalletPassword (contraseña del wallet ATP de productos-limpieza)"
+}
+
+# Password ATP: misma que .env.cloud en la VM si no se pasa
+if (-not $CloudPass) {
+  $CloudPass = (ssh @SshOpts $VmHost "grep '^SPRING_DATASOURCE_PASSWORD=' ~/productos-limpieza/.env.cloud | cut -d= -f2-").Trim()
+}
+if (-not $CloudPass) { throw "No se pudo leer SPRING_DATASOURCE_PASSWORD de la VM" }
+
+$exportPy = @"
+import oracledb, os, json, datetime
+from decimal import Decimal
+
+wallet = os.path.expanduser("~/productos-limpieza/wallet")
+wp = os.environ["WALLET_PASSWORD"]
+user = os.environ["CG_USER"]
+password = os.environ["CG_PASS"]
+dsn = os.environ.get("CG_DSN", "cgatodb_tp")
+out = os.path.expanduser("~/productos-limpieza/_migrate/cloud_dump.json")
+os.makedirs(os.path.dirname(out), exist_ok=True)
+
+def conv(v):
+    if v is None: return None
+    if isinstance(v, (datetime.datetime, datetime.date)): return v.isoformat()
+    if isinstance(v, Decimal):
+        return int(v) if v == v.to_integral_value() else float(v)
+    if isinstance(v, bytes): return v.hex()
+    return v
+
+conn = oracledb.connect(user=user, password=password, dsn=dsn,
+                        config_dir=wallet, wallet_location=wallet, wallet_password=wp)
+cur = conn.cursor()
+cur.execute("SELECT table_name FROM user_tables ORDER BY table_name")
+tables = [r[0] for r in cur.fetchall()]
+dump = {"exported_at": datetime.datetime.now(datetime.timezone.utc).isoformat(), "tables": {}}
+for t in tables:
+    cur.execute(f'SELECT * FROM "{t}"')
+    cols = [d[0] for d in cur.description]
+    rows = [{cols[i]: conv(row[i]) for i in range(len(cols))} for row in cur]
+    dump["tables"][t] = {"columns": cols, "rows": rows, "count": len(rows)}
+    print(f"{t}: {len(rows)}", flush=True)
+with open(out, "w", encoding="utf-8") as f:
+    json.dump(dump, f, ensure_ascii=False)
+print("WROTE", out)
+conn.close()
+"@
+
+$exportPath = Join-Path $Migrate "export_cloud_atp.py"
+Set-Content -Path $exportPath -Value $exportPy -Encoding UTF8
+scp @SshOpts $exportPath "${VmHost}:/tmp/export_cloud_atp.py" | Out-Null
+
+Write-Host "==> Export ATP → JSON en la VM"
+ssh @SshOpts $VmHost "WALLET_PASSWORD='$WalletPassword' CG_USER='$CloudUser' CG_PASS='$CloudPass' CG_DSN='$CloudDsn' python3 /tmp/export_cloud_atp.py"
+scp @SshOpts "${VmHost}:~/productos-limpieza/_migrate/cloud_dump.json" $Dump
+if (-not (Test-Path $Dump)) { throw "No bajó cloud_dump.json" }
+Get-Item $Dump | Format-List Name, Length
+
+$importPy = @"
+import json, os, datetime
+from decimal import Decimal
+import oracledb
+
+dump_path = "/in/cloud_dump.json"
+user = os.environ["PL_USER"]
+password = os.environ["PL_PASS"]
+dsn = os.environ["PL_DSN"]
+
+with open(dump_path, encoding="utf-8") as f:
+    dump = json.load(f)
+
+conn = oracledb.connect(user=user, password=password, dsn=dsn)
+cur = conn.cursor()
+
+def parse_val(v):
+    if v is None: return None
+    if isinstance(v, str) and len(v) >= 10 and v[4] == "-" and "T" in v:
+        try:
+            return datetime.datetime.fromisoformat(v.replace("Z", "+00:00")).replace(tzinfo=None)
+        except Exception:
+            pass
+    if isinstance(v, str) and len(v) == 10 and v[4] == "-":
+        try:
+            return datetime.date.fromisoformat(v)
+        except Exception:
+            pass
+    return v
+
+total = 0
+for t, meta in dump.get("tables", {}).items():
+    cols = meta["columns"]
+    rows = meta["rows"]
+    if not rows:
+        print(f"{t}: 0")
+        continue
+    # allow explicit IDs if identity
+    try:
+        cur.execute(f'ALTER TABLE "{t}" MODIFY ID GENERATED BY DEFAULT AS IDENTITY')
+    except Exception:
+        pass
+    placeholders = ",".join([f":{i+1}" for i in range(len(cols))])
+    col_list = ",".join([f'"{c}"' for c in cols])
+    sql = f'INSERT INTO "{t}" ({col_list}) VALUES ({placeholders})'
+    ok = 0
+    for row in rows:
+        vals = [parse_val(row.get(c)) for c in cols]
+        try:
+            cur.execute(sql, vals)
+            ok += 1
+        except Exception as e:
+            msg = str(e)
+            if "ORA-00001" in msg:
+                continue
+            print("ERR", t, msg[:160])
+    conn.commit()
+    try:
+        cur.execute(f'ALTER TABLE "{t}" MODIFY ID GENERATED BY DEFAULT AS IDENTITY (START WITH LIMIT VALUE)')
+    except Exception:
+        pass
+    conn.commit()
+    print(f"{t}: {ok}/{len(rows)}")
+    total += ok
+print("TOTAL_OK", total)
+conn.close()
+"@
+
+$importPath = Join-Path $Migrate "import_cloud_local.py"
+Set-Content -Path $importPath -Value $importPy -Encoding UTF8
+
+Write-Host "==> Import JSON → Oracle local"
+docker run --rm --network host `
+  -v "${Dump}:/in/cloud_dump.json:ro" `
+  -v "${importPath}:/import_cloud_local.py:ro" `
+  -e "PL_USER=$LocalUser" `
+  -e "PL_PASS=$LocalPass" `
+  -e "PL_DSN=$LocalDsn" `
+  python:3.12-slim `
+  bash -c "pip install -q oracledb && python /import_cloud_local.py"
+
+Write-Host "Listo. Sync nube → local (productos-limpieza) terminado." -ForegroundColor Green

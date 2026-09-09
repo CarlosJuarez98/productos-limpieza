@@ -1,9 +1,12 @@
+@if (pullVisible) {
+  <div class="pull-refresh" [class.listo]="pullListo" [style.height.px]="pullDistancia">
+    <span>{{ pullListo ? 'Suelta para recargar' : 'Desliza para recargar' }}</span>
+  </div>
+}
 <header class="top">
   <div class="brand">
     <img class="mark" src="amorcas-logo.png" alt="AMORCAS" width="52" height="52" />
-    <div>
-      <h1>Productos de limpieza Amorcas</h1>
-    </div>
+    <h1>Productos de limpieza Amorcas</h1>
   </div>
   <nav>
     @for (link of links; track link.path) {
@@ -11,7 +14,7 @@
     }
   </nav>
 </header>
-<main>
+<main #mainScroll>
   <router-outlet />
 </main>
 <app-confirm-dialog />

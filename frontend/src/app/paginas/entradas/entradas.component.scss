@@ -14,15 +14,13 @@ h3 {
 }
 
 .lote-wrap {
-  overflow: visible;
   margin-top: 0.75rem;
 }
 
-.lote-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 0.65rem;
+@media (min-width: 768px) {
+  .lote-wrap {
+    overflow: visible;
+  }
 }
 
 table.lote td input,
@@ -53,7 +51,10 @@ tr.bajo td {
 
 .col-cambio {
   text-align: center;
-  width: 2.5rem;
+  width: 1%;
+  min-width: 4.75rem;
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .icono-cambio {

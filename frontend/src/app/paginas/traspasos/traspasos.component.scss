@@ -116,13 +116,13 @@ table.lote td app-producto-autocomplete {
 }
 
 .lote-wrap {
-  overflow: visible;
+  margin-top: 0;
 }
 
-.lote-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+@media (min-width: 768px) {
+  .lote-wrap {
+    overflow: visible;
+  }
 }
 
 .precio-input {
@@ -139,4 +139,24 @@ table.lote td app-producto-autocomplete {
 .precio-input input {
   width: 100%;
   min-width: 0;
+}
+
+.disp {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.disp-warn,
+tr.stock-warn .disp {
+  color: var(--danger);
+}
+
+input.input-warn {
+  border-color: var(--danger);
+  background: #fff5f4;
+}
+
+tr.stock-warn td {
+  background: #fff8f7;
 }

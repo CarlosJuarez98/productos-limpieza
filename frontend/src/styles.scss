@@ -10,16 +10,22 @@
   --warn: #9a4b1f;
   --danger: #8f2d2d;
   --ok: #1f6b4f;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+  height: 100dvh;
+}
+
 html,
 body {
   margin: 0;
-  height: 100%;
   overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(31, 107, 79, 0.08), transparent 28%),
@@ -29,7 +35,49 @@ body {
 }
 
 body {
+  height: 100%;
+  height: 100dvh;
   overflow-y: hidden;
+}
+
+/* Scroll táctil fácil (móvil y escritorio) */
+.scroll-y,
+.scroll-x,
+main,
+.table-wrap,
+nav {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(31, 107, 79, 0.4) transparent;
+}
+
+.scroll-y::-webkit-scrollbar,
+.scroll-x::-webkit-scrollbar,
+main::-webkit-scrollbar,
+.table-wrap::-webkit-scrollbar,
+nav::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.scroll-y::-webkit-scrollbar-thumb,
+.scroll-x::-webkit-scrollbar-thumb,
+main::-webkit-scrollbar-thumb,
+.table-wrap::-webkit-scrollbar-thumb,
+nav::-webkit-scrollbar-thumb {
+  background: rgba(31, 107, 79, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.scroll-y::-webkit-scrollbar-track,
+.scroll-x::-webkit-scrollbar-track,
+main::-webkit-scrollbar-track,
+.table-wrap::-webkit-scrollbar-track,
+nav::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 h1,
@@ -136,7 +184,192 @@ input[type='number'] {
   max-height: min(65vh, calc(100dvh - 12rem));
   max-width: 100%;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
+  touch-action: pan-x pan-y;
 }
+
+/* Móvil vertical y horizontal: tablas legibles (scroll X, sin aplastar) */
+@media (max-width: 767px) {
+  .page-title {
+    font-size: 1.15rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .panel {
+    padding: 0.75rem;
+    border-radius: 0.65rem;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .form-grid > button,
+  .toolbar > button {
+    width: 100%;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar label {
+    width: 100%;
+  }
+
+  .toolbar input,
+  .toolbar select {
+    width: 100%;
+  }
+
+  .search {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .table-wrap,
+  .table-wrap.lote-wrap {
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
+  }
+
+  .table-wrap > table {
+    width: max-content;
+    min-width: 100%;
+    max-width: none;
+    table-layout: auto;
+  }
+
+  /* Captura multi-columna: no comprimir inputs */
+  table.lote {
+    min-width: 46rem;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  table.lote th,
+  table.lote td {
+    white-space: nowrap;
+    vertical-align: middle;
+    padding: 0.55rem 0.55rem;
+    font-size: 0.9rem;
+  }
+
+  table.lote td input,
+  table.lote td select,
+  table.lote td app-producto-autocomplete {
+    min-width: 8.5rem;
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Historiales / listados (inventario, precios, caja, etc.) */
+  .table-wrap > table:not(.lote):not(.gasto-lote) {
+    min-width: 34rem;
+  }
+
+  .table-wrap > table:not(.lote) th,
+  .table-wrap > table:not(.lote) td {
+    white-space: nowrap;
+  }
+
+  /* Nombre de producto: puede partir en 2 líneas, sin aplastar montos */
+  .table-wrap > table:not(.lote) th:first-child,
+  .table-wrap > table:not(.lote) td:first-child {
+    white-space: normal;
+    min-width: 8.5rem;
+    max-width: 12rem;
+    line-height: 1.3;
+  }
+
+  th,
+  td {
+    font-size: 0.9rem;
+    padding: 0.55rem 0.6rem;
+    vertical-align: middle;
+  }
+
+  td.money,
+  th.money,
+  .money {
+    white-space: nowrap;
+    word-break: normal;
+  }
+
+  input,
+  select,
+  button {
+    min-height: 2.5rem;
+  }
+
+  td.actions button.danger:not(.icon-btn),
+  .icon-btn {
+    width: 2.15rem;
+    height: 2.15rem;
+    min-width: 2.15rem;
+  }
+}
+
+/* Teléfono / tablet chica en horizontal: aprovechar ancho, tablas cómodas */
+@media (max-width: 1024px) and (orientation: landscape) {
+  .table-wrap,
+  .table-wrap.lote-wrap {
+    max-height: min(62vh, calc(100dvh - 6.5rem));
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-wrap > table {
+    width: max-content;
+    min-width: 100%;
+    max-width: none;
+    table-layout: auto;
+  }
+
+  table.lote {
+    min-width: 42rem;
+  }
+
+  table.lote th,
+  table.lote td {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  .table-wrap > table:not(.lote) {
+    min-width: 30rem;
+  }
+
+  .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Escritorio: formularios en fila, botones al ancho natural */
+@media (min-width: 768px) {
+  .form-grid > button {
+    width: auto;
+  }
+}
+
 
 table {
   width: 100%;
@@ -166,10 +399,13 @@ th.money {
 th {
   position: sticky;
   top: 0;
-  background: #f4f8f5;
+  background: #e8f0eb;
   z-index: 1;
-  font-weight: 600;
-  color: #335244;
+  font-weight: 700;
+  color: #1a2e24;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+  border-bottom: 2px solid #c5d4cb;
 }
 
 tbody tr:hover:not(.fila-edicion):not(.editando-fila) > td {
@@ -336,3 +572,208 @@ td.actions button.danger:not(.icon-btn) {
   padding: 0.15rem 0.5rem;
   border-radius: 0.3rem;
 }
+
+/* + agregar fila + botón verde de guardar (ventas, entradas, traspasos, etc.) */
+.fila-actions,
+.lote-actions,
+.captura-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+  align-items: center;
+}
+
+/* Historial: tabla escritorio / tarjetas móvil (estilo Gastos) */
+.hist-cards {
+  display: none;
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+.hist-cards > li {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.hist-cards > li:last-child {
+  border-bottom: none;
+}
+
+.hist-cards > li.vacio {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.hist-cards .item-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+}
+
+.hist-cards .item-tag {
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+.hist-cards .item-motivo {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.hist-cards .item-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hist-cards .acciones {
+  display: flex;
+  gap: 0.35rem;
+  justify-content: flex-end;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hist-cards button.icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.05rem;
+  height: 2.05rem;
+  padding: 0;
+  border-radius: 0.45rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.hist-cards button.icono.peligro,
+.hist-cards button.icono.danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+}
+
+.hist-cards button.icono.peligro:hover,
+.hist-cards button.icono.danger:hover {
+  background: #fdeceb;
+}
+
+.hist-cards button.icono svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.hist-cards span.fecha-naranja {
+  display: inline-block;
+  background: #f4a460;
+  color: #3b2208;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+}
+
+.hist-edicion-movil {
+  display: none;
+  margin: 0.65rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: #f7fbf8;
+}
+
+@media (max-width: 767px) {
+  .hist-tabla {
+    display: none !important;
+  }
+
+  .hist-cards {
+    display: block;
+  }
+
+  .hist-edicion-movil {
+    display: block;
+  }
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+  .hist-tabla {
+    display: none !important;
+  }
+
+  .hist-cards {
+    display: block;
+  }
+
+  .hist-edicion-movil {
+    display: block;
+  }
+}
+
+button.btn-agregar-linea {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: #fff;
+  color: var(--ink);
+  font-size: 1.55rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+button.btn-agregar-linea:hover:not(:disabled) {
+  background: #f4f8f5;
+  border-color: #9db5a8;
+  color: var(--ink);
+}
+
+.fila-actions > button.btn-guardar-filas,
+.lote-actions > button.btn-guardar-filas,
+.captura-actions > button.btn-guardar-filas,
+.gasto-actions > button.btn-guardar-filas {
+  flex: 1 1 12rem;
+  min-height: 2.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .fila-actions,
+  .lote-actions,
+  .captura-actions {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .fila-actions > button.btn-guardar-filas,
+  .lote-actions > button.btn-guardar-filas,
+  .captura-actions > button.btn-guardar-filas,
+  .gasto-actions > button.btn-guardar-filas {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+

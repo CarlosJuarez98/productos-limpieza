@@ -8,8 +8,8 @@
     </label>
   </div>
 
-  <h3>Precios actuales (menudeo)</h3>
-  <div class="table-wrap">
+  <h3>Precios actuales</h3>
+  <div class="table-wrap hist-tabla">
     <table>
       <thead>
         <tr>
@@ -38,11 +38,34 @@
       </tbody>
     </table>
   </div>
+
+  <ul class="hist-cards">
+    @for (p of preciosActuales; track p.productoId) {
+      <li>
+        <div class="item-meta">
+          <span>
+            @if (p.vigenteDesde) {
+              {{ p.vigenteDesde | fechaDmY }}
+            } @else {
+              —
+            }
+          </span>
+          <span class="item-tag">actual</span>
+        </div>
+        <p class="item-motivo">{{ p.productoNombre }}</p>
+        <div class="item-fila">
+          <strong class="money">${{ p.precioMenudeo | number: '1.2-2' }}</strong>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">Sin precios actuales.</li>
+    }
+  </ul>
 </section>
 
 <section class="panel" style="margin-top: 1rem">
-  <h3>Historial (precios anteriores)</h3>
-  <div class="table-wrap">
+  <h3>Historial</h3>
+  <div class="table-wrap hist-tabla">
     <table>
       <thead>
         <tr>
@@ -74,4 +97,27 @@
       </tbody>
     </table>
   </div>
+
+  <ul class="hist-cards">
+    @for (p of preciosAnteriores; track p.id) {
+      <li>
+        <div class="item-meta">
+          <span>
+            {{ p.fechaVigencia | fechaDmY }} ·
+            @if (p.vigenteHasta) {
+              {{ p.vigenteHasta | fechaDmY }}
+            } @else {
+              —
+            }
+          </span>
+        </div>
+        <p class="item-motivo">{{ p.productoNombre }}</p>
+        <div class="item-fila">
+          <strong class="money">${{ p.precio | number: '1.2-2' }}</strong>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">No hay precios anteriores{{ filtro ? ' con ese filtro' : '' }}.</li>
+    }
+  </ul>
 </section>

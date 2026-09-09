@@ -1,17 +1,40 @@
 <h2 class="page-title">Uso en casa</h2>
 
 <section class="panel chart-panel">
-  <div class="toolbar chart-toolbar">
+  <div class="chart-toolbar">
     <h3>Consumo por producto</h3>
-    <label class="periodo-picker">
-      Periodo / corte
-      <select [(ngModel)]="periodoId" name="periodoCorte">
-        @for (p of periodos; track p.id) {
-          <option [ngValue]="p.id">{{ p.label }}</option>
-        }
-      </select>
-    </label>
+    <div class="periodo-activo-bar">
+      <span class="periodo-activo-label">{{ etiquetaPeriodoActivo }}</span>
+      @if (periodoId !== 'actual') {
+        <button type="button" class="secondary" (click)="seleccionarPeriodo('actual')">
+          Periodo actual
+        </button>
+      }
+      @if (cortesDisponibles.length) {
+        <button type="button" class="secondary" (click)="toggleCortes()">
+          {{ mostrarCortes ? 'Ocultar cortes' : 'Otro corte' }}
+        </button>
+      }
+    </div>
   </div>
+
+  @if (mostrarCortes && cortesDisponibles.length) {
+    <div class="periodos-bar" role="group" aria-label="Cortes">
+      @for (p of cortesDisponibles; track p.id) {
+        <button
+          type="button"
+          class="periodo-chip"
+          [class.activo]="periodoId === p.id"
+          (click)="seleccionarPeriodo(p.id)"
+          [attr.aria-pressed]="periodoId === p.id"
+          [title]="p.rango"
+        >
+          <span class="chip-titulo">{{ p.chip }}</span>
+          <span class="chip-rango">{{ p.rango }}</span>
+        </button>
+      }
+    </div>
+  }
 
   <div class="stats compact-stats">
     <div class="stat">
@@ -105,10 +128,18 @@
   </div>
 
   <div class="captura-actions">
-    <button type="button" class="secondary" (click)="agregarLinea()">+ Otro producto</button>
     <button
       type="button"
-      class="guardar-lote"
+      class="btn-agregar-linea"
+      (click)="agregarLinea()"
+      title="Agregar producto"
+      aria-label="Agregar producto"
+    >
+      +
+    </button>
+    <button
+      type="button"
+      class="btn-guardar-filas guardar-lote"
       (click)="guardar()"
       [disabled]="guardando || lineasConDatos === 0"
     >

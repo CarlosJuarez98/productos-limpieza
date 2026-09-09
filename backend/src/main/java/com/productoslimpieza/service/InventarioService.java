@@ -221,25 +221,7 @@ public class InventarioService {
         ? p.getPrecioMayoreo10()
         : conMargen(compra, margen.getMargenMayoreo10());
 
-    BigDecimal entradas = nz(entradaRepo.sumCantidadByProducto(p));
-    BigDecimal producido = nz(produccionRepo.sumResultadoByProducto(p));
-    BigDecimal consumidoPrep = nz(produccionRepo.sumInsumoByProducto(p));
-    BigDecimal traspasos = nz(traspasoLineaRepo.sumCantidadByProducto(p));
-    BigDecimal salidasUnidades = nz(ventaRepo.sumCantidadByProductoAndTipos(
-        p, List.of(TipoVenta.LITROS, TipoVenta.PIEZA, TipoVenta.MUESTRA, TipoVenta.CASA, TipoVenta.MAYOREO)));
-    BigDecimal pesos = nz(ventaRepo.sumCantidadByProductoAndTipo(p, TipoVenta.PESOS));
-    BigDecimal equivPesos = BigDecimal.ZERO;
-    if (venta.compareTo(BigDecimal.ZERO) > 0 && pesos.compareTo(BigDecimal.ZERO) > 0) {
-      equivPesos = pesos.divide(venta, 4, RoundingMode.HALF_UP);
-    }
-    BigDecimal stock = nz(p.getCantidadInicial())
-        .add(entradas)
-        .add(producido)
-        .subtract(consumidoPrep)
-        .subtract(traspasos)
-        .subtract(salidasUnidades)
-        .subtract(equivPesos)
-        .setScale(2, RoundingMode.HALF_UP);
+    BigDecimal stock = stockActual(p);
 
     BigDecimal casa = nz(ventaRepo.sumCantidadByProductoAndTipo(p, TipoVenta.CASA));
     BigDecimal casaMonto = casa.multiply(compra).setScale(2, RoundingMode.HALF_UP);
@@ -271,6 +253,31 @@ public class InventarioService {
         vendePor,
         vendePor.toLabel()
     );
+  }
+
+  /** Stock disponible (misma fórmula que la lista de inventario). */
+  @Transactional(readOnly = true)
+  public BigDecimal stockActual(Producto p) {
+    BigDecimal venta = precioService.precioHoy(p);
+    BigDecimal entradas = nz(entradaRepo.sumCantidadByProducto(p));
+    BigDecimal producido = nz(produccionRepo.sumResultadoByProducto(p));
+    BigDecimal consumidoPrep = nz(produccionRepo.sumInsumoByProducto(p));
+    BigDecimal traspasos = nz(traspasoLineaRepo.sumCantidadByProducto(p));
+    BigDecimal salidasUnidades = nz(ventaRepo.sumCantidadByProductoAndTipos(
+        p, List.of(TipoVenta.LITROS, TipoVenta.PIEZA, TipoVenta.MUESTRA, TipoVenta.CASA, TipoVenta.MAYOREO)));
+    BigDecimal pesos = nz(ventaRepo.sumCantidadByProductoAndTipo(p, TipoVenta.PESOS));
+    BigDecimal equivPesos = BigDecimal.ZERO;
+    if (venta.compareTo(BigDecimal.ZERO) > 0 && pesos.compareTo(BigDecimal.ZERO) > 0) {
+      equivPesos = pesos.divide(venta, 4, RoundingMode.HALF_UP);
+    }
+    return nz(p.getCantidadInicial())
+        .add(entradas)
+        .add(producido)
+        .subtract(consumidoPrep)
+        .subtract(traspasos)
+        .subtract(salidasUnidades)
+        .subtract(equivPesos)
+        .setScale(2, RoundingMode.HALF_UP);
   }
 
   private static BigDecimal nz(BigDecimal v) {

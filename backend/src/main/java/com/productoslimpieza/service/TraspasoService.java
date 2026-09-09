@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,16 +30,19 @@ public class TraspasoService {
   private final TraspasoAbonoRepository abonoRepo;
   private final ProductoRepository productoRepo;
   private final PersonaRepository personaRepo;
+  private final InventarioService inventarioService;
 
   public TraspasoService(
       TraspasoRepository traspasoRepo,
       TraspasoAbonoRepository abonoRepo,
       ProductoRepository productoRepo,
-      PersonaRepository personaRepo) {
+      PersonaRepository personaRepo,
+      InventarioService inventarioService) {
     this.traspasoRepo = traspasoRepo;
     this.abonoRepo = abonoRepo;
     this.productoRepo = productoRepo;
     this.personaRepo = personaRepo;
+    this.inventarioService = inventarioService;
   }
 
   @Transactional
@@ -46,8 +50,8 @@ public class TraspasoService {
     migrarPersonasLegado();
     migrarLineasLegado();
 
-    List<Traspaso> traspasos = traspasoRepo.findAllByOrderByFechaDescIdDesc();
-    List<TraspasoAbono> abonos = abonoRepo.findAllByOrderByFechaDescIdDesc();
+    List<Traspaso> traspasos = traspasoRepo.findAllWithDetalles();
+    List<TraspasoAbono> abonos = abonoRepo.findAllWithPersona();
 
     BigDecimal total = traspasos.stream()
         .map(t -> nz(t.getTotal()))
@@ -117,6 +121,33 @@ public class TraspasoService {
     if (req.lineas() == null || req.lineas().isEmpty()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agrega al menos un producto");
     }
+
+    Map<Long, BigDecimal> pedidoPorProducto = new HashMap<>();
+    for (TraspasoLineaRequest lineaReq : req.lineas()) {
+      if (lineaReq.productoId() == null || lineaReq.cantidad() == null) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cada fila necesita producto y cantidad");
+      }
+      pedidoPorProducto.merge(lineaReq.productoId(), lineaReq.cantidad(), BigDecimal::add);
+    }
+
+    Map<Long, Producto> productos = new HashMap<>();
+    for (Map.Entry<Long, BigDecimal> e : pedidoPorProducto.entrySet()) {
+      Producto prod = productoRepo.findById(e.getKey())
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
+      if (!prod.isActivo()) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST, "El producto «" + prod.getNombre() + "» está dado de baja");
+      }
+      BigDecimal stock = inventarioService.stockActual(prod);
+      if (e.getValue().compareTo(stock) > 0) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "«" + prod.getNombre() + "»: solo hay " + stock.stripTrailingZeros().toPlainString()
+                + " disponible (pediste " + e.getValue().stripTrailingZeros().toPlainString() + ")");
+      }
+      productos.put(prod.getId(), prod);
+    }
+
     Persona persona = obtenerOCrearPersona(req.persona());
     Traspaso t = new Traspaso();
     t.setFecha(req.fecha());
@@ -126,12 +157,7 @@ public class TraspasoService {
 
     BigDecimal total = BigDecimal.ZERO;
     for (TraspasoLineaRequest lineaReq : req.lineas()) {
-      Producto prod = productoRepo.findById(lineaReq.productoId())
-          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
-      if (!prod.isActivo()) {
-        throw new ResponseStatusException(
-            HttpStatus.BAD_REQUEST, "El producto está dado de baja del inventario");
-      }
+      Producto prod = productos.get(lineaReq.productoId());
       BigDecimal precio = nz(prod.getPrecioCompra());
       BigDecimal lineaTotal = lineaReq.cantidad().multiply(precio).setScale(2, RoundingMode.HALF_UP);
       TraspasoLinea linea = new TraspasoLinea();
@@ -143,7 +169,13 @@ public class TraspasoService {
       total = total.add(lineaTotal);
     }
     t.setTotal(total.setScale(2, RoundingMode.HALF_UP));
-    return toDto(traspasoRepo.save(t));
+    Traspaso saved = traspasoRepo.save(t);
+    // Asegura datos cargados con open-in-view=false
+    saved.getLineas().forEach(l -> l.getProducto().getNombre());
+    if (saved.getPersona() != null) {
+      saved.getPersona().getNombre();
+    }
+    return toDto(saved);
   }
 
   @Transactional
@@ -159,6 +191,9 @@ public class TraspasoService {
     if (req.monto() == null || req.monto().compareTo(BigDecimal.ZERO) <= 0) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indica un monto mayor a cero");
     }
+    if (req.personaId() == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona una persona de la lista");
+    }
     Persona persona = personaRepo.findById(req.personaId())
         .orElseThrow(() -> new ResponseStatusException(
             HttpStatus.BAD_REQUEST, "Selecciona una persona de la lista"));
@@ -168,7 +203,11 @@ public class TraspasoService {
     a.setPersona(persona);
     a.setPersonaNombre(persona.getNombre());
     a.setNota(blankToNull(req.nota()));
-    return toAbonoDto(abonoRepo.save(a));
+    TraspasoAbono saved = abonoRepo.save(a);
+    if (saved.getPersona() != null) {
+      saved.getPersona().getNombre();
+    }
+    return toAbonoDto(saved);
   }
 
   @Transactional
@@ -249,14 +288,18 @@ public class TraspasoService {
 
   private TraspasoDto toDto(Traspaso t) {
     Persona per = t.getPersona();
-    List<TraspasoLineaDto> lineas = t.getLineas().stream()
-        .map(l -> new TraspasoLineaDto(
-            l.getId(),
-            l.getProducto().getId(),
-            l.getProducto().getNombre(),
-            l.getCantidad(),
-            l.getPrecioCompra(),
-            l.getTotal()))
+    List<TraspasoLinea> raw = t.getLineas() != null ? t.getLineas() : List.of();
+    List<TraspasoLineaDto> lineas = raw.stream()
+        .map(l -> {
+          Producto prod = l.getProducto();
+          return new TraspasoLineaDto(
+              l.getId(),
+              prod != null ? prod.getId() : null,
+              prod != null ? prod.getNombre() : "—",
+              l.getCantidad(),
+              l.getPrecioCompra(),
+              l.getTotal());
+        })
         .toList();
     return new TraspasoDto(
         t.getId(),

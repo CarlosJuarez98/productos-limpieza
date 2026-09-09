@@ -137,10 +137,18 @@
   </div>
 
   <div class="captura-actions">
-    <button type="button" class="secondary" (click)="agregarLinea()">+ Otra venta</button>
     <button
       type="button"
-      class="guardar-ticket"
+      class="btn-agregar-linea"
+      (click)="agregarLinea()"
+      title="Agregar venta"
+      aria-label="Agregar venta"
+    >
+      +
+    </button>
+    <button
+      type="button"
+      class="btn-guardar-filas guardar-ticket"
       (click)="guardarTodas()"
       [disabled]="guardando || lineasConDatos === 0"
     >
@@ -172,11 +180,13 @@
     </div>
     <label class="buscar-hist">
       Buscar
-      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto o tipo..." />
+      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Nombre del producto..." />
     </label>
     <span class="muted">{{ filtradas.length }} registro{{ filtradas.length === 1 ? '' : 's' }}</span>
   </div>
-  <div class="table-wrap">
+
+  <!-- Escritorio: tabla normal -->
+  <div class="table-wrap hist-tabla">
     <table>
       <thead>
         <tr>
@@ -210,4 +220,41 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Móvil: tarjetas estilo Gastos -->
+  <ul class="hist-cards">
+    @for (v of filtradas; track v.id) {
+      <li>
+        <div class="item-meta">
+          <span [class.fecha-naranja]="esRegistroCorte(v)">{{ v.fecha | fechaDmY }}</span>
+          <span class="item-tag">{{ v.tipoVentaLabel }} · {{ v.cantidad | number: '1.2-2' }}</span>
+        </div>
+        <p class="item-motivo">{{ v.productoNombre || '—' }}</p>
+        <div class="item-fila">
+          <strong class="money">${{ v.total | number: '1.2-2' }}</strong>
+          <div class="acciones">
+            <button
+              type="button"
+              class="icono peligro"
+              title="Eliminar"
+              aria-label="Eliminar"
+              (click)="eliminar(v.id)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">Sin ventas{{ soloHoy ? ' este día' : '' }}.</li>
+    }
+  </ul>
 </section>
