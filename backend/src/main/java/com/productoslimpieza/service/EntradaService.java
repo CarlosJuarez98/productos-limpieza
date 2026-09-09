@@ -54,6 +54,7 @@ public class EntradaService {
     Producto producto = productoRepo.findById(req.productoId())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
     exigirActivo(producto);
+    exigirNoEsPreparacion(producto);
     BigDecimal anterior = ultimaCompraProducto(producto.getId());
     Entrada e = new Entrada();
     aplicar(e, req.fecha(), producto, req.cantidad(), req.precioProveedor());
@@ -73,6 +74,7 @@ public class EntradaService {
       Producto producto = productoRepo.findById(linea.productoId())
           .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
       exigirActivo(producto);
+      exigirNoEsPreparacion(producto);
       BigDecimal anterior = ultimaEnLote.containsKey(producto.getId())
           ? ultimaEnLote.get(producto.getId())
           : ultimaCompraProducto(producto.getId());
@@ -95,6 +97,7 @@ public class EntradaService {
     Producto producto = productoRepo.findById(req.productoId())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
     exigirActivo(producto);
+    exigirNoEsPreparacion(producto);
     aplicar(e, req.fecha(), producto, req.cantidad(), req.precioProveedor());
     Entrada saved = entradaRepo.save(e);
     actualizarPrecioCompraSiCambio(producto, req.precioProveedor());
@@ -114,6 +117,17 @@ public class EntradaService {
     if (!producto.isActivo()) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "El producto está dado de baja del inventario");
+    }
+  }
+
+  /** Cloro y Fabuloso* se producen; no se compran al proveedor. */
+  private void exigirNoEsPreparacion(Producto producto) {
+    String n = producto.getNombre() == null ? "" : producto.getNombre().trim().toLowerCase();
+    if ("cloro".equals(n) || "fabuloso".equals(n) || n.startsWith("fabuloso ")) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "«" + producto.getNombre()
+              + "» se obtiene por preparación (Hipoclorito / Base Fabuloso), no por entrada de proveedor");
     }
   }
 

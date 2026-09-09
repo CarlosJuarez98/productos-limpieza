@@ -171,9 +171,22 @@
         </tbody>
       </table>
     </div>
-    <div class="reparto-actions gasto-actions">
-      <button type="button" class="secondary" (click)="agregarGasto()">+ Agregar fila</button>
-      <button type="button" (click)="guardarGastos()" [disabled]="totalGastosForm <= 0">
+    <div class="reparto-actions gasto-actions fila-actions">
+      <button
+        type="button"
+        class="btn-agregar-linea"
+        (click)="agregarGasto()"
+        title="Agregar fila"
+        aria-label="Agregar fila"
+      >
+        +
+      </button>
+      <button
+        type="button"
+        class="btn-guardar-filas"
+        (click)="guardarGastos()"
+        [disabled]="totalGastosForm <= 0"
+      >
         Registrar gastos
       </button>
     </div>
@@ -227,40 +240,84 @@
                   >${{ totalColumna(cat.key, bloque.tipo) | number: '1.2-2' }}</span
                 >
               </h5>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    @if (bloque.tipo === 'INGRESO') {
-                      <th>Ingreso</th>
-                    } @else {
-                      <th>Monto</th>
-                      <th>Motivo</th>
-                    }
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (a of movimientosDe(cat.key, bloque.tipo); track a.id) {
+              <div class="table-wrap hist-tabla">
+                <table>
+                  <thead>
                     <tr>
-                      <td>{{ a.fecha | fechaDmY }}</td>
-                      <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
-                      @if (bloque.tipo === 'GASTO') {
-                        <td class="motivo">{{ a.motivo }}</td>
+                      <th>Fecha</th>
+                      @if (bloque.tipo === 'INGRESO') {
+                        <th>Ingreso</th>
+                      } @else {
+                        <th>Monto</th>
+                        <th>Motivo</th>
                       }
-                      <td class="actions">
-                        <button type="button" class="danger" (click)="eliminar(a.id)" title="Eliminar">×</button>
-                      </td>
+                      <th></th>
                     </tr>
-                  } @empty {
-                    <tr>
-                      <td [attr.colspan]="bloque.tipo === 'GASTO' ? 4 : 3" class="muted">
-                        Sin registros
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    @for (a of movimientosDe(cat.key, bloque.tipo); track a.id) {
+                      <tr>
+                        <td>{{ a.fecha | fechaDmY }}</td>
+                        <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
+                        @if (bloque.tipo === 'GASTO') {
+                          <td class="motivo">{{ a.motivo }}</td>
+                        }
+                        <td class="actions">
+                          <button type="button" class="danger" (click)="eliminar(a.id)" title="Eliminar">×</button>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td [attr.colspan]="bloque.tipo === 'GASTO' ? 4 : 3" class="muted">
+                          Sin registros
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+
+              <ul class="hist-cards">
+                @for (a of movimientosDe(cat.key, bloque.tipo); track a.id) {
+                  <li>
+                    <div class="item-meta">
+                      <span>{{ a.fecha | fechaDmY }}</span>
+                      <span class="item-tag">
+                        @if (bloque.tipo === 'GASTO') {
+                          {{ a.motivo || '—' }}
+                        } @else {
+                          Ingreso
+                        }
+                      </span>
+                    </div>
+                    <p class="item-motivo">{{ cat.label }}</p>
+                    <div class="item-fila">
+                      <strong class="money">${{ a.ingreso | number: '1.2-2' }}</strong>
+                      <div class="acciones">
+                        <button
+                          type="button"
+                          class="icono peligro"
+                          title="Eliminar"
+                          aria-label="Eliminar"
+                          (click)="eliminar(a.id)"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                              d="M6 6l12 12M18 6L6 18"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                } @empty {
+                  <li class="vacio muted">Sin registros</li>
+                }
+              </ul>
             </div>
           }
         </div>

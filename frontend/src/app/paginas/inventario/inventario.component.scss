@@ -3,25 +3,231 @@ h3 {
   font-size: 1.1rem;
 }
 
+.panel-alta,
+.panel-lista {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Escritorio: campos en fila; Producto un poco más ancho, precios como márgenes */
+.form-alta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: end;
+  margin-bottom: 0;
+}
+
+.form-alta label {
+  flex: 0 1 auto;
+  min-width: 8.75rem;
+}
+
+.form-alta label:first-child {
+  flex: 1 1 11rem;
+  min-width: 11rem;
+  max-width: none;
+}
+
+.form-alta input,
+.form-alta select,
+.form-alta .precio-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.form-alta input,
+.form-alta select {
+  min-height: 2.35rem;
+}
+
+.form-alta button[type='submit'] {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  min-height: 2.35rem;
+  margin-left: auto;
+}
+
 .table-wrap {
-  max-height: min(52vh, 26rem);
-  overflow: auto;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
-:host table {
-  font-size: 0.78rem;
+:host table.inv-table {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 0.92rem;
 }
 
-:host th,
-:host td {
-  padding: 0.22rem 0.35rem;
+:host table.inv-table th,
+:host table.inv-table td {
+  padding: 0.4rem 0.5rem;
+  white-space: nowrap;
+  word-break: normal;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:host table.inv-table th.money,
+:host table.inv-table td.money {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Producto un poco más ancho; el resto se reparte en partes iguales según las visibles */
+:host table.inv-table th:first-child,
+:host table.inv-table td:first-child {
+  text-align: left;
+  width: 16%;
+}
+
+:host table.inv-table th.actions,
+:host table.inv-table td.actions {
+  display: table-cell;
+  width: 4.75rem;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: visible;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
 }
 
 :host th {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: #f3f7f4;
+  background: #e8f0eb;
+  font-weight: 700;
+  color: #1a2e24;
+  border-bottom: 2px solid #c5d4cb;
+}
+
+.toolbar-lista {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.55rem 0.75rem;
+  margin-bottom: 0.65rem;
+  width: 100%;
+}
+
+.toolbar-lista .buscar {
+  margin: 0;
+  flex: 0 1 14rem;
+  min-width: 10rem;
+}
+
+.toolbar-lista .buscar .search {
+  min-width: 0;
+  width: 100%;
+}
+
+.margen-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.4rem 0.55rem;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.margen-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  min-width: 4.25rem;
+}
+
+.margen-mini .margen-input-row {
+  margin: 0;
+}
+
+.margen-mini .margen-input-row input {
+  width: 3.6rem;
+  min-height: 2.1rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.margen-inline .margen-actions {
+  flex-direction: row;
+  margin-left: 0;
+  gap: 0.35rem;
+}
+
+.margen-inline .margen-actions button {
+  padding: 0.4rem 0.55rem;
+  font-size: 0.82rem;
+  min-height: 2.1rem;
+}
+
+.margen-wrap,
+.cols-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.margen-wrap {
+  margin-left: auto;
+}
+
+.margen-btn,
+.cols-btn {
+  white-space: nowrap;
+}
+
+.margen-panel {
+  width: 100%;
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.65rem;
+  background: #f7fbf8;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  box-sizing: border-box;
+}
+
+.cols-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 20;
+  min-width: 11.5rem;
+  padding: 0.45rem 0.55rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  box-shadow: 0 10px 28px rgba(20, 40, 30, 0.14);
+  display: grid;
+  gap: 0.2rem;
+}
+
+.cols-menu label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cols-menu label.fijo {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.cols-menu input {
+  width: auto;
+  margin: 0;
 }
 
 .margen-bar {
@@ -36,8 +242,9 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 0.55rem;
   padding: 0.55rem 0.7rem;
-  min-width: 0;
-  flex: 0 1 auto;
+  flex: 1 1 0;
+  min-width: 8.75rem;
+  max-width: 10.5rem;
 }
 
 .margen-block span {
@@ -57,12 +264,17 @@ h3 {
   align-items: center;
   gap: 0.25rem;
   margin: 0.3rem 0 0;
+  width: 100%;
 }
 
 .margen-input-row input {
-  width: 4.25rem;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.35rem;
   font-size: 1.05rem;
   font-weight: 700;
+  box-sizing: border-box;
 }
 
 .pct-suffix {
@@ -84,14 +296,6 @@ h3 {
   font-size: 0.9rem;
 }
 
-@media (max-width: 900px) {
-  .margen-actions {
-    margin-left: 0;
-    flex-direction: row;
-    width: 100%;
-  }
-}
-
 .ok-msg {
   color: var(--ok);
   margin: 0.5rem 0 0;
@@ -104,6 +308,10 @@ h3 {
 
 td.bajo-minimo {
   color: var(--danger);
+  font-weight: 700;
+}
+
+:host table.inv-table td.col-menudeo {
   font-weight: 700;
 }
 
@@ -125,19 +333,27 @@ th.col-sugerido {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.55rem;
-  height: 1.55rem;
+  width: 1.85rem;
+  height: 1.85rem;
+  min-width: 1.85rem;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 0.35rem;
   background: #fff;
-  color: var(--ink);
+  color: var(--text);
   cursor: pointer;
+  vertical-align: middle;
+  line-height: 1;
+  font-size: 1.1rem;
+}
+
+.icon-btn + .icon-btn {
+  margin-left: 0.3rem;
 }
 
 .icon-btn svg {
-  width: 0.85rem;
-  height: 0.85rem;
+  width: 0.95rem;
+  height: 0.95rem;
   fill: currentColor;
 }
 
@@ -146,11 +362,14 @@ th.col-sugerido {
 }
 
 .icon-btn.danger {
-  color: var(--danger);
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
 .icon-btn.danger:hover {
-  background: #fdeceb;
+  background: #7a2424;
+  border-color: #7a2424;
 }
 
 .sugerido-form {
@@ -201,6 +420,8 @@ input[readonly] {
   border-top: none;
   padding: 0.65rem 0.75rem 0.85rem;
   box-shadow: inset 3px 0 0 #e08a2a;
+  white-space: normal;
+  width: auto;
 }
 
 .form-edicion {
@@ -232,6 +453,194 @@ input[readonly] {
   min-width: 0;
 }
 
-.actions {
-  white-space: nowrap;
+/* Móvil: apilar todo a ancho completo (no mezclar con fila de escritorio) */
+@media (max-width: 767px) {
+  .panel-alta,
+  .panel-lista {
+    width: 100%;
+  }
+
+  .form-alta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-alta label {
+    flex: none;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .form-alta button[type='submit'] {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .toolbar-lista {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-lista .buscar {
+    width: 100%;
+    flex: none;
+    min-width: 0;
+  }
+
+  .margen-inline {
+    width: 100%;
+  }
+
+  .margen-mini {
+    flex: 1 1 calc(50% - 0.4rem);
+    min-width: 0;
+  }
+
+  .margen-mini .margen-input-row input {
+    width: 100%;
+  }
+
+  .margen-inline .margen-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .margen-inline .margen-actions button {
+    width: 100%;
+  }
+
+  .margen-wrap,
+  .cols-wrap {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .margen-btn,
+  .cols-btn {
+    width: 100%;
+  }
+
+  .table-wrap {
+    width: 100%;
+    border-radius: 0.45rem;
+    border: 1px solid var(--line);
+    background: #fff;
+  }
+
+  :host table.inv-table {
+    width: max-content;
+    min-width: 38rem;
+    table-layout: auto;
+    font-size: 0.9rem;
+  }
+
+  :host table.inv-table th,
+  :host table.inv-table td {
+    overflow: visible;
+    text-overflow: unset;
+    font-size: 0.9rem;
+    padding: 0.55rem 0.65rem;
+    line-height: 1.3;
+  }
+
+  /* Producto fijo al deslizar horizontal: se lee sin perder el nombre */
+  :host table.inv-table th:first-child,
+  :host table.inv-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    width: auto;
+    min-width: 9.5rem;
+    max-width: 12.5rem;
+    white-space: normal;
+    background: #fff;
+    box-shadow: 4px 0 8px -4px rgba(26, 43, 35, 0.18);
+  }
+
+  :host table.inv-table th:first-child {
+    z-index: 4;
+    background: #e8f0eb;
+  }
+
+  :host table.inv-table th.money,
+  :host table.inv-table td.money,
+  :host table.inv-table td.col-menudeo {
+    min-width: 5.5rem;
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+  }
+
+  :host table.inv-table th.actions,
+  :host table.inv-table td.actions {
+    width: 5rem;
+    min-width: 5rem;
+  }
+
+  .hist-cards .card-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem 0.75rem;
+    margin: 0.55rem 0 0;
+    padding: 0;
+  }
+
+  .hist-cards .card-cols > div {
+    min-width: 0;
+  }
+
+  .hist-cards .card-cols dt {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+  }
+
+  .hist-cards .card-cols dd {
+    margin: 0.1rem 0 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  .hist-cards .card-cols:empty {
+    display: none;
+  }
+
+  .hist-cards li.danger {
+    background: #fff5f4;
+  }
+
+  .hist-cards li.warn {
+    background: #fff8ef;
+  }
+
+  .hist-cards li.ganancia-alta {
+    background: #f3faf5;
+  }
+
+  .hist-cards .bajo-minimo {
+    color: var(--danger);
+  }
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+  :host table.inv-table {
+    min-width: 34rem;
+    font-size: 0.88rem;
+  }
+
+  :host table.inv-table th,
+  :host table.inv-table td {
+    padding: 0.4rem 0.55rem;
+  }
+
+  :host table.inv-table th:first-child,
+  :host table.inv-table td:first-child {
+    min-width: 8.5rem;
+    max-width: 11rem;
+  }
 }

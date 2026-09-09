@@ -92,11 +92,7 @@ export class VentasComponent implements OnInit {
       base = base.filter((v) => v.fecha === this.fecha);
     }
     if (q) {
-      base = base.filter(
-        (v) =>
-          (v.productoNombre ?? '').toLowerCase().includes(q) ||
-          v.tipoVentaLabel.toLowerCase().includes(q)
-      );
+      base = base.filter((v) => (v.productoNombre ?? '').toLowerCase().includes(q));
     }
     return [...base].sort((a, b) => {
       const porFecha = b.fecha.localeCompare(a.fecha);

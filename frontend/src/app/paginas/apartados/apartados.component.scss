@@ -118,6 +118,31 @@
   font-size: 0.85rem;
 }
 
+@media (max-width: 767px) {
+  .gasto-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gasto-lote {
+    width: max-content;
+    min-width: 28rem;
+    table-layout: auto;
+  }
+
+  .gasto-lote th,
+  .gasto-lote td {
+    white-space: nowrap;
+    padding: 0.45rem 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .gasto-lote select,
+  .gasto-lote input {
+    min-width: 7.5rem;
+  }
+}
+
 .gasto-lote th,
 .gasto-lote td {
   padding: 0.25rem 0.3rem;

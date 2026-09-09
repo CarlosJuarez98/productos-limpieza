@@ -39,7 +39,7 @@ export class EntradasComponent implements OnInit {
   fecha = this.hoyLocal();
   fechaMin: string | null = null;
   fechaUltimoCorte: string | null = null;
-  lineas: LineaForm[] = [this.nuevaLinea(), this.nuevaLinea(), this.nuevaLinea()];
+  lineas: LineaForm[] = [this.nuevaLinea()];
   prep = {
     fecha: this.hoyLocal(),
     productoResultadoId: null as number | null,
@@ -175,14 +175,23 @@ export class EntradasComponent implements OnInit {
   }
 
   get productosPreparables(): InventarioItem[] {
-    return this.productos.filter((p) => {
-      const n = p.nombre.toLowerCase();
-      return n === 'cloro' || n.startsWith('fabuloso ');
-    });
+    return this.productos.filter((p) => this.esProductoPreparacion(p.nombre));
+  }
+
+  /** Entradas de proveedor: sin Cloro ni Fabuloso (salen de preparación). */
+  get productosParaEntrada(): InventarioItem[] {
+    return this.productos.filter((p) => !this.esProductoPreparacion(p.nombre));
+  }
+
+  private esProductoPreparacion(nombre: string | null | undefined): boolean {
+    const n = (nombre || '').trim().toLowerCase();
+    return n === 'cloro' || n === 'fabuloso' || n.startsWith('fabuloso ');
   }
 
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
+    this.cdr.detectChanges();
+    setTimeout(() => this.focusProducto(this.lineas.length - 1), 0);
   }
 
   /** Enter en producto → cantidad. */
@@ -196,13 +205,13 @@ export class EntradasComponent implements OnInit {
     setTimeout(() => this.focusPrecio(index), 0);
   }
 
-  /** Enter en precio → producto de la siguiente fila (crea fila si hace falta). */
+  /** Enter en precio → siguiente fila (crea una si hace falta), como en ventas. */
   onPrecioEnter(ev: Event, index: number): void {
     ev.preventDefault();
     const irA = index + 1;
     if (irA >= this.lineas.length) {
       this.agregarLinea();
-      this.cdr.detectChanges();
+      return;
     }
     setTimeout(() => this.focusProducto(irA), 0);
   }
@@ -289,6 +298,14 @@ export class EntradasComponent implements OnInit {
       this.error = 'Agrega al menos un producto con cantidad';
       return;
     }
+    const prohibido = lineas
+      .map((l) => this.productos.find((p) => p.id === l.productoId))
+      .find((p) => p && this.esProductoPreparacion(p.nombre));
+    if (prohibido) {
+      this.error =
+        `«${prohibido.nombre}» se obtiene por preparación (Hipoclorito / Base Fabuloso), no por entrada de proveedor`;
+      return;
+    }
     this.guardando = true;
     this.api
       .crearEntradasLote({
@@ -298,7 +315,7 @@ export class EntradasComponent implements OnInit {
       .subscribe({
         next: () => {
           this.guardando = false;
-          this.lineas = [this.nuevaLinea(), this.nuevaLinea(), this.nuevaLinea()];
+          this.lineas = [this.nuevaLinea()];
           this.cargar();
         },
         error: (e) => {

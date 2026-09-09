@@ -31,7 +31,10 @@ interface ProductoPeriodo {
 
 interface PeriodoOpcion {
   id: string;
-  label: string;
+  /** Texto corto del botón. */
+  chip: string;
+  /** Rango de fechas bajo el botón / tooltip. */
+  rango: string;
   desde: string;
   hasta: string;
 }
@@ -70,6 +73,7 @@ export class UsoCasaComponent implements OnInit {
   guardando = false;
   /** 'actual' o yyyy-MM-dd del corte. */
   periodoId = 'actual';
+  mostrarCortes = false;
   fecha = this.hoyLocal();
   lineas: LineaUso[] = [];
   private nextKey = 1;
@@ -119,7 +123,8 @@ export class UsoCasaComponent implements OnInit {
     if (fechaInicio) {
       opts.push({
         id: 'actual',
-        label: `Periodo actual (${formatFechaDmY(fechaInicio)} → ${formatFechaDmY(fechaFin)})`,
+        chip: 'Actual',
+        rango: `${formatFechaDmY(fechaInicio)} → ${formatFechaDmY(fechaFin)}`,
         desde: fechaInicio,
         hasta: fechaFin,
       });
@@ -132,7 +137,8 @@ export class UsoCasaComponent implements OnInit {
       const desde = idx > 0 ? this.sumarDias(asc[idx - 1], 1) : INICIO_HISTORICO;
       opts.push({
         id: hasta,
-        label: `Corte ${formatFechaDmY(hasta)} (${formatFechaDmY(desde)} → ${formatFechaDmY(hasta)})`,
+        chip: formatFechaDmY(hasta),
+        rango: `${formatFechaDmY(desde)} → ${formatFechaDmY(hasta)}`,
         desde,
         hasta,
       });
@@ -141,7 +147,8 @@ export class UsoCasaComponent implements OnInit {
     if (!opts.length) {
       opts.push({
         id: 'actual',
-        label: `Periodo actual (hasta ${formatFechaDmY(hoy)})`,
+        chip: 'Actual',
+        rango: `hasta ${formatFechaDmY(hoy)}`,
         desde: INICIO_HISTORICO,
         hasta: hoy,
       });
@@ -153,13 +160,31 @@ export class UsoCasaComponent implements OnInit {
     return this.periodos.find((p) => p.id === this.periodoId) || this.periodos[0];
   }
 
+  get cortesDisponibles(): PeriodoOpcion[] {
+    return this.periodos.filter((p) => p.id !== 'actual');
+  }
+
   get labelPeriodo(): string {
     const p = this.periodoActivo;
+    return p?.rango || '';
+  }
+
+  get etiquetaPeriodoActivo(): string {
+    const p = this.periodoActivo;
     if (!p) return '';
-    if (p.id === 'actual') {
-      return `${formatFechaDmY(p.desde)} → ${formatFechaDmY(p.hasta)}`;
+    if (p.id === 'actual') return `Periodo actual · ${p.rango}`;
+    return `Corte ${p.chip} · ${p.rango}`;
+  }
+
+  seleccionarPeriodo(id: string): void {
+    this.periodoId = id;
+    if (id !== 'actual') {
+      this.mostrarCortes = false;
     }
-    return `corte ${formatFechaDmY(p.hasta)}`;
+  }
+
+  toggleCortes(): void {
+    this.mostrarCortes = !this.mostrarCortes;
   }
 
   get movimientosDelPeriodo(): Venta[] {

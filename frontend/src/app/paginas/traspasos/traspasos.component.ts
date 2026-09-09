@@ -60,6 +60,31 @@ export class TraspasosComponent implements OnInit {
     return Number(this.productos.find((x) => x.id === productoId)?.precioCompra) || 0;
   }
 
+  stockDisponible(productoId: number | null): number | null {
+    if (productoId == null) return null;
+    const p = this.productos.find((x) => x.id === productoId);
+    if (!p) return null;
+    return Number(p.stockActual) || 0;
+  }
+
+  /** Cantidad pedida del mismo producto en otras filas (sin contar `exceptoIndex`). */
+  cantidadPedidaOtros(productoId: number, exceptoIndex: number): number {
+    return this.lineas.reduce((s, l, i) => {
+      if (i === exceptoIndex || l.productoId !== productoId) return s;
+      const c = Number(l.cantidad);
+      return s + (Number.isFinite(c) && c > 0 ? c : 0);
+    }, 0);
+  }
+
+  excedeStock(l: LineaForm, index: number): boolean {
+    if (l.productoId == null) return false;
+    const stock = this.stockDisponible(l.productoId);
+    if (stock == null) return false;
+    const cant = Number(l.cantidad);
+    if (!Number.isFinite(cant) || cant <= 0) return false;
+    return cant + this.cantidadPedidaOtros(l.productoId, index) > stock;
+  }
+
   totalLinea(l: LineaForm): number {
     const cant = Number(l.cantidad);
     if (!Number.isFinite(cant) || cant <= 0) return 0;
@@ -68,6 +93,14 @@ export class TraspasosComponent implements OnInit {
 
   get totalEstimado(): number {
     return Math.round(this.lineas.reduce((s, l) => s + this.totalLinea(l), 0) * 100) / 100;
+  }
+
+  get hayExcesoStock(): boolean {
+    return this.lineas.some((l, i) => this.excedeStock(l, i));
+  }
+
+  private msgError(e: { error?: { error?: string }; message?: string; statusText?: string }): string {
+    return e?.error?.error || e?.message || e?.statusText || 'Error de servidor';
   }
 
   get saldoPersonaAbono(): number | null {
@@ -128,7 +161,7 @@ export class TraspasosComponent implements OnInit {
   cargar(): void {
     this.api.traspasos().subscribe({
       next: (d) => (this.data = d),
-      error: (e) => (this.error = e.error?.error || 'No se pudieron cargar traspasos'),
+      error: (e) => (this.error = this.msgError(e) || 'No se pudieron cargar traspasos'),
     });
     this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
   }
@@ -146,6 +179,10 @@ export class TraspasosComponent implements OnInit {
       this.error = 'Elige productos del inventario y su cantidad';
       return;
     }
+    if (this.hayExcesoStock) {
+      this.error = 'Hay cantidades mayores al stock disponible';
+      return;
+    }
     this.api
       .crearTraspaso({
         fecha: this.form.fecha,
@@ -160,7 +197,7 @@ export class TraspasosComponent implements OnInit {
           this.lineas = [this.nuevaLinea(), this.nuevaLinea(), this.nuevaLinea()];
           this.cargar();
         },
-        error: (e) => (this.error = e.error?.error || 'Error al guardar traspaso'),
+        error: (e) => (this.error = this.msgError(e) || 'Error al guardar traspaso'),
       });
   }
 
@@ -188,7 +225,7 @@ export class TraspasosComponent implements OnInit {
           this.abono.nota = '';
           this.cargar();
         },
-        error: (e) => (this.error = e.error?.error || 'Error al guardar abono'),
+        error: (e) => (this.error = this.msgError(e) || 'Error al guardar abono'),
       });
   }
 

@@ -69,35 +69,42 @@ export class ListaPreciosComponent implements OnInit {
         views: [{ showGridLines: true }],
       });
 
-      // Logo arriba a la izquierda
+      const logoH = 56;
+      let logoW = 56;
       try {
         const logoBuf = await this.cargarLogo();
         if (logoBuf) {
+          const dims = await this.dimsLogoProporcional(logoBuf, logoH);
+          logoW = dims.w;
           const logoId = wb.addImage({
             buffer: logoBuf,
             extension: 'png',
           });
+          // Logo en col A, nombre del negocio a la derecha (misma fila).
           ws.addImage(logoId, {
             tl: { col: 0, row: 0 },
-            ext: { width: 110, height: 110 },
+            ext: { width: dims.w, height: dims.h },
           });
         }
       } catch {
         // Sin logo: sigue el export con texto
       }
 
-      ws.getRow(1).height = 88;
+      // Ancho aprox. de columna A para el logo (excel: ~7px por unidad de width)
+      ws.getColumn(1).width = Math.max(12, Math.ceil(logoW / 7) + 1);
+      ws.getRow(1).height = Math.max(48, logoH * 0.85);
+
       ws.mergeCells(1, 2, 1, Math.max(2, colCount));
       const titulo = ws.getCell(1, 2);
       titulo.value = this.marca;
       titulo.font = { bold: true, size: 18, color: { argb: 'FF163528' } };
       titulo.alignment = { vertical: 'middle', horizontal: 'left' };
 
-      ws.mergeCells(2, 1, 2, colCount);
-      const sub = ws.getCell(2, 1);
+      ws.mergeCells(2, 2, 2, Math.max(2, colCount));
+      const sub = ws.getCell(2, 2);
       sub.value = `Lista de precios · ${this.fechaLista}`;
       sub.font = { bold: true, size: 12, color: { argb: 'FF2D4A3C' } };
-      sub.alignment = { vertical: 'middle' };
+      sub.alignment = { vertical: 'middle', horizontal: 'left' };
 
       const headerRowIdx = 4;
       const headerRow = ws.getRow(headerRowIdx);
@@ -113,25 +120,23 @@ export class ListaPreciosComponent implements OnInit {
       for (const item of this.filtrados) {
         const row = ws.getRow(r);
         row.getCell(1).value = item.nombre;
-        row.getCell(2).value = this.comoPesos(item.precioVentaHoy);
-        row.getCell(2).alignment = { horizontal: 'right' };
+        this.celdaMoneda(row.getCell(2), item.precioVentaHoy, true);
         let c = 3;
         if (this.cols.mayoreo5) {
-          row.getCell(c).value = this.comoPesos(item.precioMayoreo5);
-          row.getCell(c).alignment = { horizontal: 'right' };
+          this.celdaMoneda(row.getCell(c), item.precioMayoreo5, false);
           c++;
         }
         if (this.cols.mayoreo10) {
-          row.getCell(c).value = this.comoPesos(item.precioMayoreo10);
-          row.getCell(c).alignment = { horizontal: 'right' };
+          this.celdaMoneda(row.getCell(c), item.precioMayoreo10, false);
         }
         r++;
       }
 
-      ws.getColumn(1).width = 36;
       for (let i = 2; i <= colCount; i++) {
         ws.getColumn(i).width = 14;
       }
+      // Producto más ancho (col 1 ya tiene logo width; en filas de datos es el nombre)
+      ws.getColumn(1).width = Math.max(ws.getColumn(1).width || 12, 36);
 
       const buffer = await wb.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
@@ -155,16 +160,30 @@ export class ListaPreciosComponent implements OnInit {
     return res.arrayBuffer();
   }
 
-  private comoPesos(valor: number | null | undefined): string {
+  /** Escala el logo a altura fija manteniendo proporción. */
+  private async dimsLogoProporcional(
+    buf: ArrayBuffer,
+    maxAlto: number
+  ): Promise<{ w: number; h: number }> {
+    const blob = new Blob([buf], { type: 'image/png' });
+    const bmp = await createImageBitmap(blob);
+    const scale = maxAlto / Math.max(1, bmp.height);
+    const w = Math.max(1, Math.round(bmp.width * scale));
+    const h = Math.max(1, Math.round(bmp.height * scale));
+    bmp.close();
+    return { w, h };
+  }
+
+  private celdaMoneda(
+    cell: ExcelJS.Cell,
+    valor: number | null | undefined,
+    negrita: boolean
+  ): void {
     const n = Number(valor);
-    const v = Number.isFinite(n) ? n : 0;
-    return (
-      '$' +
-      v.toLocaleString('es-MX', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    );
+    cell.value = Number.isFinite(n) ? n : 0;
+    cell.numFmt = '"$"#,##0.00';
+    cell.font = { bold: negrita, size: 11 };
+    cell.alignment = { horizontal: 'right' };
   }
 
   private fechaListaLarga(): string {

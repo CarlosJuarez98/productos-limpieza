@@ -1,152 +1,150 @@
 <h2 class="page-title">Inventario</h2>
 
-<section class="panel">
-  <h3>Márgenes (% sobre compra)</h3>
-  <div class="margen-bar">
-    <div class="margen-block">
-      <span>Mín sugerido</span>
-      <div class="margen-input-row">
-        <input
-          type="text"
-          inputmode="decimal"
-          [(ngModel)]="pct.min"
-          name="pctMin"
-          (keyup.enter)="aplicarMargenesManuales()"
-        />
-        <span class="pct-suffix">%</span>
-      </div>
-    </div>
-    <div class="margen-block">
-      <span>Máx sugerido</span>
-      <div class="margen-input-row">
-        <input
-          type="text"
-          inputmode="decimal"
-          [(ngModel)]="pct.max"
-          name="pctMax"
-          (keyup.enter)="aplicarMargenesManuales()"
-        />
-        <span class="pct-suffix">%</span>
-      </div>
-    </div>
-    <div class="margen-block">
-      <span>Mayoreo ≥ 5 L</span>
-      <div class="margen-input-row">
-        <input
-          type="text"
-          inputmode="decimal"
-          [(ngModel)]="pct.mayoreo5"
-          name="pctM5"
-          (keyup.enter)="aplicarMargenesManuales()"
-        />
-        <span class="pct-suffix">%</span>
-      </div>
-    </div>
-    <div class="margen-block">
-      <span>Mayoreo ≥ 10 L</span>
-      <div class="margen-input-row">
-        <input
-          type="text"
-          inputmode="decimal"
-          [(ngModel)]="pct.mayoreo10"
-          name="pctM10"
-          (keyup.enter)="aplicarMargenesManuales()"
-        />
-        <span class="pct-suffix">%</span>
-      </div>
-    </div>
-    <div class="margen-actions">
-      <button type="button" (click)="aplicarMargenesManuales()" [disabled]="guardandoMargen">
-        {{ guardandoMargen ? 'Guardando...' : 'Guardar márgenes %' }}
-      </button>
-      <button type="button" class="secondary" (click)="aplicarPreciosDesdeMargenes()" [disabled]="guardandoMargen">
-        Recalcular
-      </button>
-    </div>
-  </div>
-  @if (ok) {
-    <p class="ok-msg">{{ ok }}</p>
-  }
-</section>
-
-<section class="panel" style="margin-top: 1rem">
-  <h3>Agregar producto</h3>
-  <form class="form-grid" (ngSubmit)="guardarNuevo()">
-    <label>
-      Producto
-      <input [(ngModel)]="formAlta.nombre" name="nombreAlta" required />
-    </label>
-    <label>
-      Se vende por
-      <select [(ngModel)]="formAlta.vendePor" name="vendePorAlta">
-        <option value="LITROS">Litros</option>
-        <option value="PIEZA">Pieza</option>
-      </select>
-    </label>
-    <label>
-      Cantidad comprada
-      <input
-        type="text"
-        inputmode="decimal"
-        [(ngModel)]="formAlta.cantidadInicial"
-        name="cantidadAlta"
-        placeholder="0"
-      />
-    </label>
-    <label>
-      Precio compra
-      <input
-        type="text"
-        inputmode="decimal"
-        [(ngModel)]="formAlta.precioCompra"
-        name="compraAlta"
-        placeholder="0"
-        (ngModelChange)="onCompraAltaChange()"
-      />
-    </label>
-    <label>
-      Precio menudeo
-      <div class="precio-input">
-        <span class="peso">$</span>
-        <input
-          type="text"
-          inputmode="decimal"
-          [(ngModel)]="formAlta.precioVenta"
-          name="menudeoAlta"
-          (ngModelChange)="onMenudeoAltaChange()"
-          [placeholder]="sugeridoPlaceholderAlta"
-        />
-      </div>
-    </label>
-    <button type="submit">Agregar producto</button>
-  </form>
-  @if (error) {
-    <p class="error">{{ error }}</p>
-  }
-</section>
-
-<section class="panel" style="margin-top: 1rem">
-  <div class="toolbar">
-    <label>
+<section class="panel panel-lista">
+  <div class="toolbar toolbar-lista">
+    <label class="buscar">
       Buscar
       <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Nombre del producto..." />
     </label>
+
+    <div class="margen-wrap">
+      <button type="button" class="secondary margen-btn" (click)="toggleMenuMargenes($event)">
+        Márgenes
+      </button>
+    </div>
+
+    <div class="cols-wrap">
+      <button type="button" class="secondary cols-btn" (click)="toggleMenuColumnas($event)">
+        Más columnas
+      </button>
+      @if (menuColumnas) {
+        <div class="cols-menu" (click)="$event.stopPropagation()">
+          @for (c of columnasOpcionales; track c.key) {
+            <label>
+              <input
+                type="checkbox"
+                [checked]="col(c.key)"
+                (change)="toggleCol(c.key, $event)"
+              />
+              {{ c.label }}
+            </label>
+          }
+        </div>
+      }
+    </div>
   </div>
-  <div class="table-wrap">
-    <table>
+  @if (menuMargenes) {
+    <div class="margen-panel" (click)="$event.stopPropagation()" title="Márgenes % sobre compra">
+      <div class="margen-bar margen-inline">
+        <label class="margen-mini">
+          Mín
+          <span class="margen-input-row">
+            <input
+              type="text"
+              inputmode="decimal"
+              [(ngModel)]="pct.min"
+              name="pctMin"
+              (keyup.enter)="aplicarMargenesManuales()"
+            />
+            <span class="pct-suffix">%</span>
+          </span>
+        </label>
+        <label class="margen-mini">
+          Máx
+          <span class="margen-input-row">
+            <input
+              type="text"
+              inputmode="decimal"
+              [(ngModel)]="pct.max"
+              name="pctMax"
+              (keyup.enter)="aplicarMargenesManuales()"
+            />
+            <span class="pct-suffix">%</span>
+          </span>
+        </label>
+        <label class="margen-mini">
+          ≥5 L
+          <span class="margen-input-row">
+            <input
+              type="text"
+              inputmode="decimal"
+              [(ngModel)]="pct.mayoreo5"
+              name="pctM5"
+              (keyup.enter)="aplicarMargenesManuales()"
+            />
+            <span class="pct-suffix">%</span>
+          </span>
+        </label>
+        <label class="margen-mini">
+          ≥10 L
+          <span class="margen-input-row">
+            <input
+              type="text"
+              inputmode="decimal"
+              [(ngModel)]="pct.mayoreo10"
+              name="pctM10"
+              (keyup.enter)="aplicarMargenesManuales()"
+            />
+            <span class="pct-suffix">%</span>
+          </span>
+        </label>
+        <div class="margen-actions">
+          <button type="button" (click)="aplicarMargenesManuales()" [disabled]="guardandoMargen">
+            {{ guardandoMargen ? '…' : 'Guardar %' }}
+          </button>
+          <button
+            type="button"
+            class="secondary"
+            (click)="aplicarPreciosDesdeMargenes()"
+            [disabled]="guardandoMargen"
+          >
+            Recalcular
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+  @if (ok) {
+    <p class="ok-msg">{{ ok }}</p>
+  }
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+  <div class="table-wrap hist-tabla">
+    <table class="inv-table">
       <thead>
         <tr>
-          <th>Producto</th>
-          <th>Se vende</th>
-          <th>Menudeo</th>
-          <th>≥ 5 L</th>
-          <th>≥ 10 L</th>
-          <th>Compra</th>
-          <th class="col-sugerido">Mín. sugerido</th>
-          <th class="col-sugerido">Máx. sugerido</th>
-          <th>Stock</th>
-          <th>% ganancia</th>
-          <th></th>
+          @if (col('producto')) {
+            <th>Producto</th>
+          }
+          @if (col('vende')) {
+            <th>Se vende</th>
+          }
+          @if (col('menudeo')) {
+            <th class="money col-menudeo">Menudeo</th>
+          }
+          @if (col('m5')) {
+            <th class="money">≥ 5 L</th>
+          }
+          @if (col('m10')) {
+            <th class="money">≥ 10 L</th>
+          }
+          @if (col('compra')) {
+            <th class="money">Compra</th>
+          }
+          @if (col('minSug')) {
+            <th class="money col-sugerido">Mín. sugerido</th>
+          }
+          @if (col('maxSug')) {
+            <th class="money col-sugerido">Máx. sugerido</th>
+          }
+          @if (col('stock')) {
+            <th class="money">Stock</th>
+          }
+          @if (col('ganancia')) {
+            <th class="money">% ganancia</th>
+          }
+          <th class="actions"></th>
         </tr>
       </thead>
       <tbody>
@@ -157,18 +155,38 @@
             [class.ganancia-alta]="!i.precioVentaBajoMinimo && i.porcentajeGanancia >= 50"
             [class.editando-fila]="editando?.id === i.id"
           >
-            <td>{{ i.nombre }}</td>
-            <td>{{ etiquetaUnidad(i) }}</td>
-            <td class="money" [class.bajo-minimo]="i.precioVentaBajoMinimo">
-              ${{ i.precioVentaHoy | number: '1.2-2' }}
-            </td>
-            <td class="money">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
-            <td class="money">${{ i.precioMayoreo10 | number: '1.2-2' }}</td>
-            <td class="money">${{ i.precioCompra | number: '1.2-2' }}</td>
-            <td class="money col-sugerido">${{ i.precioMinimoSugerido | number: '1.2-2' }}</td>
-            <td class="money col-sugerido">${{ i.precioMaximoSugerido | number: '1.2-2' }}</td>
-            <td class="money">{{ i.stockActual | number: '1.2-2' }}</td>
-            <td class="money">{{ i.porcentajeGanancia | number: '1.2-2' }}%</td>
+            @if (col('producto')) {
+              <td [title]="i.nombre">{{ i.nombre }}</td>
+            }
+            @if (col('vende')) {
+              <td>{{ etiquetaUnidad(i) }}</td>
+            }
+            @if (col('menudeo')) {
+              <td class="money col-menudeo" [class.bajo-minimo]="i.precioVentaBajoMinimo">
+                ${{ i.precioVentaHoy | number: '1.2-2' }}
+              </td>
+            }
+            @if (col('m5')) {
+              <td class="money">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
+            }
+            @if (col('m10')) {
+              <td class="money">${{ i.precioMayoreo10 | number: '1.2-2' }}</td>
+            }
+            @if (col('compra')) {
+              <td class="money">${{ i.precioCompra | number: '1.2-2' }}</td>
+            }
+            @if (col('minSug')) {
+              <td class="money col-sugerido">${{ i.precioMinimoSugerido | number: '1.2-2' }}</td>
+            }
+            @if (col('maxSug')) {
+              <td class="money col-sugerido">${{ i.precioMaximoSugerido | number: '1.2-2' }}</td>
+            }
+            @if (col('stock')) {
+              <td class="money">{{ i.stockActual | number: '1.2-2' }}</td>
+            }
+            @if (col('ganancia')) {
+              <td class="money">{{ i.porcentajeGanancia | number: '1.2-2' }}%</td>
+            }
             <td class="actions">
               @if (editando?.id !== i.id) {
                 <button
@@ -187,7 +205,7 @@
               }
               <button
                 type="button"
-                class="danger"
+                class="icon-btn danger"
                 title="Quitar del inventario"
                 [attr.aria-label]="'Quitar ' + i.nombre"
                 (click)="eliminar(i)"
@@ -198,7 +216,7 @@
           </tr>
           @if (editando?.id === i.id) {
             <tr class="fila-edicion">
-              <td colspan="11">
+              <td [attr.colspan]="colspanEdicion">
                 <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
                   <label>
                     Producto
@@ -223,14 +241,17 @@
                   </label>
                   <label>
                     Precio compra
-                    <input
-                      type="text"
-                      inputmode="decimal"
-                      [(ngModel)]="form.precioCompra"
-                      name="compraEdit"
-                      placeholder="0"
-                      (ngModelChange)="onCompraChange()"
-                    />
+                    <div class="precio-input">
+                      <span class="peso">$</span>
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        [(ngModel)]="form.precioCompra"
+                        name="compraEdit"
+                        placeholder="0"
+                        (ngModelChange)="onCompraChange()"
+                      />
+                    </div>
                   </label>
                   <label>
                     Precio menudeo
@@ -258,4 +279,233 @@
       </tbody>
     </table>
   </div>
+
+  @if (editando) {
+    <div class="hist-edicion-movil">
+      <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+        <label>
+          Producto
+          <input [(ngModel)]="form.nombre" name="nombreEditMovil" required />
+        </label>
+        <label>
+          Se vende por
+          <select [(ngModel)]="form.vendePor" name="vendePorEditMovil">
+            <option value="LITROS">Litros</option>
+            <option value="PIEZA">Pieza</option>
+          </select>
+        </label>
+        <label>
+          Cantidad inicial
+          <input
+            type="text"
+            inputmode="decimal"
+            [(ngModel)]="form.cantidadInicial"
+            name="cantidadEditMovil"
+            placeholder="0"
+          />
+        </label>
+        <label>
+          Precio compra
+          <div class="precio-input">
+            <span class="peso">$</span>
+            <input
+              type="text"
+              inputmode="decimal"
+              [(ngModel)]="form.precioCompra"
+              name="compraEditMovil"
+              placeholder="0"
+              (ngModelChange)="onCompraChange()"
+            />
+          </div>
+        </label>
+        <label>
+          Precio menudeo
+          <div class="precio-input">
+            <span class="peso">$</span>
+            <input
+              type="text"
+              inputmode="decimal"
+              [(ngModel)]="form.precioVenta"
+              name="menudeoEditMovil"
+              (ngModelChange)="onMenudeoChange()"
+              [placeholder]="sugeridoPlaceholder"
+            />
+          </div>
+        </label>
+        <div class="edicion-actions">
+          <button type="submit">Guardar</button>
+          <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  }
+
+  <ul class="hist-cards">
+    @for (i of filtrados; track i.id) {
+      <li
+        [class.danger]="i.precioVentaBajoMinimo"
+        [class.warn]="!i.precioVentaBajoMinimo && i.stockActual <= 0"
+        [class.ganancia-alta]="!i.precioVentaBajoMinimo && i.porcentajeGanancia >= 50"
+      >
+        <p class="item-motivo">{{ i.nombre }}</p>
+        <div class="item-fila">
+          @if (col('menudeo')) {
+            <strong class="money" [class.bajo-minimo]="i.precioVentaBajoMinimo">
+              ${{ i.precioVentaHoy | number: '1.2-2' }}
+            </strong>
+          } @else {
+            <span></span>
+          }
+          <div class="acciones">
+            @if (editando?.id !== i.id) {
+              <button
+                type="button"
+                class="icono"
+                title="Editar"
+                [attr.aria-label]="'Editar ' + i.nombre"
+                (click)="editar(i)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                  />
+                </svg>
+              </button>
+            }
+            <button
+              type="button"
+              class="icono peligro"
+              title="Quitar del inventario"
+              [attr.aria-label]="'Quitar ' + i.nombre"
+              (click)="eliminar(i)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <dl class="card-cols">
+          @if (col('vende')) {
+            <div>
+              <dt>Se vende</dt>
+              <dd>{{ etiquetaUnidad(i) }}</dd>
+            </div>
+          }
+          @if (col('stock')) {
+            <div>
+              <dt>Stock</dt>
+              <dd>{{ i.stockActual | number: '1.2-2' }}</dd>
+            </div>
+          }
+          @if (col('compra')) {
+            <div>
+              <dt>Compra</dt>
+              <dd>${{ i.precioCompra | number: '1.2-2' }}</dd>
+            </div>
+          }
+          @if (col('m5')) {
+            <div>
+              <dt>≥ 5 L</dt>
+              <dd>${{ i.precioMayoreo5 | number: '1.2-2' }}</dd>
+            </div>
+          }
+          @if (col('m10')) {
+            <div>
+              <dt>≥ 10 L</dt>
+              <dd>${{ i.precioMayoreo10 | number: '1.2-2' }}</dd>
+            </div>
+          }
+          @if (col('minSug')) {
+            <div>
+              <dt>Mín. sugerido</dt>
+              <dd>${{ i.precioMinimoSugerido | number: '1.2-2' }}</dd>
+            </div>
+          }
+          @if (col('maxSug')) {
+            <div>
+              <dt>Máx. sugerido</dt>
+              <dd>${{ i.precioMaximoSugerido | number: '1.2-2' }}</dd>
+            </div>
+          }
+          @if (col('ganancia')) {
+            <div>
+              <dt>% ganancia</dt>
+              <dd>{{ i.porcentajeGanancia | number: '1.2-2' }}%</dd>
+            </div>
+          }
+        </dl>
+      </li>
+    } @empty {
+      <li class="vacio muted">Sin productos.</li>
+    }
+  </ul>
+</section>
+
+<section class="panel panel-alta" style="margin-top: 1rem">
+  <h3>Agregar producto</h3>
+  <form class="form-grid form-alta" (ngSubmit)="guardarNuevo()">
+    <label>
+      Producto
+      <input [(ngModel)]="formAlta.nombre" name="nombreAlta" required />
+    </label>
+    <label>
+      Se vende por
+      <select [(ngModel)]="formAlta.vendePor" name="vendePorAlta">
+        <option value="LITROS">Litros</option>
+        <option value="PIEZA">Pieza</option>
+      </select>
+    </label>
+    <label>
+      Cantidad comprada
+      <input
+        type="text"
+        inputmode="decimal"
+        [(ngModel)]="formAlta.cantidadInicial"
+        name="cantidadAlta"
+        placeholder="0"
+        required
+      />
+    </label>
+    <label>
+      Precio compra
+      <div class="precio-input">
+        <span class="peso">$</span>
+        <input
+          type="text"
+          inputmode="decimal"
+          [(ngModel)]="formAlta.precioCompra"
+          name="compraAlta"
+          placeholder="0"
+          required
+          (ngModelChange)="onCompraAltaChange()"
+        />
+      </div>
+    </label>
+    <label>
+      Precio menudeo
+      <div class="precio-input">
+        <span class="peso">$</span>
+        <input
+          type="text"
+          inputmode="decimal"
+          [(ngModel)]="formAlta.precioVenta"
+          name="menudeoAlta"
+          required
+          (ngModelChange)="onMenudeoAltaChange()"
+          [placeholder]="sugeridoPlaceholderAlta"
+        />
+      </div>
+    </label>
+    <button type="submit" [disabled]="!altaCompleta">Agregar producto</button>
+  </form>
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
 </section>

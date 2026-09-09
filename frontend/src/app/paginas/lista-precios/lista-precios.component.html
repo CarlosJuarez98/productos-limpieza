@@ -8,7 +8,6 @@
       <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto..." />
     </label>
     <fieldset class="export-cols">
-      <legend>Exportar (menudeo siempre)</legend>
       <label class="chk">
         <input type="checkbox" [(ngModel)]="cols.mayoreo5" name="colMay5" />
         Mayoreo ≥ 5
@@ -22,7 +21,7 @@
       {{ exportando ? 'Exportando…' : 'Exportar lista (.xlsx)' }}
     </button>
   </div>
-  <div class="table-wrap">
+  <div class="table-wrap hist-tabla">
     <table>
       <thead>
         <tr>
@@ -36,7 +35,7 @@
         @for (i of filtrados; track i.id) {
           <tr>
             <td>{{ i.nombre }}</td>
-            <td class="money">${{ i.precioVentaHoy | number: '1.2-2' }}</td>
+            <td class="money menudeo">${{ i.precioVentaHoy | number: '1.2-2' }}</td>
             <td class="money">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
             <td class="money">${{ i.precioMayoreo10 | number: '1.2-2' }}</td>
           </tr>
@@ -44,4 +43,20 @@
       </tbody>
     </table>
   </div>
+
+  <ul class="hist-cards">
+    @for (i of filtrados; track i.id) {
+      <li>
+        <div class="item-meta">
+          <span>≥5 ${{ i.precioMayoreo5 | number: '1.2-2' }} · ≥10 ${{ i.precioMayoreo10 | number: '1.2-2' }}</span>
+        </div>
+        <p class="item-motivo">{{ i.nombre }}</p>
+        <div class="item-fila">
+          <strong class="money menudeo">${{ i.precioVentaHoy | number: '1.2-2' }}</strong>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">Sin productos.</li>
+    }
+  </ul>
 </section>

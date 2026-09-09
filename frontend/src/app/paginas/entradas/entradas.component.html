@@ -32,7 +32,7 @@
           <th>Cantidad</th>
           <th>Precio proveedor $</th>
           <th>Última compra</th>
-          <th>Cambio</th>
+          <th class="col-cambio">Cambio</th>
           <th>Total $</th>
           <th></th>
         </tr>
@@ -47,7 +47,7 @@
             <td>
               <app-producto-autocomplete
                 #prodLote
-                [productos]="productos"
+                [productos]="productosParaEntrada"
                 [productoId]="l.productoId"
                 [inputName]="'prod' + l.key"
                 (productoIdChange)="onProductoChange(l, $event)"
@@ -103,7 +103,7 @@
                   >↓</span>
                 }
                 @case ('IGUAL') {
-                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">→</span>
+                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
                 }
                 @default {
                   <span class="muted">—</span>
@@ -127,8 +127,16 @@
   </div>
 
   <div class="toolbar lote-actions">
-    <button type="button" class="secondary" (click)="agregarLinea()">+ Agregar fila</button>
-    <button type="button" (click)="guardar()" [disabled]="guardando">
+    <button
+      type="button"
+      class="btn-agregar-linea"
+      (click)="agregarLinea()"
+      title="Agregar fila"
+      aria-label="Agregar fila"
+    >
+      +
+    </button>
+    <button type="button" class="btn-guardar-filas" (click)="guardar()" [disabled]="guardando">
       {{ guardando ? 'Guardando...' : 'Registrar entradas' }}
     </button>
   </div>
@@ -196,7 +204,7 @@
     <p class="ok-msg">{{ okPrep }}</p>
   }
 
-  <div class="table-wrap" style="margin-top: 1rem">
+  <div class="table-wrap hist-tabla" style="margin-top: 1rem">
     <table>
       <thead>
         <tr>
@@ -224,11 +232,47 @@
       </tbody>
     </table>
   </div>
+
+  <ul class="hist-cards">
+    @for (p of producciones; track p.id) {
+      <li>
+        <div class="item-meta">
+          <span>{{ p.fecha | fechaDmY }}</span>
+          <span class="item-tag">{{ p.productoInsumoNombre }} · {{ p.cantidadInsumo | number: '1.2-2' }}</span>
+        </div>
+        <p class="item-motivo">{{ p.productoResultadoNombre }}</p>
+        <div class="item-fila">
+          <strong class="money">{{ p.cantidadResultado | number: '1.2-2' }}</strong>
+          <div class="acciones">
+            <button
+              type="button"
+              class="icono peligro"
+              title="Eliminar"
+              aria-label="Eliminar"
+              (click)="eliminarProduccion(p.id)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">Sin preparaciones.</li>
+    }
+  </ul>
 </section>
 
 <section class="panel" style="margin-top: 1rem">
   <h3>Historial de entradas</h3>
-  <div class="table-wrap">
+  <div class="table-wrap hist-tabla">
     <table>
       <thead>
         <tr>
@@ -238,7 +282,7 @@
           <th>Precio proveedor</th>
           <th>Total</th>
           <th>Última compra</th>
-          <th>Cambio</th>
+          <th class="col-cambio">Cambio</th>
           <th></th>
         </tr>
       </thead>
@@ -262,7 +306,7 @@
                   <span class="icono-cambio bajo" title="Bajó vs última compra" aria-label="Bajó">↓</span>
                 }
                 @case ('IGUAL') {
-                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">→</span>
+                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
                 }
                 @default {
                   <span class="muted">—</span>
@@ -277,4 +321,56 @@
       </tbody>
     </table>
   </div>
+
+  <ul class="hist-cards">
+    @for (e of entradas; track e.id) {
+      <li>
+        <div class="item-meta">
+          <span>{{ e.fecha | fechaDmY }}</span>
+          <span class="item-tag">
+            {{ e.cantidad | number: '1.2-2' }} ·
+            @switch (cambioEntrada(e)) {
+              @case ('SUBIO') { ↑ }
+              @case ('BAJO') { ↓ }
+              @case ('IGUAL') { = }
+              @default { — }
+            }
+          </span>
+        </div>
+        <p class="item-motivo">{{ e.productoNombre }}</p>
+        <div class="item-fila">
+          <strong class="money">
+            @if (e.total != null) {
+              ${{ e.total | number: '1.2-2' }}
+            } @else if (e.precioProveedor != null) {
+              ${{ e.precioProveedor | number: '1.2-2' }}
+            } @else {
+              —
+            }
+          </strong>
+          <div class="acciones">
+            <button
+              type="button"
+              class="icono peligro"
+              title="Eliminar"
+              aria-label="Eliminar"
+              (click)="eliminar(e.id)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">Sin entradas.</li>
+    }
+  </ul>
 </section>
