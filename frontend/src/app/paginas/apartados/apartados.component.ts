@@ -15,11 +15,12 @@ import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { ClearableDirective } from '../../clearable.directive';
+import { AutoHideDirective } from '../../auto-hide.directive';
 
 @Component({
   selector: 'app-apartados',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe, PaginadorComponent, ClearableDirective],
+  imports: [CommonModule, FormsModule, FechaDmYPipe, PaginadorComponent, ClearableDirective, AutoHideDirective],
   templateUrl: './apartados.component.html',
   styleUrl: './apartados.component.scss',
 })

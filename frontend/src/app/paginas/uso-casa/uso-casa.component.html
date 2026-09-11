@@ -18,8 +18,15 @@
         </button>
       }
       @if (cortesDisponibles.length) {
-        <button type="button" class="secondary" (click)="toggleCortes()">
-          {{ mostrarCortes ? 'Ocultar cortes' : 'Otro corte' }}
+        <button
+          type="button"
+          class="secondary"
+          (click)="toggleCortes()"
+          [attr.aria-expanded]="mostrarCortes"
+          [attr.aria-label]="mostrarCortes ? 'Ocultar cortes' : 'Elegir otro corte'"
+        >
+          <span class="chev" aria-hidden="true">{{ mostrarCortes ? '▾' : '▸' }}</span>
+          Cortes
         </button>
       }
     </div>
@@ -208,7 +215,7 @@
     <p class="error">{{ error }}</p>
   }
   @if (ok) {
-    <p class="ok-msg">{{ ok }}</p>
+    <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
   }
 </section>
 

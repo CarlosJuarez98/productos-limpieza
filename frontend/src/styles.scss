@@ -117,6 +117,13 @@ button.secondary {
   border: 1px solid var(--line);
 }
 
+button .chev {
+  display: inline-block;
+  margin-right: 0.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 button.secondary:hover:not(:disabled) {
   background: var(--accent-soft);
   border-color: #a7c2b4;
@@ -424,6 +431,7 @@ input[type='number'] {
   }
 
   td.actions button.danger:not(.icon-btn),
+  td.actions .icon-btn.danger,
   .icon-btn {
     width: 2.15rem;
     height: 2.15rem;
@@ -431,9 +439,15 @@ input[type='number'] {
     min-height: 2.15rem;
   }
 
+  td.actions .icon-btn-spacer {
+    width: 2.15rem;
+    height: 2.15rem;
+  }
+
   /* Misma forma cuadrada que editar (ya no redondos) */
   .registro-col .actions .danger,
-  td.actions button.danger:not(.icon-btn) {
+  td.actions button.danger:not(.icon-btn),
+  td.actions .icon-btn.danger {
     width: 2.15rem;
     height: 2.15rem;
     min-width: 2.15rem;
@@ -530,6 +544,14 @@ td.money,
 th.money {
   white-space: nowrap;
   word-break: normal;
+}
+
+/* Montos y cantidades: encabezado y valor alineados a la derecha */
+th.money,
+td.money,
+.money {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 th {
@@ -689,19 +711,32 @@ td.col-propia {
 td.actions {
   display: table-cell;
   width: 1%;
-  text-align: center;
+  min-width: 4.5rem;
+  text-align: right;
   vertical-align: middle;
   white-space: nowrap;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
 }
 
 td.actions > button + button,
 td.actions > .icon-btn + .icon-btn,
 td.actions > button + .icon-btn,
-td.actions > .icon-btn + button {
-  margin-left: 0.35rem;
+td.actions > .icon-btn + button,
+td.actions > .icon-btn-spacer + button,
+td.actions > .icon-btn-spacer + .icon-btn {
+  margin-left: 0.3rem;
 }
 
-td.actions button.danger:not(.icon-btn) {
+td.actions .icon-btn-spacer {
+  display: inline-block;
+  width: 1.85rem;
+  height: 1.85rem;
+  vertical-align: middle;
+}
+
+td.actions button.danger:not(.icon-btn),
+td.actions .icon-btn.danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -711,18 +746,20 @@ td.actions button.danger:not(.icon-btn) {
   min-height: 1.85rem;
   padding: 0;
   line-height: 1;
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   font-weight: 700;
   border-radius: 0.45rem;
   background: #fff;
   color: var(--danger);
-  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--line));
   box-shadow: none;
+  vertical-align: middle;
 }
 
-td.actions button.danger:not(.icon-btn):hover:not(:disabled) {
+td.actions button.danger:not(.icon-btn):hover:not(:disabled),
+td.actions .icon-btn.danger:hover:not(:disabled) {
   background: #fdeceb;
-  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
   color: var(--danger);
 }
 
@@ -732,18 +769,28 @@ td.actions button.danger:not(.icon-btn):hover:not(:disabled) {
   justify-content: center;
   width: 1.85rem;
   height: 1.85rem;
+  min-width: 1.85rem;
+  min-height: 1.85rem;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 0.45rem;
   background: #fff;
   color: var(--text);
   cursor: pointer;
+  vertical-align: middle;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .icon-btn svg {
   width: 1.05rem;
   height: 1.05rem;
   fill: currentColor;
+  flex-shrink: 0;
+}
+
+.icon-btn.danger svg {
+  fill: none;
 }
 
 .icon-btn:hover {
@@ -809,9 +856,10 @@ td.actions button.danger:not(.icon-btn):hover:not(:disabled) {
 
 .panel-toggle .chev {
   flex-shrink: 0;
-  color: var(--muted);
-  font-size: 0.85rem;
+  color: var(--accent);
+  font-size: 1.05rem;
   font-weight: 700;
+  line-height: 1;
 }
 
 .panel-toggle-body {

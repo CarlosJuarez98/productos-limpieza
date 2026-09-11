@@ -10,16 +10,27 @@ import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
+import { AutoHideDirective } from '../../auto-hide.directive';
 
 type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean };
 type ModoPeriodo = 'mes_pasado' | 'mes_actual' | '30' | 'caja' | 'custom';
 type GrupoPedido = 'LITROS' | 'PIEZA';
-type ReciboEdit = { itemId: number; productoNombre: string; pedida: number; recibida: number | null; unidad: string };
+type ReciboEdit = {
+  itemId: number;
+  productoNombre: string;
+  pedida: number;
+  recibida: number | null;
+  /** Total que cobró el proveedor por lo recibido (unitario = total ÷ recibido). */
+  totalPagado: number | null;
+  /** Precio compra de catálogo (para sugerir total). */
+  precioCompra: number | null;
+  unidad: string;
+};
 
 @Component({
   selector: 'app-surtir',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe],
+  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective],
   templateUrl: './surtir.component.html',
   styleUrl: './surtir.component.scss',
 })
@@ -58,10 +69,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
         this.fechaInicioCaja = c.fechaInicio;
       },
     });
-    this.calcular();
     this.cargarPedidos();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => {
-      this.calcular();
       this.cargarPedidos();
     });
   }
@@ -112,13 +121,19 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   onModoPeriodo(): void {
     this.aplicarModoPeriodo();
-    if (this.modoPeriodo !== 'custom') {
-      this.calcular();
-    }
   }
 
-  onFiltrosPedido(): void {
-    this.calcular();
+  /** Vacía Limpieza / Jarcería hasta el próximo Levantar. */
+  private vaciarSugerido(): void {
+    this.lineas = [];
+    this.ultimo = null;
+    this.syncPag(true);
+  }
+
+  textoVacioGrupo(grupo: 'limpieza' | 'jarceria'): string {
+    if (this.cargando) return 'Calculando…';
+    if (!this.ultimo) return 'Pulsa «Levantar pedido» para ver qué pedir.';
+    return grupo === 'limpieza' ? 'Nada que pedir de limpieza.' : 'Nada que pedir de jarcería.';
   }
 
   private aplicarModoPeriodo(): void {
@@ -257,7 +272,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
       return;
     }
     const ok = await this.confirmDlg.ask(
-      `¿Registrar pedido con ${items.length} producto(s)? Quedará abierto para cruzarlo con las entradas.`,
+      `¿Registrar pedido con ${items.length} producto(s)? Quedará abierto para registrar lo recibido en Surtir.`,
       { confirmarTexto: 'Registrar' }
     );
     if (!ok) return;
@@ -276,7 +291,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.registrando = false;
-          this.ok = 'Pedido registrado. Al dar entradas puedes aplicarlas a este pedido.';
+          this.ok = 'Pedido registrado. Abre el pedido y captura cuánto llegó.';
+          this.vaciarSugerido();
           this.cargarPedidos();
         },
         error: (e) => {
@@ -294,27 +310,63 @@ export class SurtirComponent implements OnInit, OnDestroy {
     }
     this.pedidoExpandidoId = id;
     const p = this.pedidos.find((x) => x.id === id);
-    this.recibosEdit = (p?.items || []).map((i) => ({
-      itemId: i.id,
-      productoNombre: i.productoNombre,
-      pedida: Number(i.cantidadPedida),
-      recibida: Number(i.cantidadRecibida),
-      unidad: i.vendePor === 'PIEZA' ? 'pza' : 'L',
-    }));
+    this.recibosEdit = (p?.items || []).map((i) => {
+      const recibida = Number(i.cantidadRecibida);
+      const compra =
+        i.precioCompra != null && Number.isFinite(Number(i.precioCompra))
+          ? Number(i.precioCompra)
+          : null;
+      const cantParaTotal = recibida > 0 ? recibida : 1;
+      return {
+        itemId: i.id,
+        productoNombre: i.productoNombre,
+        pedida: Number(i.cantidadPedida),
+        recibida,
+        precioCompra: compra,
+        totalPagado: compra != null ? Math.round(compra * cantParaTotal * 100) / 100 : null,
+        unidad: i.vendePor === 'PIEZA' ? 'pza' : 'L',
+      };
+    });
   }
 
   marcarTodoRecibido(): void {
     for (const r of this.recibosEdit) {
       r.recibida = r.pedida;
+      if (r.precioCompra != null && r.pedida > 0) {
+        r.totalPagado = Math.round(r.precioCompra * r.pedida * 100) / 100;
+      }
     }
+  }
+
+  /** Unitario = total pagado ÷ cantidad recibida. */
+  unitarioRecibo(r: ReciboEdit): number | null {
+    const rec = Number(r.recibida);
+    const total = Number(r.totalPagado);
+    if (!Number.isFinite(rec) || rec <= 0) return null;
+    if (r.totalPagado == null || String(r.totalPagado).trim() === '') return null;
+    if (!Number.isFinite(total) || total < 0) return null;
+    return Math.round((total / rec) * 100) / 100;
   }
 
   guardarRecepcion(): void {
     if (this.pedidoExpandidoId == null) return;
-    const lineas = this.recibosEdit.map((r) => ({
-      itemId: r.itemId,
-      cantidadRecibida: Math.max(0, Number(r.recibida) || 0),
-    }));
+    for (const r of this.recibosEdit) {
+      const rec = Math.max(0, Number(r.recibida) || 0);
+      if (rec <= 0) continue;
+      const u = this.unitarioRecibo(r);
+      if (u == null || u < 0) {
+        this.error = `Indica el total pagado al proveedor para «${r.productoNombre}».`;
+        return;
+      }
+    }
+    const lineas = this.recibosEdit.map((r) => {
+      const u = this.unitarioRecibo(r);
+      return {
+        itemId: r.itemId,
+        cantidadRecibida: Math.max(0, Number(r.recibida) || 0),
+        precioProveedor: u,
+      };
+    });
     this.guardandoRecepcion = true;
     this.error = '';
     this.api.registrarRecepcionPedido(this.pedidoExpandidoId, lineas).subscribe({
@@ -324,7 +376,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
         this.pedidoExpandidoId = null;
         this.recibosEdit = [];
         this.cargarPedidos();
-        this.calcular();
+        this.vaciarSugerido();
       },
       error: (e) => {
         this.guardandoRecepcion = false;
@@ -353,7 +405,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   async eliminarPedido(p: PedidoRegistrado): Promise<void> {
     const ok = await this.confirmDlg.ask(
-      `¿Eliminar pedido #${p.id}? Las entradas ligadas quedan como compra libre.`,
+      `¿Eliminar pedido #${p.id}?\nLas entradas y el stock se quedan; solo se borra el pedido.`,
       { confirmarTexto: 'Eliminar' }
     );
     if (!ok) return;

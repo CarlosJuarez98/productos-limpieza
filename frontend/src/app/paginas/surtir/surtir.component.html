@@ -19,7 +19,6 @@
         [(ngModel)]="desde"
         name="desde"
         [disabled]="modoPeriodo !== 'custom'"
-        (change)="onFiltrosPedido()"
       />
     </label>
     <label>
@@ -29,7 +28,6 @@
         [(ngModel)]="hasta"
         name="hasta"
         [disabled]="modoPeriodo !== 'custom'"
-        (change)="onFiltrosPedido()"
       />
     </label>
     <label>
@@ -42,7 +40,6 @@
         name="diasCobertura"
         [disabled]="modoPeriodo !== 'custom'"
         placeholder="igual al periodo"
-        (change)="onFiltrosPedido()"
       />
     </label>
     <label>
@@ -54,7 +51,6 @@
         [(ngModel)]="porcentajeExtra"
         name="porcentajeExtra"
         placeholder="20"
-        (change)="onFiltrosPedido()"
       />
     </label>
     <button type="button" (click)="calcular()" [disabled]="cargando">
@@ -66,7 +62,7 @@
     <p class="error">{{ error }}</p>
   }
   @if (ok) {
-    <p class="ok-msg">{{ ok }}</p>
+    <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
   }
 
   <div class="acciones-pedido">
@@ -78,11 +74,6 @@
 
 <section class="panel lista-grupo">
   <h3 class="panel-titulo">Pedidos registrados</h3>
-  <p class="hint" style="margin-top: 0">
-    Abre un pedido y captura <strong>cuánto sí llegó</strong>. Si falta stock por registrar,
-    se crea la entrada automáticamente (precio de compra). Lo que falte se suma al siguiente
-    “Levantar pedido”. También puedes ligar entradas desde Entradas.
-  </p>
 
   @if (pedidosAbiertos.length === 0 && pedidosCerrados.length === 0) {
     <p class="muted">Aún no hay pedidos registrados.</p>
@@ -110,6 +101,8 @@
                     <th>Producto</th>
                     <th class="money">Pedido</th>
                     <th class="money">Recibido</th>
+                    <th class="money">Total pagado</th>
+                    <th class="money">Unitario</th>
                     <th class="money">Falta</th>
                   </tr>
                 </thead>
@@ -129,6 +122,23 @@
                           [(ngModel)]="r.recibida"
                           [name]="'rec' + r.itemId"
                         />
+                      </td>
+                      <td class="money col-pedir">
+                        <input
+                          type="text"
+                          inputmode="decimal"
+                          appClearable
+                          [(ngModel)]="r.totalPagado"
+                          [name]="'tot' + r.itemId"
+                          placeholder="$"
+                        />
+                      </td>
+                      <td class="money">
+                        @if (unitarioRecibo(r) != null) {
+                          ${{ unitarioRecibo(r) | number: '1.2-2' }}
+                        } @else {
+                          <span class="muted">—</span>
+                        }
                       </td>
                       <td class="money">{{ faltaDe(r) | number: '1.0-2' }}</td>
                     </tr>
@@ -231,7 +241,7 @@
         } @empty {
           <tr>
             <td colspan="8" class="muted">
-              {{ cargando ? 'Calculando…' : 'Nada que pedir de limpieza.' }}
+              {{ textoVacioGrupo('limpieza') }}
             </td>
           </tr>
         }
@@ -282,7 +292,7 @@
       </li>
     } @empty {
       <li class="vacio muted">
-        {{ cargando ? 'Calculando…' : 'Nada que pedir de limpieza.' }}
+        {{ textoVacioGrupo('limpieza') }}
       </li>
     }
   </ul>
@@ -342,7 +352,7 @@
         } @empty {
           <tr>
             <td colspan="8" class="muted">
-              {{ cargando ? 'Calculando…' : 'Nada que pedir de jarcería.' }}
+              {{ textoVacioGrupo('jarceria') }}
             </td>
           </tr>
         }
@@ -393,7 +403,7 @@
       </li>
     } @empty {
       <li class="vacio muted">
-        {{ cargando ? 'Calculando…' : 'Nada que pedir de jarcería.' }}
+        {{ textoVacioGrupo('jarceria') }}
       </li>
     }
   </ul>

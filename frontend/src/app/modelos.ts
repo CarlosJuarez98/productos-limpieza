@@ -332,6 +332,8 @@ export interface PedidoItemRegistrado {
   cantidadPedida: number;
   cantidadRecibida: number;
   cantidadFaltante: number;
+  /** Precio de compra actual en catálogo (prefill al recibir). */
+  precioCompra: number | null;
 }
 
 export interface PedidoRegistrado {

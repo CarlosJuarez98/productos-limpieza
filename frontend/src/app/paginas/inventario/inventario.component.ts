@@ -11,10 +11,14 @@ import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { compararNombreNatural } from '../../nombre-natural.util';
+import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
+import { AutoHideDirective } from '../../auto-hide.directive';
 
 type FormProducto = {
   nombre: string;
   precioCompra: number | null;
+  /** Alta: lo que pagaste por el lote (ej. 3 piezas en $10 → total 10). */
+  totalPagado: number | null;
   cantidadInicial: number | null;
   precioVenta: number | null;
   precioMayoreo5: number | null;
@@ -55,6 +59,8 @@ const COLS_STORAGE = 'pl.inventario.columnas.v2';
     ClearableDirective,
     PaginadorComponent,
     FechaDmYPipe,
+    ProductoAutocompleteComponent,
+    AutoHideDirective,
   ],
   templateUrl: './inventario.component.html',
   styleUrl: './inventario.component.scss',
@@ -88,6 +94,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
   ajustes: AjusteInventario[] = [];
   editandoAjuste: AjusteInventario | null = null;
   formAjuste: FormAjuste = this.formAjusteVacio();
+  /** Motivos fijos de ajuste de stock. */
+  readonly motivosAjuste = ['Conteo físico', 'Derrame', 'Merma'] as const;
   private pullSub?: Subscription;
   private filtroTimer: ReturnType<typeof setTimeout> | null = null;
   readonly columnas: ColDef[] = [
@@ -225,10 +233,16 @@ export class InventarioComponent implements OnInit, OnDestroy {
     return this.columnas.filter((c) => this.col(c.key)).length;
   }
 
+  /** Incluye la columna de botones (acciones) en el reparto. */
+  get colsTabla(): number {
+    return this.colsDatosVisibles + 1;
+  }
+
   private formVacio(): FormProducto {
     return {
       nombre: '',
       precioCompra: null,
+      totalPagado: null,
       cantidadInicial: null,
       precioVenta: null,
       precioMayoreo5: null,
@@ -243,6 +257,12 @@ export class InventarioComponent implements OnInit, OnDestroy {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  /** Si el motivo guardado no está en la lista (ajustes viejos), mostrarlo al editar. */
+  motivoAjusteExtra(): boolean {
+    const m = (this.formAjuste.motivo || '').trim();
+    return !!m && !(this.motivosAjuste as readonly string[]).includes(m);
   }
 
   private formAjusteVacio(): FormAjuste {
@@ -286,14 +306,18 @@ export class InventarioComponent implements OnInit, OnDestroy {
 
   onProductoAjusteChange(productoId: number | null): void {
     this.formAjuste.productoId = productoId;
-    if (productoId == null) {
-      this.formAjuste.stockDeseado = null;
-      return;
-    }
-    // Al cambiar producto (alta), partir del stock actual.
     if (!this.editandoAjuste) {
-      this.formAjuste.stockDeseado = this.stockDe(productoId);
+      // Vacío para que el placeholder muestre el stock actual como pista.
+      this.formAjuste.stockDeseado = null;
     }
+  }
+
+  /** Pista en «Dejar stock en»: stock actual del producto. */
+  pistaStockAjuste(): string {
+    const s = this.stockBaseAjuste();
+    if (s == null) return 'Cantidad final';
+    const u = this.unidadAjuste(this.formAjuste.productoId);
+    return `Actual: ${s.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}${u ? ' ' + u : ''}`;
   }
 
   iniciarAjuste(item: InventarioItem): void {
@@ -301,7 +325,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
     this.formAjuste = {
       fecha: this.hoyLocal(),
       productoId: item.id,
-      stockDeseado: Number(item.stockActual),
+      stockDeseado: null,
       motivo: '',
     };
     this.errorAjuste = '';
@@ -356,7 +380,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
     }
     const motivo = (this.formAjuste.motivo || '').trim();
     if (!motivo) {
-      this.errorAjuste = 'Escribe el motivo (derrame, conteo, etc.)';
+      this.errorAjuste = 'Elige el motivo';
       return;
     }
     const body = {
@@ -502,9 +526,18 @@ export class InventarioComponent implements OnInit, OnDestroy {
   }
 
   get sugeridoPlaceholderAlta(): string {
-    const min = this.sugeridoMin(this.formAlta.precioCompra);
-    if (min <= 0) return '';
-    return `mín $${min} – máx $${this.sugeridoMax(this.formAlta.precioCompra)}`;
+    const u = this.unitarioAlta;
+    const min = this.sugeridoMin(u);
+    if (min <= 0) return 'Según unitario';
+    return `mín $${min} – máx $${this.sugeridoMax(u)}`;
+  }
+
+  get sugeridoMinAlta(): number {
+    return this.sugeridoMin(this.unitarioAlta);
+  }
+
+  get sugeridoMaxAlta(): number {
+    return this.sugeridoMax(this.unitarioAlta);
   }
 
   /** Alta: todos los campos visibles con valor válido. */
@@ -512,13 +545,33 @@ export class InventarioComponent implements OnInit, OnDestroy {
     const f = this.formAlta;
     if (!f.nombre?.trim()) return false;
     if (!f.vendePor) return false;
-    if (f.cantidadInicial == null || String(f.cantidadInicial).trim() === '') return false;
-    if (!Number.isFinite(Number(f.cantidadInicial)) || Number(f.cantidadInicial) < 0) return false;
-    if (f.precioCompra == null || String(f.precioCompra).trim() === '') return false;
-    if (!Number.isFinite(Number(f.precioCompra)) || Number(f.precioCompra) <= 0) return false;
+    const cant = this.cantidadAltaEfectiva;
+    if (cant == null || cant <= 0) return false;
+    if (f.totalPagado == null || String(f.totalPagado).trim() === '') return false;
+    if (!Number.isFinite(Number(f.totalPagado)) || Number(f.totalPagado) <= 0) return false;
+    if (this.unitarioAlta == null || this.unitarioAlta <= 0) return false;
     if (f.precioVenta == null || String(f.precioVenta).trim() === '') return false;
     if (!Number.isFinite(Number(f.precioVenta)) || Number(f.precioVenta) <= 0) return false;
     return true;
+  }
+
+  /** Vacío = 1 (una sola pieza/litro). */
+  get cantidadAltaEfectiva(): number | null {
+    const raw = this.formAlta.cantidadInicial;
+    if (raw == null || String(raw).trim() === '') return 1;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return n;
+  }
+
+  /** Precio unitario = total ÷ cantidad (cantidad vacía → 1). */
+  get unitarioAlta(): number | null {
+    const cant = this.cantidadAltaEfectiva;
+    const total = Number(this.formAlta.totalPagado);
+    if (cant == null || cant <= 0) return null;
+    if (this.formAlta.totalPagado == null || String(this.formAlta.totalPagado).trim() === '') return null;
+    if (!Number.isFinite(total) || total < 0) return null;
+    return Math.round((total / cant) * 100) / 100;
   }
 
   onCompraChange(): void {
@@ -536,10 +589,37 @@ export class InventarioComponent implements OnInit, OnDestroy {
     this.calcularMayoreo(this.form);
   }
 
-  onCompraAltaChange(): void {
+  /** Recalcula unitario al cambiar cantidad o total (1 pieza o varias). */
+  onCantidadAltaChange(valor: string | number | null): void {
+    this.formAlta.cantidadInicial =
+      valor === '' || valor == null ? null : (valor as number | null);
+    this.sincronizarUnitarioAlta();
+  }
+
+  onTotalPagadoAltaChange(valor: string | number | null): void {
+    this.formAlta.totalPagado =
+      valor === '' || valor == null ? null : (valor as number | null);
+    this.sincronizarUnitarioAlta();
+  }
+
+  private sincronizarUnitarioAlta(): void {
+    const u = this.unitarioAlta;
+    this.formAlta.precioCompra = u;
+    if (u == null || u <= 0) {
+      if (this.formAlta.precioVenta == null || Number(this.formAlta.precioVenta) <= 0) {
+        this.formAlta.precioMayoreo5 = null;
+        this.formAlta.precioMayoreo10 = null;
+      }
+      return;
+    }
     if (this.formAlta.precioVenta != null && Number(this.formAlta.precioVenta) > 0) {
       this.calcularMayoreo(this.formAlta);
     }
+  }
+
+  /** @deprecated usar sincronizarUnitarioAlta */
+  onLoteAltaChange(): void {
+    this.sincronizarUnitarioAlta();
   }
 
   onMenudeoAltaChange(): void {
@@ -675,12 +755,16 @@ export class InventarioComponent implements OnInit, OnDestroy {
       });
   }
 
-  private bodyDesde(f: FormProducto): Record<string, unknown> {
+  private bodyDesde(f: FormProducto, opts?: { cantidadDefaultUno?: boolean }): Record<string, unknown> {
     this.calcularMayoreo(f);
+    let cantidad = Number(f.cantidadInicial);
+    if (opts?.cantidadDefaultUno && (f.cantidadInicial == null || String(f.cantidadInicial).trim() === '')) {
+      cantidad = 1;
+    }
     return {
       nombre: f.nombre,
       precioCompra: Number(f.precioCompra) || 0,
-      cantidadInicial: Number(f.cantidadInicial) || 0,
+      cantidadInicial: Number.isFinite(cantidad) ? cantidad : 0,
       precioMayoreo5: f.precioMayoreo5,
       precioMayoreo10: f.precioMayoreo10,
       precioVenta: f.precioVenta,
@@ -695,23 +779,26 @@ export class InventarioComponent implements OnInit, OnDestroy {
       this.error = 'Indica el nombre del producto';
       return;
     }
-    if (this.formAlta.cantidadInicial == null || String(this.formAlta.cantidadInicial).trim() === '') {
-      this.error = 'Indica la cantidad comprada';
-      return;
-    }
-    if (!Number.isFinite(Number(this.formAlta.cantidadInicial)) || Number(this.formAlta.cantidadInicial) < 0) {
+    const cant = this.cantidadAltaEfectiva;
+    if (cant == null || cant <= 0) {
       this.error = 'La cantidad comprada no es válida';
       return;
     }
+    this.sincronizarUnitarioAlta();
     if (
-      this.formAlta.precioCompra == null ||
-      String(this.formAlta.precioCompra).trim() === '' ||
-      !Number.isFinite(Number(this.formAlta.precioCompra)) ||
-      Number(this.formAlta.precioCompra) <= 0
+      this.formAlta.totalPagado == null ||
+      String(this.formAlta.totalPagado).trim() === '' ||
+      !Number.isFinite(Number(this.formAlta.totalPagado)) ||
+      Number(this.formAlta.totalPagado) <= 0
     ) {
-      this.error = 'Indica el precio de compra';
+      this.error = 'Indica el total que pagaste';
       return;
     }
+    if (this.unitarioAlta == null || this.unitarioAlta <= 0) {
+      this.error = 'No se pudo calcular el precio unitario';
+      return;
+    }
+    this.formAlta.precioCompra = this.unitarioAlta;
     if (
       this.formAlta.precioVenta == null ||
       String(this.formAlta.precioVenta).trim() === '' ||
@@ -721,7 +808,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
       this.error = 'Indica el precio de menudeo';
       return;
     }
-    const body = this.bodyDesde(this.formAlta);
+    const body = this.bodyDesde(this.formAlta, { cantidadDefaultUno: true });
     this.api.crearProducto(body).subscribe({
       next: () => {
         this.formAlta = this.formVacio();
@@ -771,6 +858,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
     this.form = {
       nombre: item.nombre,
       precioCompra: item.precioCompra,
+      totalPagado: null,
       cantidadInicial: item.cantidadInicial,
       precioVenta: item.precioVentaHoy,
       precioMayoreo5: item.precioMayoreo5,

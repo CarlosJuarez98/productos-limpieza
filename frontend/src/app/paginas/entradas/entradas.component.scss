@@ -13,10 +13,6 @@ h3 {
   margin: 0.4rem 0 0;
 }
 
-.lote-wrap {
-  margin-top: 0.75rem;
-}
-
 .captura-meta {
   display: flex;
   flex-wrap: wrap;
@@ -45,10 +41,81 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
+.lote-wrap {
+  margin-top: 0.75rem;
+}
+
 @media (min-width: 768px) {
   .lote-wrap {
     overflow: visible;
   }
+}
+
+table.lote {
+  table-layout: fixed;
+  width: 100%;
+}
+
+table.lote th,
+table.lote td {
+  vertical-align: middle;
+  padding: 0.4rem 0.35rem;
+}
+
+/* Proporciones del lote (colgroup) */
+table.lote col.c-num {
+  width: 2.4rem;
+}
+table.lote col.c-prod {
+  width: 28%;
+}
+table.lote col.c-cant {
+  width: 5.25rem;
+}
+table.lote col.c-precio {
+  width: 6.5rem;
+}
+table.lote col.c-ultima {
+  width: 6.5rem;
+}
+table.lote col.c-cambio {
+  width: 3.5rem;
+}
+table.lote col.c-total {
+  width: 6rem;
+}
+table.lote col.c-traspaso {
+  width: 5.25rem;
+}
+table.lote col.c-acciones {
+  width: 2.6rem;
+}
+
+table.lote.con-traspaso col.c-prod {
+  width: 22%;
+}
+
+table.lote .col-num {
+  text-align: center;
+  white-space: nowrap;
+}
+
+table.lote .col-producto {
+  min-width: 0;
+}
+
+table.lote .col-ultima,
+table.lote .col-total {
+  white-space: nowrap;
+}
+
+table.lote .col-acciones {
+  width: 2.6rem;
+  min-width: 2.6rem;
+  max-width: 2.6rem;
+  text-align: center;
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
 }
 
 table.lote td input,
@@ -57,73 +124,148 @@ table.lote td app-producto-autocomplete {
   width: 100%;
 }
 
-.col-pedido {
-  width: 9.5rem;
-  min-width: 8.5rem;
-  text-align: left;
-  vertical-align: middle;
-}
-
-.col-pedido select {
-  width: 100%;
-  max-width: 11rem;
-  font-size: 0.82rem;
-  padding: 0.3rem 0.35rem;
-}
-
-.col-pedido select.hint-falta {
-  border-color: #f4a460;
-  font-weight: 600;
-}
-
-.check-pedido-movil {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.check-pedido-movil.hint-falta .campo-label {
-  color: #7a3e0c;
-  font-weight: 700;
-}
-
-.check-pedido-movil select {
-  width: 100%;
+table.lote td.money input {
+  text-align: right;
 }
 
 .precio-input {
   display: flex;
   align-items: center;
   gap: 0.2rem;
+  justify-content: flex-end;
 }
 
 .precio-input .peso {
   color: var(--muted);
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .precio-input input {
   min-width: 0;
   width: 100%;
+  text-align: right;
 }
 
 tr.bajo > td:not(.col-propia) {
   background: rgba(31, 107, 79, 0.08);
 }
 
+/* —— Historial preparación / entradas —— */
+.hist-prep {
+  margin-top: 1rem;
+}
+
+.table-wrap.hist-prep > table,
+.table-wrap.hist-entradas > table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 0;
+}
+
+.table-wrap.hist-prep > table th,
+.table-wrap.hist-prep > table td,
+.table-wrap.hist-entradas > table th,
+.table-wrap.hist-entradas > table td {
+  vertical-align: middle;
+  padding: 0.42rem 0.35rem;
+}
+
+.table-wrap.hist-prep .col-fecha,
+.table-wrap.hist-entradas .col-fecha {
+  width: 6.4rem;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.table-wrap.hist-prep .col-producto,
+.table-wrap.hist-prep .col-insumo,
+.table-wrap.hist-entradas .col-producto {
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-wrap.hist-prep .col-cant,
+.table-wrap.hist-entradas .col-cant {
+  width: 4.75rem;
+}
+
+.table-wrap.hist-prep .col-cant-insumo {
+  width: 5.75rem;
+}
+
+.table-wrap.hist-entradas .col-precio,
+.table-wrap.hist-entradas .col-total,
+.table-wrap.hist-entradas .col-ultima {
+  width: 5.5rem;
+  white-space: nowrap;
+}
+
+/* Una sola columna: lápiz + × juntos y centrados */
+.table-wrap.hist-prep .col-acciones,
+.table-wrap.hist-entradas .col-acciones {
+  width: 5.1rem;
+  min-width: 5.1rem;
+  max-width: 5.1rem;
+  text-align: center;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+  white-space: nowrap;
+}
+
+.acciones-celda {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  width: 100%;
+  vertical-align: middle;
+}
+
+.acciones-celda .icon-btn,
+.acciones-celda .icon-btn-spacer {
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
+.acciones-celda .icon-btn.danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  min-width: 1.85rem;
+  min-height: 1.85rem;
+  padding: 0;
+  background: #fff;
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--line));
+  box-shadow: none;
+}
+
+.acciones-celda .icon-btn.danger:hover:not(:disabled) {
+  background: #fdeceb;
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  color: var(--danger);
+}
+
+.acciones-celda .icon-btn.danger svg {
+  fill: none;
+}
+
 .table-wrap.hist-entradas {
   overflow-x: auto;
 }
 
-.table-wrap.hist-entradas > table {
-  table-layout: auto;
-  min-width: 52rem;
-}
-
 .col-cambio {
   text-align: center;
-  width: 2.75rem;
-  min-width: 2.75rem;
+  width: 3.35rem;
+  min-width: 3.35rem;
+  max-width: 3.35rem;
   white-space: nowrap;
   word-break: normal;
   overflow-wrap: normal;
@@ -133,13 +275,14 @@ tr.bajo > td:not(.col-propia) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.55rem;
-  height: 1.55rem;
-  font-size: 1.2rem;
+  width: 1.65rem;
+  height: 1.65rem;
+  font-size: 1.05rem;
   font-weight: 700;
   line-height: 1;
   border-radius: 0.35rem;
   vertical-align: middle;
+  box-sizing: border-box;
 }
 
 .icono-cambio.subio {
@@ -156,24 +299,6 @@ tr.bajo > td:not(.col-propia) {
 .icono-cambio.bajo {
   color: var(--danger);
   background: rgba(143, 45, 45, 0.12);
-}
-
-.table-wrap.hist-entradas > table th.col-fecha,
-.table-wrap.hist-entradas > table td.col-fecha {
-  white-space: nowrap;
-  word-break: normal;
-  overflow-wrap: normal;
-  min-width: 6.75rem;
-  text-decoration: none;
-}
-
-.col-pedido-hist {
-  white-space: nowrap;
-  word-break: normal;
-  overflow-wrap: normal;
-  width: 5.5rem;
-  min-width: 5.5rem;
-  text-align: center;
 }
 
 .lote-cards {
