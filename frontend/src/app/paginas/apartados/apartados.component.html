@@ -12,19 +12,95 @@
     <span>Total</span>
     <strong>${{ totalSubapartados | number: '1.2-2' }}</strong>
   </div>
-  <div class="stat">
-    <span>Productos</span>
-    <strong>${{ saldo('PRODUCTOS') | number: '1.2-2' }}</strong>
-  </div>
-  <div class="stat">
-    <span>Casa</span>
-    <strong>${{ saldo('CASA') | number: '1.2-2' }}</strong>
-  </div>
-  <div class="stat">
-    <span>Salarios</span>
-    <strong>${{ saldo('SALARIOS') | number: '1.2-2' }}</strong>
-  </div>
+  @for (r of rubros; track r.id) {
+    <div class="stat">
+      <span>{{ r.nombre }}</span>
+      <strong>${{ saldo(r.codigo) | number: '1.2-2' }}</strong>
+    </div>
+  }
 </div>
+
+<section class="panel rubros-panel">
+  <button
+    type="button"
+    class="panel-toggle"
+    (click)="toggleAdminRubros()"
+    [attr.aria-expanded]="adminRubrosAbierto"
+  >
+    <h3 class="panel-titulo">Administrar apartados</h3>
+    <span class="chev" aria-hidden="true">{{ adminRubrosAbierto ? '▾' : '▸' }}</span>
+  </button>
+
+  @if (adminRubrosAbierto) {
+    <div class="panel-toggle-body rubros-body">
+      <ul class="rubros-lista">
+        @for (r of rubros; track r.id) {
+          <li>
+            @if (editandoRubroId === r.id) {
+              <input
+                type="text"
+                [(ngModel)]="editandoRubroNombre"
+                [name]="'editRubro' + r.id"
+                maxlength="80"
+                (keydown.enter)="guardarNombreRubro(r)"
+              />
+              <button type="button" class="btn-mini" (click)="guardarNombreRubro(r)">Guardar</button>
+              <button type="button" class="btn-mini ghost" (click)="cancelarEditarRubro()">Cancelar</button>
+            } @else {
+              <span class="rubro-nombre">{{ r.nombre }}</span>
+              <div class="rubro-acciones">
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Editar nombre"
+                  aria-label="Editar nombre"
+                  (click)="empezarEditarRubro(r)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn danger"
+                  title="Borrar apartado"
+                  aria-label="Borrar apartado"
+                  (click)="eliminarRubro(r)"
+                  [disabled]="rubros.length <= 1"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+      <div class="rubro-nuevo">
+        <input
+          type="text"
+          [(ngModel)]="nuevoRubroNombre"
+          name="nuevoRubro"
+          placeholder="Nuevo apartado"
+          maxlength="80"
+          (keydown.enter)="crearRubro()"
+        />
+        <button type="button" class="btn-mini" (click)="crearRubro()" [disabled]="!nuevoRubroNombre.trim()">
+          Crear
+        </button>
+      </div>
+    </div>
+  }
+</section>
 
 <div class="acciones-row">
   <section class="panel">
@@ -52,51 +128,23 @@
           [max]="hoyLocal()"
         />
       </label>
-      <label>
-        Productos
-        <div class="precio-input">
-          <span class="peso">$</span>
-          <input
-            type="text"
-            inputmode="decimal"
-            appClearable
-            [ngModel]="montos.productos"
-            (input)="onMontoInput('productos', $event)"
-            name="montoProd"
-            placeholder="0"
-          />
-        </div>
-      </label>
-      <label>
-        Casa
-        <div class="precio-input">
-          <span class="peso">$</span>
-          <input
-            type="text"
-            inputmode="decimal"
-            appClearable
-            [ngModel]="montos.casa"
-            (input)="onMontoInput('casa', $event)"
-            name="montoCasa"
-            placeholder="0"
-          />
-        </div>
-      </label>
-      <label>
-        Salarios
-        <div class="precio-input">
-          <span class="peso">$</span>
-          <input
-            type="text"
-            inputmode="decimal"
-            appClearable
-            [ngModel]="montos.salarios"
-            (input)="onMontoInput('salarios', $event)"
-            name="montoSal"
-            placeholder="0"
-          />
-        </div>
-      </label>
+      @for (r of rubrosApartar; track r.id) {
+        <label>
+          {{ r.nombre }}
+          <div class="precio-input">
+            <span class="peso">$</span>
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [ngModel]="montos[r.codigo]"
+              (input)="onMontoInput(r.codigo, $event)"
+              [name]="'monto_' + r.codigo"
+              placeholder="0"
+            />
+          </div>
+        </label>
+      }
       <div class="reparto-actions">
         <button type="button" (click)="registrarReparto()" [disabled]="!puedeRegistrarReparto">
           Registrar
@@ -137,9 +185,9 @@
               <td class="muted">{{ i + 1 }}</td>
               <td>
                 <select [(ngModel)]="g.categoria" [name]="'catGasto' + g.key">
-                  <option value="PRODUCTOS">Productos</option>
-                  <option value="CASA">Casa</option>
-                  <option value="SALARIOS">Salarios</option>
+                  @for (r of rubros; track r.id) {
+                    <option [value]="r.codigo">{{ r.nombre }}</option>
+                  }
                 </select>
               </td>
               <td>
@@ -208,36 +256,36 @@
           role="img"
           [attr.aria-label]="bloque.titulo + ' por categoría'"
         >
-          @for (cat of categoriasRegistros; track cat.key) {
+          @for (cat of rubros; track cat.id) {
             <div
               class="bar-col"
-              [class.vacio]="totalColumna(cat.key, bloque.tipo) <= 0"
+              [class.vacio]="totalColumna(cat.codigo, bloque.tipo) <= 0"
             >
               <span
                 class="bar-valor"
-                [class.oculto]="totalColumna(cat.key, bloque.tipo) <= 0"
+                [class.oculto]="totalColumna(cat.codigo, bloque.tipo) <= 0"
               >
-                ${{ totalColumna(cat.key, bloque.tipo) | number: '1.0-0' }}
+                ${{ totalColumna(cat.codigo, bloque.tipo) | number: '1.0-0' }}
               </span>
               <span class="bar-track">
                 <span
                   class="bar-fill"
                   [class.gasto-fill]="bloque.tipo === 'GASTO'"
-                  [style.height.%]="alturaBarra(bloque.tipo, cat.key)"
+                  [style.height.%]="alturaBarra(bloque.tipo, cat.codigo)"
                 ></span>
               </span>
-              <span class="bar-label">{{ cat.label }}</span>
+              <span class="bar-label">{{ cat.nombre }}</span>
             </div>
           }
         </div>
 
         <div class="bloque-cols">
-          @for (cat of categoriasRegistros; track cat.key) {
+          @for (cat of rubros; track cat.id) {
             <div class="registro-col">
               <h5>
-                {{ cat.label }}
+                {{ cat.nombre }}
                 <span class="saldo-inline"
-                  >${{ totalColumna(cat.key, bloque.tipo) | number: '1.2-2' }}</span
+                  >${{ totalColumna(cat.codigo, bloque.tipo) | number: '1.2-2' }}</span
                 >
               </h5>
               <div class="table-wrap hist-tabla">
@@ -255,7 +303,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    @for (a of pagMov(cat.key, bloque.tipo).paginaItems; track a.id) {
+                    @for (a of pagMov(cat.codigo, bloque.tipo).paginaItems; track a.id) {
                       <tr>
                         <td>{{ a.fecha | fechaDmY }}</td>
                         <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
@@ -276,55 +324,13 @@
                   </tbody>
                 </table>
               </div>
-
-              <ul class="hist-cards">
-                @for (a of pagMov(cat.key, bloque.tipo).paginaItems; track a.id) {
-                  <li>
-                    <div class="item-meta">
-                      <span>{{ a.fecha | fechaDmY }}</span>
-                      <span class="item-tag">
-                        @if (bloque.tipo === 'GASTO') {
-                          {{ a.motivo || '—' }}
-                        } @else {
-                          Ingreso
-                        }
-                      </span>
-                    </div>
-                    <p class="item-motivo">{{ cat.label }}</p>
-                    <div class="item-fila">
-                      <strong class="money">${{ a.ingreso | number: '1.2-2' }}</strong>
-                      <div class="acciones">
-                        <button
-                          type="button"
-                          class="icono peligro"
-                          title="Eliminar"
-                          aria-label="Eliminar"
-                          (click)="eliminar(a.id)"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path
-                              d="M6 6l12 12M18 6L6 18"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                } @empty {
-                  <li class="vacio muted">Sin registros</li>
-                }
-              </ul>
               <app-paginador
-                [total]="pagMov(cat.key, bloque.tipo).total"
-                [pagina]="pagMov(cat.key, bloque.tipo).pagina"
-                [pageSize]="pagMov(cat.key, bloque.tipo).pageSize"
-                [ariaLabel]="'Páginas ' + bloque.titulo + ' ' + cat.label"
-                (prev)="pagMov(cat.key, bloque.tipo).anterior()"
-                (next)="pagMov(cat.key, bloque.tipo).siguiente()"
+                [total]="pagMov(cat.codigo, bloque.tipo).total"
+                [pagina]="pagMov(cat.codigo, bloque.tipo).pagina"
+                [pageSize]="pagMov(cat.codigo, bloque.tipo).pageSize"
+                [ariaLabel]="'Páginas ' + bloque.titulo + ' ' + cat.nombre"
+                (prev)="pagMov(cat.codigo, bloque.tipo).anterior()"
+                (next)="pagMov(cat.codigo, bloque.tipo).siguiente()"
               />
             </div>
           }

@@ -1,13 +1,16 @@
-import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { switchMap, Subscription } from 'rxjs';
 import { of } from 'rxjs';
 import { ApiService } from '../../api.service';
+import { CapturaDraftService } from '../../captura-draft.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { Entrada, InventarioItem, Produccion } from '../../modelos';
+import { Entrada, InventarioItem, Produccion, Receta } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
+import { ProductoAltaFormComponent } from '../../producto-alta-form.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
@@ -19,11 +22,30 @@ interface LineaForm {
   productoId: number | null;
   cantidad: number | null;
   precioProveedor: number | null;
+  /** Si true, esta línea participa en el traspaso (icono activo). */
+  tambienTraspasar: boolean;
   /** Cantidad a traspasar de esta línea (opcional, ≤ cantidad de entrada). */
   cantidadTraspaso: number | null;
 }
 
 type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
+
+type DraftEntradas = {
+  fecha: string;
+  lineas: Array<Omit<LineaForm, 'key'> & { tambienTraspasar?: boolean }>;
+  nextKey: number;
+  /** @deprecated Preferir por línea; se migra al restaurar. */
+  tambienTraspasar?: boolean;
+  traspasoPersona: string;
+  prep: {
+    fecha: string;
+    productoResultadoId: number | null;
+    cantidadResultado: number | null;
+    productoInsumoId: number | null;
+    cantidadInsumo: number | null;
+    insumoNombre: string;
+  };
+};
 
 @Component({
   selector: 'app-entradas',
@@ -32,6 +54,7 @@ type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
     CommonModule,
     FormsModule,
     ProductoAutocompleteComponent,
+    ProductoAltaFormComponent,
     FechaDmYPipe,
     ClearableDirective,
     PaginadorComponent,
@@ -41,6 +64,8 @@ type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
   styleUrl: './entradas.component.scss',
 })
 export class EntradasComponent implements OnInit, OnDestroy {
+  private static readonly DRAFT = 'entradas';
+
   @ViewChildren('prodLote') prodAutos!: QueryList<ProductoAutocompleteComponent>;
   @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
   @ViewChildren('precioInput') precioInputs!: QueryList<ElementRef<HTMLInputElement>>;
@@ -58,18 +83,26 @@ export class EntradasComponent implements OnInit, OnDestroy {
   errorEdit = '';
   guardando = false;
   guardandoEdit = false;
-  /** Traspasar parte del lote a una persona en el mismo guardado. */
-  tambienTraspasar = false;
+  /** Persona destino cuando alguna línea tiene traspaso activo. */
   traspasoPersona = '';
   /** Móvil: paneles secundarios colapsados por defecto. */
   prepAbierta = typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
   histAbierta = typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
+  recetasAbierta = false;
+  recetas: Receta[] = [];
+  formReceta = this.formRecetaVacio();
+  editandoRecetaId: number | null = null;
+  guardandoRecetas = false;
+  errorRecetas = '';
+  okRecetas = '';
+  /** Alta de producto embebida al armar una fórmula. */
+  altaProductoPara: 'resultado' | 'insumo' | null = null;
   private nextKey = 1;
   private pullSub?: Subscription;
   fecha = this.hoyLocal();
   fechaMin: string | null = null;
   fechaUltimoCorte: string | null = null;
-  lineas: LineaForm[] = [this.nuevaLinea()];
+  lineas: LineaForm[] = [this.nuevaLinea(), this.nuevaLinea()];
   prep = {
     fecha: this.hoyLocal(),
     productoResultadoId: null as number | null,
@@ -91,20 +124,125 @@ export class EntradasComponent implements OnInit, OnDestroy {
     private api: ApiService,
     private confirmDlg: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
-    private pullRefresh: PullRefreshService
+    private pullRefresh: PullRefreshService,
+    private route: ActivatedRoute,
+    private router: Router,
+    private drafts: CapturaDraftService
   ) {}
 
   ngOnInit(): void {
+    this.restaurarBorrador();
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
 
   ngOnDestroy(): void {
+    this.persistirBorrador();
     this.pullSub?.unsubscribe();
+  }
+
+  @HostListener('window:pagehide')
+  onPageHide(): void {
+    this.persistirBorrador();
   }
 
   togglePrep(): void {
     this.prepAbierta = !this.prepAbierta;
+  }
+
+  toggleRecetas(): void {
+    this.recetasAbierta = !this.recetasAbierta;
+    if (this.recetasAbierta) {
+      this.cancelarFormReceta();
+      this.errorRecetas = '';
+    }
+  }
+
+  cancelarEdicionRecetas(): void {
+    this.recetasAbierta = false;
+    this.cancelarFormReceta();
+    this.errorRecetas = '';
+  }
+
+  private formRecetaVacio() {
+    return {
+      productoResultadoId: null as number | null,
+      productoInsumoId: null as number | null,
+      cantidadProducto: null as number | null,
+      cantidadAgua: null as number | null,
+      cantidadInsumo: null as number | null,
+    };
+  }
+
+  cancelarFormReceta(): void {
+    this.editandoRecetaId = null;
+    this.formReceta = this.formRecetaVacio();
+    this.altaProductoPara = null;
+  }
+
+  nuevaFormula(): void {
+    this.editandoRecetaId = null;
+    this.formReceta = this.formRecetaVacio();
+    this.altaProductoPara = null;
+    this.errorRecetas = '';
+    this.okRecetas = '';
+  }
+
+  editarFormula(r: Receta): void {
+    this.editandoRecetaId = r.id;
+    this.formReceta = {
+      productoResultadoId: r.productoResultadoId,
+      productoInsumoId: r.productoInsumoId,
+      cantidadProducto: r.cantidadProducto,
+      cantidadAgua: r.cantidadAgua,
+      cantidadInsumo: r.cantidadInsumo,
+    };
+    this.altaProductoPara = null;
+    this.errorRecetas = '';
+  }
+
+  abrirAltaProducto(para: 'resultado' | 'insumo'): void {
+    this.altaProductoPara = para;
+  }
+
+  onProductoCreadoFormula(item: InventarioItem): void {
+    const para = this.altaProductoPara;
+    this.productos = [...this.productos.filter((p) => p.id !== item.id), item];
+    if (para === 'resultado') {
+      this.formReceta.productoResultadoId = item.id;
+    } else if (para === 'insumo') {
+      this.formReceta.productoInsumoId = item.id;
+    }
+    this.altaProductoPara = null;
+    this.okRecetas = `Producto «${item.nombre}» agregado`;
+  }
+
+  /** Desde Ventas: /entradas?preparar=id → abre Preparación. */
+  private aplicarQueryPreparar(): void {
+    const raw = this.route.snapshot.queryParamMap.get('preparar');
+    if (!raw) return;
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) return;
+    const prod = this.productos.find((p) => p.id === id);
+    if (!prod || !this.esProductoPreparacion(prod.id)) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {},
+        replaceUrl: true,
+      });
+      return;
+    }
+    this.prepAbierta = true;
+    this.onResultadoChange(id);
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      document.getElementById('panel-prep')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true,
+    });
   }
 
   toggleHist(): void {
@@ -169,6 +307,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
       productoId: null,
       cantidad: null,
       precioProveedor: null,
+      tambienTraspasar: false,
       cantidadTraspaso: null,
     };
   }
@@ -182,11 +321,17 @@ export class EntradasComponent implements OnInit, OnDestroy {
     return this.productos.find((p) => p.id === productoId)?.nombre || '—';
   }
 
-  toggleTambienTraspasar(): void {
-    this.tambienTraspasar = !this.tambienTraspasar;
-    if (!this.tambienTraspasar) {
+  get hayTraspasoActivo(): boolean {
+    return this.lineas.some((l) => l.tambienTraspasar);
+  }
+
+  toggleTraspasoLinea(l: LineaForm): void {
+    l.tambienTraspasar = !l.tambienTraspasar;
+    if (!l.tambienTraspasar) {
+      l.cantidadTraspaso = null;
+    }
+    if (!this.hayTraspasoActivo) {
       this.traspasoPersona = '';
-      for (const l of this.lineas) l.cantidadTraspaso = null;
     }
   }
 
@@ -256,17 +401,26 @@ export class EntradasComponent implements OnInit, OnDestroy {
   }
 
   get productosPreparables(): InventarioItem[] {
-    return this.productos.filter((p) => this.esProductoPreparacion(p.nombre));
+    return this.productos.filter((p) => this.esProductoPreparacion(p.id));
   }
 
-  /** Entradas de proveedor: sin Cloro ni Fabuloso (salen de preparación). */
+  /** Entradas de proveedor: sin productos que se preparan. */
   get productosParaEntrada(): InventarioItem[] {
-    return this.productos.filter((p) => !this.esProductoPreparacion(p.nombre));
+    return this.productos.filter((p) => !this.esProductoPreparacion(p.id));
   }
 
-  private esProductoPreparacion(nombre: string | null | undefined): boolean {
-    const n = (nombre || '').trim().toLowerCase();
-    return n === 'cloro' || n === 'fabuloso' || n.startsWith('fabuloso ');
+  private esProductoPreparacion(productoId: number | null | undefined): boolean {
+    if (productoId == null) return false;
+    return this.recetas.some((r) => r.productoResultadoId === productoId);
+  }
+
+  private ratioInsumoPorProducto(productoId: number | null | undefined): number | null {
+    if (productoId == null) return null;
+    const r = this.recetas.find((x) => x.productoResultadoId === productoId);
+    if (!r) return null;
+    const p = Number(r.cantidadProducto);
+    const i = Number(r.cantidadInsumo);
+    return p > 0 ? i / p : null;
   }
 
   agregarLinea(): void {
@@ -316,8 +470,11 @@ export class EntradasComponent implements OnInit, OnDestroy {
   }
 
   quitarLinea(index: number): void {
-    if (this.lineas.length <= 1) {
-      this.lineas = [this.nuevaLinea()];
+    if (this.lineas.length <= 2) {
+      this.lineas[index] = this.nuevaLinea();
+      if (this.lineas.length < 2) {
+        this.lineas = [this.nuevaLinea(), this.nuevaLinea()];
+      }
       return;
     }
     this.lineas.splice(index, 1);
@@ -341,7 +498,19 @@ export class EntradasComponent implements OnInit, OnDestroy {
         this.pagPrep.setItems([], false);
       },
     });
-    this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
+    this.api.inventario().subscribe({
+      next: (p) => {
+        this.productos = p;
+        this.aplicarQueryPreparar();
+      },
+    });
+    this.api.recetas().subscribe({
+      next: (r) => {
+        this.recetas = r || [];
+        this.recalcularInsumoPrep();
+        this.aplicarQueryPreparar();
+      },
+    });
     this.api.personas().subscribe({
       next: (p) => {
         this.personasNombres = (p || []).map((x) => x.nombre).filter(Boolean);
@@ -364,6 +533,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.prep.productoResultadoId = id;
     this.prep.productoInsumoId = null;
     this.prep.insumoNombre = '';
+    this.prep.cantidadInsumo = null;
     this.errorPrep = '';
     if (id == null) return;
     this.api.recetaProduccion(id).subscribe({
@@ -371,11 +541,104 @@ export class EntradasComponent implements OnInit, OnDestroy {
         if (r.encontrada && r.productoInsumoId != null) {
           this.prep.productoInsumoId = r.productoInsumoId;
           this.prep.insumoNombre = r.productoInsumoNombre ?? '';
+          this.recalcularInsumoPrep();
         } else {
-          this.errorPrep = 'No hay receta para ese producto (Cloro←Hipoclorito o Fabuloso←Base)';
+          this.errorPrep =
+            'No hay fórmula para ese producto. Créala en «Editar fórmulas».';
         }
       },
     });
+  }
+
+  onCantidadPrepChange(): void {
+    this.recalcularInsumoPrep();
+  }
+
+  recalcularInsumoPrep(): void {
+    const ratio = this.ratioInsumoPorProducto(this.prep.productoResultadoId);
+    const cant = Number(this.prep.cantidadResultado);
+    if (ratio == null || !Number.isFinite(cant) || cant <= 0) {
+      if (this.editandoPrepId == null) this.prep.cantidadInsumo = null;
+      return;
+    }
+    this.prep.cantidadInsumo = Math.round(cant * ratio * 100) / 100;
+  }
+
+  guardarFormula(): void {
+    this.errorRecetas = '';
+    this.okRecetas = '';
+    const f = this.formReceta;
+    if (f.productoResultadoId == null || f.productoInsumoId == null) {
+      this.errorRecetas = 'Elige producto e insumo (o créalos abajo)';
+      return;
+    }
+    const body = {
+      productoResultadoId: f.productoResultadoId,
+      productoInsumoId: f.productoInsumoId,
+      cantidadProducto: Number(f.cantidadProducto),
+      cantidadAgua: Number(f.cantidadAgua),
+      cantidadInsumo: Number(f.cantidadInsumo),
+    };
+    if (
+      !Number.isFinite(body.cantidadProducto) ||
+      body.cantidadProducto <= 0 ||
+      !Number.isFinite(body.cantidadAgua) ||
+      body.cantidadAgua < 0 ||
+      !Number.isFinite(body.cantidadInsumo) ||
+      body.cantidadInsumo <= 0
+    ) {
+      this.errorRecetas = 'Revisa las cantidades de la fórmula';
+      return;
+    }
+    this.guardandoRecetas = true;
+    const req$ =
+      this.editandoRecetaId != null
+        ? this.api.actualizarReceta(this.editandoRecetaId, body)
+        : this.api.crearReceta(body);
+    req$.subscribe({
+      next: () => {
+        this.guardandoRecetas = false;
+        this.okRecetas = this.editandoRecetaId != null ? 'Fórmula actualizada' : 'Fórmula creada';
+        this.cancelarFormReceta();
+        this.api.recetas().subscribe({
+          next: (lista) => {
+            this.recetas = lista || [];
+            this.recalcularInsumoPrep();
+          },
+        });
+      },
+      error: (e) => {
+        this.guardandoRecetas = false;
+        this.errorRecetas = e.error?.error || 'No se pudo guardar la fórmula';
+      },
+    });
+  }
+
+  async eliminarFormula(r: Receta): Promise<void> {
+    const ok = await this.confirmDlg.ask(`¿Eliminar fórmula de ${r.productoResultadoNombre}?`, {
+      confirmarTexto: 'Eliminar',
+    });
+    if (!ok) return;
+    this.api.eliminarReceta(r.id).subscribe({
+      next: () => {
+        this.okRecetas = 'Fórmula eliminada';
+        if (this.editandoRecetaId === r.id) this.cancelarFormReceta();
+        this.api.recetas().subscribe({ next: (lista) => (this.recetas = lista || []) });
+      },
+      error: (e) => (this.errorRecetas = e.error?.error || 'No se pudo eliminar'),
+    });
+  }
+
+  get stockInsumoPrep(): number {
+    if (this.prep.productoInsumoId == null) return 0;
+    const p = this.productos.find((x) => x.id === this.prep.productoInsumoId);
+    return p ? Number(p.stockActual) || 0 : 0;
+  }
+
+  get excedeStockInsumoPrep(): boolean {
+    const need = Number(this.prep.cantidadInsumo);
+    if (!Number.isFinite(need) || need <= 0 || this.prep.productoInsumoId == null) return false;
+    return need > this.stockInsumoPrep + 1e-9;
   }
 
   guardar(): void {
@@ -401,32 +664,32 @@ export class EntradasComponent implements OnInit, OnDestroy {
     }
     const prohibido = lineas
       .map((l) => this.productos.find((p) => p.id === l.productoId))
-      .find((p) => p && this.esProductoPreparacion(p.nombre));
+      .find((p) => p && this.esProductoPreparacion(p.id));
     if (prohibido) {
       this.error =
-        `«${prohibido.nombre}» se obtiene por preparación (Hipoclorito / Base Fabuloso), no por entrada de proveedor`;
+        `«${prohibido.nombre}» se obtiene por preparación, no por entrada de proveedor`;
       return;
     }
 
     let lineasTraspaso: { productoId: number; cantidad: number }[] = [];
-    if (this.tambienTraspasar) {
+    const lineasConTraspaso = lineasForm.filter((l) => l.tambienTraspasar);
+    if (lineasConTraspaso.length) {
       if (!this.traspasoPersona.trim()) {
         this.error = 'Selecciona una persona de la lista';
         return;
       }
-      for (const l of lineasForm) {
+      for (const l of lineasConTraspaso) {
         const cantEnt = Number(l.cantidad);
         const cantTr = Number(l.cantidadTraspaso);
-        if (!Number.isFinite(cantTr) || cantTr <= 0) continue;
+        if (!Number.isFinite(cantTr) || cantTr <= 0) {
+          this.error = `Indica cuánto traspasar de «${this.nombreProducto(l.productoId)}»`;
+          return;
+        }
         if (cantTr > cantEnt) {
           this.error = `En «${this.nombreProducto(l.productoId)}» no puedes traspasar más de lo que entra (${cantEnt})`;
           return;
         }
         lineasTraspaso.push({ productoId: l.productoId as number, cantidad: cantTr });
-      }
-      if (!lineasTraspaso.length) {
-        this.error = 'Indica cuánto traspasar en al menos un producto (ej. 5 de 10)';
-        return;
       }
     }
 
@@ -456,9 +719,9 @@ export class EntradasComponent implements OnInit, OnDestroy {
           this.ok = nTr
             ? `Entrada registrada y traspaso a ${persona} listo`
             : 'Entrada registrada';
-          this.lineas = [this.nuevaLinea()];
-          this.tambienTraspasar = false;
+          this.lineas = [this.nuevaLinea(), this.nuevaLinea()];
           this.traspasoPersona = '';
+          this.persistirBorrador();
           this.cargar();
         },
         error: (e) => {
@@ -468,6 +731,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
             (lineasTraspaso.length
               ? 'La entrada se pudo guardar, pero falló el traspaso. Revísalo en Traspasos.'
               : 'Error al guardar entradas');
+          this.persistirBorrador();
           this.cargar();
         },
       });
@@ -507,7 +771,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
       return;
     }
     const prod = this.productos.find((p) => p.id === this.formEdit.productoId);
-    if (prod && this.esProductoPreparacion(prod.nombre)) {
+    if (prod && this.esProductoPreparacion(prod.id)) {
       this.errorEdit =
         `«${prod.nombre}» se obtiene por preparación, no por entrada de proveedor`;
       return;
@@ -576,6 +840,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.okPrep = '';
     this.asegurarFechaValida();
     if (!this.validarFecha(this.prep.fecha, 'errorPrep')) return;
+    this.recalcularInsumoPrep();
     const cantRes = Number(this.prep.cantidadResultado);
     const cantIns = Number(this.prep.cantidadInsumo);
     if (
@@ -586,7 +851,11 @@ export class EntradasComponent implements OnInit, OnDestroy {
       cantRes <= 0 ||
       cantIns <= 0
     ) {
-      this.errorPrep = 'Completa producto, insumo y cantidades';
+      this.errorPrep = 'Completa producto y cantidad preparada';
+      return;
+    }
+    if (this.excedeStockInsumoPrep) {
+      this.errorPrep = `No hay suficiente ${this.prep.insumoNombre || 'insumo'} (necesitas ${cantIns} L, hay ${this.stockInsumoPrep} L)`;
       return;
     }
     const body = {
@@ -610,6 +879,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
             : `Listo: +${cantRes} y se descontó ${cantIns} de ${insumoNombre}`;
         this.cancelarEdicionPrep();
         this.okPrep = msg;
+        this.persistirBorrador();
         this.cargar();
       },
       error: (e) =>
@@ -637,5 +907,93 @@ export class EntradasComponent implements OnInit, OnDestroy {
       next: () => this.cargar(),
       error: (e) => (this.errorPrep = e.error?.error || 'Error al eliminar'),
     });
+  }
+
+  private lineaConDatos(l: LineaForm): boolean {
+    return (
+      l.productoId != null ||
+      l.tambienTraspasar ||
+      (l.cantidad != null && Number(l.cantidad) !== 0) ||
+      (l.precioProveedor != null && String(l.precioProveedor) !== '') ||
+      (l.cantidadTraspaso != null && Number(l.cantidadTraspaso) !== 0)
+    );
+  }
+
+  private prepConDatos(): boolean {
+    if (this.editandoPrepId != null) return false;
+    return (
+      this.prep.productoResultadoId != null ||
+      this.prep.productoInsumoId != null ||
+      (this.prep.cantidadResultado != null && Number(this.prep.cantidadResultado) !== 0) ||
+      (this.prep.cantidadInsumo != null && Number(this.prep.cantidadInsumo) !== 0)
+    );
+  }
+
+  private hayBorradorUtil(): boolean {
+    return (
+      this.lineas.some((l) => this.lineaConDatos(l)) ||
+      !!this.traspasoPersona.trim() ||
+      this.prepConDatos()
+    );
+  }
+
+  private persistirBorrador(): void {
+    if (!this.hayBorradorUtil()) {
+      this.drafts.clear(EntradasComponent.DRAFT);
+      return;
+    }
+    const draft: DraftEntradas = {
+      fecha: this.fecha,
+      nextKey: this.nextKey,
+      traspasoPersona: this.traspasoPersona,
+      lineas: this.lineas.map(
+        ({ productoId, cantidad, precioProveedor, tambienTraspasar, cantidadTraspaso }) => ({
+          productoId,
+          cantidad,
+          precioProveedor,
+          tambienTraspasar,
+          cantidadTraspaso,
+        })
+      ),
+      prep: { ...this.prep },
+    };
+    this.drafts.save(EntradasComponent.DRAFT, draft);
+  }
+
+  private restaurarBorrador(): void {
+    const draft = this.drafts.load<DraftEntradas>(EntradasComponent.DRAFT);
+    if (!draft) return;
+    if (draft.fecha) this.fecha = draft.fecha;
+    this.traspasoPersona = draft.traspasoPersona || '';
+    this.nextKey = Math.max(1, Number(draft.nextKey) || 1);
+    if (draft.lineas?.length) {
+      const legacyGlobal = !!draft.tambienTraspasar;
+      this.lineas = draft.lineas.map((l) => {
+        const cantTr = l.cantidadTraspaso ?? null;
+        const porLinea =
+          typeof l.tambienTraspasar === 'boolean'
+            ? l.tambienTraspasar
+            : legacyGlobal || (cantTr != null && Number(cantTr) > 0);
+        return {
+          key: this.nextKey++,
+          productoId: l.productoId ?? null,
+          cantidad: l.cantidad ?? null,
+          precioProveedor: l.precioProveedor ?? null,
+          tambienTraspasar: porLinea,
+          cantidadTraspaso: cantTr,
+        };
+      });
+    }
+    if (draft.prep && (draft.prep.productoResultadoId != null || draft.prep.cantidadResultado != null)) {
+      this.prep = {
+        fecha: draft.prep.fecha || this.hoyLocal(),
+        productoResultadoId: draft.prep.productoResultadoId ?? null,
+        cantidadResultado: draft.prep.cantidadResultado ?? null,
+        productoInsumoId: draft.prep.productoInsumoId ?? null,
+        cantidadInsumo: draft.prep.cantidadInsumo ?? null,
+        insumoNombre: draft.prep.insumoNombre || '',
+      };
+      this.prepAbierta = true;
+    }
   }
 }

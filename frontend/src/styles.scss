@@ -154,6 +154,49 @@ select:focus {
   border-color: #8fb5a2;
 }
 
+/* Valores de solo lectura con el mismo recuadro que un input */
+.dato-fijo,
+.dato-caja,
+.precio-fijo,
+.total-fijo {
+  height: 2.35rem;
+  min-height: 2.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: #fff;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.dato-fijo.muted,
+.dato-caja.muted,
+.precio-fijo.muted,
+.total-fijo.muted {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.precio-fijo small {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.total-campo .dato-fijo,
+.total-campo .total-fijo,
+.total-campo .dato-caja {
+  color: #1f3d2a;
+}
+
 /* Sin flechas en inputs numéricos (todas las pantallas) */
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {
@@ -265,10 +308,99 @@ input[type='number'] {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(9.75rem, 1fr));
   gap: 0.55rem;
   align-items: end;
   margin-bottom: 0.75rem;
+}
+
+.form-grid > label,
+.form-grid > .campo-unitario {
+  min-width: 0;
+}
+
+.form-grid > label > input,
+.form-grid > label > select,
+.form-grid > label > textarea,
+.form-grid > label > .precio-input,
+.form-grid > label > .clearable-wrap,
+.form-grid > label > app-producto-autocomplete {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.form-grid > label > input,
+.form-grid > label > select,
+.form-grid > label > textarea {
+  height: 2.35rem;
+  min-height: 2.35rem;
+  max-height: 2.35rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.2;
+}
+
+.form-grid > label > textarea {
+  height: auto;
+  max-height: none;
+  min-height: 2.35rem;
+  padding-top: 0.42rem;
+  padding-bottom: 0.42rem;
+}
+
+.form-grid > label > .dato-fijo,
+.form-grid > label > .precio-fijo,
+.form-grid > label > .total-fijo,
+.form-grid > .campo-unitario > .dato-fijo {
+  height: 2.35rem;
+  min-height: 2.35rem;
+}
+
+.form-grid > label > .clearable-wrap {
+  height: 2.35rem;
+}
+
+.form-grid > label > .clearable-wrap > input {
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.form-grid > label > app-producto-autocomplete {
+  height: 2.35rem;
+}
+
+.form-grid > label > app-producto-autocomplete input {
+  height: 2.35rem;
+  min-height: 2.35rem;
+  max-height: 2.35rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.2;
+}
+
+.form-grid > button {
+  width: 100%;
+  height: 2.35rem;
+  min-height: 2.35rem;
+  max-height: 2.35rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: end;
+  box-sizing: border-box;
+  line-height: 1.2;
+}
+
+.form-grid > .edicion-actions,
+.form-grid > .reparto-actions {
+  min-width: 0;
+  width: 100%;
 }
 
 .form-grid label {
@@ -430,6 +562,31 @@ input[type='number'] {
     min-height: 2.5rem;
   }
 
+  /* En formularios, todos los controles comparten el mismo alto (incluido botón). */
+  .form-grid {
+    --campo-h: 2.5rem;
+  }
+
+  .form-grid > label > input,
+  .form-grid > label > select,
+  .form-grid > label > .dato-fijo,
+  .form-grid > label > .precio-fijo,
+  .form-grid > label > .total-fijo,
+  .form-grid > .campo-unitario > .dato-fijo,
+  .form-grid > label > .clearable-wrap,
+  .form-grid > label > .clearable-wrap > input,
+  .form-grid > label > app-producto-autocomplete,
+  .form-grid > label > app-producto-autocomplete input,
+  .form-grid > button {
+    height: 2.5rem;
+    min-height: 2.5rem;
+    max-height: 2.5rem;
+  }
+
+  .form-prep {
+    --campo-h: 2.5rem;
+  }
+
   td.actions button.danger:not(.icon-btn),
   td.actions .icon-btn.danger,
   .icon-btn {
@@ -488,10 +645,10 @@ input[type='number'] {
   }
 }
 
-/* Escritorio: formularios en fila, botones al ancho natural */
+/* Escritorio: formularios en fila con celdas del mismo ancho */
 @media (min-width: 768px) {
   .form-grid > button {
-    width: auto;
+    width: 100%;
   }
 
   /* Lote escritorio: ajustar al ancho */

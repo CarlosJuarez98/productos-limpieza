@@ -108,22 +108,22 @@ public class DataNormalizeRunner implements ApplicationRunner {
 
   private void permitirCategoriaServicios() {
     try (Connection c = dataSource.getConnection(); Statement st = c.createStatement()) {
+      // Quitar CHECK rígidos: rubros dinámicos (códigos libres por tenant).
       try {
         st.execute("ALTER TABLE apartados DROP CONSTRAINT SYS_C008305");
       } catch (Exception ignored) {
-        // puede no existir
       }
       try {
-        st.execute(
-            """
-            ALTER TABLE apartados ADD CONSTRAINT apartados_categoria_chk
-            CHECK (categoria IN ('GENERAL','PRODUCTOS','CASA','SALARIOS','SERVICIOS'))
-            """);
-      } catch (Exception e) {
-        log.debug("Constraint apartados_categoria_chk: {}", e.getMessage());
+        st.execute("ALTER TABLE apartados DROP CONSTRAINT apartados_categoria_chk");
+      } catch (Exception ignored) {
       }
     } catch (Exception e) {
       log.debug("DDL apartados omitido: {}", e.getMessage());
+    }
+    try (Connection c = dataSource.getConnection(); Statement st = c.createStatement()) {
+      st.execute("ALTER TABLE apartados MODIFY categoria VARCHAR2(40)");
+    } catch (Exception e) {
+      log.debug("Ampliar categoria omitido: {}", e.getMessage());
     }
   }
 

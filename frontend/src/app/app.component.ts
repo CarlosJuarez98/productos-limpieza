@@ -24,12 +24,12 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     { path: '/inventario', label: 'Inventario' },
     { path: '/entradas', label: 'Entrada de proveedor', short: 'Entradas' },
     { path: '/surtir', label: 'Surtir' },
-    { path: '/uso-casa', label: 'Uso en casa', short: 'Uso casa' },
     { path: '/traspasos', label: 'Traspasos' },
     { path: '/caja', label: 'Caja' },
     { path: '/apartados', label: 'Apartados' },
     { path: '/inversion', label: 'Inversión' },
     { path: '/precios', label: 'Histórico precios', short: 'Precios' },
+    { path: '/uso-casa', label: 'Uso en casa', short: 'Uso casa' },
     { path: '/lista-precios', label: 'Lista precios', short: 'Lista' },
   ];
 
@@ -44,10 +44,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   readonly moreLinks: NavLink[] = [
     { path: '/surtir', label: 'Surtir / Pedido' },
     { path: '/traspasos', label: 'Traspasos' },
-    { path: '/uso-casa', label: 'Uso en casa' },
     { path: '/apartados', label: 'Apartados' },
     { path: '/inversion', label: 'Inversión' },
     { path: '/precios', label: 'Histórico precios' },
+    { path: '/uso-casa', label: 'Uso en casa' },
     { path: '/lista-precios', label: 'Lista precios' },
   ];
 

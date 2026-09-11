@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,29 +81,52 @@ public class EntradaService {
     if (req.lineas() == null || req.lineas().isEmpty()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agrega al menos un producto");
     }
+    Set<Long> ids =
+        req.lineas().stream().map(EntradaLineaRequest::productoId).collect(Collectors.toSet());
+    Map<Long, Producto> productos = new HashMap<>();
+    for (Producto p : productoRepo.findAllById(ids)) {
+      productos.put(p.getId(), p);
+    }
+
     List<EntradaDto> out = new ArrayList<>();
     Map<Long, BigDecimal> ultimaEnLote = new HashMap<>();
     Set<Long> pedidosTocados = new HashSet<>();
+    List<Entrada> aGuardar = new ArrayList<>(req.lineas().size());
+    List<BigDecimal> anteriores = new ArrayList<>(req.lineas().size());
+    List<Producto> prodsLinea = new ArrayList<>(req.lineas().size());
+    List<BigDecimal> preciosLinea = new ArrayList<>(req.lineas().size());
+
     for (EntradaLineaRequest linea : req.lineas()) {
-      Producto producto = productoRepo.findById(linea.productoId())
-          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
+      Producto producto = productos.get(linea.productoId());
+      if (producto == null) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado");
+      }
       exigirActivo(producto);
       exigirNoEsPreparacion(producto);
-      BigDecimal anterior = ultimaEnLote.containsKey(producto.getId())
-          ? ultimaEnLote.get(producto.getId())
-          : ultimaCompraProducto(producto.getId());
+      BigDecimal anterior =
+          ultimaEnLote.containsKey(producto.getId())
+              ? ultimaEnLote.get(producto.getId())
+              : ultimaCompraProducto(producto.getId());
       Entrada e = new Entrada();
       aplicar(e, req.fecha(), producto, linea.cantidad(), linea.precioProveedor());
       ligarPedido(e, producto.getId(), linea.aplicarAPedido(), linea.pedidoId());
-      Entrada saved = entradaRepo.save(e);
-      if (saved.getPedido() != null) {
-        pedidosTocados.add(saved.getPedido().getId());
-      }
-      actualizarPrecioCompraSiCambio(producto, linea.precioProveedor());
+      aGuardar.add(e);
+      anteriores.add(anterior);
+      prodsLinea.add(producto);
+      preciosLinea.add(linea.precioProveedor());
       if (linea.precioProveedor() != null) {
         ultimaEnLote.put(producto.getId(), linea.precioProveedor());
       }
-      out.add(toDto(saved, anterior));
+    }
+
+    List<Entrada> saved = entradaRepo.saveAll(aGuardar);
+    for (int i = 0; i < saved.size(); i++) {
+      Entrada e = saved.get(i);
+      if (e.getPedido() != null) {
+        pedidosTocados.add(e.getPedido().getId());
+      }
+      actualizarPrecioCompraSiCambio(prodsLinea.get(i), preciosLinea.get(i));
+      out.add(toDto(e, anteriores.get(i)));
     }
     for (Long pid : pedidosTocados) {
       pedidoRegistroService.recalcularRecibidoDesdeEntradas(pid);

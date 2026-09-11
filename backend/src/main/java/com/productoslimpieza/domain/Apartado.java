@@ -1,7 +1,6 @@
 package com.productoslimpieza.domain;
 
 import com.productoslimpieza.tenant.TenantEntity;
-
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,9 +16,9 @@ public class Apartado extends TenantEntity {
   @Column(nullable = false)
   private LocalDate fecha;
 
-  @Enumerated(EnumType.STRING)
-  @Column(nullable = false, length = 30)
-  private CategoriaApartado categoria;
+  /** Código del rubro ({@link ApartadoRubro#getCodigo()}). */
+  @Column(nullable = false, length = 40)
+  private String categoria;
 
   /** Monto del movimiento (ingreso o gasto según tipo). */
   @Column(nullable = false, precision = 14, scale = 4)
@@ -32,16 +31,51 @@ public class Apartado extends TenantEntity {
   @Column(length = 200)
   private String motivo;
 
-  public Long getId() { return id; }
-  public void setId(Long id) { this.id = id; }
-  public LocalDate getFecha() { return fecha; }
-  public void setFecha(LocalDate fecha) { this.fecha = fecha; }
-  public CategoriaApartado getCategoria() { return categoria; }
-  public void setCategoria(CategoriaApartado categoria) { this.categoria = categoria; }
-  public BigDecimal getIngreso() { return ingreso; }
-  public void setIngreso(BigDecimal ingreso) { this.ingreso = ingreso; }
-  public TipoMovimientoApartado getTipo() { return tipo; }
-  public void setTipo(TipoMovimientoApartado tipo) { this.tipo = tipo; }
-  public String getMotivo() { return motivo; }
-  public void setMotivo(String motivo) { this.motivo = motivo; }
+  public Long getId() {
+    return id;
+  }
+
+  public void setId(Long id) {
+    this.id = id;
+  }
+
+  public LocalDate getFecha() {
+    return fecha;
+  }
+
+  public void setFecha(LocalDate fecha) {
+    this.fecha = fecha;
+  }
+
+  public String getCategoria() {
+    return categoria;
+  }
+
+  public void setCategoria(String categoria) {
+    this.categoria = categoria;
+  }
+
+  public BigDecimal getIngreso() {
+    return ingreso;
+  }
+
+  public void setIngreso(BigDecimal ingreso) {
+    this.ingreso = ingreso;
+  }
+
+  public TipoMovimientoApartado getTipo() {
+    return tipo;
+  }
+
+  public void setTipo(TipoMovimientoApartado tipo) {
+    this.tipo = tipo;
+  }
+
+  public String getMotivo() {
+    return motivo;
+  }
+
+  public void setMotivo(String motivo) {
+    this.motivo = motivo;
+  }
 }

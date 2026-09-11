@@ -283,7 +283,7 @@ public class DataImportRunner implements ApplicationRunner {
     for (Map<String, Object> row : apartados) {
       Apartado a = new Apartado();
       a.setFecha(LocalDate.parse(str(row.get("fecha"))));
-      a.setCategoria(CategoriaApartado.valueOf(str(row.get("categoria"))));
+      a.setCategoria(str(row.get("categoria")));
       a.setIngreso(nz(dec(row.get("ingreso"))));
       a.setTenantId(tenant);
       String tipo = str(row.get("tipo"));

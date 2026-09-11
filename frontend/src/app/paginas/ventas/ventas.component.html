@@ -27,6 +27,12 @@
           <span>Ticket</span>
           <strong>${{ totalTicket | number: '1.2-2' }}</strong>
         </div>
+        @if (costoTicketSinCobro > 0) {
+          <div class="tot-chip costo">
+            <span>Muestras / casa</span>
+            <strong>−${{ costoTicketSinCobro | number: '1.2-2' }}</strong>
+          </div>
+        }
         <div class="tot-chip dia">
           <span>Ventas del día</span>
           <strong>${{ totalVentasDia | number: '1.2-2' }}</strong>
@@ -37,7 +43,7 @@
 
   <div class="ticket">
     @for (l of lineas; track l.key; let i = $index) {
-      <article class="linea-card">
+      <article class="linea-card" [class.stock-warn]="excedeStock(l, i)">
         <header class="linea-top">
           <span class="linea-num">{{ i + 1 }}</span>
           <div class="modo-chips" role="group" [attr.aria-label]="'Modo venta ' + (i + 1)">
@@ -68,8 +74,15 @@
         </label>
 
         <div class="linea-grid">
-          <label class="campo">
-            Cantidad
+          <label class="campo campo-cantidad">
+            <div class="campo-cab">
+              <span class="campo-label">Cantidad</span>
+              @if (l.productoId != null && stockDisponible(l.productoId) != null && l.modo !== 'PESOS') {
+                <span class="stock-hint" [class.disp-warn]="excedeStock(l, i)">
+                  Disp. {{ stockDisponible(l.productoId) | number: '1.0-2' }} {{ unidadDe(l) }}
+                </span>
+              }
+            </div>
             <div class="cant-wrap">
               <input
                 #cantInput
@@ -79,6 +92,7 @@
                 [(ngModel)]="l.cantidad"
                 [name]="'cant' + l.key"
                 placeholder="0"
+                [class.input-warn]="excedeStock(l, i)"
                 (ngModelChange)="sugerirTotalMayoreo(l)"
                 (keydown.enter)="onCantidadEnter($event, i)"
               />
@@ -87,8 +101,16 @@
           </label>
 
           <div class="campo">
-            <span class="campo-label">Precio</span>
-            @if (permitePrecioManual(l)) {
+            <span class="campo-label">{{ esSinCobro(l) ? 'Costo' : 'Precio' }}</span>
+            @if (esSinCobro(l)) {
+              @if (precioCompraDe(l) > 0) {
+                <div class="precio-fijo money">${{ precioCompraDe(l) | number: '1.2-2' }}
+                  <small>/ {{ unidadDe(l) }}</small>
+                </div>
+              } @else {
+                <div class="precio-fijo muted">Sin costo</div>
+              }
+            } @else if (permitePrecioManual(l)) {
               <div class="precio-input">
                 <span class="peso">$</span>
                 <input
@@ -97,8 +119,8 @@
                   appClearable
                   [(ngModel)]="l.precioManual"
                   [name]="'precio' + l.key"
-                  placeholder="unitario"
-                  title="Vacío: usa tramos ≥5 / ≥10. Si lo llenas, ese precio manda."
+                  [placeholder]="pistaPrecioMayoreo(l)"
+                  [title]="tituloPistaMayoreo(l)"
                   (ngModelChange)="sugerirTotalMayoreo(l)"
                   (keydown.enter)="onCantidadEnter($event, i)"
                 />
@@ -109,16 +131,22 @@
                   <small>/ {{ unidadDe(l) }}</small>
                 </div>
               } @else {
-                <span class="muted">Sin precio</span>
+                <div class="precio-fijo muted">Sin precio</div>
               }
             } @else {
-              <span class="muted">—</span>
+              <div class="precio-fijo muted">—</div>
             }
           </div>
 
           <div class="campo total-campo">
-            <span class="campo-label">Total</span>
-            @if (esMayoreo(l) && !tienePrecioManual(l)) {
+            <span class="campo-label">{{ esSinCobro(l) ? 'Nos cuesta' : 'Total' }}</span>
+            @if (esSinCobro(l)) {
+              @if (costoEstimado(l) != null) {
+                <div class="total-fijo money costo">${{ costoEstimado(l) | number: '1.2-2' }}</div>
+              } @else {
+                <div class="total-fijo muted">—</div>
+              }
+            } @else if (esMayoreo(l) && !tienePrecioManual(l)) {
               <div class="precio-input">
                 <span class="peso">$</span>
                 <input
@@ -127,17 +155,37 @@
                   appClearable
                   [(ngModel)]="l.total"
                   [name]="'total' + l.key"
-                  placeholder="0"
+                  [placeholder]="pistaTotalMayoreo(l)"
+                  [title]="tituloPistaMayoreo(l)"
                   (keydown.enter)="onCantidadEnter($event, i)"
                 />
               </div>
             } @else if (totalEstimado(l) != null) {
               <div class="total-fijo money">${{ totalEstimado(l) | number: '1.2-2' }}</div>
             } @else {
-              <span class="muted">—</span>
+              <div class="total-fijo muted">—</div>
             }
           </div>
         </div>
+        @if (esMayoreo(l) && l.productoId != null && pistaPrecioMayoreo(l) !== 'unitario') {
+          <p class="pista-mayoreo muted" [title]="tituloPistaMayoreo(l)">
+            Lista mayoreo: {{ pistaPrecioMayoreo(l) }}
+          </p>
+        }
+        @if (avisoStock(l, i); as aviso) {
+          <p class="aviso-stock">
+            {{ aviso }}
+            @if (l.productoId != null) {
+              <a [routerLink]="['/inventario']" [queryParams]="{ editar: l.productoId }">Inventario</a>
+              ·
+              <a routerLink="/surtir">Surtir</a>
+              @if (esPreparable(l)) {
+                ·
+                <a [routerLink]="['/entradas']" [queryParams]="{ preparar: l.productoId }">Preparar</a>
+              }
+            }
+          </p>
+        }
       </article>
     }
   </div>
@@ -156,15 +204,9 @@
       type="button"
       class="btn-guardar-filas guardar-ticket"
       (click)="guardarTodas()"
-      [disabled]="guardando || lineasConDatos === 0"
+      [disabled]="guardando || lineasConDatos === 0 || hayExcesoStock"
     >
-      {{
-        guardando
-          ? 'Guardando…'
-          : (lineasConDatos <= 1 ? 'Guardar venta' : 'Guardar ventas') +
-            ' · $' +
-            (totalTicket | number: '1.2-2')
-      }}
+      {{ etiquetaGuardar }}
     </button>
   </div>
 
@@ -222,7 +264,15 @@
             <td>{{ v.productoNombre || '—' }}</td>
             <td>{{ v.tipoVentaLabel }}</td>
             <td class="money">{{ v.cantidad | number: '1.2-2' }}</td>
-            <td class="money">${{ v.total | number: '1.2-2' }}</td>
+            <td class="money">
+              @if ((v.tipoVenta === 'MUESTRA' || v.tipoVenta === 'CASA') && costoVenta(v) != null) {
+                <span class="costo-hist" title="No se cobró; costo de mercancía">
+                  −${{ costoVenta(v) | number: '1.2-2' }}
+                </span>
+              } @else {
+                ${{ v.total | number: '1.2-2' }}
+              }
+            </td>
             <td class="actions">
               <button type="button" class="danger" (click)="eliminar(v.id)" title="Eliminar">×</button>
             </td>
@@ -246,7 +296,13 @@
         </div>
         <p class="item-motivo">{{ v.productoNombre || '—' }}</p>
         <div class="item-fila">
-          <strong class="money">${{ v.total | number: '1.2-2' }}</strong>
+          <strong class="money">
+            @if ((v.tipoVenta === 'MUESTRA' || v.tipoVenta === 'CASA') && costoVenta(v) != null) {
+              <span class="costo-hist">−${{ costoVenta(v) | number: '1.2-2' }}</span>
+            } @else {
+              ${{ v.total | number: '1.2-2' }}
+            }
+          </strong>
           <div class="acciones">
             <button
               type="button"

@@ -1,6 +1,7 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
@@ -11,7 +12,6 @@ import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { compararNombreNatural } from '../../nombre-natural.util';
-import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { AutoHideDirective } from '../../auto-hide.directive';
 
 type FormProducto = {
@@ -59,7 +59,6 @@ const COLS_STORAGE = 'pl.inventario.columnas.v2';
     ClearableDirective,
     PaginadorComponent,
     FechaDmYPipe,
-    ProductoAutocompleteComponent,
     AutoHideDirective,
   ],
   templateUrl: './inventario.component.html',
@@ -75,9 +74,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
   /** Texto del buscador; el filtro de lista se aplica con debounce. */
   filtroTexto = '';
   listaAbierta = true;
-  /** En móvil, ajuste y alta van cerrados para ver primero el inventario. */
-  ajusteAbierto =
-    typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
+  /** Historial de ajustes: cerrado hasta que lo abran. */
+  ajusteAbierto = false;
   altaAbierta =
     typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
   error = '';
@@ -94,6 +92,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
   ajustes: AjusteInventario[] = [];
   editandoAjuste: AjusteInventario | null = null;
   formAjuste: FormAjuste = this.formAjusteVacio();
+  /** Ajuste abierto bajo la fila del producto (sin bajar al panel). */
+  ajusteEnFila = false;
   /** Motivos fijos de ajuste de stock. */
   readonly motivosAjuste = ['Conteo físico', 'Derrame', 'Merma'] as const;
   private pullSub?: Subscription;
@@ -139,7 +139,9 @@ export class InventarioComponent implements OnInit, OnDestroy {
   constructor(
     private api: ApiService,
     private confirmDlg: ConfirmDialogService,
-    private pullRefresh: PullRefreshService
+    private pullRefresh: PullRefreshService,
+    private route: ActivatedRoute,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -320,7 +322,12 @@ export class InventarioComponent implements OnInit, OnDestroy {
     return `Actual: ${s.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}${u ? ' ' + u : ''}`;
   }
 
-  iniciarAjuste(item: InventarioItem): void {
+  /** ¿Mostrar el formulario de ajuste bajo esta fila/tarjeta? */
+  mostrandoAjusteEn(item: InventarioItem): boolean {
+    return this.ajusteEnFila && this.formAjuste.productoId === item.id && !this.editandoAjuste;
+  }
+
+  private prepAjusteEnFila(item: InventarioItem): void {
     this.editandoAjuste = null;
     this.formAjuste = {
       fecha: this.hoyLocal(),
@@ -330,23 +337,40 @@ export class InventarioComponent implements OnInit, OnDestroy {
     };
     this.errorAjuste = '';
     this.okAjuste = '';
-    this.ajusteAbierto = true;
+    this.ajusteEnFila = true;
+  }
+
+  iniciarAjuste(item: InventarioItem): void {
+    if (this.editando?.id === item.id) {
+      this.editando = null;
+      this.form = this.formVacio();
+    } else if (this.editando) {
+      this.cancelar();
+    }
+    this.prepAjusteEnFila(item);
     setTimeout(() => {
-      document.getElementById('panel-ajuste-stock')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
+      document.querySelector('.fila-ajuste, .hist-ajuste-movil')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }, 0);
   }
 
   cancelarAjuste(): void {
     this.editandoAjuste = null;
     this.formAjuste = this.formAjusteVacio();
     this.errorAjuste = '';
+    this.ajusteEnFila = false;
   }
 
   editarAjuste(a: AjusteInventario): void {
+    this.editando = null;
+    this.form = this.formVacio();
+    this.ajusteEnFila = false;
     this.editandoAjuste = a;
     const actual = this.stockDe(a.productoId);
     const stockTrasAjuste =
-      actual != null ? actual : Math.round((Number(a.cantidad)) * 100) / 100;
+      actual != null ? actual : Math.round(Number(a.cantidad) * 100) / 100;
     this.formAjuste = {
       fecha: a.fecha,
       productoId: a.productoId,
@@ -397,7 +421,9 @@ export class InventarioComponent implements OnInit, OnDestroy {
       next: () => {
         this.guardandoAjuste = false;
         this.okAjuste = this.editandoAjuste ? 'Ajuste actualizado' : 'Ajuste registrado';
+        const keepEdit = this.editando;
         this.cancelarAjuste();
+        if (keepEdit) this.prepAjusteEnFila(keepEdit);
         this.cargar();
       },
       error: (e) => {
@@ -643,6 +669,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
       next: (i) => {
         this.items = [...i].sort((a, b) => compararNombreNatural(a.nombre, b.nombre));
         this.rebuildFiltrados();
+        this.aplicarQueryEditar();
       },
       error: (e) => (this.error = e.error?.error || 'No se pudo cargar inventario'),
     });
@@ -662,6 +689,30 @@ export class InventarioComponent implements OnInit, OnDestroy {
           mayoreo10: Number(m.porcentajeMayoreo10),
         };
       },
+    });
+  }
+
+  /** Desde Ventas: /inventario?editar=id → abre el producto en edición. */
+  private aplicarQueryEditar(): void {
+    const raw = this.route.snapshot.queryParamMap.get('editar');
+    if (!raw) return;
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) return;
+    const item = this.items.find((x) => x.id === id);
+    if (!item) return;
+    this.listaAbierta = true;
+    this.filtro = item.nombre;
+    this.filtroTexto = item.nombre;
+    this.rebuildFiltrados(true);
+    const idx = this.filtrados.findIndex((x) => x.id === id);
+    if (idx >= 0) {
+      this.pag.pagina = Math.floor(idx / this.pag.pageSize) + 1;
+    }
+    this.editar(item);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true,
     });
   }
 
@@ -866,6 +917,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
       vendePor: item.vendePor === 'PIEZA' ? 'PIEZA' : 'LITROS',
     };
     this.error = '';
+    this.prepAjusteEnFila(item);
     setTimeout(() => {
       const el =
         document.querySelector('.hist-edicion-movil') || document.querySelector('.fila-edicion');
@@ -876,6 +928,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
   cancelar(): void {
     this.editando = null;
     this.form = this.formVacio();
+    this.cancelarAjuste();
   }
 
   async eliminar(item: InventarioItem): Promise<void> {
@@ -891,6 +944,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
     this.api.eliminarProducto(item.id).subscribe({
       next: () => {
         if (this.editando?.id === item.id) this.cancelar();
+        else if (this.mostrandoAjusteEn(item)) this.cancelarAjuste();
         this.cargar();
       },
       error: (e) => (this.error = e.error?.error || 'No se pudo quitar el producto'),

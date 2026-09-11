@@ -59,10 +59,102 @@
   border-color: #9fbfab;
 }
 
+.tot-chip.costo {
+  background: #fdf6f0;
+  border-color: #e0b89a;
+}
+
+.tot-chip.costo strong {
+  color: #9a4b1f;
+}
+
 .ticket {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 0.55rem;
+}
+
+/* Escritorio: 2 rectángulos compactos por fila (hacia la derecha). */
+@media (min-width: 900px) {
+  .ticket {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    align-items: start;
+  }
+
+  .linea-card {
+    padding: 0.4rem 0.5rem 0.45rem;
+    border-radius: 0.5rem;
+  }
+
+  .linea-top {
+    gap: 0.35rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .linea-num {
+    width: 1.35rem;
+    height: 1.35rem;
+    font-size: 0.72rem;
+  }
+
+  .modo-chip {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.72rem;
+    min-height: 1.7rem;
+  }
+
+  .quitar {
+    width: 1.7rem;
+    height: 1.7rem;
+    font-size: 1rem;
+  }
+
+  .producto-campo {
+    margin-bottom: 0.4rem;
+  }
+
+  .producto-campo app-producto-autocomplete,
+  .producto-campo ::ng-deep .producto-ac input {
+    font-size: 0.95rem;
+    min-height: 2.15rem;
+    height: 2.15rem;
+  }
+
+  .linea-grid {
+    gap: 0.4rem;
+  }
+
+  .campo {
+    font-size: 0.75rem;
+    gap: 0.15rem;
+  }
+
+  .campo-label,
+  .campo-cantidad .campo-label {
+    font-size: 0.72rem;
+  }
+
+  .stock-hint {
+    font-size: 0.68rem;
+  }
+
+  .cant-wrap input,
+  .precio-input input {
+    min-height: 2.15rem;
+    font-size: 0.95rem;
+  }
+
+  .aviso-stock {
+    margin-top: 0.35rem;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.75rem;
+  }
+
+  .pista-mayoreo {
+    margin-top: 0.3rem;
+    font-size: 0.72rem;
+  }
 }
 
 /* Móvil: el ticket usa el scroll de la página (Guardar sticky abajo) */
@@ -79,6 +171,57 @@
   border-radius: 0.6rem;
   background: #fbfcfb;
   padding: 0.55rem 0.7rem 0.65rem;
+}
+
+.linea-card.stock-warn {
+  border-color: #e0b4b4;
+  background: #fff8f7;
+}
+
+.input-warn {
+  border-color: #d98989 !important;
+  background: #fff5f5;
+}
+
+.stock-hint {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-hint.disp-warn {
+  color: var(--danger);
+}
+
+.campo-cantidad .campo-cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.campo-cantidad .campo-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.aviso-stock {
+  margin: 0.5rem 0 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.4rem;
+  background: #fdf2f2;
+  border: 1px solid #e8b4b4;
+  color: #8f2d2d;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.aviso-stock a {
+  color: #8f2d2d;
+  font-weight: 700;
 }
 
 .linea-top {
@@ -167,14 +310,21 @@
 
 .linea-grid {
   display: grid;
-  grid-template-columns: minmax(7rem, 1fr) minmax(7rem, 1fr) minmax(7rem, 1.1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.65rem;
+  align-items: end;
+}
+
+.linea-grid > .campo {
+  min-width: 0;
 }
 
 .cant-wrap {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
+  width: 100%;
 }
 
 .cant-wrap input {
@@ -195,6 +345,8 @@
   display: flex;
   align-items: center;
   gap: 0.2rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .precio-input .peso {
@@ -208,16 +360,6 @@
   font-size: 1.05rem;
 }
 
-.precio-fijo,
-.total-fijo {
-  min-height: 2.4rem;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
 .precio-fijo small {
   font-size: 0.75rem;
   font-weight: 500;
@@ -226,6 +368,17 @@
 
 .total-campo .total-fijo {
   color: #1f3d2a;
+}
+
+.total-campo .total-fijo.costo,
+.costo-hist {
+  color: #9a4b1f;
+}
+
+.pista-mayoreo {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.3;
 }
 
 .corte-aviso {

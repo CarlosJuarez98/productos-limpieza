@@ -42,18 +42,21 @@ public class CajaService {
   private final VentaRepository ventaRepo;
   private final ApartadoRepository apartadoRepo;
   private final CorteCajaRepository corteRepo;
+  private final ApartadoRubroService rubroService;
 
   public CajaService(
       CajaConfigRepository configRepo,
       MovimientoCajaRepository movimientoRepo,
       VentaRepository ventaRepo,
       ApartadoRepository apartadoRepo,
-      CorteCajaRepository corteRepo) {
+      CorteCajaRepository corteRepo,
+      ApartadoRubroService rubroService) {
     this.configRepo = configRepo;
     this.movimientoRepo = movimientoRepo;
     this.ventaRepo = ventaRepo;
     this.apartadoRepo = apartadoRepo;
     this.corteRepo = corteRepo;
+    this.rubroService = rubroService;
   }
 
   @Transactional
@@ -75,8 +78,7 @@ public class CajaService {
 
     BigDecimal fondoCfg = nz(cfg.getFondoInicial());
     BigDecimal paraApartarCorte = montoParaApartarUltimoCorte(fondoCfg);
-    List<CategoriaApartado> catsApartar = List.of(
-        CategoriaApartado.PRODUCTOS, CategoriaApartado.CASA, CategoriaApartado.SALARIOS);
+    List<String> catsApartar = rubroService.codigosLiquidaCorte();
     BigDecimal yaApartado = corteRepo.findMaxFecha().isPresent()
         ? nz(apartadoRepo.sumIngresosByCategoriasAndFecha(catsApartar, desde, hasta))
         : BigDecimal.ZERO;
@@ -147,8 +149,7 @@ public class CajaService {
     }
     CorteCaja ultimo = ultimoOpt.get();
     BigDecimal aApartarDelCorte = montoParaApartar(ultimo, fondo);
-    List<CategoriaApartado> cats = List.of(
-        CategoriaApartado.PRODUCTOS, CategoriaApartado.CASA, CategoriaApartado.SALARIOS);
+    List<String> cats = rubroService.codigosLiquidaCorte();
     BigDecimal apartadosNuevos = nz(apartadoRepo.sumIngresosByCategoriasAndFecha(
         cats, desdePeriodo, hastaPeriodo));
     return aApartarDelCorte
@@ -451,10 +452,9 @@ public class CajaService {
     BigDecimal transferencias = nz(movimientoRepo.sumByTipoAndFecha(TipoMovimientoCaja.TRANSFERENCIA, desde, hasta));
 
     BigDecimal apartadosProductosBruto = nz(apartadoRepo.sumIngresosByCategoriasAndFecha(
-        List.of(CategoriaApartado.PRODUCTOS, CategoriaApartado.CASA, CategoriaApartado.SALARIOS),
-        desde, hasta));
+        rubroService.codigosLiquidaCorte(), desde, hasta));
     BigDecimal apartadosServiciosBruto = nz(apartadoRepo.sumIngresosByCategoriasAndFecha(
-        List.of(CategoriaApartado.SERVICIOS), desde, hasta));
+        List.of(CategoriaApartado.SERVICIOS.name()), desde, hasta));
 
     BigDecimal exento = nz(apartadosExentosDelCorte).max(BigDecimal.ZERO);
     // Primero se liquida el sobrante del corte (productos/casa/salarios); el resto sí sale del cajón.
