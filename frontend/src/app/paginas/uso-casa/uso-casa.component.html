@@ -73,20 +73,23 @@
     >
       @for (p of productosDelPeriodo; track p.nombre + p.unidad) {
         <div
-          class="bar-col"
+          class="bar-row"
           [title]="p.nombre + ': ' + p.cantidad + ' ' + p.unidad + ' · $' + (p.importe | number: '1.2-2')"
         >
-          <span class="bar-valor">
-            {{ p.cantidad | number: '1.0-2' }} {{ p.unidad }}
-          </span>
-          <span class="bar-track">
+          <div class="bar-head">
+            <span class="bar-label">{{ p.nombre }}</span>
+            <span class="bar-meta">
+              <span class="bar-valor">{{ p.cantidad | number: '1.0-2' }} {{ p.unidad }}</span>
+              <span class="bar-importe muted">${{ p.importe | number: '1.2-2' }}</span>
+            </span>
+          </div>
+          <div class="bar-track">
             <span
               class="bar-fill"
-              [style.height.%]="alturaBarra(p.cantidad)"
+              [style.width.%]="alturaBarra(p.cantidad)"
               [style.background]="p.color"
             ></span>
-          </span>
-          <span class="bar-label">{{ p.nombre }}</span>
+          </div>
         </div>
       }
     </div>

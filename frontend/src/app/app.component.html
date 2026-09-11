@@ -46,16 +46,22 @@
       (click)="toggleMas()"
       [attr.aria-expanded]="masAbierto"
       aria-controls="mas-menu"
+      aria-label="Menú"
+      title="Menú"
     >
-      <span class="bn-label">Más</span>
+      <span class="bn-icon hamburger" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
     </button>
   </nav>
 
   @if (masAbierto) {
     <div class="mas-backdrop" (click)="cerrarMas()" role="presentation"></div>
-    <div id="mas-menu" class="mas-sheet" role="dialog" aria-label="Más secciones">
+    <div id="mas-menu" class="mas-sheet" role="dialog" aria-label="Menú">
       <div class="mas-sheet-head">
-        <strong>Más</strong>
+        <strong>Menú</strong>
         <button type="button" class="mas-cerrar" (click)="cerrarMas()" aria-label="Cerrar">×</button>
       </div>
       <div class="mas-links">
