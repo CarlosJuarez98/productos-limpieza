@@ -31,12 +31,7 @@
     <h3>Apartar de caja</h3>
     <p class="muted hint">
       @if (caja?.fechaUltimoCorte) {
-        Del corte ({{ caja!.fechaUltimoCorte | fechaDmY }}):
-        <strong>${{ delCorteParaApartar | number: '1.2-2' }}</strong>
-        · Ya apartado:
-        <strong>${{ yaApartadoDelCorte | number: '1.2-2' }}</strong>
-        · Disponible:
-        <strong>${{ disponibleCaja | number: '1.2-2' }}</strong>
+        Disponible: <strong>${{ disponibleCaja | number: '1.2-2' }}</strong>
       } @else {
         Sin corte aún. Marca un corte en Caja para saber cuánto apartar.
       }

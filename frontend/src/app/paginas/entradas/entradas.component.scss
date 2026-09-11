@@ -516,6 +516,8 @@ tr.editando-fila.bajo > td:not(.col-propia) {
 
   .total-lote {
     order: -1;
+    /* En columna, flex-basis 10rem se volvía altura (~hueco vacío) */
+    flex: 0 0 auto;
     padding: 0.15rem 0 0.35rem;
     font-size: 1.12rem;
   }
