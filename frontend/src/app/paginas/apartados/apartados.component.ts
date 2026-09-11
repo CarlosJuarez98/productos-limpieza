@@ -12,17 +12,21 @@ import {
   TipoMovimientoApartado,
 } from '../../modelos';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
+import { ClearableDirective } from '../../clearable.directive';
 
 @Component({
   selector: 'app-apartados',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe],
+  imports: [CommonModule, FormsModule, FechaDmYPipe, PaginadorComponent, ClearableDirective],
   templateUrl: './apartados.component.html',
   styleUrl: './apartados.component.scss',
 })
 export class ApartadosComponent implements OnInit {
   data: ApartadosResumen | null = null;
   caja: CajaResumen | null = null;
+  private pagMovs = new Map<string, PaginacionEstado<Apartado>>();
   error = '';
   ok = '';
 
@@ -87,6 +91,7 @@ export class ApartadosComponent implements OnInit {
       next: ({ apartados, caja }) => {
         this.data = apartados;
         this.caja = caja;
+        this.syncPaginadores(true);
       },
       error: (e) => (this.error = e.error?.error || 'No se pudieron cargar apartados'),
     });
@@ -158,6 +163,32 @@ export class ApartadosComponent implements OnInit {
     return (this.data?.movimientos ?? [])
       .filter((a) => a.categoria === cat && a.tipo === tipo)
       .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id - a.id);
+  }
+
+  private pagKey(cat: CategoriaApartado, tipo: TipoMovimientoApartado): string {
+    return `${tipo}-${cat}`;
+  }
+
+  private syncPaginadores(reset = false): void {
+    for (const bloque of this.bloquesRegistros) {
+      for (const cat of this.categoriasRegistros) {
+        const key = this.pagKey(cat.key, bloque.tipo);
+        if (!this.pagMovs.has(key)) {
+          this.pagMovs.set(key, new PaginacionEstado<Apartado>());
+        }
+        this.pagMovs.get(key)!.setItems(this.movimientosDe(cat.key, bloque.tipo), reset);
+      }
+    }
+  }
+
+  pagMov(cat: CategoriaApartado, tipo: TipoMovimientoApartado): PaginacionEstado<Apartado> {
+    const key = this.pagKey(cat, tipo);
+    if (!this.pagMovs.has(key)) {
+      const pag = new PaginacionEstado<Apartado>();
+      pag.setItems(this.movimientosDe(cat, tipo));
+      this.pagMovs.set(key, pag);
+    }
+    return this.pagMovs.get(key)!;
   }
 
   montoDe(cat: 'productos' | 'casa' | 'salarios'): number {

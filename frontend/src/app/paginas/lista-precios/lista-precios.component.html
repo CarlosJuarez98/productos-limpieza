@@ -5,7 +5,15 @@
   <div class="toolbar">
     <label>
       Buscar
-      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto..." />
+      <input
+        class="search"
+        appClearable
+        [ngModel]="filtroTexto"
+        (ngModelChange)="onFiltroTexto($event)"
+        name="filtro"
+        placeholder="Producto..."
+        (keydown.enter)="onBuscarEnter($event)"
+      />
     </label>
     <fieldset class="export-cols">
       <label class="chk">
@@ -32,7 +40,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (i of filtrados; track i.id) {
+        @for (i of pag.paginaItems; track i.id) {
           <tr>
             <td>{{ i.nombre }}</td>
             <td class="money menudeo">${{ i.precioVentaHoy | number: '1.2-2' }}</td>
@@ -45,7 +53,7 @@
   </div>
 
   <ul class="hist-cards">
-    @for (i of filtrados; track i.id) {
+    @for (i of pag.paginaItems; track i.id) {
       <li>
         <div class="item-meta">
           <span>≥5 ${{ i.precioMayoreo5 | number: '1.2-2' }} · ≥10 ${{ i.precioMayoreo10 | number: '1.2-2' }}</span>
@@ -59,4 +67,12 @@
       <li class="vacio muted">Sin productos.</li>
     }
   </ul>
+  <app-paginador
+    [total]="pag.total"
+    [pagina]="pag.pagina"
+    [pageSize]="pag.pageSize"
+    ariaLabel="Páginas de lista de precios"
+    (prev)="pag.anterior()"
+    (next)="pag.siguiente()"
+  />
 </section>

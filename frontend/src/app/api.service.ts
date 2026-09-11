@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
+  AjusteInventario,
   Apartado,
   ApartadosResumen,
   CajaResumen,
@@ -12,9 +13,12 @@ import {
   InversionResumen,
   MargenConfig,
   MovimientoCaja,
+  Persona,
   PrecioHistorico,
   Produccion,
   RecetaSugerida,
+  PedidoSugerido,
+  PedidoRegistrado,
   Traspaso,
   TraspasoAbono,
   TraspasosResumen,
@@ -62,6 +66,10 @@ export class ApiService {
     return this.http.post<Entrada[]>(`${this.base}/entradas/lote`, body);
   }
 
+  actualizarEntrada(id: number, body: unknown): Observable<Entrada> {
+    return this.http.put<Entrada>(`${this.base}/entradas/${id}`, body);
+  }
+
   eliminarEntrada(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/entradas/${id}`);
   }
@@ -76,6 +84,10 @@ export class ApiService {
 
   crearProduccion(body: unknown): Observable<Produccion> {
     return this.http.post<Produccion>(`${this.base}/producciones`, body);
+  }
+
+  actualizarProduccion(id: number, body: unknown): Observable<Produccion> {
+    return this.http.put<Produccion>(`${this.base}/producciones/${id}`, body);
   }
 
   eliminarProduccion(id: number): Observable<void> {
@@ -98,6 +110,22 @@ export class ApiService {
     return this.http.delete<void>(`${this.base}/inventario/${id}`);
   }
 
+  ajustesInventario(): Observable<AjusteInventario[]> {
+    return this.http.get<AjusteInventario[]>(`${this.base}/ajustes-inventario`);
+  }
+
+  crearAjusteInventario(body: unknown): Observable<AjusteInventario> {
+    return this.http.post<AjusteInventario>(`${this.base}/ajustes-inventario`, body);
+  }
+
+  actualizarAjusteInventario(id: number, body: unknown): Observable<AjusteInventario> {
+    return this.http.put<AjusteInventario>(`${this.base}/ajustes-inventario/${id}`, body);
+  }
+
+  eliminarAjusteInventario(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/ajustes-inventario/${id}`);
+  }
+
   margenes(): Observable<MargenConfig> {
     return this.http.get<MargenConfig>(`${this.base}/margenes`);
   }
@@ -117,6 +145,14 @@ export class ApiService {
 
   traspasos(): Observable<TraspasosResumen> {
     return this.http.get<TraspasosResumen>(`${this.base}/traspasos`);
+  }
+
+  personas(): Observable<Persona[]> {
+    return this.http.get<Persona[]>(`${this.base}/personas`);
+  }
+
+  crearPersona(nombre: string): Observable<Persona> {
+    return this.http.post<Persona>(`${this.base}/personas`, { nombre });
   }
 
   crearTraspaso(body: unknown): Observable<Traspaso> {
@@ -190,6 +226,51 @@ export class ApiService {
 
   inversion(): Observable<InversionResumen> {
     return this.http.get<InversionResumen>(`${this.base}/inversion`);
+  }
+
+  pedidoSugerido(opts?: {
+    desde?: string;
+    hasta?: string;
+    diasCobertura?: number;
+    porcentajeExtra?: number;
+  }): Observable<PedidoSugerido> {
+    let params = new HttpParams();
+    if (opts?.desde) params = params.set('desde', opts.desde);
+    if (opts?.hasta) params = params.set('hasta', opts.hasta);
+    if (opts?.diasCobertura != null && opts.diasCobertura !== undefined) {
+      params = params.set('diasCobertura', String(opts.diasCobertura));
+    }
+    if (opts?.porcentajeExtra != null && opts.porcentajeExtra !== undefined) {
+      params = params.set('porcentajeExtra', String(opts.porcentajeExtra));
+    }
+    return this.http.get<PedidoSugerido>(`${this.base}/pedido-sugerido`, { params });
+  }
+
+  pedidos(): Observable<PedidoRegistrado[]> {
+    return this.http.get<PedidoRegistrado[]>(`${this.base}/pedidos`);
+  }
+
+  pedidosAbiertos(): Observable<PedidoRegistrado[]> {
+    return this.http.get<PedidoRegistrado[]>(`${this.base}/pedidos/abiertos`);
+  }
+
+  crearPedido(body: unknown): Observable<PedidoRegistrado> {
+    return this.http.post<PedidoRegistrado>(`${this.base}/pedidos`, body);
+  }
+
+  cerrarPedido(id: number): Observable<PedidoRegistrado> {
+    return this.http.post<PedidoRegistrado>(`${this.base}/pedidos/${id}/cerrar`, {});
+  }
+
+  registrarRecepcionPedido(
+    id: number,
+    lineas: { itemId: number; cantidadRecibida: number }[]
+  ): Observable<PedidoRegistrado> {
+    return this.http.post<PedidoRegistrado>(`${this.base}/pedidos/${id}/recepcion`, { lineas });
+  }
+
+  eliminarPedido(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/pedidos/${id}`);
   }
 
   crearInversion(body: unknown): Observable<InversionItem> {

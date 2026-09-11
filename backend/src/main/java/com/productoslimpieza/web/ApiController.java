@@ -4,6 +4,7 @@ import com.productoslimpieza.domain.TipoVenta;
 import com.productoslimpieza.web.dto.*;
 import com.productoslimpieza.service.*;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,6 +24,9 @@ public class ApiController {
   private final ProduccionService produccionService;
   private final MargenService margenService;
   private final TraspasoService traspasoService;
+  private final PedidoService pedidoService;
+  private final PedidoRegistroService pedidoRegistroService;
+  private final AjusteInventarioService ajusteInventarioService;
 
   public ApiController(
       VentaService ventaService,
@@ -34,7 +38,10 @@ public class ApiController {
       InversionService inversionService,
       ProduccionService produccionService,
       MargenService margenService,
-      TraspasoService traspasoService) {
+      TraspasoService traspasoService,
+      PedidoService pedidoService,
+      PedidoRegistroService pedidoRegistroService,
+      AjusteInventarioService ajusteInventarioService) {
     this.ventaService = ventaService;
     this.entradaService = entradaService;
     this.inventarioService = inventarioService;
@@ -45,6 +52,9 @@ public class ApiController {
     this.produccionService = produccionService;
     this.margenService = margenService;
     this.traspasoService = traspasoService;
+    this.pedidoService = pedidoService;
+    this.pedidoRegistroService = pedidoRegistroService;
+    this.ajusteInventarioService = ajusteInventarioService;
   }
 
   @GetMapping("/ventas")
@@ -114,6 +124,11 @@ public class ApiController {
     return produccionService.crear(req);
   }
 
+  @PutMapping("/producciones/{id}")
+  public ProduccionDto actualizarProduccion(@PathVariable Long id, @Valid @RequestBody ProduccionRequest req) {
+    return produccionService.actualizar(id, req);
+  }
+
   @DeleteMapping("/producciones/{id}")
   public void eliminarProduccion(@PathVariable Long id) {
     produccionService.eliminar(id);
@@ -139,6 +154,27 @@ public class ApiController {
     inventarioService.eliminar(id);
   }
 
+  @GetMapping("/ajustes-inventario")
+  public List<AjusteInventarioDto> ajustesInventario() {
+    return ajusteInventarioService.listar();
+  }
+
+  @PostMapping("/ajustes-inventario")
+  public AjusteInventarioDto crearAjusteInventario(@Valid @RequestBody AjusteInventarioRequest req) {
+    return ajusteInventarioService.crear(req);
+  }
+
+  @PutMapping("/ajustes-inventario/{id}")
+  public AjusteInventarioDto actualizarAjusteInventario(
+      @PathVariable Long id, @Valid @RequestBody AjusteInventarioRequest req) {
+    return ajusteInventarioService.actualizar(id, req);
+  }
+
+  @DeleteMapping("/ajustes-inventario/{id}")
+  public void eliminarAjusteInventario(@PathVariable Long id) {
+    ajusteInventarioService.eliminar(id);
+  }
+
   @GetMapping("/margenes")
   public MargenConfigDto margenes() {
     return margenService.dto();
@@ -157,6 +193,16 @@ public class ApiController {
   @GetMapping("/traspasos")
   public TraspasosResumenDto traspasos() {
     return traspasoService.resumen();
+  }
+
+  @GetMapping("/personas")
+  public List<PersonaDto> personas() {
+    return traspasoService.listarPersonas();
+  }
+
+  @PostMapping("/personas")
+  public PersonaDto crearPersona(@Valid @RequestBody PersonaRequest req) {
+    return traspasoService.crearPersona(req.nombre());
   }
 
   @PostMapping("/traspasos")
@@ -248,6 +294,51 @@ public class ApiController {
   @GetMapping("/inversion")
   public InversionResumenDto inversion() {
     return inversionService.resumen();
+  }
+
+  @GetMapping("/pedido-sugerido")
+  public PedidoSugeridoDto pedidoSugerido(
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+      @RequestParam(required = false) Integer diasCobertura,
+      @RequestParam(required = false) BigDecimal porcentajeExtra) {
+    return pedidoService.sugerir(desde, hasta, diasCobertura, porcentajeExtra);
+  }
+
+  @GetMapping("/pedidos")
+  public List<PedidoDto> pedidos() {
+    return pedidoRegistroService.listar();
+  }
+
+  @GetMapping("/pedidos/abiertos")
+  public List<PedidoDto> pedidosAbiertos() {
+    return pedidoRegistroService.listarAbiertos();
+  }
+
+  @GetMapping("/pedidos/{id}")
+  public PedidoDto pedido(@PathVariable Long id) {
+    return pedidoRegistroService.obtener(id);
+  }
+
+  @PostMapping("/pedidos")
+  public PedidoDto crearPedido(@Valid @RequestBody PedidoRequest req) {
+    return pedidoRegistroService.crear(req);
+  }
+
+  @PostMapping("/pedidos/{id}/cerrar")
+  public PedidoDto cerrarPedido(@PathVariable Long id) {
+    return pedidoRegistroService.cerrar(id);
+  }
+
+  @PostMapping("/pedidos/{id}/recepcion")
+  public PedidoDto registrarRecepcionPedido(
+      @PathVariable Long id, @Valid @RequestBody PedidoRecepcionRequest req) {
+    return pedidoRegistroService.registrarRecepcion(id, req);
+  }
+
+  @DeleteMapping("/pedidos/{id}")
+  public void eliminarPedido(@PathVariable Long id) {
+    pedidoRegistroService.eliminar(id);
   }
 
   @PostMapping("/inversion")

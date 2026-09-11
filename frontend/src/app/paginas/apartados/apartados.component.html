@@ -64,6 +64,7 @@
           <input
             type="text"
             inputmode="decimal"
+            appClearable
             [ngModel]="montos.productos"
             (input)="onMontoInput('productos', $event)"
             name="montoProd"
@@ -78,6 +79,7 @@
           <input
             type="text"
             inputmode="decimal"
+            appClearable
             [ngModel]="montos.casa"
             (input)="onMontoInput('casa', $event)"
             name="montoCasa"
@@ -92,6 +94,7 @@
           <input
             type="text"
             inputmode="decimal"
+            appClearable
             [ngModel]="montos.salarios"
             (input)="onMontoInput('salarios', $event)"
             name="montoSal"
@@ -150,6 +153,7 @@
                   <input
                     type="text"
                     inputmode="decimal"
+                    appClearable
                     [(ngModel)]="g.ingreso"
                     [name]="'montoGasto' + g.key"
                     placeholder="0"
@@ -158,6 +162,7 @@
               </td>
               <td>
                 <input
+                  appClearable
                   [(ngModel)]="g.motivo"
                   [name]="'motivoGasto' + g.key"
                   placeholder="Agua, Doctor..."
@@ -255,7 +260,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    @for (a of movimientosDe(cat.key, bloque.tipo); track a.id) {
+                    @for (a of pagMov(cat.key, bloque.tipo).paginaItems; track a.id) {
                       <tr>
                         <td>{{ a.fecha | fechaDmY }}</td>
                         <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
@@ -278,7 +283,7 @@
               </div>
 
               <ul class="hist-cards">
-                @for (a of movimientosDe(cat.key, bloque.tipo); track a.id) {
+                @for (a of pagMov(cat.key, bloque.tipo).paginaItems; track a.id) {
                   <li>
                     <div class="item-meta">
                       <span>{{ a.fecha | fechaDmY }}</span>
@@ -318,6 +323,14 @@
                   <li class="vacio muted">Sin registros</li>
                 }
               </ul>
+              <app-paginador
+                [total]="pagMov(cat.key, bloque.tipo).total"
+                [pagina]="pagMov(cat.key, bloque.tipo).pagina"
+                [pageSize]="pagMov(cat.key, bloque.tipo).pageSize"
+                [ariaLabel]="'Páginas ' + bloque.titulo + ' ' + cat.label"
+                (prev)="pagMov(cat.key, bloque.tipo).anterior()"
+                (next)="pagMov(cat.key, bloque.tipo).siguiente()"
+              />
             </div>
           }
         </div>

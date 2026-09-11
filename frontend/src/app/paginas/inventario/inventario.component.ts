@@ -1,9 +1,16 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { InventarioItem, MargenConfig } from '../../modelos';
+import { ClearableDirective } from '../../clearable.directive';
+import { AjusteInventario, InventarioItem, MargenConfig } from '../../modelos';
+import { PullRefreshService } from '../../pull-refresh.service';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
+import { FechaDmYPipe } from '../../fecha-dmy.pipe';
+import { compararNombreNatural } from '../../nombre-natural.util';
 
 type FormProducto = {
   nombre: string;
@@ -13,6 +20,14 @@ type FormProducto = {
   precioMayoreo5: number | null;
   precioMayoreo10: number | null;
   vendePor: 'LITROS' | 'PIEZA';
+};
+
+type FormAjuste = {
+  fecha: string;
+  productoId: number | null;
+  /** Cantidad en la que debe quedar el stock; el delta se calcula solo. */
+  stockDeseado: number | null;
+  motivo: string;
 };
 
 type ColKey =
@@ -29,34 +44,62 @@ type ColKey =
 
 type ColDef = { key: ColKey; label: string; fijo?: boolean };
 
-const COLS_STORAGE = 'pl.inventario.columnas';
+const COLS_STORAGE = 'pl.inventario.columnas.v2';
 
 @Component({
   selector: 'app-inventario',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ClearableDirective,
+    PaginadorComponent,
+    FechaDmYPipe,
+  ],
   templateUrl: './inventario.component.html',
   styleUrl: './inventario.component.scss',
 })
-export class InventarioComponent implements OnInit {
+export class InventarioComponent implements OnInit, OnDestroy {
+  @ViewChild('listaResultados') listaResultados?: ElementRef<HTMLElement>;
+
   items: InventarioItem[] = [];
+  /** Resultados filtrados (cache; no recalcular en cada CD). */
+  filtrados: InventarioItem[] = [];
   filtro = '';
+  /** Texto del buscador; el filtro de lista se aplica con debounce. */
+  filtroTexto = '';
+  listaAbierta = true;
+  /** En móvil, ajuste y alta van cerrados para ver primero el inventario. */
+  ajusteAbierto =
+    typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
+  altaAbierta =
+    typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
   error = '';
   ok = '';
+  errorAjuste = '';
+  okAjuste = '';
   guardandoMargen = false;
+  guardandoAjuste = false;
   editando: InventarioItem | null = null;
   menuColumnas = false;
   menuMargenes = false;
+  pag = new PaginacionEstado<InventarioItem>();
+  pagAjustes = new PaginacionEstado<AjusteInventario>(10);
+  ajustes: AjusteInventario[] = [];
+  editandoAjuste: AjusteInventario | null = null;
+  formAjuste: FormAjuste = this.formAjusteVacio();
+  private pullSub?: Subscription;
+  private filtroTimer: ReturnType<typeof setTimeout> | null = null;
   readonly columnas: ColDef[] = [
     { key: 'producto', label: 'Producto', fijo: true },
-    { key: 'vende', label: 'Se vende' },
     { key: 'menudeo', label: 'Menudeo', fijo: true },
+    { key: 'stock', label: 'Stock', fijo: true },
+    { key: 'vende', label: 'Se vende' },
     { key: 'm5', label: '≥ 5 L' },
     { key: 'm10', label: '≥ 10 L' },
     { key: 'compra', label: 'Compra' },
     { key: 'minSug', label: 'Mín. sugerido' },
     { key: 'maxSug', label: 'Máx. sugerido' },
-    { key: 'stock', label: 'Stock', fijo: true },
     { key: 'ganancia', label: '% ganancia' },
   ];
 
@@ -87,12 +130,19 @@ export class InventarioComponent implements OnInit {
 
   constructor(
     private api: ApiService,
-    private confirmDlg: ConfirmDialogService
+    private confirmDlg: ConfirmDialogService,
+    private pullRefresh: PullRefreshService
   ) {}
 
   ngOnInit(): void {
     this.cargarVisibles();
     this.cargar();
+    this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
+  }
+
+  ngOnDestroy(): void {
+    this.pullSub?.unsubscribe();
+    if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
   }
 
   @HostListener('document:click')
@@ -102,18 +152,17 @@ export class InventarioComponent implements OnInit {
   }
 
   private defaultsVisibles(): Record<ColKey, boolean> {
-    const movil = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
     return {
       producto: true,
-      vende: !movil,
       menudeo: true,
-      m5: !movil,
-      m10: !movil,
-      compra: !movil,
-      minSug: !movil,
-      maxSug: !movil,
       stock: true,
-      ganancia: true,
+      vende: false,
+      m5: false,
+      m10: false,
+      compra: false,
+      minSug: false,
+      maxSug: false,
+      ganancia: false,
     };
   }
 
@@ -167,8 +216,13 @@ export class InventarioComponent implements OnInit {
     this.menuMargenes = !this.menuMargenes;
   }
 
+  /** Columnas de datos visibles + acciones al final. */
   get colspanEdicion(): number {
-    return 1 + this.columnas.filter((c) => this.col(c.key)).length;
+    return this.columnas.filter((c) => this.col(c.key)).length + 1;
+  }
+
+  get colsDatosVisibles(): number {
+    return this.columnas.filter((c) => this.col(c.key)).length;
   }
 
   private formVacio(): FormProducto {
@@ -183,10 +237,241 @@ export class InventarioComponent implements OnInit {
     };
   }
 
-  get filtrados(): InventarioItem[] {
+  private hoyLocal(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  private formAjusteVacio(): FormAjuste {
+    return {
+      fecha: this.hoyLocal(),
+      productoId: null,
+      stockDeseado: null,
+      motivo: '',
+    };
+  }
+
+  stockDe(productoId: number | null): number | null {
+    if (productoId == null) return null;
+    const p = this.items.find((i) => i.id === productoId);
+    return p ? Number(p.stockActual) : null;
+  }
+
+  /** Stock “antes” de este ajuste (al editar se revierte el delta guardado). */
+  stockBaseAjuste(): number | null {
+    const actual = this.stockDe(this.formAjuste.productoId);
+    if (actual == null) return null;
+    if (!this.editandoAjuste) return actual;
+    return Math.round((actual - Number(this.editandoAjuste.cantidad)) * 100) / 100;
+  }
+
+  unidadAjuste(productoId: number | null): string {
+    if (productoId == null) return '';
+    const p = this.items.find((i) => i.id === productoId);
+    if (!p) return '';
+    return this.esPieza(p) ? 'pza' : 'L';
+  }
+
+  /** Delta que se enviará: deseado − stock base (suma o resta sola). */
+  cantidadAjusteCalculada(): number | null {
+    const deseado = Number(this.formAjuste.stockDeseado);
+    const base = this.stockBaseAjuste();
+    if (!Number.isFinite(deseado) || base == null) return null;
+    const delta = Math.round((deseado - base) * 100) / 100;
+    return delta === 0 ? null : delta;
+  }
+
+  onProductoAjusteChange(productoId: number | null): void {
+    this.formAjuste.productoId = productoId;
+    if (productoId == null) {
+      this.formAjuste.stockDeseado = null;
+      return;
+    }
+    // Al cambiar producto (alta), partir del stock actual.
+    if (!this.editandoAjuste) {
+      this.formAjuste.stockDeseado = this.stockDe(productoId);
+    }
+  }
+
+  iniciarAjuste(item: InventarioItem): void {
+    this.editandoAjuste = null;
+    this.formAjuste = {
+      fecha: this.hoyLocal(),
+      productoId: item.id,
+      stockDeseado: Number(item.stockActual),
+      motivo: '',
+    };
+    this.errorAjuste = '';
+    this.okAjuste = '';
+    this.ajusteAbierto = true;
+    setTimeout(() => {
+      document.getElementById('panel-ajuste-stock')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+
+  cancelarAjuste(): void {
+    this.editandoAjuste = null;
+    this.formAjuste = this.formAjusteVacio();
+    this.errorAjuste = '';
+  }
+
+  editarAjuste(a: AjusteInventario): void {
+    this.editandoAjuste = a;
+    const actual = this.stockDe(a.productoId);
+    const stockTrasAjuste =
+      actual != null ? actual : Math.round((Number(a.cantidad)) * 100) / 100;
+    this.formAjuste = {
+      fecha: a.fecha,
+      productoId: a.productoId,
+      // Muestra en cuánto quedó / está el stock tras ese ajuste.
+      stockDeseado: stockTrasAjuste,
+      motivo: a.motivo,
+    };
+    this.errorAjuste = '';
+    this.okAjuste = '';
+    this.ajusteAbierto = true;
+    setTimeout(() => {
+      document.getElementById('panel-ajuste-stock')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+
+  guardarAjuste(): void {
+    this.errorAjuste = '';
+    this.okAjuste = '';
+    const cantidad = this.cantidadAjusteCalculada();
+    if (this.formAjuste.productoId == null) {
+      this.errorAjuste = 'Elige un producto';
+      return;
+    }
+    if (this.formAjuste.stockDeseado == null || !Number.isFinite(Number(this.formAjuste.stockDeseado))) {
+      this.errorAjuste = 'Indica en cuánto debe quedar el stock';
+      return;
+    }
+    if (cantidad == null) {
+      this.errorAjuste = 'El stock deseado es igual al actual (nada que ajustar)';
+      return;
+    }
+    const motivo = (this.formAjuste.motivo || '').trim();
+    if (!motivo) {
+      this.errorAjuste = 'Escribe el motivo (derrame, conteo, etc.)';
+      return;
+    }
+    const body = {
+      fecha: this.formAjuste.fecha,
+      productoId: this.formAjuste.productoId,
+      cantidad,
+      motivo,
+    };
+    this.guardandoAjuste = true;
+    const req = this.editandoAjuste
+      ? this.api.actualizarAjusteInventario(this.editandoAjuste.id, body)
+      : this.api.crearAjusteInventario(body);
+    req.subscribe({
+      next: () => {
+        this.guardandoAjuste = false;
+        this.okAjuste = this.editandoAjuste ? 'Ajuste actualizado' : 'Ajuste registrado';
+        this.cancelarAjuste();
+        this.cargar();
+      },
+      error: (e) => {
+        this.guardandoAjuste = false;
+        this.errorAjuste = e.error?.error || 'No se pudo guardar el ajuste';
+      },
+    });
+  }
+
+  async eliminarAjuste(a: AjusteInventario): Promise<void> {
+    const ok = await this.confirmDlg.ask(`¿Eliminar ajuste de ${a.productoNombre}?`, {
+      confirmarTexto: 'Eliminar',
+    });
+    if (!ok) return;
+    this.api.eliminarAjusteInventario(a.id).subscribe({
+      next: () => {
+        this.okAjuste = 'Ajuste eliminado';
+        if (this.editandoAjuste?.id === a.id) this.cancelarAjuste();
+        this.cargar();
+      },
+      error: (e) => (this.errorAjuste = e.error?.error || 'No se pudo eliminar'),
+    });
+  }
+
+  private rebuildFiltrados(reset = false): void {
     const q = this.filtro.trim().toLowerCase();
-    if (!q) return this.items;
-    return this.items.filter((i) => i.nombre.toLowerCase().includes(q));
+    const base = !q
+      ? [...this.items]
+      : this.items.filter((i) => i.nombre.toLowerCase().includes(q));
+    base.sort((a, b) => compararNombreNatural(a.nombre, b.nombre));
+    this.filtrados = base;
+    this.pag.setItems(this.filtrados, reset);
+  }
+
+  onFiltroTexto(value: string): void {
+    this.filtroTexto = value;
+    if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
+    this.filtroTimer = setTimeout(() => {
+      this.filtroTimer = null;
+      this.filtro = this.filtroTexto;
+      this.rebuildFiltrados(true);
+      if (this.filtro.trim() && !this.listaAbierta) this.listaAbierta = true;
+    }, 200);
+  }
+
+  aplicarBusqueda(): void {
+    if (this.filtroTimer != null) {
+      clearTimeout(this.filtroTimer);
+      this.filtroTimer = null;
+    }
+    this.filtro = this.filtroTexto;
+    this.rebuildFiltrados(true);
+    if (typeof document !== 'undefined') {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
+    if (!this.listaAbierta) this.listaAbierta = true;
+    setTimeout(() => {
+      this.listaResultados?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+
+  onBuscarEnter(ev: Event): void {
+    ev.preventDefault();
+    this.aplicarBusqueda();
+  }
+
+  paginaAnterior(): void {
+    if (!this.pag.anterior()) return;
+    this.cancelar();
+    this.scrollLista();
+  }
+
+  paginaSiguiente(): void {
+    if (!this.pag.siguiente()) return;
+    this.cancelar();
+    this.scrollLista();
+  }
+
+  private scrollLista(): void {
+    setTimeout(() => {
+      this.listaResultados?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 30);
+  }
+
+  toggleLista(): void {
+    this.listaAbierta = !this.listaAbierta;
+  }
+
+  toggleAjuste(): void {
+    this.ajusteAbierto = !this.ajusteAbierto;
+  }
+
+  toggleAlta(): void {
+    this.altaAbierta = !this.altaAbierta;
+  }
+
+  private esMovil(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
   }
 
   esPieza(i: InventarioItem): boolean {
@@ -275,8 +560,17 @@ export class InventarioComponent implements OnInit {
 
   cargar(): void {
     this.api.inventario().subscribe({
-      next: (i) => (this.items = i),
+      next: (i) => {
+        this.items = [...i].sort((a, b) => compararNombreNatural(a.nombre, b.nombre));
+        this.rebuildFiltrados();
+      },
       error: (e) => (this.error = e.error?.error || 'No se pudo cargar inventario'),
+    });
+    this.api.ajustesInventario().subscribe({
+      next: (a) => {
+        this.ajustes = a;
+        this.pagAjustes.setItems(a, false);
+      },
     });
     this.api.margenes().subscribe({
       next: (m) => {

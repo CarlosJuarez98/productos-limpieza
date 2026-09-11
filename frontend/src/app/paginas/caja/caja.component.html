@@ -7,168 +7,195 @@
   <p class="ok-msg">{{ ok }}</p>
 }
 
+<div class="caja-flow">
 @if (caja) {
-  <section class="panel banco-panel">
+  <section class="panel banco-panel order-banco">
     <div class="banco-head">
-      <div>
-        <h3>Banco (transferencias)</h3>
-      </div>
+      <button
+        type="button"
+        class="panel-toggle banco-toggle"
+        (click)="toggleBancoHist()"
+        [attr.aria-expanded]="bancoHistAbierto"
+      >
+        <h3 class="panel-titulo">Banco (transferencias)</h3>
+        <span class="chev">{{ bancoHistAbierto ? '▾' : '▸' }}</span>
+      </button>
       <div class="banco-saldo">
         <span>Saldo en banco</span>
         <strong>${{ saldoBanco | number: '1.2-2' }}</strong>
       </div>
     </div>
-    <div class="banco-stats">
-      <div class="stat">
-        <span>Transferencias a banco</span>
-        <strong>${{ totalTransferenciasVista | number: '1.2-2' }}</strong>
-      </div>
-      <div class="stat">
-        <span>Retiros del banco</span>
-        <strong>${{ totalRetirosTxVista | number: '1.2-2' }}</strong>
-      </div>
-    </div>
-    <div class="banco-grid">
-      <div class="banco-col">
-        <h4>Transferencias</h4>
-        <div class="table-wrap mov-table hist-tabla">
-          <table>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Monto</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (m of transferenciasVista; track m.id) {
-                <tr>
-                  <td class="col-fecha">{{ m.fecha | fechaDmY }}</td>
-                  <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
-                  <td class="actions">
-                    @if (!detalleCorte) {
-                      <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
-                    }
-                  </td>
-                </tr>
-              } @empty {
-                <tr>
-                  <td colspan="3" class="muted">Sin transferencias</td>
-                </tr>
-              }
-            </tbody>
-          </table>
+    @if (bancoHistAbierto) {
+      <div class="panel-toggle-body">
+        <div class="banco-stats">
+          <div class="stat">
+            <span>Transferencias a banco</span>
+            <strong>${{ totalTransferenciasVista | number: '1.2-2' }}</strong>
+          </div>
+          <div class="stat">
+            <span>Retiros del banco</span>
+            <strong>${{ totalRetirosTxVista | number: '1.2-2' }}</strong>
+          </div>
         </div>
+        <div class="banco-grid">
+          <div class="banco-col">
+            <h4>Transferencias</h4>
+            <div class="table-wrap mov-table hist-tabla">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Monto</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (m of pagTransferencias.paginaItems; track m.id) {
+                    <tr>
+                      <td class="col-fecha">{{ m.fecha | fechaDmY }}</td>
+                      <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
+                      <td class="actions">
+                        @if (!detalleCorte) {
+                          <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="3" class="muted">Sin transferencias</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
 
-        <ul class="hist-cards">
-          @for (m of transferenciasVista; track m.id) {
-            <li>
-              <div class="item-meta">
-                <span>{{ m.fecha | fechaDmY }}</span>
-              </div>
-              <p class="item-motivo">Transferencia</p>
-              <div class="item-fila">
-                <strong class="money">${{ m.monto | number: '1.2-2' }}</strong>
-                @if (!detalleCorte) {
-                  <div class="acciones">
-                    <button
-                      type="button"
-                      class="icono peligro"
-                      title="Eliminar"
-                      aria-label="Eliminar"
-                      (click)="eliminar(m.id)"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                          d="M6 6l12 12M18 6L6 18"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                        />
-                      </svg>
-                    </button>
+            <ul class="hist-cards">
+              @for (m of pagTransferencias.paginaItems; track m.id) {
+                <li>
+                  <div class="item-meta">
+                    <span>{{ m.fecha | fechaDmY }}</span>
                   </div>
-                }
-              </div>
-            </li>
-          } @empty {
-            <li class="vacio muted">Sin transferencias</li>
-          }
-        </ul>
-      </div>
-      <div class="banco-col">
-        <h4>Retiros transferencia</h4>
-        <div class="table-wrap mov-table hist-tabla">
-          <table>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Monto</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (m of retirosTransferenciaVista; track m.id) {
-                <tr>
-                  <td class="col-fecha">{{ m.fecha | fechaDmY }}</td>
-                  <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
-                  <td class="actions">
+                  <p class="item-motivo">Transferencia</p>
+                  <div class="item-fila">
+                    <strong class="money">${{ m.monto | number: '1.2-2' }}</strong>
                     @if (!detalleCorte) {
-                      <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
+                      <div class="acciones">
+                        <button
+                          type="button"
+                          class="icono peligro"
+                          title="Eliminar"
+                          aria-label="Eliminar"
+                          (click)="eliminar(m.id)"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                              d="M6 6l12 12M18 6L6 18"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                            />
+                          </svg>
+                        </button>
+                      </div>
                     }
-                  </td>
-                </tr>
-              } @empty {
-                <tr>
-                  <td colspan="3" class="muted">Sin retiros del banco</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-
-        <ul class="hist-cards">
-          @for (m of retirosTransferenciaVista; track m.id) {
-            <li>
-              <div class="item-meta">
-                <span>{{ m.fecha | fechaDmY }}</span>
-              </div>
-              <p class="item-motivo">Retiro transferencia</p>
-              <div class="item-fila">
-                <strong class="money">${{ m.monto | number: '1.2-2' }}</strong>
-                @if (!detalleCorte) {
-                  <div class="acciones">
-                    <button
-                      type="button"
-                      class="icono peligro"
-                      title="Eliminar"
-                      aria-label="Eliminar"
-                      (click)="eliminar(m.id)"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path
-                          d="M6 6l12 12M18 6L6 18"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                        />
-                      </svg>
-                    </button>
                   </div>
-                }
-              </div>
-            </li>
-          } @empty {
-            <li class="vacio muted">Sin retiros del banco</li>
-          }
-        </ul>
+                </li>
+              } @empty {
+                <li class="vacio muted">Sin transferencias</li>
+              }
+            </ul>
+            <app-paginador
+              [total]="pagTransferencias.total"
+              [pagina]="pagTransferencias.pagina"
+              [pageSize]="pagTransferencias.pageSize"
+              ariaLabel="Páginas de transferencias"
+              (prev)="pagTransferencias.anterior()"
+              (next)="pagTransferencias.siguiente()"
+            />
+          </div>
+          <div class="banco-col">
+            <h4>Retiros transferencia</h4>
+            <div class="table-wrap mov-table hist-tabla">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Monto</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (m of pagRetirosTx.paginaItems; track m.id) {
+                    <tr>
+                      <td class="col-fecha">{{ m.fecha | fechaDmY }}</td>
+                      <td class="money col-monto">${{ m.monto | number: '1.2-2' }}</td>
+                      <td class="actions">
+                        @if (!detalleCorte) {
+                          <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="3" class="muted">Sin retiros del banco</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <ul class="hist-cards">
+              @for (m of pagRetirosTx.paginaItems; track m.id) {
+                <li>
+                  <div class="item-meta">
+                    <span>{{ m.fecha | fechaDmY }}</span>
+                  </div>
+                  <p class="item-motivo">Retiro transferencia</p>
+                  <div class="item-fila">
+                    <strong class="money">${{ m.monto | number: '1.2-2' }}</strong>
+                    @if (!detalleCorte) {
+                      <div class="acciones">
+                        <button
+                          type="button"
+                          class="icono peligro"
+                          title="Eliminar"
+                          aria-label="Eliminar"
+                          (click)="eliminar(m.id)"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                              d="M6 6l12 12M18 6L6 18"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    }
+                  </div>
+                </li>
+              } @empty {
+                <li class="vacio muted">Sin retiros del banco</li>
+              }
+            </ul>
+            <app-paginador
+              [total]="pagRetirosTx.total"
+              [pagina]="pagRetirosTx.pagina"
+              [pageSize]="pagRetirosTx.pageSize"
+              ariaLabel="Páginas de retiros transferencia"
+              (prev)="pagRetirosTx.anterior()"
+              (next)="pagRetirosTx.siguiente()"
+            />
+          </div>
+        </div>
       </div>
-    </div>
+    }
   </section>
 
-  <section class="panel totales-panel" style="margin-top: 1rem">
+  <section class="panel totales-panel order-totales" style="margin-top: 1rem">
     <h3>Totales del periodo</h3>
     <p class="muted hint">
       @if (caja.fechaInicio) {
@@ -189,8 +216,13 @@
     </div>
   </section>
 
-  <section class="panel calc-panel" style="margin-top: 1rem">
-    <h3>Calculadora — ¿falta o sobra?</h3>
+  <section class="panel calc-panel order-calc" style="margin-top: 1rem">
+    <div class="calc-head">
+      <h3>Calculadora — ¿falta o sobra?</h3>
+      <button type="button" class="secondary btn-vaciar-calc" (click)="vaciarCalculadora()" title="Vaciar conteo">
+        Vaciar
+      </button>
+    </div>
     <div class="calc-denoms">
       @for (d of denominaciones; track d.valor; let i = $index) {
         <label class="calc-den">
@@ -199,6 +231,7 @@
             #denInput
             type="text"
             inputmode="numeric"
+            appClearable
             [(ngModel)]="d.cantidad"
             [name]="'den' + d.valor"
             placeholder="0"
@@ -224,7 +257,7 @@
   </section>
 }
 
-<section class="panel" style="margin-top: 1rem">
+<section class="panel order-mov" style="margin-top: 1rem">
   <h3>Nuevo movimiento</h3>
   <form class="form-grid" (ngSubmit)="guardarMovimiento()">
     <label>
@@ -249,6 +282,7 @@
           inputmode="decimal"
           [(ngModel)]="mov.monto"
           name="movMonto"
+          appClearable
           placeholder="0"
           required
         />
@@ -256,14 +290,14 @@
     </label>
     <label>
       Motivo
-      <input [(ngModel)]="mov.motivo" name="movMotivo" />
+      <input appClearable [(ngModel)]="mov.motivo" name="movMotivo" />
     </label>
     <button type="submit">Agregar</button>
   </form>
 </section>
 
 @if (caja) {
-  <section class="panel movs-efectivo">
+  <section class="panel movs-efectivo order-efectivo">
     @if (detalleCorte) {
       <p class="muted movs-periodo-hint">
         Movimientos de efectivo del corte {{ detalleCorte.fechaCorte | fechaDmY }}
@@ -287,7 +321,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (m of movimientosEfectivo; track m.id) {
+          @for (m of pagEfectivo.paginaItems; track m.id) {
             <tr [class.es-retiro]="m.tipo === 'RETIRO'" [class.es-ingreso]="m.tipo === 'INGRESO'">
               <td class="col-fecha">{{ m.fecha | fechaDmY }}</td>
               <td class="col-tipo">{{ etiquetaTipoMov(m.tipo) }}</td>
@@ -309,7 +343,7 @@
     </div>
 
     <ul class="hist-cards">
-      @for (m of movimientosEfectivo; track m.id) {
+      @for (m of pagEfectivo.paginaItems; track m.id) {
         <li>
           <div class="item-meta">
             <span>{{ m.fecha | fechaDmY }}</span>
@@ -345,10 +379,18 @@
         <li class="vacio muted">Sin movimientos</li>
       }
     </ul>
+    <app-paginador
+      [total]="pagEfectivo.total"
+      [pagina]="pagEfectivo.pagina"
+      [pageSize]="pagEfectivo.pageSize"
+      ariaLabel="Páginas de retiros e ingresos"
+      (prev)="pagEfectivo.anterior()"
+      (next)="pagEfectivo.siguiente()"
+    />
   </section>
 }
 
-<section class="panel" style="margin-top: 1rem">
+<section class="panel order-periodo" style="margin-top: 1rem">
   <h3>Periodo / corte</h3>
   @if (caja?.fechaInicio) {
     <p class="corte-aviso">
@@ -369,7 +411,7 @@
       Fondo inicial
       <div class="precio-input">
         <span class="peso">$</span>
-        <input type="text" inputmode="decimal" [(ngModel)]="config.fondoInicial" name="fondoInicial" />
+        <input type="text" inputmode="decimal" appClearable [(ngModel)]="config.fondoInicial" name="fondoInicial" />
       </div>
     </label>
     <button type="submit" [disabled]="!puedeGuardarPeriodo">
@@ -414,7 +456,11 @@
               <div class="stat"><span>Retiros</span><strong>${{ detalleCorte.totalRetiros | number: '1.2-2' }}</strong></div>
               <div class="stat destacado">
                 <span>Apartados (periodo)</span>
-                <strong>${{ (detalleCorte.paraApartar ?? detalleCorte.totalApartadosProductos ?? 0) | number: '1.2-2' }}</strong>
+                <strong>${{ detalleCorte.totalApartadosProductos | number: '1.2-2' }}</strong>
+              </div>
+              <div class="stat">
+                <span>A apartar (contado − fondo)</span>
+                <strong>${{ detalleCorte.paraApartar | number: '1.2-2' }}</strong>
               </div>
               <div class="stat"><span>Transferencias</span><strong>${{ detalleCorte.totalTransferencias | number: '1.2-2' }}</strong></div>
               <div class="stat destacado"><span>Total caja</span><strong>${{ detalleCorte.totalCaja | number: '1.2-2' }}</strong></div>
@@ -442,3 +488,4 @@
     </div>
   }
 </section>
+</div>

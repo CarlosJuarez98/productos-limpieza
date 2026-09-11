@@ -9,9 +9,11 @@ import java.util.*;
 public class ImportPlJson {
   static final String[] ORDER = {
     "PRODUCTOS","PERSONAS","CAJA_CONFIG","MARGEN_CONFIG",
+    "PEDIDOS","PEDIDO_ITEMS",
     "ENTRADAS","PRODUCCIONES","VENTAS","APARTADOS",
     "TRASPASOS","TRASPASO_LINEAS","TRASPASO_ABONOS",
-    "MOVIMIENTOS_CAJA","CORTES_CAJA","INVERSION_ITEMS","PRECIOS_HISTORICOS"
+    "MOVIMIENTOS_CAJA","CORTES_CAJA","INVERSION_ITEMS","PRECIOS_HISTORICOS",
+    "AJUSTES_INVENTARIO"
   };
 
   public static void main(String[] args) throws Exception {

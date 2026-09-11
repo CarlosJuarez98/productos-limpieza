@@ -7,8 +7,8 @@
   </p>
 }
 
-<section class="panel">
-  <div class="toolbar">
+<section class="panel captura-panel">
+  <div class="toolbar captura-meta">
     <label>
       Fecha
       <input
@@ -20,9 +20,12 @@
         required
       />
     </label>
-    <span class="muted">Total lote: ${{ totalLote | number: '1.2-2' }}</span>
+    <p class="total-lote">
+      Total lote: <strong>${{ totalLote | number: '1.2-2' }}</strong>
+    </p>
   </div>
 
+  <!-- Escritorio: tabla -->
   <div class="table-wrap lote-wrap">
     <table class="lote">
       <thead>
@@ -32,8 +35,17 @@
           <th>Cantidad</th>
           <th>Precio proveedor $</th>
           <th>Última compra</th>
-          <th class="col-cambio">Cambio</th>
+          <th class="col-cambio" title="¿Subió, bajó o igual vs la última compra?">¿Subió?</th>
           <th>Total $</th>
+          <th
+            class="col-pedido"
+            title="Si viene de lo que pediste en Surtir, elige el #. Si es oferta o compra suelta: Libre."
+          >
+            Pedido Surtir
+          </th>
+          @if (tambienTraspasar) {
+            <th>Traspasar</th>
+          }
           <th></th>
         </tr>
       </thead>
@@ -59,6 +71,7 @@
                 #cantInput
                 type="text"
                 inputmode="decimal"
+                appClearable
                 [(ngModel)]="l.cantidad"
                 [name]="'cant' + l.key"
                 placeholder="0"
@@ -72,6 +85,7 @@
                   #precioInput
                   type="text"
                   inputmode="decimal"
+                  appClearable
                   [(ngModel)]="l.precioProveedor"
                   [name]="'precio' + l.key"
                   [placeholder]="ultimaCompra(l.productoId) != null ? (ultimaCompra(l.productoId) | number: '1.2-2') : '0'"
@@ -95,15 +109,15 @@
                     aria-label="Subió"
                   >↑</span>
                 }
+                @case ('IGUAL') {
+                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
+                }
                 @case ('BAJO') {
                   <span
                     class="icono-cambio bajo"
                     [title]="'Bajó −$' + (diffAbsLinea(l) | number: '1.2-2')"
                     aria-label="Bajó"
                   >↓</span>
-                }
-                @case ('IGUAL') {
-                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
                 }
                 @default {
                   <span class="muted">—</span>
@@ -117,6 +131,34 @@
                 <span class="muted">—</span>
               }
             </td>
+            <td class="col-pedido">
+              <select
+                [(ngModel)]="l.pedidoId"
+                [name]="'ped' + l.key"
+                (ngModelChange)="onPedidoChange(l)"
+                [class.hint-falta]="tieneFaltantePedido(l.productoId)"
+                title="Liga esta compra a un pedido de Surtir, o déjala libre"
+              >
+                <option [ngValue]="null">Libre / oferta</option>
+                @for (p of pedidosParaLinea(l.productoId); track p.id) {
+                  <option [ngValue]="p.id">{{ etiquetaPedido(p) }}</option>
+                }
+              </select>
+            </td>
+            @if (tambienTraspasar) {
+              <td>
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  appClearable
+                  [(ngModel)]="l.cantidadTraspaso"
+                  [name]="'tr' + l.key"
+                  placeholder="0"
+                  [class.input-warn]="excedeTraspaso(l)"
+                  title="Cantidad a traspasar (no más de lo que entra)"
+                />
+              </td>
+            }
             <td class="actions">
               <button type="button" class="danger" (click)="quitarLinea(i)" title="Quitar fila">×</button>
             </td>
@@ -124,6 +166,168 @@
         }
       </tbody>
     </table>
+  </div>
+
+  <!-- Móvil: tarjetas -->
+  <div class="lote-cards">
+    @for (l of lineas; track l.key; let i = $index) {
+      <article
+        class="linea-card"
+        [class.warn]="cambioLinea(l) === 'SUBIO'"
+        [class.bajo]="cambioLinea(l) === 'BAJO'"
+      >
+        <header class="linea-top">
+          <span class="linea-num">{{ i + 1 }}</span>
+          <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
+        </header>
+
+        <label class="campo producto-campo">
+          Producto
+          <app-producto-autocomplete
+            [productos]="productosParaEntrada"
+            [productoId]="l.productoId"
+            [inputName]="'prodM' + l.key"
+            (productoIdChange)="onProductoChange(l, $event)"
+            (enterConfirmado)="onProductoEnter(i)"
+          />
+        </label>
+
+        <div class="linea-grid">
+          <label class="campo">
+            Cantidad
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [(ngModel)]="l.cantidad"
+              [name]="'cantM' + l.key"
+              placeholder="0"
+              (keydown.enter)="onCantidadEnter($event, i)"
+            />
+          </label>
+
+          <label class="campo">
+            Precio proveedor
+            <div class="precio-input">
+              <span class="peso">$</span>
+              <input
+                type="text"
+                inputmode="decimal"
+                appClearable
+                [(ngModel)]="l.precioProveedor"
+                [name]="'precioM' + l.key"
+                [placeholder]="ultimaCompra(l.productoId) != null ? (ultimaCompra(l.productoId) | number: '1.2-2') : '0'"
+                (keydown.enter)="onPrecioEnter($event, i)"
+              />
+            </div>
+          </label>
+
+          <div class="campo">
+            <span class="campo-label">Última compra</span>
+            @if (ultimaCompra(l.productoId) != null) {
+              <div class="dato-fijo money muted">${{ ultimaCompra(l.productoId) | number: '1.2-2' }}</div>
+            } @else {
+              <span class="muted">—</span>
+            }
+          </div>
+
+          <div class="campo">
+            <span class="campo-label">¿Subió?</span>
+            <div class="dato-fijo">
+              @switch (cambioLinea(l)) {
+                @case ('SUBIO') {
+                  <span
+                    class="icono-cambio subio"
+                    [title]="'Subió +$' + (diffAbsLinea(l) | number: '1.2-2')"
+                    aria-label="Subió"
+                  >↑</span>
+                }
+                @case ('IGUAL') {
+                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
+                }
+                @case ('BAJO') {
+                  <span
+                    class="icono-cambio bajo"
+                    [title]="'Bajó −$' + (diffAbsLinea(l) | number: '1.2-2')"
+                    aria-label="Bajó"
+                  >↓</span>
+                }
+                @default {
+                  <span class="muted">—</span>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="campo total-campo">
+            <span class="campo-label">Total</span>
+            @if (totalLinea(l) != null) {
+              <div class="dato-fijo money">${{ totalLinea(l) | number: '1.2-2' }}</div>
+            } @else {
+              <span class="muted">—</span>
+            }
+          </div>
+
+          <label class="campo check-pedido-movil" [class.hint-falta]="tieneFaltantePedido(l.productoId)">
+            <span class="campo-label">Pedido Surtir</span>
+            <select
+              [(ngModel)]="l.pedidoId"
+              [name]="'pedM' + l.key"
+              (ngModelChange)="onPedidoChange(l)"
+              title="Liga esta compra a un pedido de Surtir, o déjala libre"
+            >
+              <option [ngValue]="null">Libre / oferta</option>
+              @for (p of pedidosParaLinea(l.productoId); track p.id) {
+                <option [ngValue]="p.id">{{ etiquetaPedido(p) }}</option>
+              }
+            </select>
+          </label>
+
+          @if (tambienTraspasar) {
+            <label class="campo">
+              Cantidad a traspasar
+              <input
+                type="text"
+                inputmode="decimal"
+                appClearable
+                [(ngModel)]="l.cantidadTraspaso"
+                [name]="'trM' + l.key"
+                placeholder="0"
+                [class.input-warn]="excedeTraspaso(l)"
+              />
+            </label>
+            @if (excedeTraspaso(l)) {
+              <p class="error traspaso-warn">No puede ser más de lo que entra</p>
+            }
+          }
+        </div>
+      </article>
+    }
+  </div>
+
+  <div class="traspaso-opcion">
+    <button
+      type="button"
+      class="btn-traspasar"
+      [class.activo]="tambienTraspasar"
+      (click)="toggleTambienTraspasar()"
+    >
+      {{ tambienTraspasar ? 'Quitar traspaso' : 'También traspasar' }}
+    </button>
+    @if (tambienTraspasar) {
+      <label class="persona-traspaso">
+        Persona
+        <select [(ngModel)]="traspasoPersona" name="traspasoPersona" required>
+          <option value="">Selecciona…</option>
+          @for (n of personasNombres; track n) {
+            <option [value]="n">{{ n }}</option>
+          }
+        </select>
+      </label>
+      @if (!personasNombres.length) {
+        <p class="muted hint-persona">No hay personas. Agrégalas en Traspasos.</p>
+      }
+    }
   </div>
 
   <div class="toolbar lote-actions">
@@ -137,16 +341,30 @@
       +
     </button>
     <button type="button" class="btn-guardar-filas" (click)="guardar()" [disabled]="guardando">
-      {{ guardando ? 'Guardando...' : 'Registrar entradas' }}
+      {{
+        guardando
+          ? 'Guardando...'
+          : tambienTraspasar
+            ? 'Registrar entrada y traspaso'
+            : 'Registrar entradas'
+      }}
     </button>
   </div>
+  @if (ok) {
+    <p class="ok-msg">{{ ok }}</p>
+  }
   @if (error) {
     <p class="error">{{ error }}</p>
   }
 </section>
 
-<section class="panel" style="margin-top: 1rem">
-  <h3>Preparación</h3>
+<section class="panel panel-prep" style="margin-top: 1rem">
+  <button type="button" class="panel-toggle" (click)="togglePrep()" [attr.aria-expanded]="prepAbierta">
+    <h3 class="panel-titulo">Preparación</h3>
+    <span class="chev">{{ prepAbierta ? '▾' : '▸' }}</span>
+  </button>
+  @if (prepAbierta) {
+  <div class="panel-toggle-body">
   <form class="form-grid" (ngSubmit)="guardarPreparacion()">
     <label>
       Fecha
@@ -174,6 +392,7 @@
       <input
         type="text"
         inputmode="decimal"
+        appClearable
         [(ngModel)]="prep.cantidadResultado"
         name="prepCantRes"
         placeholder="0"
@@ -189,13 +408,21 @@
       <input
         type="text"
         inputmode="decimal"
+        appClearable
         [(ngModel)]="prep.cantidadInsumo"
         name="prepCantIns"
         placeholder="0"
         required
       />
     </label>
-    <button type="submit">Registrar preparación</button>
+    <div class="prep-actions">
+      <button type="submit">
+        {{ editandoPrepId != null ? 'Guardar cambios' : 'Registrar preparación' }}
+      </button>
+      @if (editandoPrepId != null) {
+        <button type="button" class="secondary" (click)="cancelarEdicionPrep()">Cancelar</button>
+      }
+    </div>
   </form>
   @if (errorPrep) {
     <p class="error">{{ errorPrep }}</p>
@@ -217,14 +444,27 @@
         </tr>
       </thead>
       <tbody>
-        @for (p of producciones; track p.id) {
-          <tr>
+        @for (p of pagPrep.paginaItems; track p.id) {
+          <tr [class.editando-fila]="editandoPrepId === p.id">
             <td>{{ p.fecha | fechaDmY }}</td>
             <td>{{ p.productoResultadoNombre }}</td>
             <td class="money">{{ p.cantidadResultado | number: '1.2-2' }}</td>
             <td>{{ p.productoInsumoNombre }}</td>
             <td class="money">{{ p.cantidadInsumo | number: '1.2-2' }}</td>
             <td class="actions">
+              <button
+                type="button"
+                class="icon-btn"
+                title="Editar"
+                aria-label="Editar"
+                (click)="editarProduccion(p)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                  />
+                </svg>
+              </button>
               <button type="button" class="danger" (click)="eliminarProduccion(p.id)" title="Eliminar">×</button>
             </td>
           </tr>
@@ -234,8 +474,8 @@
   </div>
 
   <ul class="hist-cards">
-    @for (p of producciones; track p.id) {
-      <li>
+    @for (p of pagPrep.paginaItems; track p.id) {
+      <li [class.editando-card]="editandoPrepId === p.id">
         <div class="item-meta">
           <span>{{ p.fecha | fechaDmY }}</span>
           <span class="item-tag">{{ p.productoInsumoNombre }} · {{ p.cantidadInsumo | number: '1.2-2' }}</span>
@@ -244,6 +484,19 @@
         <div class="item-fila">
           <strong class="money">{{ p.cantidadResultado | number: '1.2-2' }}</strong>
           <div class="acciones">
+            <button
+              type="button"
+              class="icono"
+              title="Editar"
+              aria-label="Editar"
+              (click)="editarProduccion(p)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                />
+              </svg>
+            </button>
             <button
               type="button"
               class="icono peligro"
@@ -268,28 +521,53 @@
       <li class="vacio muted">Sin preparaciones.</li>
     }
   </ul>
+  <app-paginador
+    [total]="pagPrep.total"
+    [pagina]="pagPrep.pagina"
+    [pageSize]="pagPrep.pageSize"
+    ariaLabel="Páginas de preparaciones"
+    (prev)="pagPrep.anterior()"
+    (next)="pagPrep.siguiente()"
+  />
+  </div>
+  }
 </section>
 
 <section class="panel" style="margin-top: 1rem">
-  <h3>Historial de entradas</h3>
-  <div class="table-wrap hist-tabla">
+  <button type="button" class="panel-toggle" (click)="toggleHist()" [attr.aria-expanded]="histAbierta">
+    <h3 class="panel-titulo">Historial de entradas</h3>
+    <span class="chev">{{ histAbierta ? '▾' : '▸' }}</span>
+  </button>
+  @if (histAbierta) {
+  <div class="panel-toggle-body">
+  <div class="table-wrap hist-tabla hist-entradas">
     <table>
       <thead>
         <tr>
-          <th>Fecha</th>
+          <th class="col-fecha">Fecha</th>
           <th>Producto</th>
           <th>Cantidad</th>
           <th>Precio proveedor</th>
           <th>Total</th>
           <th>Última compra</th>
-          <th class="col-cambio">Cambio</th>
+          <th class="col-cambio" title="¿Subió, bajó o igual vs la última compra?">¿Subió?</th>
+          <th
+            class="col-pedido-hist"
+            title="Pedido de Surtir al que se aplicó esta compra (Libre = oferta o suelta)"
+          >
+            Pedido Surtir
+          </th>
           <th></th>
         </tr>
       </thead>
       <tbody>
-        @for (e of entradas; track e.id) {
-          <tr [class.warn]="e.precioMayor" [class.bajo]="e.precioMenor">
-            <td>{{ e.fecha | fechaDmY }}</td>
+        @for (e of pagEntradas.paginaItems; track e.id) {
+          <tr
+            [class.warn]="e.precioMayor"
+            [class.bajo]="e.precioMenor"
+            [class.editando-fila]="editandoEntradaId === e.id"
+          >
+            <td class="col-fecha">{{ e.fecha | fechaDmY }}</td>
             <td>{{ e.productoNombre }}</td>
             <td class="money">{{ e.cantidad | number: '1.2-2' }}</td>
             <td class="money">{{ e.precioProveedor != null ? ('$' + (e.precioProveedor | number: '1.2-2')) : '—' }}</td>
@@ -302,42 +580,234 @@
                 @case ('SUBIO') {
                   <span class="icono-cambio subio" title="Subió vs última compra" aria-label="Subió">↑</span>
                 }
-                @case ('BAJO') {
-                  <span class="icono-cambio bajo" title="Bajó vs última compra" aria-label="Bajó">↓</span>
-                }
                 @case ('IGUAL') {
                   <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
+                }
+                @case ('BAJO') {
+                  <span class="icono-cambio bajo" title="Bajó vs última compra" aria-label="Bajó">↓</span>
                 }
                 @default {
                   <span class="muted">—</span>
                 }
               }
             </td>
+            <td class="col-pedido-hist">
+              @if (e.aplicadaAPedido && e.pedidoId != null) {
+                <span class="item-tag">#{{ e.pedidoId }}</span>
+              } @else {
+                <span class="muted">Libre</span>
+              }
+            </td>
             <td class="actions">
+              @if (editandoEntradaId !== e.id) {
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Editar"
+                  aria-label="Editar"
+                  (click)="editarEntrada(e)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                    />
+                  </svg>
+                </button>
+              }
               <button type="button" class="danger" (click)="eliminar(e.id)" title="Eliminar">×</button>
             </td>
           </tr>
+          @if (editandoEntradaId === e.id) {
+            <tr class="fila-edicion">
+              <td colspan="9">
+                <form class="form-grid form-edicion" (ngSubmit)="guardarEdicionEntrada()">
+                  <label>
+                    Fecha
+                    <input
+                      type="date"
+                      [(ngModel)]="formEdit.fecha"
+                      name="editFecha"
+                      [min]="fechaMin || null"
+                      [max]="fechaMax"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Producto
+                    <app-producto-autocomplete
+                      [productos]="productosParaEntrada"
+                      [productoId]="formEdit.productoId"
+                      (productoIdChange)="formEdit.productoId = $event"
+                      [required]="true"
+                    />
+                  </label>
+                  <label>
+                    Cantidad
+                    <input
+                      type="text"
+                      inputmode="decimal"
+                      appClearable
+                      [(ngModel)]="formEdit.cantidad"
+                      name="editCant"
+                      placeholder="0"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Precio proveedor
+                    <div class="precio-input">
+                      <span class="peso">$</span>
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        appClearable
+                        [(ngModel)]="formEdit.precioProveedor"
+                        name="editPrecio"
+                        placeholder="0"
+                      />
+                    </div>
+                  </label>
+                  <label class="col-pedido" [class.hint-falta]="tieneFaltantePedido(formEdit.productoId)">
+                    Pedido Surtir
+                    <select
+                      [(ngModel)]="formEdit.pedidoId"
+                      name="editPedido"
+                      (ngModelChange)="onPedidoEditChange()"
+                      title="Liga esta compra a un pedido de Surtir, o déjala libre"
+                    >
+                      <option [ngValue]="null">Libre / oferta</option>
+                      @if (pedidoEditAusenteDeLista()) {
+                        <option [ngValue]="formEdit.pedidoId">#{{ formEdit.pedidoId }} (actual)</option>
+                      }
+                      @for (p of pedidosParaEdicion(formEdit.productoId, formEdit.pedidoId); track p.id) {
+                        <option [ngValue]="p.id">{{ etiquetaPedido(p) }}</option>
+                      }
+                    </select>
+                  </label>
+                  <div class="edicion-actions">
+                    <button type="submit" [disabled]="guardandoEdit">
+                      {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
+                    </button>
+                    <button type="button" class="secondary" (click)="cancelarEdicionEntrada()">Cancelar</button>
+                  </div>
+                </form>
+                @if (errorEdit) {
+                  <p class="error">{{ errorEdit }}</p>
+                }
+              </td>
+            </tr>
+          }
         }
       </tbody>
     </table>
   </div>
 
+  @if (editandoEntradaId != null) {
+    <div class="hist-edicion-movil">
+      <form class="form-grid form-edicion" (ngSubmit)="guardarEdicionEntrada()">
+        <label>
+          Fecha
+          <input
+            type="date"
+            [(ngModel)]="formEdit.fecha"
+            name="editFechaMovil"
+            [min]="fechaMin || null"
+            [max]="fechaMax"
+            required
+          />
+        </label>
+        <label>
+          Producto
+          <app-producto-autocomplete
+            [productos]="productosParaEntrada"
+            [productoId]="formEdit.productoId"
+            (productoIdChange)="formEdit.productoId = $event"
+            [required]="true"
+          />
+        </label>
+        <label>
+          Cantidad
+          <input
+            type="text"
+            inputmode="decimal"
+            appClearable
+            [(ngModel)]="formEdit.cantidad"
+            name="editCantMovil"
+            placeholder="0"
+            required
+          />
+        </label>
+        <label>
+          Precio proveedor
+          <div class="precio-input">
+            <span class="peso">$</span>
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [(ngModel)]="formEdit.precioProveedor"
+              name="editPrecioMovil"
+              placeholder="0"
+            />
+          </div>
+        </label>
+        <label [class.hint-falta]="tieneFaltantePedido(formEdit.productoId)">
+          Pedido Surtir
+          <select
+            [(ngModel)]="formEdit.pedidoId"
+            name="editPedidoMovil"
+            (ngModelChange)="onPedidoEditChange()"
+            title="Liga esta compra a un pedido de Surtir, o déjala libre"
+          >
+            <option [ngValue]="null">Libre / oferta</option>
+            @if (pedidoEditAusenteDeLista()) {
+              <option [ngValue]="formEdit.pedidoId">#{{ formEdit.pedidoId }} (actual)</option>
+            }
+            @for (p of pedidosParaEdicion(formEdit.productoId, formEdit.pedidoId); track p.id) {
+              <option [ngValue]="p.id">{{ etiquetaPedido(p) }}</option>
+            }
+          </select>
+        </label>
+        <div class="edicion-actions">
+          <button type="submit" [disabled]="guardandoEdit">
+            {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
+          </button>
+          <button type="button" class="secondary" (click)="cancelarEdicionEntrada()">Cancelar</button>
+        </div>
+      </form>
+      @if (errorEdit) {
+        <p class="error">{{ errorEdit }}</p>
+      }
+    </div>
+  }
+
   <ul class="hist-cards">
-    @for (e of entradas; track e.id) {
-      <li>
+    @for (e of pagEntradas.paginaItems; track e.id) {
+      <li [class.editando-card]="editandoEntradaId === e.id">
         <div class="item-meta">
           <span>{{ e.fecha | fechaDmY }}</span>
           <span class="item-tag">
             {{ e.cantidad | number: '1.2-2' }} ·
             @switch (cambioEntrada(e)) {
-              @case ('SUBIO') { ↑ }
-              @case ('BAJO') { ↓ }
-              @case ('IGUAL') { = }
-              @default { — }
+              @case ('SUBIO') {
+                <span class="icono-cambio subio" aria-label="Subió">↑</span>
+              }
+              @case ('IGUAL') {
+                <span class="icono-cambio igual" aria-label="Igual">=</span>
+              }
+              @case ('BAJO') {
+                <span class="icono-cambio bajo" aria-label="Bajó">↓</span>
+              }
+              @default {
+                <span class="muted">—</span>
+              }
             }
           </span>
         </div>
         <p class="item-motivo">{{ e.productoNombre }}</p>
+        @if (e.aplicadaAPedido && e.pedidoId != null) {
+          <p class="muted">Pedido Surtir #{{ e.pedidoId }}</p>
+        }
         <div class="item-fila">
           <strong class="money">
             @if (e.total != null) {
@@ -349,6 +819,19 @@
             }
           </strong>
           <div class="acciones">
+            <button
+              type="button"
+              class="icono"
+              title="Editar"
+              aria-label="Editar"
+              (click)="editarEntrada(e)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                />
+              </svg>
+            </button>
             <button
               type="button"
               class="icono peligro"
@@ -373,4 +856,14 @@
       <li class="vacio muted">Sin entradas.</li>
     }
   </ul>
+  <app-paginador
+    [total]="pagEntradas.total"
+    [pagina]="pagEntradas.pagina"
+    [pageSize]="pagEntradas.pageSize"
+    ariaLabel="Páginas de entradas"
+    (prev)="pagEntradas.anterior()"
+    (next)="pagEntradas.siguiente()"
+  />
+  </div>
+  }
 </section>

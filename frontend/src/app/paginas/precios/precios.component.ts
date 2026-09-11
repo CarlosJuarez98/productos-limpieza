@@ -1,9 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
+import { ClearableDirective } from '../../clearable.directive';
 import { InventarioItem, PrecioHistorico } from '../../modelos';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
 
 interface PrecioAnterior extends PrecioHistorico {
   vigenteHasta: string | null;
@@ -19,15 +22,21 @@ interface PrecioActual {
 @Component({
   selector: 'app-precios',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe],
+  imports: [CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, PaginadorComponent],
   templateUrl: './precios.component.html',
   styleUrl: './precios.component.scss',
 })
-export class PreciosComponent implements OnInit {
+export class PreciosComponent implements OnInit, OnDestroy {
   precios: PrecioHistorico[] = [];
   productos: InventarioItem[] = [];
   filtro = '';
+  filtroTexto = '';
+  preciosActuales: PrecioActual[] = [];
+  preciosAnteriores: PrecioAnterior[] = [];
+  pagActuales = new PaginacionEstado<PrecioActual>();
+  pagAnteriores = new PaginacionEstado<PrecioAnterior>();
   error = '';
+  private filtroTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private api: ApiService) {}
 
@@ -35,13 +44,44 @@ export class PreciosComponent implements OnInit {
     this.cargar();
   }
 
-  get preciosActuales(): PrecioActual[] {
+  ngOnDestroy(): void {
+    if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
+  }
+
+  onFiltroTexto(value: string): void {
+    this.filtroTexto = value;
+    if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
+    this.filtroTimer = setTimeout(() => {
+      this.filtroTimer = null;
+      this.filtro = this.filtroTexto;
+      this.rebuildListas(true);
+    }, 200);
+  }
+
+  aplicarBusqueda(): void {
+    if (this.filtroTimer != null) {
+      clearTimeout(this.filtroTimer);
+      this.filtroTimer = null;
+    }
+    this.filtro = this.filtroTexto;
+    this.rebuildListas(true);
+    if (typeof document !== 'undefined') {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
+  }
+
+  onBuscarEnter(ev: Event): void {
+    ev.preventDefault();
+    this.aplicarBusqueda();
+  }
+
+  private rebuildListas(reset = false): void {
     const q = this.filtro.trim().toLowerCase();
     const list = !q
       ? this.productos
       : this.productos.filter((p) => p.nombre.toLowerCase().includes(q));
 
-    return [...list]
+    this.preciosActuales = [...list]
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
       .map((p) => {
         const vigente = this.ultimoHistorico(p.id);
@@ -52,28 +92,25 @@ export class PreciosComponent implements OnInit {
           vigenteDesde: vigente?.fechaVigencia ?? null,
         };
       });
-  }
 
-  get preciosAnteriores(): PrecioAnterior[] {
     const idsActuales = new Set(
       this.productos
         .map((p) => this.ultimoHistorico(p.id)?.id)
         .filter((id): id is number => id != null)
     );
 
-    const q = this.filtro.trim().toLowerCase();
     const porProducto = new Map<number, PrecioHistorico[]>();
     for (const p of this.precios) {
       if (idsActuales.has(p.id)) continue;
       if (q && !p.productoNombre.toLowerCase().includes(q)) continue;
-      const list = porProducto.get(p.productoId) ?? [];
-      list.push(p);
-      porProducto.set(p.productoId, list);
+      const items = porProducto.get(p.productoId) ?? [];
+      items.push(p);
+      porProducto.set(p.productoId, items);
     }
 
     const out: PrecioAnterior[] = [];
-    for (const list of porProducto.values()) {
-      const ordenados = [...list].sort((a, b) => {
+    for (const listHist of porProducto.values()) {
+      const ordenados = [...listHist].sort((a, b) => {
         const porFecha = b.fechaVigencia.localeCompare(a.fechaVigencia);
         return porFecha !== 0 ? porFecha : b.id - a.id;
       });
@@ -92,11 +129,14 @@ export class PreciosComponent implements OnInit {
       }
     }
 
-    return out.sort((a, b) => {
+    this.preciosAnteriores = out.sort((a, b) => {
       const porNombre = a.productoNombre.localeCompare(b.productoNombre, 'es');
       if (porNombre !== 0) return porNombre;
       return b.fechaVigencia.localeCompare(a.fechaVigencia) || b.id - a.id;
     });
+
+    this.pagActuales.setItems(this.preciosActuales, reset);
+    this.pagAnteriores.setItems(this.preciosAnteriores, reset);
   }
 
   private ultimoHistorico(productoId: number): PrecioHistorico | null {
@@ -121,11 +161,17 @@ export class PreciosComponent implements OnInit {
 
   cargar(): void {
     this.api.precios().subscribe({
-      next: (p) => (this.precios = p),
+      next: (p) => {
+        this.precios = p;
+        this.rebuildListas();
+      },
       error: (e) => (this.error = e.error?.error || 'No se pudieron cargar precios'),
     });
     this.api.inventario().subscribe({
-      next: (p) => (this.productos = p),
+      next: (p) => {
+        this.productos = p;
+        this.rebuildListas();
+      },
       error: (e) => (this.error = e.error?.error || 'No se pudo cargar inventario'),
     });
   }

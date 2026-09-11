@@ -1,0 +1,488 @@
+[
+  {
+    "fecha": "2026-04-15",
+    "producto": "Cloro",
+    "cantidad": 25,
+    "precioProveedor": 0
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Atrapa moscas",
+    "cantidad": 6,
+    "precioProveedor": 2.78
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Fibra verde",
+    "cantidad": 6,
+    "precioProveedor": 1.66
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Fibra verde con esponja",
+    "cantidad": 4,
+    "precioProveedor": 5
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Tendedero de tela",
+    "cantidad": 2,
+    "precioProveedor": 15
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Pinzas paquete",
+    "cantidad": 2,
+    "precioProveedor": 20
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Escoba",
+    "cantidad": 2,
+    "precioProveedor": 25
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Fibra verde grande",
+    "cantidad": 1,
+    "precioProveedor": 5.33
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Pastilla de baño Impek",
+    "cantidad": 1,
+    "precioProveedor": 9
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Pastilla de baño",
+    "cantidad": 2,
+    "precioProveedor": 12
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Piedra pomex",
+    "cantidad": 2,
+    "precioProveedor": 0.42
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Fibra de alambre",
+    "cantidad": 1,
+    "precioProveedor": 6
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Fibra de alambre chica",
+    "cantidad": 2,
+    "precioProveedor": 3.5
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Tierra de ajax",
+    "cantidad": 1,
+    "precioProveedor": 2
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Fibra blanca economica",
+    "cantidad": 1,
+    "precioProveedor": 8
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Cepillo chico cosmo",
+    "cantidad": 1,
+    "precioProveedor": 9
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Cepillo grande",
+    "cantidad": 1,
+    "precioProveedor": 9.5
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Bomba WC",
+    "cantidad": 1,
+    "precioProveedor": 22
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Mechudo 1/2 kg",
+    "cantidad": 1,
+    "precioProveedor": 45
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Micro fibra grande",
+    "cantidad": 2,
+    "precioProveedor": 15.1
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Atomizador 1/4",
+    "cantidad": 1,
+    "precioProveedor": 9.5
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Atomizador 1/2",
+    "cantidad": 1,
+    "precioProveedor": 10.5
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Trapo cocina",
+    "cantidad": 1,
+    "precioProveedor": 5.5
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Fibra con ajax",
+    "cantidad": 3,
+    "precioProveedor": 2
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Hipoclorito",
+    "cantidad": 10,
+    "precioProveedor": 10.2
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Bolsa para basura jumbo con cinta",
+    "cantidad": 10,
+    "precioProveedor": 2.5
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Bolsa para basura mediana con cinta",
+    "cantidad": 15,
+    "precioProveedor": 1.33
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Matamoscas",
+    "cantidad": 1,
+    "precioProveedor": 12.5
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Cuadritela Mediana",
+    "cantidad": 2,
+    "precioProveedor": 6
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Jabon tipo Detercon",
+    "cantidad": 2,
+    "precioProveedor": 14
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Downy Rosa",
+    "cantidad": 3,
+    "precioProveedor": 8
+  },
+  {
+    "fecha": "2026-04-16",
+    "producto": "Desengrasante industrial",
+    "cantidad": 1,
+    "precioProveedor": 35
+  },
+  {
+    "fecha": "2026-04-19",
+    "producto": "Cloro",
+    "cantidad": 50,
+    "precioProveedor": 0
+  },
+  {
+    "fecha": "2026-04-19",
+    "producto": "Fabuloso Brisas",
+    "cantidad": 16,
+    "precioProveedor": 0
+  },
+  {
+    "fecha": "2026-04-19",
+    "producto": "Fabuloso Flores",
+    "cantidad": 16,
+    "precioProveedor": 0
+  },
+  {
+    "fecha": "2026-05-03",
+    "producto": "Shampoo mascotas",
+    "cantidad": 1,
+    "precioProveedor": 13
+  },
+  {
+    "fecha": "2026-05-03",
+    "producto": "Downy Azul",
+    "cantidad": 5,
+    "precioProveedor": 9
+  },
+  {
+    "fecha": "2026-05-07",
+    "producto": "Downy Rosa",
+    "cantidad": 5,
+    "precioProveedor": 9
+  },
+  {
+    "fecha": "2026-05-17",
+    "producto": "Jabon tipo Zote Rosa",
+    "cantidad": 3,
+    "precioProveedor": 15
+  },
+  {
+    "fecha": "2026-05-19",
+    "producto": "Hipoclorito",
+    "cantidad": 12,
+    "precioProveedor": 10.5
+  },
+  {
+    "fecha": "2026-05-20",
+    "producto": "Fibra con ajax",
+    "cantidad": 5,
+    "precioProveedor": 2
+  },
+  {
+    "fecha": "2026-05-20",
+    "producto": "Atrapa moscas",
+    "cantidad": 3,
+    "precioProveedor": 2.78
+  },
+  {
+    "fecha": "2026-06-07",
+    "producto": "Tendedero blanco",
+    "cantidad": 3,
+    "precioProveedor": 15
+  },
+  {
+    "fecha": "2026-06-07",
+    "producto": "Pinzas paquete",
+    "cantidad": 1,
+    "precioProveedor": 15
+  },
+  {
+    "fecha": "2026-06-07",
+    "producto": "Fibra verde scotch grande",
+    "cantidad": 3,
+    "precioProveedor": 16
+  },
+  {
+    "fecha": "2026-06-07",
+    "producto": "Jabon tipo Zote Rosa",
+    "cantidad": 4,
+    "precioProveedor": 15
+  },
+  {
+    "fecha": "2026-06-07",
+    "producto": "Jabon tipo Detercon",
+    "cantidad": 2,
+    "precioProveedor": 14
+  },
+  {
+    "fecha": "2026-06-07",
+    "producto": "Quita sarro en gel",
+    "cantidad": 2,
+    "precioProveedor": 16.5
+  },
+  {
+    "fecha": "2026-06-07",
+    "producto": "Pastilla de cloro",
+    "cantidad": 5,
+    "precioProveedor": 1
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Baston de madera",
+    "cantidad": 2,
+    "precioProveedor": 14
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Mechudo 1/2 kg",
+    "cantidad": 1,
+    "precioProveedor": 46
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Atomizador 1/2",
+    "cantidad": 1,
+    "precioProveedor": 10.5
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Atomizador 1/4",
+    "cantidad": 2,
+    "precioProveedor": 9.5
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Escoba Alfa",
+    "cantidad": 1,
+    "precioProveedor": 37
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Escoba suave perico",
+    "cantidad": 1,
+    "precioProveedor": 58
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Guante #7 plus vitex",
+    "cantidad": 2,
+    "precioProveedor": 35
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Guante #8 plus vitex",
+    "cantidad": 1,
+    "precioProveedor": 35
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Fibra de alambre",
+    "cantidad": 2,
+    "precioProveedor": 6
+  },
+  {
+    "fecha": "2026-06-09",
+    "producto": "Hipoclorito",
+    "cantidad": 10,
+    "precioProveedor": 10.5
+  },
+  {
+    "fecha": "2026-06-23",
+    "producto": "Hipoclorito",
+    "cantidad": 10,
+    "precioProveedor": 10.5
+  },
+  {
+    "fecha": "2026-06-23",
+    "producto": "Base Fabuloso Lavanda",
+    "cantidad": 1,
+    "precioProveedor": 70
+  },
+  {
+    "fecha": "2026-06-28",
+    "producto": "Jabon tipo Ariel",
+    "cantidad": 5,
+    "precioProveedor": 13.5
+  },
+  {
+    "fecha": "2026-06-28",
+    "producto": "Jabon tipo Mas color",
+    "cantidad": 5,
+    "precioProveedor": 13.5
+  },
+  {
+    "fecha": "2026-06-28",
+    "producto": "Pino",
+    "cantidad": 6,
+    "precioProveedor": 6.5
+  },
+  {
+    "fecha": "2026-06-28",
+    "producto": "Axion",
+    "cantidad": 2.5,
+    "precioProveedor": 20
+  },
+  {
+    "fecha": "2026-06-28",
+    "producto": "Desengrasante industrial",
+    "cantidad": 1.5,
+    "precioProveedor": 35
+  },
+  {
+    "fecha": "2026-07-04",
+    "producto": "Fabuloso Pera Manzana",
+    "cantidad": 16,
+    "precioProveedor": 0
+  },
+  {
+    "fecha": "2026-07-21",
+    "producto": "Jabon tipo Zote Rosa",
+    "cantidad": 3,
+    "precioProveedor": 15
+  },
+  {
+    "fecha": "2026-07-21",
+    "producto": "Jabon tipo Detercon",
+    "cantidad": 4.5,
+    "precioProveedor": 14
+  },
+  {
+    "fecha": "2026-07-21",
+    "producto": "Desengrasante industrial",
+    "cantidad": 1,
+    "precioProveedor": 35
+  },
+  {
+    "fecha": "2026-07-21",
+    "producto": "Hipoclorito",
+    "cantidad": 10,
+    "precioProveedor": 10.5
+  },
+  {
+    "fecha": "2026-07-21",
+    "producto": "Base Fabuloso Brisas",
+    "cantidad": 1,
+    "precioProveedor": 70
+  },
+  {
+    "fecha": "2026-07-21",
+    "producto": "Desengrasante industrial",
+    "cantidad": 2,
+    "precioProveedor": 35
+  },
+  {
+    "fecha": "2026-08-23",
+    "producto": "Hipoclorito",
+    "cantidad": 12,
+    "precioProveedor": 10.5
+  },
+  {
+    "fecha": "2026-08-23",
+    "producto": "Axion",
+    "cantidad": 5,
+    "precioProveedor": 20
+  },
+  {
+    "fecha": "2026-08-23",
+    "producto": "Jabon manos durazno",
+    "cantidad": 3,
+    "precioProveedor": 16
+  },
+  {
+    "fecha": "2026-08-23",
+    "producto": "Desengrasante industrial",
+    "cantidad": 2.5,
+    "precioProveedor": 25
+  },
+  {
+    "fecha": "2026-08-23",
+    "producto": "Base Fabuloso Brisas",
+    "cantidad": 1,
+    "precioProveedor": 70
+  },
+  {
+    "fecha": "2026-08-23",
+    "producto": "Quita sarro en gel",
+    "cantidad": 2,
+    "precioProveedor": 17.5
+  },
+  {
+    "fecha": "2026-08-23",
+    "producto": "Jabon tipo Ariel",
+    "cantidad": 5,
+    "precioProveedor": 14
+  },
+  {
+    "fecha": "2026-08-23",
+    "producto": "Brazo",
+    "cantidad": 5,
+    "precioProveedor": 18
+  }
+]

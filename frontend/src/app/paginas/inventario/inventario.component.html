@@ -1,459 +1,669 @@
 <h2 class="page-title">Inventario</h2>
 
+<div class="inv-flow">
 <section class="panel panel-lista">
-  <div class="toolbar toolbar-lista">
-    <label class="buscar">
-      Buscar
-      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Nombre del producto..." />
-    </label>
+  <button type="button" class="lista-toggle" (click)="toggleLista()" [attr.aria-expanded]="listaAbierta">
+    <span class="lista-toggle-titulo">Productos en inventario</span>
+    <span class="lista-toggle-hint">{{ listaAbierta ? 'Ocultar' : 'Mostrar' }}</span>
+  </button>
 
-    <div class="margen-wrap">
-      <button type="button" class="secondary margen-btn" (click)="toggleMenuMargenes($event)">
-        Márgenes
-      </button>
-    </div>
+  @if (listaAbierta) {
+    <div class="lista-cuerpo" #listaResultados>
+      <div class="toolbar toolbar-lista">
+        <label class="buscar">
+          Buscar
+          <div class="buscar-row">
+            <input
+              class="search"
+              appClearable
+              [ngModel]="filtroTexto"
+              (ngModelChange)="onFiltroTexto($event)"
+              name="filtro"
+              placeholder="Nombre del producto..."
+              (keydown.enter)="onBuscarEnter($event)"
+            />
+            <button type="button" class="buscar-ir" (click)="aplicarBusqueda()">Ir</button>
+          </div>
+        </label>
 
-    <div class="cols-wrap">
-      <button type="button" class="secondary cols-btn" (click)="toggleMenuColumnas($event)">
-        Más columnas
-      </button>
-      @if (menuColumnas) {
-        <div class="cols-menu" (click)="$event.stopPropagation()">
-          @for (c of columnasOpcionales; track c.key) {
-            <label>
-              <input
-                type="checkbox"
-                [checked]="col(c.key)"
-                (change)="toggleCol(c.key, $event)"
-              />
-              {{ c.label }}
-            </label>
-          }
+        <div class="margen-wrap">
+          <button type="button" class="secondary margen-btn" (click)="toggleMenuMargenes($event)">
+            Márgenes
+          </button>
         </div>
-      }
-    </div>
-  </div>
-  @if (menuMargenes) {
-    <div class="margen-panel" (click)="$event.stopPropagation()" title="Márgenes % sobre compra">
-      <div class="margen-bar margen-inline">
-        <label class="margen-mini">
-          Mín
-          <span class="margen-input-row">
-            <input
-              type="text"
-              inputmode="decimal"
-              [(ngModel)]="pct.min"
-              name="pctMin"
-              (keyup.enter)="aplicarMargenesManuales()"
-            />
-            <span class="pct-suffix">%</span>
-          </span>
-        </label>
-        <label class="margen-mini">
-          Máx
-          <span class="margen-input-row">
-            <input
-              type="text"
-              inputmode="decimal"
-              [(ngModel)]="pct.max"
-              name="pctMax"
-              (keyup.enter)="aplicarMargenesManuales()"
-            />
-            <span class="pct-suffix">%</span>
-          </span>
-        </label>
-        <label class="margen-mini">
-          ≥5 L
-          <span class="margen-input-row">
-            <input
-              type="text"
-              inputmode="decimal"
-              [(ngModel)]="pct.mayoreo5"
-              name="pctM5"
-              (keyup.enter)="aplicarMargenesManuales()"
-            />
-            <span class="pct-suffix">%</span>
-          </span>
-        </label>
-        <label class="margen-mini">
-          ≥10 L
-          <span class="margen-input-row">
-            <input
-              type="text"
-              inputmode="decimal"
-              [(ngModel)]="pct.mayoreo10"
-              name="pctM10"
-              (keyup.enter)="aplicarMargenesManuales()"
-            />
-            <span class="pct-suffix">%</span>
-          </span>
-        </label>
-        <div class="margen-actions">
-          <button type="button" (click)="aplicarMargenesManuales()" [disabled]="guardandoMargen">
-            {{ guardandoMargen ? '…' : 'Guardar %' }}
+
+        <div class="cols-wrap">
+          <button type="button" class="secondary cols-btn" (click)="toggleMenuColumnas($event)">
+            Más columnas
           </button>
-          <button
-            type="button"
-            class="secondary"
-            (click)="aplicarPreciosDesdeMargenes()"
-            [disabled]="guardandoMargen"
-          >
-            Recalcular
-          </button>
+          @if (menuColumnas) {
+            <div class="cols-menu" (click)="$event.stopPropagation()">
+              @for (c of columnasOpcionales; track c.key) {
+                <label>
+                  <input
+                    type="checkbox"
+                    [checked]="col(c.key)"
+                    (change)="toggleCol(c.key, $event)"
+                  />
+                  {{ c.label }}
+                </label>
+              }
+            </div>
+          }
         </div>
       </div>
-    </div>
-  }
-  @if (ok) {
-    <p class="ok-msg">{{ ok }}</p>
-  }
-  @if (error) {
-    <p class="error">{{ error }}</p>
-  }
-  <div class="table-wrap hist-tabla">
-    <table class="inv-table">
-      <thead>
-        <tr>
-          @if (col('producto')) {
-            <th>Producto</th>
-          }
-          @if (col('vende')) {
-            <th>Se vende</th>
-          }
-          @if (col('menudeo')) {
-            <th class="money col-menudeo">Menudeo</th>
-          }
-          @if (col('m5')) {
-            <th class="money">≥ 5 L</th>
-          }
-          @if (col('m10')) {
-            <th class="money">≥ 10 L</th>
-          }
-          @if (col('compra')) {
-            <th class="money">Compra</th>
-          }
-          @if (col('minSug')) {
-            <th class="money col-sugerido">Mín. sugerido</th>
-          }
-          @if (col('maxSug')) {
-            <th class="money col-sugerido">Máx. sugerido</th>
-          }
-          @if (col('stock')) {
-            <th class="money">Stock</th>
-          }
-          @if (col('ganancia')) {
-            <th class="money">% ganancia</th>
-          }
-          <th class="actions"></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (i of filtrados; track i.id) {
-          <tr
+      @if (menuMargenes) {
+        <div class="margen-panel" (click)="$event.stopPropagation()" title="Márgenes % sobre compra">
+          <div class="margen-bar margen-inline">
+            <label class="margen-mini">
+              Mín
+              <span class="margen-input-row">
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  appClearable
+                  [(ngModel)]="pct.min"
+                  name="pctMin"
+                  (keyup.enter)="aplicarMargenesManuales()"
+                />
+                <span class="pct-suffix">%</span>
+              </span>
+            </label>
+            <label class="margen-mini">
+              Máx
+              <span class="margen-input-row">
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  appClearable
+                  [(ngModel)]="pct.max"
+                  name="pctMax"
+                  (keyup.enter)="aplicarMargenesManuales()"
+                />
+                <span class="pct-suffix">%</span>
+              </span>
+            </label>
+            <label class="margen-mini">
+              ≥5 L
+              <span class="margen-input-row">
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  appClearable
+                  [(ngModel)]="pct.mayoreo5"
+                  name="pctM5"
+                  (keyup.enter)="aplicarMargenesManuales()"
+                />
+                <span class="pct-suffix">%</span>
+              </span>
+            </label>
+            <label class="margen-mini">
+              ≥10 L
+              <span class="margen-input-row">
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  appClearable
+                  [(ngModel)]="pct.mayoreo10"
+                  name="pctM10"
+                  (keyup.enter)="aplicarMargenesManuales()"
+                />
+                <span class="pct-suffix">%</span>
+              </span>
+            </label>
+            <div class="margen-actions">
+              <button type="button" (click)="aplicarMargenesManuales()" [disabled]="guardandoMargen">
+                {{ guardandoMargen ? '…' : 'Guardar %' }}
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                (click)="aplicarPreciosDesdeMargenes()"
+                [disabled]="guardandoMargen"
+              >
+                Recalcular
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+      @if (ok) {
+        <p class="ok-msg">{{ ok }}</p>
+      }
+      @if (error) {
+        <p class="error">{{ error }}</p>
+      }
+      <div class="table-wrap hist-tabla">
+        <table class="inv-table" [attr.data-cols]="colsDatosVisibles">
+          <thead>
+            <tr>
+              @if (col('producto')) {
+                <th class="col-producto">Producto</th>
+              }
+              @if (col('menudeo')) {
+                <th class="money col-menudeo">Menudeo</th>
+              }
+              @if (col('stock')) {
+                <th class="money col-stock">Stock</th>
+              }
+              @if (col('vende')) {
+                <th class="col-extra">Se vende</th>
+              }
+              @if (col('m5')) {
+                <th class="money col-extra">≥ 5 L</th>
+              }
+              @if (col('m10')) {
+                <th class="money col-extra">≥ 10 L</th>
+              }
+              @if (col('compra')) {
+                <th class="money col-extra">Compra</th>
+              }
+              @if (col('minSug')) {
+                <th class="money col-sugerido col-extra">Mín. sugerido</th>
+              }
+              @if (col('maxSug')) {
+                <th class="money col-sugerido col-extra">Máx. sugerido</th>
+              }
+              @if (col('ganancia')) {
+                <th class="money col-extra">% ganancia</th>
+              }
+              <th class="col-acciones" aria-label="Acciones"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (i of pag.paginaItems; track i.id) {
+              <tr
+                [class.danger]="i.precioVentaBajoMinimo"
+                [class.warn]="!i.precioVentaBajoMinimo && i.stockActual <= 0"
+                [class.ganancia-alta]="!i.precioVentaBajoMinimo && i.porcentajeGanancia >= 50"
+                [class.editando-fila]="editando?.id === i.id"
+              >
+                @if (col('producto')) {
+                  <td class="col-producto" [title]="i.nombre">{{ i.nombre }}</td>
+                }
+                @if (col('menudeo')) {
+                  <td class="money col-menudeo" [class.bajo-minimo]="i.precioVentaBajoMinimo">
+                    ${{ i.precioVentaHoy | number: '1.2-2' }}
+                  </td>
+                }
+                @if (col('stock')) {
+                  <td class="money col-stock">{{ i.stockActual | number: '1.2-2' }}</td>
+                }
+                @if (col('vende')) {
+                  <td class="col-extra">{{ etiquetaUnidad(i) }}</td>
+                }
+                @if (col('m5')) {
+                  <td class="money col-extra">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
+                }
+                @if (col('m10')) {
+                  <td class="money col-extra">${{ i.precioMayoreo10 | number: '1.2-2' }}</td>
+                }
+                @if (col('compra')) {
+                  <td class="money col-extra">${{ i.precioCompra | number: '1.2-2' }}</td>
+                }
+                @if (col('minSug')) {
+                  <td class="money col-sugerido col-extra">${{ i.precioMinimoSugerido | number: '1.2-2' }}</td>
+                }
+                @if (col('maxSug')) {
+                  <td class="money col-sugerido col-extra">${{ i.precioMaximoSugerido | number: '1.2-2' }}</td>
+                }
+                @if (col('ganancia')) {
+                  <td class="money col-extra">{{ i.porcentajeGanancia | number: '1.2-2' }}%</td>
+                }
+                <td class="col-acciones">
+                  <div class="stock-btns">
+                    @if (editando?.id !== i.id) {
+                      <button
+                        type="button"
+                        class="icon-btn"
+                        title="Ajustar stock"
+                        [attr.aria-label]="'Ajustar stock de ' + i.nombre"
+                        (click)="iniciarAjuste(i)"
+                      >
+                        ±
+                      </button>
+                      <button
+                        type="button"
+                        class="icon-btn"
+                        title="Editar"
+                        [attr.aria-label]="'Editar ' + i.nombre"
+                        (click)="editar(i)"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                          />
+                        </svg>
+                      </button>
+                    }
+                    <button
+                      type="button"
+                      class="icon-btn danger"
+                      title="Quitar del inventario"
+                      [attr.aria-label]="'Quitar ' + i.nombre"
+                      (click)="eliminar(i)"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              @if (editando?.id === i.id) {
+                <tr class="fila-edicion">
+                  <td [attr.colspan]="colspanEdicion">
+                    <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+                      <label>
+                        Producto
+                        <input appClearable [(ngModel)]="form.nombre" name="nombreEdit" required />
+                      </label>
+                      <label>
+                        Se vende por
+                        <select [(ngModel)]="form.vendePor" name="vendePorEdit">
+                          <option value="LITROS">Litros</option>
+                          <option value="PIEZA">Pieza</option>
+                        </select>
+                      </label>
+                      <label>
+                        Cantidad inicial
+                        <input
+                          type="text"
+                          inputmode="decimal"
+                          appClearable
+                          [(ngModel)]="form.cantidadInicial"
+                          name="cantidadEdit"
+                          placeholder="0"
+                        />
+                      </label>
+                      <label>
+                        Precio compra
+                        <div class="precio-input">
+                          <span class="peso">$</span>
+                          <input
+                            type="text"
+                            inputmode="decimal"
+                            appClearable
+                            [(ngModel)]="form.precioCompra"
+                            name="compraEdit"
+                            placeholder="0"
+                            (ngModelChange)="onCompraChange()"
+                          />
+                        </div>
+                      </label>
+                      <label>
+                        Precio menudeo
+                        <div class="precio-input">
+                          <span class="peso">$</span>
+                          <input
+                            type="text"
+                            inputmode="decimal"
+                            appClearable
+                            [(ngModel)]="form.precioVenta"
+                            name="menudeoEdit"
+                            (ngModelChange)="onMenudeoChange()"
+                            [placeholder]="sugeridoPlaceholder"
+                          />
+                        </div>
+                      </label>
+                      <div class="edicion-actions">
+                        <button type="submit">Guardar</button>
+                        <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
+                      </div>
+                    </form>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (editando) {
+        <div class="hist-edicion-movil">
+          <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+            <label>
+              Producto
+              <input appClearable [(ngModel)]="form.nombre" name="nombreEditMovil" required />
+            </label>
+            <label>
+              Se vende por
+              <select [(ngModel)]="form.vendePor" name="vendePorEditMovil">
+                <option value="LITROS">Litros</option>
+                <option value="PIEZA">Pieza</option>
+              </select>
+            </label>
+            <label>
+              Cantidad inicial
+              <input
+                type="text"
+                inputmode="decimal"
+                appClearable
+                [(ngModel)]="form.cantidadInicial"
+                name="cantidadEditMovil"
+                placeholder="0"
+              />
+            </label>
+            <label>
+              Precio compra
+              <div class="precio-input">
+                <span class="peso">$</span>
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  appClearable
+                  [(ngModel)]="form.precioCompra"
+                  name="compraEditMovil"
+                  placeholder="0"
+                  (ngModelChange)="onCompraChange()"
+                />
+              </div>
+            </label>
+            <label>
+              Precio menudeo
+              <div class="precio-input">
+                <span class="peso">$</span>
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  appClearable
+                  [(ngModel)]="form.precioVenta"
+                  name="menudeoEditMovil"
+                  (ngModelChange)="onMenudeoChange()"
+                  [placeholder]="sugeridoPlaceholder"
+                />
+              </div>
+            </label>
+            <div class="edicion-actions">
+              <button type="submit">Guardar</button>
+              <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      }
+
+      <ul class="hist-cards">
+        @for (i of pag.paginaItems; track i.id) {
+          <li
             [class.danger]="i.precioVentaBajoMinimo"
             [class.warn]="!i.precioVentaBajoMinimo && i.stockActual <= 0"
             [class.ganancia-alta]="!i.precioVentaBajoMinimo && i.porcentajeGanancia >= 50"
-            [class.editando-fila]="editando?.id === i.id"
           >
-            @if (col('producto')) {
-              <td [title]="i.nombre">{{ i.nombre }}</td>
-            }
-            @if (col('vende')) {
-              <td>{{ etiquetaUnidad(i) }}</td>
-            }
-            @if (col('menudeo')) {
-              <td class="money col-menudeo" [class.bajo-minimo]="i.precioVentaBajoMinimo">
-                ${{ i.precioVentaHoy | number: '1.2-2' }}
-              </td>
-            }
-            @if (col('m5')) {
-              <td class="money">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
-            }
-            @if (col('m10')) {
-              <td class="money">${{ i.precioMayoreo10 | number: '1.2-2' }}</td>
-            }
-            @if (col('compra')) {
-              <td class="money">${{ i.precioCompra | number: '1.2-2' }}</td>
-            }
-            @if (col('minSug')) {
-              <td class="money col-sugerido">${{ i.precioMinimoSugerido | number: '1.2-2' }}</td>
-            }
-            @if (col('maxSug')) {
-              <td class="money col-sugerido">${{ i.precioMaximoSugerido | number: '1.2-2' }}</td>
-            }
-            @if (col('stock')) {
-              <td class="money">{{ i.stockActual | number: '1.2-2' }}</td>
-            }
-            @if (col('ganancia')) {
-              <td class="money">{{ i.porcentajeGanancia | number: '1.2-2' }}%</td>
-            }
-            <td class="actions">
-              @if (editando?.id !== i.id) {
+            <p class="item-motivo">{{ i.nombre }}</p>
+            <div class="item-fila">
+              <div class="inv-card-resumen">
+                @if (col('menudeo')) {
+                  <strong class="money" [class.bajo-minimo]="i.precioVentaBajoMinimo">
+                    ${{ i.precioVentaHoy | number: '1.2-2' }}
+                  </strong>
+                }
+                <span class="stock-pill" [class.agotado]="i.stockActual <= 0">
+                  Stock {{ i.stockActual | number: '1.2-2' }}
+                  {{ esPieza(i) ? 'pza' : 'L' }}
+                </span>
+              </div>
+              <div class="acciones">
+                @if (editando?.id !== i.id) {
+                  <button
+                    type="button"
+                    class="icono"
+                    title="Ajustar stock"
+                    [attr.aria-label]="'Ajustar stock de ' + i.nombre"
+                    (click)="iniciarAjuste(i)"
+                  >
+                    ±
+                  </button>
+                  <button
+                    type="button"
+                    class="icono"
+                    title="Editar"
+                    [attr.aria-label]="'Editar ' + i.nombre"
+                    (click)="editar(i)"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                      />
+                    </svg>
+                  </button>
+                }
                 <button
                   type="button"
-                  class="icon-btn"
-                  title="Editar"
-                  [attr.aria-label]="'Editar ' + i.nombre"
-                  (click)="editar(i)"
+                  class="icono peligro"
+                  title="Quitar del inventario"
+                  [attr.aria-label]="'Quitar ' + i.nombre"
+                  (click)="eliminar(i)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
-                      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                      d="M6 6l12 12M18 6L6 18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
                     />
                   </svg>
                 </button>
+              </div>
+            </div>
+            <dl class="card-cols">
+              @if (col('vende')) {
+                <div>
+                  <dt>Se vende</dt>
+                  <dd>{{ etiquetaUnidad(i) }}</dd>
+                </div>
               }
-              <button
-                type="button"
-                class="icon-btn danger"
-                title="Quitar del inventario"
-                [attr.aria-label]="'Quitar ' + i.nombre"
-                (click)="eliminar(i)"
-              >
+              @if (col('compra')) {
+                <div>
+                  <dt>Compra</dt>
+                  <dd>${{ i.precioCompra | number: '1.2-2' }}</dd>
+                </div>
+              }
+              @if (col('m5')) {
+                <div>
+                  <dt>≥ 5 L</dt>
+                  <dd>${{ i.precioMayoreo5 | number: '1.2-2' }}</dd>
+                </div>
+              }
+              @if (col('m10')) {
+                <div>
+                  <dt>≥ 10 L</dt>
+                  <dd>${{ i.precioMayoreo10 | number: '1.2-2' }}</dd>
+                </div>
+              }
+              @if (col('minSug')) {
+                <div>
+                  <dt>Mín. sugerido</dt>
+                  <dd>${{ i.precioMinimoSugerido | number: '1.2-2' }}</dd>
+                </div>
+              }
+              @if (col('maxSug')) {
+                <div>
+                  <dt>Máx. sugerido</dt>
+                  <dd>${{ i.precioMaximoSugerido | number: '1.2-2' }}</dd>
+                </div>
+              }
+              @if (col('ganancia')) {
+                <div>
+                  <dt>% ganancia</dt>
+                  <dd>{{ i.porcentajeGanancia | number: '1.2-2' }}%</dd>
+                </div>
+              }
+            </dl>
+          </li>
+        } @empty {
+          <li class="vacio muted">Sin productos{{ filtro ? ' con ese nombre' : '' }}.</li>
+        }
+      </ul>
+
+      <app-paginador
+        [total]="pag.total"
+        [pagina]="pag.pagina"
+        [pageSize]="pag.pageSize"
+        ariaLabel="Páginas de inventario"
+        (prev)="paginaAnterior()"
+        (next)="paginaSiguiente()"
+      />
+    </div>
+  }
+</section>
+
+<section class="panel panel-ajuste" id="panel-ajuste-stock">
+  <button type="button" class="lista-toggle" (click)="toggleAjuste()" [attr.aria-expanded]="ajusteAbierto">
+    <span class="lista-toggle-titulo">
+      {{ editandoAjuste ? 'Editar ajuste de stock' : 'Ajuste de stock' }}
+    </span>
+    <span class="lista-toggle-hint">{{ ajusteAbierto ? 'Ocultar' : 'Mostrar' }}</span>
+  </button>
+
+  @if (ajusteAbierto) {
+  <form class="form-grid form-alta" (ngSubmit)="guardarAjuste()">
+    <label>
+      Fecha
+      <input type="date" [(ngModel)]="formAjuste.fecha" name="fechaAjuste" required />
+    </label>
+    <label>
+      Producto
+      <select
+        [ngModel]="formAjuste.productoId"
+        (ngModelChange)="onProductoAjusteChange($event)"
+        name="prodAjuste"
+        required
+        [disabled]="!!editandoAjuste"
+      >
+        <option [ngValue]="null">Elige del inventario…</option>
+        @for (p of items; track p.id) {
+          <option [ngValue]="p.id">
+            {{ p.nombre }} — stock {{ p.stockActual | number: '1.0-2' }}
+          </option>
+        }
+      </select>
+    </label>
+    <label>
+      Dejar stock en
+      <input
+        type="text"
+        inputmode="decimal"
+        appClearable
+        [(ngModel)]="formAjuste.stockDeseado"
+        name="stockDeseadoAjuste"
+        placeholder="Cantidad final"
+        required
+      />
+    </label>
+    <label>
+      Motivo
+      <input
+        appClearable
+        [(ngModel)]="formAjuste.motivo"
+        name="motivoAjuste"
+        placeholder="Derrame, conteo físico…"
+        required
+      />
+    </label>
+    <div class="edicion-actions">
+      <button type="submit" [disabled]="guardandoAjuste">
+        {{ guardandoAjuste ? '…' : editandoAjuste ? 'Guardar cambio' : 'Registrar ajuste' }}
+      </button>
+      @if (editandoAjuste || formAjuste.productoId) {
+        <button type="button" class="secondary" (click)="cancelarAjuste()">Cancelar</button>
+      }
+    </div>
+  </form>
+  @if (formAjuste.productoId != null) {
+    <p class="muted resumen">
+      Stock actual: {{ stockBaseAjuste() | number: '1.0-2' }}
+      {{ unidadAjuste(formAjuste.productoId) }}
+      @if (cantidadAjusteCalculada() != null) {
+        · se {{ cantidadAjusteCalculada()! > 0 ? 'suma' : 'resta' }}
+        {{ cantidadAjusteCalculada()! > 0 ? '+' : '' }}{{ cantidadAjusteCalculada() | number: '1.0-2' }}
+        {{ unidadAjuste(formAjuste.productoId) }}
+        automático
+      }
+    </p>
+  }
+  @if (errorAjuste) {
+    <p class="error">{{ errorAjuste }}</p>
+  }
+  @if (okAjuste) {
+    <p class="ok-msg">{{ okAjuste }}</p>
+  }
+
+  <h4 class="panel-subtitulo" style="margin-top: 1rem">Historial de ajustes</h4>
+  <div class="table-wrap hist-tabla">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Producto</th>
+          <th class="money">Cantidad</th>
+          <th>Motivo</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (a of pagAjustes.paginaItems; track a.id) {
+          <tr>
+            <td>{{ a.fecha | fechaDmY }}</td>
+            <td>{{ a.productoNombre }}</td>
+            <td class="money" [class.warn]="a.cantidad < 0">
+              {{ a.cantidad > 0 ? '+' : '' }}{{ a.cantidad | number: '1.0-2' }}
+            </td>
+            <td>{{ a.motivo }}</td>
+            <td class="actions">
+              <button type="button" class="icon-btn" title="Editar" (click)="editarAjuste(a)">✎</button>
+              <button type="button" class="icon-btn danger" title="Eliminar" (click)="eliminarAjuste(a)">
                 ×
               </button>
             </td>
           </tr>
-          @if (editando?.id === i.id) {
-            <tr class="fila-edicion">
-              <td [attr.colspan]="colspanEdicion">
-                <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
-                  <label>
-                    Producto
-                    <input [(ngModel)]="form.nombre" name="nombreEdit" required />
-                  </label>
-                  <label>
-                    Se vende por
-                    <select [(ngModel)]="form.vendePor" name="vendePorEdit">
-                      <option value="LITROS">Litros</option>
-                      <option value="PIEZA">Pieza</option>
-                    </select>
-                  </label>
-                  <label>
-                    Cantidad inicial
-                    <input
-                      type="text"
-                      inputmode="decimal"
-                      [(ngModel)]="form.cantidadInicial"
-                      name="cantidadEdit"
-                      placeholder="0"
-                    />
-                  </label>
-                  <label>
-                    Precio compra
-                    <div class="precio-input">
-                      <span class="peso">$</span>
-                      <input
-                        type="text"
-                        inputmode="decimal"
-                        [(ngModel)]="form.precioCompra"
-                        name="compraEdit"
-                        placeholder="0"
-                        (ngModelChange)="onCompraChange()"
-                      />
-                    </div>
-                  </label>
-                  <label>
-                    Precio menudeo
-                    <div class="precio-input">
-                      <span class="peso">$</span>
-                      <input
-                        type="text"
-                        inputmode="decimal"
-                        [(ngModel)]="form.precioVenta"
-                        name="menudeoEdit"
-                        (ngModelChange)="onMenudeoChange()"
-                        [placeholder]="sugeridoPlaceholder"
-                      />
-                    </div>
-                  </label>
-                  <div class="edicion-actions">
-                    <button type="submit">Guardar</button>
-                    <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
-                  </div>
-                </form>
-              </td>
-            </tr>
-          }
+        } @empty {
+          <tr>
+            <td colspan="5" class="muted">Sin ajustes aún.</td>
+          </tr>
         }
       </tbody>
     </table>
   </div>
-
-  @if (editando) {
-    <div class="hist-edicion-movil">
-      <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
-        <label>
-          Producto
-          <input [(ngModel)]="form.nombre" name="nombreEditMovil" required />
-        </label>
-        <label>
-          Se vende por
-          <select [(ngModel)]="form.vendePor" name="vendePorEditMovil">
-            <option value="LITROS">Litros</option>
-            <option value="PIEZA">Pieza</option>
-          </select>
-        </label>
-        <label>
-          Cantidad inicial
-          <input
-            type="text"
-            inputmode="decimal"
-            [(ngModel)]="form.cantidadInicial"
-            name="cantidadEditMovil"
-            placeholder="0"
-          />
-        </label>
-        <label>
-          Precio compra
-          <div class="precio-input">
-            <span class="peso">$</span>
-            <input
-              type="text"
-              inputmode="decimal"
-              [(ngModel)]="form.precioCompra"
-              name="compraEditMovil"
-              placeholder="0"
-              (ngModelChange)="onCompraChange()"
-            />
-          </div>
-        </label>
-        <label>
-          Precio menudeo
-          <div class="precio-input">
-            <span class="peso">$</span>
-            <input
-              type="text"
-              inputmode="decimal"
-              [(ngModel)]="form.precioVenta"
-              name="menudeoEditMovil"
-              (ngModelChange)="onMenudeoChange()"
-              [placeholder]="sugeridoPlaceholder"
-            />
-          </div>
-        </label>
-        <div class="edicion-actions">
-          <button type="submit">Guardar</button>
-          <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
-        </div>
-      </form>
-    </div>
-  }
-
   <ul class="hist-cards">
-    @for (i of filtrados; track i.id) {
-      <li
-        [class.danger]="i.precioVentaBajoMinimo"
-        [class.warn]="!i.precioVentaBajoMinimo && i.stockActual <= 0"
-        [class.ganancia-alta]="!i.precioVentaBajoMinimo && i.porcentajeGanancia >= 50"
-      >
-        <p class="item-motivo">{{ i.nombre }}</p>
-        <div class="item-fila">
-          @if (col('menudeo')) {
-            <strong class="money" [class.bajo-minimo]="i.precioVentaBajoMinimo">
-              ${{ i.precioVentaHoy | number: '1.2-2' }}
-            </strong>
-          } @else {
-            <span></span>
-          }
-          <div class="acciones">
-            @if (editando?.id !== i.id) {
-              <button
-                type="button"
-                class="icono"
-                title="Editar"
-                [attr.aria-label]="'Editar ' + i.nombre"
-                (click)="editar(i)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                  />
-                </svg>
-              </button>
-            }
-            <button
-              type="button"
-              class="icono peligro"
-              title="Quitar del inventario"
-              [attr.aria-label]="'Quitar ' + i.nombre"
-              (click)="eliminar(i)"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M6 6l12 12M18 6L6 18"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                />
-              </svg>
-            </button>
-          </div>
+    @for (a of pagAjustes.paginaItems; track a.id) {
+      <li>
+        <p class="item-motivo">{{ a.productoNombre }}</p>
+        <div class="item-meta">
+          <span>{{ a.fecha | fechaDmY }}</span>
+          <span class="item-tag" [class.warn]="a.cantidad < 0">
+            {{ a.cantidad > 0 ? '+' : '' }}{{ a.cantidad | number: '1.0-2' }}
+          </span>
         </div>
-        <dl class="card-cols">
-          @if (col('vende')) {
-            <div>
-              <dt>Se vende</dt>
-              <dd>{{ etiquetaUnidad(i) }}</dd>
-            </div>
-          }
-          @if (col('stock')) {
-            <div>
-              <dt>Stock</dt>
-              <dd>{{ i.stockActual | number: '1.2-2' }}</dd>
-            </div>
-          }
-          @if (col('compra')) {
-            <div>
-              <dt>Compra</dt>
-              <dd>${{ i.precioCompra | number: '1.2-2' }}</dd>
-            </div>
-          }
-          @if (col('m5')) {
-            <div>
-              <dt>≥ 5 L</dt>
-              <dd>${{ i.precioMayoreo5 | number: '1.2-2' }}</dd>
-            </div>
-          }
-          @if (col('m10')) {
-            <div>
-              <dt>≥ 10 L</dt>
-              <dd>${{ i.precioMayoreo10 | number: '1.2-2' }}</dd>
-            </div>
-          }
-          @if (col('minSug')) {
-            <div>
-              <dt>Mín. sugerido</dt>
-              <dd>${{ i.precioMinimoSugerido | number: '1.2-2' }}</dd>
-            </div>
-          }
-          @if (col('maxSug')) {
-            <div>
-              <dt>Máx. sugerido</dt>
-              <dd>${{ i.precioMaximoSugerido | number: '1.2-2' }}</dd>
-            </div>
-          }
-          @if (col('ganancia')) {
-            <div>
-              <dt>% ganancia</dt>
-              <dd>{{ i.porcentajeGanancia | number: '1.2-2' }}%</dd>
-            </div>
-          }
-        </dl>
+        <p class="muted">{{ a.motivo }}</p>
+        <div class="acciones">
+          <button type="button" class="secondary" (click)="editarAjuste(a)">Editar</button>
+          <button type="button" class="danger" (click)="eliminarAjuste(a)">Eliminar</button>
+        </div>
       </li>
     } @empty {
-      <li class="vacio muted">Sin productos.</li>
+      <li class="vacio muted">Sin ajustes aún.</li>
     }
   </ul>
+  <app-paginador
+    [total]="pagAjustes.total"
+    [pagina]="pagAjustes.pagina"
+    [pageSize]="pagAjustes.pageSize"
+    (prev)="pagAjustes.anterior()"
+    (next)="pagAjustes.siguiente()"
+  />
+  }
 </section>
 
-<section class="panel panel-alta" style="margin-top: 1rem">
-  <h3>Agregar producto</h3>
+<section class="panel panel-alta">
+  <button type="button" class="lista-toggle" (click)="toggleAlta()" [attr.aria-expanded]="altaAbierta">
+    <span class="lista-toggle-titulo">Agregar producto nuevo</span>
+    <span class="lista-toggle-hint">{{ altaAbierta ? 'Ocultar' : 'Mostrar' }}</span>
+  </button>
+
+  @if (altaAbierta) {
   <form class="form-grid form-alta" (ngSubmit)="guardarNuevo()">
     <label>
-      Producto
-      <input [(ngModel)]="formAlta.nombre" name="nombreAlta" required />
+      Nombre del producto
+      <input appClearable [(ngModel)]="formAlta.nombre" name="nombreAlta" required />
     </label>
     <label>
       Se vende por
@@ -467,6 +677,7 @@
       <input
         type="text"
         inputmode="decimal"
+        appClearable
         [(ngModel)]="formAlta.cantidadInicial"
         name="cantidadAlta"
         placeholder="0"
@@ -480,6 +691,7 @@
         <input
           type="text"
           inputmode="decimal"
+          appClearable
           [(ngModel)]="formAlta.precioCompra"
           name="compraAlta"
           placeholder="0"
@@ -495,6 +707,7 @@
         <input
           type="text"
           inputmode="decimal"
+          appClearable
           [(ngModel)]="formAlta.precioVenta"
           name="menudeoAlta"
           required
@@ -503,9 +716,11 @@
         />
       </div>
     </label>
-    <button type="submit" [disabled]="!altaCompleta">Agregar producto</button>
+    <button type="submit" [disabled]="!altaCompleta">Agregar producto nuevo</button>
   </form>
   @if (error) {
     <p class="error">{{ error }}</p>
   }
+  }
 </section>
+</div>

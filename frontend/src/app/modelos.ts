@@ -45,6 +45,8 @@ export interface Entrada {
   precioCompraAnterior: number | null;
   precioMayor: boolean;
   precioMenor: boolean;
+  pedidoId: number | null;
+  aplicadaAPedido: boolean;
 }
 
 export interface InventarioItem {
@@ -64,6 +66,15 @@ export interface InventarioItem {
   precioVentaBajoMinimo: boolean;
   vendePor: UnidadVenta;
   vendePorLabel: string;
+}
+
+export interface AjusteInventario {
+  id: number;
+  fecha: string;
+  productoId: number;
+  productoNombre: string;
+  cantidad: number;
+  motivo: string;
 }
 
 export interface PrecioHistorico {
@@ -273,6 +284,68 @@ export interface InversionResumen {
   /** % sobre ventas. */
   margenPorcentaje: number;
   items: InversionItem[];
+}
+
+export interface PedidoLinea {
+  productoId: number;
+  productoNombre: string;
+  vendePor: UnidadVenta;
+  vendePorLabel: string;
+  stockActual: number;
+  /** Salida real en el periodo observado. */
+  consumoObservado: number;
+  /** Ritmo proyectado a los días de cobertura (p. ej. mes). */
+  consumoBase: number;
+  consumoConColchon: number;
+  /** Faltante de pedidos abiertos anteriores. */
+  faltanteAnterior: number;
+  sugerido: number;
+}
+
+export interface InsumoAlerta {
+  productoInsumoId: number;
+  productoInsumoNombre: string;
+  productoResultadoId: number;
+  productoResultadoNombre: string;
+  stockInsumo: number;
+  stockResultado: number;
+  sugeridoPedir: number;
+  motivo: string;
+}
+
+export interface PedidoSugerido {
+  desde: string;
+  hasta: string;
+  diasObservados: number;
+  diasCobertura: number;
+  porcentajeExtra: number;
+  lineas: PedidoLinea[];
+  alertasInsumos: InsumoAlerta[];
+}
+
+export interface PedidoItemRegistrado {
+  id: number;
+  productoId: number;
+  productoNombre: string;
+  vendePor: UnidadVenta;
+  vendePorLabel: string;
+  cantidadPedida: number;
+  cantidadRecibida: number;
+  cantidadFaltante: number;
+}
+
+export interface PedidoRegistrado {
+  id: number;
+  fecha: string;
+  estado: 'ABIERTO' | 'PARCIAL' | 'CERRADO';
+  periodoDesde: string | null;
+  periodoHasta: string | null;
+  diasCobertura: number | null;
+  porcentajeExtra: number | null;
+  nota: string | null;
+  totalItems: number;
+  itemsConFalta: number;
+  items: PedidoItemRegistrado[];
 }
 
 export const MODOS_VENTA: { value: ModoVenta; label: string }[] = [

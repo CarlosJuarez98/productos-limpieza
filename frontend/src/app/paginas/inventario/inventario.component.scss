@@ -3,10 +3,87 @@ h3 {
   font-size: 1.1rem;
 }
 
+.lista-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.15rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text);
+  text-align: left;
+}
+
+.lista-toggle-titulo {
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+
+.lista-toggle-hint {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.buscar-row {
+  display: flex;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+
+.buscar-row .search {
+  flex: 1;
+  min-width: 0;
+}
+
+.buscar-ir {
+  flex-shrink: 0;
+  min-width: 3.25rem;
+  font-weight: 700;
+}
+
+.inv-card-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.stock-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #eef6f1;
+  border: 1px solid #9fbfab;
+  color: #1f3d2a;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.stock-pill.agotado {
+  background: #fff2e6;
+  border-color: #f4a460;
+  color: #7a3e0c;
+}
+
+.inv-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .panel-alta,
-.panel-lista {
+.panel-lista,
+.panel-ajuste {
   width: 100%;
   max-width: 100%;
+  margin-top: 0 !important;
 }
 
 /* Escritorio: campos en fila; Producto un poco más ancho, precios como márgenes */
@@ -60,11 +137,13 @@ h3 {
   width: 100%;
   table-layout: fixed;
   font-size: 0.92rem;
+  border-collapse: collapse;
+  margin: 0;
 }
 
 :host table.inv-table th,
 :host table.inv-table td {
-  padding: 0.4rem 0.5rem;
+  padding: 0.45rem 0.55rem;
   white-space: nowrap;
   word-break: normal;
   vertical-align: middle;
@@ -78,23 +157,88 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
-/* Producto un poco más ancho; el resto se reparte en partes iguales según las visibles */
-:host table.inv-table th:first-child,
-:host table.inv-table td:first-child {
+/* Producto / Menudeo / Stock se reparten; extras a la derecha; acciones fijas al final */
+:host table.inv-table th.col-producto,
+:host table.inv-table td.col-producto {
   text-align: left;
-  width: 16%;
+  width: 42%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-overflow: clip;
+  overflow: hidden;
 }
 
-:host table.inv-table th.actions,
-:host table.inv-table td.actions {
-  display: table-cell;
-  width: 4.75rem;
-  text-align: center;
-  vertical-align: middle;
-  white-space: nowrap;
-  overflow: visible;
+:host table.inv-table[data-cols='4'] th.col-producto,
+:host table.inv-table[data-cols='4'] td.col-producto {
+  width: 34%;
+}
+
+:host table.inv-table[data-cols='5'] th.col-producto,
+:host table.inv-table[data-cols='5'] td.col-producto,
+:host table.inv-table[data-cols='6'] th.col-producto,
+:host table.inv-table[data-cols='6'] td.col-producto {
+  width: 28%;
+}
+
+:host table.inv-table[data-cols='7'] th.col-producto,
+:host table.inv-table[data-cols='7'] td.col-producto,
+:host table.inv-table[data-cols='8'] th.col-producto,
+:host table.inv-table[data-cols='8'] td.col-producto,
+:host table.inv-table[data-cols='9'] th.col-producto,
+:host table.inv-table[data-cols='9'] td.col-producto,
+:host table.inv-table[data-cols='10'] th.col-producto,
+:host table.inv-table[data-cols='10'] td.col-producto {
+  width: 22%;
+}
+
+:host table.inv-table th.col-menudeo,
+:host table.inv-table td.col-menudeo,
+:host table.inv-table th.col-stock,
+:host table.inv-table td.col-stock {
+  width: 14%;
+  text-align: right;
+}
+
+:host table.inv-table th.col-extra,
+:host table.inv-table td.col-extra {
+  width: auto;
+  text-align: right;
+}
+
+:host table.inv-table th.col-extra:not(.money),
+:host table.inv-table td.col-extra:not(.money) {
+  text-align: left;
+}
+
+:host table.inv-table th.col-acciones,
+:host table.inv-table td.col-acciones {
+  width: 7.5rem;
+  min-width: 7.5rem;
+  max-width: 7.5rem;
   padding-left: 0.35rem;
   padding-right: 0.35rem;
+  text-align: right;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.stock-btns {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+:host table.inv-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #e8f0eb;
+  font-weight: 700;
+  color: #1a2e24;
+  border-bottom: 2px solid #c5d4cb;
+  box-shadow: none;
 }
 
 :host th {
@@ -322,6 +466,16 @@ td.col-sugerido {
   font-weight: 700;
 }
 
+:host tbody tr td.col-sugerido,
+:host tbody tr.warn td.col-sugerido,
+:host tbody tr.danger td.col-sugerido,
+:host tbody tr.ganancia-alta td.col-sugerido,
+:host tbody tr.editando-fila td.col-sugerido,
+:host tbody tr:hover td.col-sugerido {
+  background: #fff2e6;
+  color: #7a3e0c;
+}
+
 th.col-sugerido {
   position: sticky;
   top: 0;
@@ -333,9 +487,10 @@ th.col-sugerido {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  min-width: 1.85rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  flex-shrink: 0;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 0.35rem;
@@ -344,11 +499,11 @@ th.col-sugerido {
   cursor: pointer;
   vertical-align: middle;
   line-height: 1;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .icon-btn + .icon-btn {
-  margin-left: 0.3rem;
+  margin-left: 0.25rem;
 }
 
 .icon-btn svg {
@@ -400,26 +555,41 @@ input[readonly] {
   color: var(--muted);
 }
 
-:host tbody tr:hover:not(.fila-edicion):not(.editando-fila) td {
-  background: #e8f3ec;
+:host tbody tr:hover:not(.fila-edicion):not(.editando-fila) > td:not(.col-sugerido):not(.col-propia) {
+  background: rgba(28, 101, 74, 0.04);
   outline: none;
 }
 
-:host tr.editando-fila td,
-:host tr.editando-fila.warn td,
-:host tr.editando-fila.danger td,
-:host tr.editando-fila.ganancia-alta td {
-  background: #fff3e0;
+:host tr.editando-fila > td:first-child {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 65%, #fff);
+}
+
+:host tr.editando-fila > td {
   border-bottom-color: transparent;
-  box-shadow: inset 3px 0 0 #e08a2a;
-  font-weight: 600;
+  font-weight: inherit;
+}
+
+:host tr.editando-fila:not(.warn):not(.danger):not(.ganancia-alta) > td:not(.col-sugerido):not(.col-propia) {
+  background: rgba(28, 101, 74, 0.045);
+}
+
+:host tr.editando-fila.warn > td:not(.col-sugerido):not(.col-propia) {
+  background: rgba(154, 75, 31, 0.08);
+}
+
+:host tr.editando-fila.danger > td:not(.col-sugerido):not(.col-propia) {
+  background: rgba(143, 45, 45, 0.08);
+}
+
+:host tr.editando-fila.ganancia-alta > td:not(.col-sugerido):not(.col-propia) {
+  background: rgba(28, 101, 74, 0.08);
 }
 
 :host .fila-edicion td {
-  background: #fff8ef;
+  background: #f7faf8;
   border-top: none;
   padding: 0.65rem 0.75rem 0.85rem;
-  box-shadow: inset 3px 0 0 #e08a2a;
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 45%, #fff);
   white-space: normal;
   width: auto;
 }
@@ -456,8 +626,31 @@ input[readonly] {
 /* Móvil: apilar todo a ancho completo (no mezclar con fila de escritorio) */
 @media (max-width: 767px) {
   .panel-alta,
-  .panel-lista {
+  .panel-lista,
+  .panel-ajuste {
     width: 100%;
+  }
+
+  .lista-toggle {
+    justify-content: space-between;
+    flex-direction: row;
+    gap: 0.5rem;
+    text-align: left;
+    padding: 0.55rem 0.25rem;
+  }
+
+  .lista-toggle-titulo {
+    text-align: left;
+    width: auto;
+    flex: 1;
+  }
+
+  .lista-toggle-hint {
+    flex-shrink: 0;
+  }
+
+  .buscar-ir {
+    min-height: 2.45rem;
   }
 
   .form-alta {
@@ -465,8 +658,9 @@ input[readonly] {
     align-items: stretch;
   }
 
-  .form-alta label {
-    flex: none;
+  .form-alta label,
+  .form-alta label:first-child {
+    flex: 0 0 auto;
     width: 100%;
     max-width: none;
     min-width: 0;
@@ -529,52 +723,54 @@ input[readonly] {
   }
 
   :host table.inv-table {
-    width: max-content;
-    min-width: 38rem;
-    table-layout: auto;
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
     font-size: 0.9rem;
   }
 
   :host table.inv-table th,
   :host table.inv-table td {
-    overflow: visible;
-    text-overflow: unset;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 0.9rem;
     padding: 0.55rem 0.65rem;
     line-height: 1.3;
   }
 
-  /* Producto fijo al deslizar horizontal: se lee sin perder el nombre */
-  :host table.inv-table th:first-child,
-  :host table.inv-table td:first-child {
+  :host table.inv-table th.col-producto,
+  :host table.inv-table td.col-producto {
     position: sticky;
     left: 0;
     z-index: 3;
-    width: auto;
-    min-width: 9.5rem;
-    max-width: 12.5rem;
+    width: 36%;
+    min-width: 7.5rem;
     white-space: normal;
     background: #fff;
     box-shadow: 4px 0 8px -4px rgba(26, 43, 35, 0.18);
   }
 
-  :host table.inv-table th:first-child {
+  :host table.inv-table th.col-producto {
     z-index: 4;
     background: #e8f0eb;
   }
 
   :host table.inv-table th.money,
   :host table.inv-table td.money,
-  :host table.inv-table td.col-menudeo {
-    min-width: 5.5rem;
-    padding-left: 0.7rem;
-    padding-right: 0.7rem;
+  :host table.inv-table td.col-menudeo,
+  :host table.inv-table th.col-stock,
+  :host table.inv-table td.col-stock {
+    width: auto;
+    min-width: 4.25rem;
+    padding-left: 0.55rem;
+    padding-right: 0.55rem;
   }
 
-  :host table.inv-table th.actions,
-  :host table.inv-table td.actions {
-    width: 5rem;
-    min-width: 5rem;
+  :host table.inv-table th.col-acciones,
+  :host table.inv-table td.col-acciones {
+    width: 7rem;
+    min-width: 7rem;
+    max-width: 7rem;
   }
 
   .hist-cards .card-cols {
@@ -629,7 +825,7 @@ input[readonly] {
 
 @media (max-width: 1024px) and (orientation: landscape) {
   :host table.inv-table {
-    min-width: 34rem;
+    min-width: 0;
     font-size: 0.88rem;
   }
 
@@ -638,8 +834,8 @@ input[readonly] {
     padding: 0.4rem 0.55rem;
   }
 
-  :host table.inv-table th:first-child,
-  :host table.inv-table td:first-child {
+  :host table.inv-table th.col-producto,
+  :host table.inv-table td.col-producto {
     min-width: 8.5rem;
     max-width: 11rem;
   }

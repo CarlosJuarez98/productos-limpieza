@@ -4,17 +4,22 @@ import com.productoslimpieza.domain.MargenConfig;
 import com.productoslimpieza.domain.Producto;
 import com.productoslimpieza.domain.TipoVenta;
 import com.productoslimpieza.domain.UnidadVenta;
+import com.productoslimpieza.repo.AjusteInventarioRepository;
 import com.productoslimpieza.repo.EntradaRepository;
+import com.productoslimpieza.repo.PedidoItemRepository;
 import com.productoslimpieza.repo.ProductoRepository;
 import com.productoslimpieza.repo.ProduccionRepository;
 import com.productoslimpieza.repo.TraspasoLineaRepository;
 import com.productoslimpieza.repo.VentaRepository;
+import com.productoslimpieza.tenant.TenantGuard;
+import com.productoslimpieza.util.NombreNatural;
 import com.productoslimpieza.web.dto.InventarioDto;
 import com.productoslimpieza.web.dto.ProductoRequest;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
@@ -32,6 +37,8 @@ public class InventarioService {
   private final VentaRepository ventaRepo;
   private final ProduccionRepository produccionRepo;
   private final TraspasoLineaRepository traspasoLineaRepo;
+  private final AjusteInventarioRepository ajusteRepo;
+  private final PedidoItemRepository pedidoItemRepo;
   private final PrecioService precioService;
   private final PrecioHistoricoService precioHistoricoService;
   private final MargenService margenService;
@@ -42,6 +49,8 @@ public class InventarioService {
       VentaRepository ventaRepo,
       ProduccionRepository produccionRepo,
       TraspasoLineaRepository traspasoLineaRepo,
+      AjusteInventarioRepository ajusteRepo,
+      PedidoItemRepository pedidoItemRepo,
       PrecioService precioService,
       PrecioHistoricoService precioHistoricoService,
       MargenService margenService) {
@@ -50,6 +59,8 @@ public class InventarioService {
     this.ventaRepo = ventaRepo;
     this.produccionRepo = produccionRepo;
     this.traspasoLineaRepo = traspasoLineaRepo;
+    this.ajusteRepo = ajusteRepo;
+    this.pedidoItemRepo = pedidoItemRepo;
     this.precioService = precioService;
     this.precioHistoricoService = precioHistoricoService;
     this.margenService = margenService;
@@ -60,6 +71,7 @@ public class InventarioService {
     MargenConfig margen = margenService.getConfig();
     return productoRepo.findByActivoTrueOrderByNombreAsc().stream()
         .map(p -> toDto(p, margen))
+        .sorted(Comparator.comparing(InventarioDto::nombre, NombreNatural.comparator()))
         .toList();
   }
 
@@ -133,6 +145,7 @@ public class InventarioService {
   public InventarioDto actualizar(Long id, ProductoRequest req) {
     Producto p = productoRepo.findById(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
+    TenantGuard.assertOwned(p);
     productoRepo.findByNombreIgnoreCase(req.nombre().trim()).ifPresent(other -> {
       if (!other.getId().equals(id)) {
         throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un producto con ese nombre");
@@ -179,12 +192,15 @@ public class InventarioService {
   public void eliminar(Long id) {
     Producto p = productoRepo.findById(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
+    TenantGuard.assertOwned(p);
     boolean conHistorial =
         ventaRepo.countByProducto(p) > 0
             || entradaRepo.countByProducto(p) > 0
             || traspasoLineaRepo.countByProducto(p) > 0
             || produccionRepo.countByProductoResultado(p) > 0
-            || produccionRepo.countByProductoInsumo(p) > 0;
+            || produccionRepo.countByProductoInsumo(p) > 0
+            || ajusteRepo.countByProducto(p) > 0
+            || pedidoItemRepo.countByProducto(p) > 0;
     if (conHistorial) {
       p.setActivo(false);
       productoRepo.save(p);
@@ -263,6 +279,7 @@ public class InventarioService {
     BigDecimal producido = nz(produccionRepo.sumResultadoByProducto(p));
     BigDecimal consumidoPrep = nz(produccionRepo.sumInsumoByProducto(p));
     BigDecimal traspasos = nz(traspasoLineaRepo.sumCantidadByProducto(p));
+    BigDecimal ajustes = nz(ajusteRepo.sumCantidadByProducto(p));
     BigDecimal salidasUnidades = nz(ventaRepo.sumCantidadByProductoAndTipos(
         p, List.of(TipoVenta.LITROS, TipoVenta.PIEZA, TipoVenta.MUESTRA, TipoVenta.CASA, TipoVenta.MAYOREO)));
     BigDecimal pesos = nz(ventaRepo.sumCantidadByProductoAndTipo(p, TipoVenta.PESOS));
@@ -273,6 +290,7 @@ public class InventarioService {
     return nz(p.getCantidadInicial())
         .add(entradas)
         .add(producido)
+        .add(ajustes)
         .subtract(consumidoPrep)
         .subtract(traspasos)
         .subtract(salidasUnidades)

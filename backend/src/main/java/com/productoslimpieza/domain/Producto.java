@@ -1,17 +1,19 @@
 package com.productoslimpieza.domain;
 
+import com.productoslimpieza.tenant.TenantEntity;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "productos")
-public class Producto {
+@Table(name = "productos", uniqueConstraints = @UniqueConstraint(name = "uk_productos_tenant_nombre", columnNames = {"tenant_id", "nombre"}))
+public class Producto extends TenantEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(nullable = false, unique = true, length = 200)
+  @Column(nullable = false, length = 200)
   private String nombre;
 
   @Column(precision = 14, scale = 4)

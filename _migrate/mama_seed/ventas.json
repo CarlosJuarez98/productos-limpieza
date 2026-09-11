@@ -1,0 +1,1262 @@
+[
+  {
+    "fecha": "2026-04-19",
+    "tipoVenta": "Litros",
+    "cantidad": 20,
+    "total": 110,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-04-19",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-04-19",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 15,
+    "producto": "Suavitel Azul"
+  },
+  {
+    "fecha": "2026-04-19",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 15,
+    "producto": "Brazo"
+  },
+  {
+    "fecha": "2026-04-19",
+    "tipoVenta": "Casa",
+    "cantidad": 5,
+    "total": 0,
+    "producto": "Hipoclorito"
+  },
+  {
+    "fecha": "2026-04-19",
+    "tipoVenta": "Casa",
+    "cantidad": 3,
+    "total": 0,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-04-19",
+    "tipoVenta": "Casa",
+    "cantidad": 10,
+    "total": 0,
+    "producto": "Hipoclorito"
+  },
+  {
+    "fecha": "2026-04-19",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Base Fabuloso Brisas"
+  },
+  {
+    "fecha": "2026-04-19",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Base Fabuloso Flores"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 30,
+    "producto": "Fabuloso Brisas"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fabuloso Flores"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 28,
+    "producto": "Axion"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 30,
+    "producto": "Downy Rosa"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 50,
+    "producto": "Escoba"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 67,
+    "producto": "Mechudo 1/2 kg"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fibra de alambre"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Tendedero de tela"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 26,
+    "producto": "Micro fibra grande"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Trapo cocina"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fabuloso Flores"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 22,
+    "producto": "Jabon tipo Ariel"
+  },
+  {
+    "fecha": "2026-04-26",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Jabon tipo Detercon"
+  },
+  {
+    "fecha": "2026-04-30",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 28,
+    "producto": "Axion"
+  },
+  {
+    "fecha": "2026-04-30",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 22,
+    "producto": "Jabon tipo Mas color"
+  },
+  {
+    "fecha": "2026-04-30",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fabuloso Flores"
+  },
+  {
+    "fecha": "2026-05-01",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-03",
+    "tipoVenta": "Casa",
+    "cantidad": 3,
+    "total": 0,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-03",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-03",
+    "tipoVenta": "Pesos",
+    "cantidad": 24,
+    "total": 24,
+    "producto": "Jabon tipo Detercon"
+  },
+  {
+    "fecha": "2026-05-05",
+    "tipoVenta": "Litros",
+    "cantidad": 6,
+    "total": 36,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-05",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 20,
+    "producto": "Fabuloso Brisas"
+  },
+  {
+    "fecha": "2026-05-05",
+    "tipoVenta": "Pieza",
+    "cantidad": 2,
+    "total": 8,
+    "producto": "Fibra con ajax"
+  },
+  {
+    "fecha": "2026-05-06",
+    "tipoVenta": "Litros",
+    "cantidad": 4,
+    "total": 24,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-07",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 30,
+    "producto": "Downy Rosa"
+  },
+  {
+    "fecha": "2026-05-07",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-07",
+    "tipoVenta": "Pieza",
+    "cantidad": 3,
+    "total": 15,
+    "producto": "Atrapa moscas"
+  },
+  {
+    "fecha": "2026-05-07",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 7.5,
+    "producto": "Downy Rosa"
+  },
+  {
+    "fecha": "2026-05-08",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-08",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 4,
+    "producto": "Fibra con ajax"
+  },
+  {
+    "fecha": "2026-05-08",
+    "tipoVenta": "Casa",
+    "cantidad": 3,
+    "total": 0,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-09",
+    "tipoVenta": "Litros",
+    "cantidad": 7,
+    "total": 42,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-10",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-10",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Fibra verde grande"
+  },
+  {
+    "fecha": "2026-05-14",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-14",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Tendedero de tela"
+  },
+  {
+    "fecha": "2026-05-14",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 30,
+    "producto": "Pinzas paquete"
+  },
+  {
+    "fecha": "2026-05-14",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fabuloso Flores"
+  },
+  {
+    "fecha": "2026-05-15",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 27,
+    "producto": "Desengrasante industrial"
+  },
+  {
+    "fecha": "2026-05-16",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 22,
+    "producto": "Jabon tipo Zote Rosa"
+  },
+  {
+    "fecha": "2026-05-16",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-16",
+    "tipoVenta": "Casa",
+    "cantidad": 0.5,
+    "total": 0,
+    "producto": "Brazo"
+  },
+  {
+    "fecha": "2026-05-19",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-20",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-20",
+    "tipoVenta": "Casa",
+    "cantidad": 2.25,
+    "total": 0,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-21",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 24,
+    "producto": "Jabon manos durazno"
+  },
+  {
+    "fecha": "2026-05-21",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-23",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Jabon tipo Zote Rosa"
+  },
+  {
+    "fecha": "2026-05-23",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Downy Azul"
+  },
+  {
+    "fecha": "2026-05-23",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 7.5,
+    "producto": "Downy Azul"
+  },
+  {
+    "fecha": "2026-05-23",
+    "tipoVenta": "Litros",
+    "cantidad": 10,
+    "total": 90,
+    "producto": "Fabuloso Brisas"
+  },
+  {
+    "fecha": "2026-05-26",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-26",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 15,
+    "producto": "Axion"
+  },
+  {
+    "fecha": "2026-05-28",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fibra verde con esponja"
+  },
+  {
+    "fecha": "2026-05-28",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 15,
+    "producto": "Pastilla de baño Impek"
+  },
+  {
+    "fecha": "2026-05-29",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-05-29",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Fibra verde"
+  },
+  {
+    "fecha": "2026-05-30",
+    "tipoVenta": "Litros",
+    "cantidad": 1.5,
+    "total": 33,
+    "producto": "Jabon tipo Mas color"
+  },
+  {
+    "fecha": "2026-05-30",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 45,
+    "producto": "Pino"
+  },
+  {
+    "fecha": "2026-05-30",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 32,
+    "producto": "Brazo"
+  },
+  {
+    "fecha": "2026-05-30",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 15,
+    "producto": "Atomizador 1/4"
+  },
+  {
+    "fecha": "2026-05-30",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 20,
+    "producto": "Atomizador 1/2"
+  },
+  {
+    "fecha": "2026-05-30",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-01",
+    "tipoVenta": "Litros",
+    "cantidad": 4,
+    "total": 24,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-05",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-05",
+    "tipoVenta": "Casa",
+    "cantidad": 3,
+    "total": 0,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-05",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Pastilla de cloro"
+  },
+  {
+    "fecha": "2026-06-06",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-06",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 15,
+    "producto": "Axion"
+  },
+  {
+    "fecha": "2026-06-07",
+    "tipoVenta": "Litros",
+    "cantidad": 20,
+    "total": 110,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-11",
+    "tipoVenta": "Litros",
+    "cantidad": 20,
+    "total": 110,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-11",
+    "tipoVenta": "Litros",
+    "cantidad": 4,
+    "total": 24,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-12",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-12",
+    "tipoVenta": "Casa",
+    "cantidad": 2,
+    "total": 0,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-12",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Downy Azul"
+  },
+  {
+    "fecha": "2026-06-13",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 5,
+    "producto": "Bolsa para basura jumbo con cinta"
+  },
+  {
+    "fecha": "2026-06-13",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 3,
+    "producto": "Bolsa para basura mediana con cinta"
+  },
+  {
+    "fecha": "2026-06-13",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Jabon tipo Zote Rosa"
+  },
+  {
+    "fecha": "2026-06-13",
+    "tipoVenta": "Litros",
+    "cantidad": 1.5,
+    "total": 33,
+    "producto": "Jabon tipo Mas color"
+  },
+  {
+    "fecha": "2026-06-16",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-18",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-20",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-20",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fabuloso Flores"
+  },
+  {
+    "fecha": "2026-06-20",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 30,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-20",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 50,
+    "producto": "Fabuloso Pera Manzana"
+  },
+  {
+    "fecha": "2026-06-23",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 14,
+    "producto": "Cepillo chico cosmo"
+  },
+  {
+    "fecha": "2026-06-23",
+    "tipoVenta": "Pesos",
+    "cantidad": 30,
+    "total": 30,
+    "producto": "Jabon tipo Ariel"
+  },
+  {
+    "fecha": "2026-06-25",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-26",
+    "tipoVenta": "Litros",
+    "cantidad": 7,
+    "total": 42,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-26",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 27,
+    "producto": "Desengrasante industrial"
+  },
+  {
+    "fecha": "2026-06-26",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Downy Rosa"
+  },
+  {
+    "fecha": "2026-06-27",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Jabon tipo Zote Rosa"
+  },
+  {
+    "fecha": "2026-06-27",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 5,
+    "producto": "Bolsa para basura jumbo con cinta"
+  },
+  {
+    "fecha": "2026-06-27",
+    "tipoVenta": "Casa",
+    "cantidad": 4,
+    "total": 0,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-27",
+    "tipoVenta": "Casa",
+    "cantidad": 2,
+    "total": 0,
+    "producto": "Fabuloso Pera Manzana"
+  },
+  {
+    "fecha": "2026-06-27",
+    "tipoVenta": "Casa",
+    "cantidad": 0.25,
+    "total": 0,
+    "producto": "Quita sarro en gel"
+  },
+  {
+    "fecha": "2026-06-27",
+    "tipoVenta": "Pesos",
+    "cantidad": 50,
+    "total": 50,
+    "producto": "Jabon tipo Ariel"
+  },
+  {
+    "fecha": "2026-06-29",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Jabon tipo Detercon"
+  },
+  {
+    "fecha": "2026-06-29",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-30",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 30,
+    "producto": "Axion"
+  },
+  {
+    "fecha": "2026-06-30",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-06-30",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 27,
+    "producto": "Desengrasante industrial"
+  },
+  {
+    "fecha": "2026-06-30",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Jabon tipo Ariel"
+  },
+  {
+    "fecha": "2026-07-04",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 15,
+    "producto": "Downy Azul"
+  },
+  {
+    "fecha": "2026-07-04",
+    "tipoVenta": "Pesos",
+    "cantidad": 15,
+    "total": 15,
+    "producto": "Jabon tipo Mas color"
+  },
+  {
+    "fecha": "2026-07-06",
+    "tipoVenta": "Casa",
+    "cantidad": 4.5,
+    "total": 0,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-06",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 45,
+    "producto": "Fabuloso Lavanda"
+  },
+  {
+    "fecha": "2026-07-06",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 30,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-06",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 86,
+    "producto": "Escoba suave perico"
+  },
+  {
+    "fecha": "2026-07-09",
+    "tipoVenta": "Pesos",
+    "cantidad": 20,
+    "total": 20,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-09",
+    "tipoVenta": "Casa",
+    "cantidad": 1,
+    "total": 0,
+    "producto": "Suavitel Azul"
+  },
+  {
+    "fecha": "2026-07-09",
+    "tipoVenta": "Casa",
+    "cantidad": 0.5,
+    "total": 0,
+    "producto": "Brazo"
+  },
+  {
+    "fecha": "2026-07-10",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fibra verde con esponja"
+  },
+  {
+    "fecha": "2026-07-10",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Jabon tipo Zote Rosa"
+  },
+  {
+    "fecha": "2026-07-13",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 27,
+    "producto": "Desengrasante industrial"
+  },
+  {
+    "fecha": "2026-07-14",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Jabon tipo Detercon"
+  },
+  {
+    "fecha": "2026-07-14",
+    "tipoVenta": "Pesos",
+    "cantidad": 5,
+    "total": 5,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-14",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 20,
+    "producto": "Fabuloso Flores"
+  },
+  {
+    "fecha": "2026-07-15",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fabuloso Lavanda"
+  },
+  {
+    "fecha": "2026-07-16",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 7.5,
+    "producto": "Downy Azul"
+  },
+  {
+    "fecha": "2026-07-18",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-18",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-19",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 50,
+    "producto": "Fabuloso Pera Manzana"
+  },
+  {
+    "fecha": "2026-07-19",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 30,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-19",
+    "tipoVenta": "Litros",
+    "cantidad": 20,
+    "total": 110,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-21",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-24",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Jabon tipo Zote Rosa"
+  },
+  {
+    "fecha": "2026-07-25",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-28",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 44,
+    "producto": "Jabon tipo Ariel"
+  },
+  {
+    "fecha": "2026-07-28",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-07-28",
+    "tipoVenta": "Pieza",
+    "cantidad": 2,
+    "total": 8,
+    "producto": "Fibra con ajax"
+  },
+  {
+    "fecha": "2026-07-29",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-01",
+    "tipoVenta": "Litros",
+    "cantidad": 1.5,
+    "total": 33,
+    "producto": "Jabon tipo Ariel"
+  },
+  {
+    "fecha": "2026-08-01",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 52,
+    "producto": "Guante #8 plus vitex"
+  },
+  {
+    "fecha": "2026-08-02",
+    "tipoVenta": "Litros",
+    "cantidad": 1.5,
+    "total": 9,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-03",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 12,
+    "producto": "Jabon manos durazno"
+  },
+  {
+    "fecha": "2026-08-03",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fabuloso Lavanda"
+  },
+  {
+    "fecha": "2026-08-05",
+    "tipoVenta": "Litros",
+    "cantidad": 2.5,
+    "total": 15,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-05",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-05",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 24,
+    "producto": "Jabon manos durazno"
+  },
+  {
+    "fecha": "2026-08-06",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 27.5,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-06",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 45,
+    "producto": "Fabuloso Brisas"
+  },
+  {
+    "fecha": "2026-08-07",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fabuloso Lavanda"
+  },
+  {
+    "fecha": "2026-08-10",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 6,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-11",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 15,
+    "producto": "Downy Azul"
+  },
+  {
+    "fecha": "2026-08-11",
+    "tipoVenta": "Litros",
+    "cantidad": 4,
+    "total": 24,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-12",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-12",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 10,
+    "producto": "Fibra de alambre"
+  },
+  {
+    "fecha": "2026-08-12",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 30,
+    "producto": "Quita sarro en gel"
+  },
+  {
+    "fecha": "2026-08-13",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 30,
+    "producto": "Quita sarro en gel"
+  },
+  {
+    "fecha": "2026-08-13",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 52,
+    "producto": "Guante #7 plus vitex"
+  },
+  {
+    "fecha": "2026-08-14",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 18,
+    "producto": "Matamoscas"
+  },
+  {
+    "fecha": "2026-08-14",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 30,
+    "producto": "Axion"
+  },
+  {
+    "fecha": "2026-08-14",
+    "tipoVenta": "Pieza",
+    "cantidad": 5,
+    "total": 15,
+    "producto": "Bolsa para basura mediana con cinta"
+  },
+  {
+    "fecha": "2026-08-14",
+    "tipoVenta": "Pieza",
+    "cantidad": 1,
+    "total": 5,
+    "producto": "Bolsa para basura jumbo con cinta"
+  },
+  {
+    "fecha": "2026-08-15",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Jabon tipo Zote Rosa"
+  },
+  {
+    "fecha": "2026-08-15",
+    "tipoVenta": "Litros",
+    "cantidad": 2,
+    "total": 12,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-16",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-16",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 27,
+    "producto": "Desengrasante industrial"
+  },
+  {
+    "fecha": "2026-08-16",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 27.5,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-16",
+    "tipoVenta": "Litros",
+    "cantidad": 5,
+    "total": 45,
+    "producto": "Fabuloso Brisas"
+  },
+  {
+    "fecha": "2026-08-16",
+    "tipoVenta": "Casa",
+    "cantidad": 0.5,
+    "total": 0,
+    "producto": "Fabuloso Pera Manzana"
+  },
+  {
+    "fecha": "2026-08-20",
+    "tipoVenta": "Litros",
+    "cantidad": 4,
+    "total": 24,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-20",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 27,
+    "producto": "Desengrasante industrial"
+  },
+  {
+    "fecha": "2026-08-20",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 15,
+    "producto": "Downy Rosa"
+  },
+  {
+    "fecha": "2026-08-21",
+    "tipoVenta": "Litros",
+    "cantidad": 3,
+    "total": 18,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-22",
+    "tipoVenta": "Litros",
+    "cantidad": 4,
+    "total": 24,
+    "producto": "Cloro"
+  },
+  {
+    "fecha": "2026-08-22",
+    "tipoVenta": "Litros",
+    "cantidad": 1,
+    "total": 25,
+    "producto": "Tendedero blanco"
+  },
+  {
+    "fecha": "2026-08-22",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 27,
+    "producto": "Desengrasante industrial"
+  },
+  {
+    "fecha": "2026-08-22",
+    "tipoVenta": "Litros",
+    "cantidad": 0.5,
+    "total": 7.5,
+    "producto": "Downy Rosa"
+  }
+]

@@ -1,20 +1,75 @@
 @if (pullVisible) {
   <div class="pull-refresh" [class.listo]="pullListo" [style.height.px]="pullDistancia">
-    <span>{{ pullListo ? 'Suelta para recargar' : 'Desliza para recargar' }}</span>
+    <span>{{ pullListo ? 'Suelta para actualizar' : 'Desliza para actualizar' }}</span>
   </div>
 }
-<header class="top">
-  <div class="brand">
-    <img class="mark" src="amorcas-logo.png" alt="AMORCAS" width="52" height="52" />
-    <h1>Productos de limpieza Amorcas</h1>
-  </div>
-  <nav>
-    @for (link of links; track link.path) {
-      <a [routerLink]="link.path" routerLinkActive="active">{{ link.label }}</a>
-    }
-  </nav>
-</header>
-<main #mainScroll>
+
+@if (!esLogin) {
+  <header class="top">
+    <div class="brand">
+      <img class="mark" src="amorcas-logo.png" alt="AMORCAS" width="52" height="52" />
+      <h1>Productos de limpieza Amorcas</h1>
+      <div class="sesion-bar">
+        <span class="usuario-badge" [class.sin-sesion]="!usuarioActual">
+          {{ usuarioActual ? ('Usuario: ' + usuarioActual) : 'Sin sesión' }}
+        </span>
+        <button type="button" class="btn-salir" (click)="cerrarSesion()" title="Cerrar sesión">
+          Salir
+        </button>
+      </div>
+    </div>
+    <div class="top-tools">
+      <nav #topNav class="top-nav" aria-label="Secciones">
+        @for (link of links; track link.path) {
+          <a [routerLink]="link.path" routerLinkActive="active">{{ link.label }}</a>
+        }
+      </nav>
+    </div>
+  </header>
+}
+
+<main #mainScroll [class.login-main]="esLogin">
   <router-outlet />
 </main>
+
+@if (!esLogin) {
+  <nav class="bottom-nav" aria-label="Operación">
+    @for (link of bottomLinks; track link.path) {
+      <a [routerLink]="link.path" routerLinkActive="active">
+        <span class="bn-label">{{ link.label }}</span>
+      </a>
+    }
+    <button
+      type="button"
+      class="bn-more"
+      [class.active]="masActivo || masAbierto"
+      (click)="toggleMas()"
+      [attr.aria-expanded]="masAbierto"
+      aria-controls="mas-menu"
+    >
+      <span class="bn-label">Más</span>
+    </button>
+  </nav>
+
+  @if (masAbierto) {
+    <div class="mas-backdrop" (click)="cerrarMas()" role="presentation"></div>
+    <div id="mas-menu" class="mas-sheet" role="dialog" aria-label="Más secciones">
+      <div class="mas-sheet-head">
+        <strong>Más</strong>
+        <button type="button" class="mas-cerrar" (click)="cerrarMas()" aria-label="Cerrar">×</button>
+      </div>
+      <div class="mas-links">
+        @for (link of moreLinks; track link.path) {
+          <a [routerLink]="link.path" routerLinkActive="active" (click)="cerrarMas()">{{ link.label }}</a>
+        }
+        <p class="mas-usuario">
+          Sesión:
+          <strong>{{ usuarioActual || 'ninguna' }}</strong>
+        </p>
+        <button type="button" class="mas-salir" (click)="cerrarSesion()">Cerrar sesión / cambiar usuario</button>
+      </div>
+    </div>
+  }
+}
+
 <app-confirm-dialog />

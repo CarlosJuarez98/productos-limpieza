@@ -1,13 +1,15 @@
 package com.productoslimpieza.domain;
 
+import com.productoslimpieza.tenant.TenantEntity;
+
 import jakarta.persistence.*;
 
 @Entity
 @Table(
     name = "personas",
-    uniqueConstraints = @UniqueConstraint(name = "uk_personas_nombre", columnNames = "nombre")
+    uniqueConstraints = @UniqueConstraint(name = "uk_personas_tenant_nombre", columnNames = {"tenant_id", "nombre"})
 )
-public class Persona {
+public class Persona extends TenantEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)

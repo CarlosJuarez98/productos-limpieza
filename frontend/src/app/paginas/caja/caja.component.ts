@@ -1,10 +1,15 @@
-import { Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { ClearableDirective } from '../../clearable.directive';
 import { CajaResumen, CortePeriodo, MovimientoCaja, TipoMovimientoCaja } from '../../modelos';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
+import { PullRefreshService } from '../../pull-refresh.service';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
 
 interface Denominacion {
   valor: number;
@@ -14,14 +19,22 @@ interface Denominacion {
 @Component({
   selector: 'app-caja',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe],
+  imports: [CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, PaginadorComponent],
   templateUrl: './caja.component.html',
   styleUrl: './caja.component.scss',
 })
-export class CajaComponent implements OnInit {
+export class CajaComponent implements OnInit, OnDestroy {
   @ViewChildren('denInput') denInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   caja: CajaResumen | null = null;
+  movimientosEfectivo: MovimientoCaja[] = [];
+  transferenciasVista: MovimientoCaja[] = [];
+  retirosTransferenciaVista: MovimientoCaja[] = [];
+  pagEfectivo = new PaginacionEstado<MovimientoCaja>();
+  pagTransferencias = new PaginacionEstado<MovimientoCaja>();
+  pagRetirosTx = new PaginacionEstado<MovimientoCaja>();
+  /** Historial de banco colapsado por defecto; solo se ve el saldo. */
+  bancoHistAbierto = false;
   error = '';
   ok = '';
   /** Billetes/monedas contados en caja. */
@@ -56,14 +69,21 @@ export class CajaComponent implements OnInit {
     monto: null as number | null,
     motivo: '',
   };
+  private pullSub?: Subscription;
 
   constructor(
     private api: ApiService,
-    private confirmDlg: ConfirmDialogService
+    private confirmDlg: ConfirmDialogService,
+    private pullRefresh: PullRefreshService
   ) {}
 
   ngOnInit(): void {
     this.cargar();
+    this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
+  }
+
+  ngOnDestroy(): void {
+    this.pullSub?.unsubscribe();
   }
 
   hoyLocal(): string {
@@ -108,6 +128,7 @@ export class CajaComponent implements OnInit {
       next: (d) => {
         this.detalleCorte = d;
         this.cargandoCorte = false;
+        this.syncPaginadores(true);
       },
       error: (e) => {
         this.cargandoCorte = false;
@@ -125,8 +146,7 @@ export class CajaComponent implements OnInit {
     return `Sobraron $${x.toFixed(2)}.`;
   }
 
-  /** Retiros e ingresos del periodo/corte, juntos. */
-  get movimientosEfectivo(): MovimientoCaja[] {
+  private buildMovimientosEfectivo(): MovimientoCaja[] {
     const src = this.detalleCorte || this.caja;
     if (!src) return [];
     const lista = [...(src.retiros || []), ...(src.ingresos || [])];
@@ -137,23 +157,27 @@ export class CajaComponent implements OnInit {
     });
   }
 
+  private syncPaginadores(resetEfectivo = false): void {
+    this.movimientosEfectivo = this.buildMovimientosEfectivo();
+    this.transferenciasVista = this.caja?.transferencias || [];
+    this.retirosTransferenciaVista = this.caja?.retirosTransferencia || [];
+    this.pagEfectivo.setItems(this.movimientosEfectivo, resetEfectivo);
+    this.pagTransferencias.setItems(this.transferenciasVista, false);
+    this.pagRetirosTx.setItems(this.retirosTransferenciaVista, false);
+  }
+
   etiquetaTipoMov(tipo: TipoMovimientoCaja | string): string {
     if (tipo === 'INGRESO') return 'Ingreso';
     if (tipo === 'RETIRO') return 'Retiro';
     return String(tipo || '—');
   }
 
-  /** Transferencias del banco: siempre globales (no por periodo/corte). */
-  get transferenciasVista(): MovimientoCaja[] {
-    return this.caja?.transferencias || [];
-  }
-
-  get retirosTransferenciaVista(): MovimientoCaja[] {
-    return this.caja?.retirosTransferencia || [];
-  }
-
   get saldoBanco(): number {
     return Number(this.caja?.totalTransferenciasNetas) || 0;
+  }
+
+  toggleBancoHist(): void {
+    this.bancoHistAbierto = !this.bancoHistAbierto;
   }
 
   get totalTransferenciasVista(): number {
@@ -167,6 +191,7 @@ export class CajaComponent implements OnInit {
   limpiarCorteSeleccionado(): void {
     this.corteSeleccionado = null;
     this.detalleCorte = null;
+    this.syncPaginadores(true);
   }
 
   totalLinea(d: Denominacion): number {
@@ -182,6 +207,10 @@ export class CajaComponent implements OnInit {
     if (!siguiente) return;
     siguiente.focus();
     siguiente.select();
+  }
+
+  vaciarCalculadora(): void {
+    this.denominaciones.forEach((d) => (d.cantidad = null));
   }
 
   /** Total de la calculadora de efectivo. */
@@ -230,6 +259,7 @@ export class CajaComponent implements OnInit {
           fechaFin: c.fechaFin ?? this.hoyLocal(),
           fondoInicial: c.fondoInicial,
         };
+        this.syncPaginadores(!this.detalleCorte);
       },
       error: (e) => (this.error = e.error?.error || 'No se pudo cargar caja'),
     });

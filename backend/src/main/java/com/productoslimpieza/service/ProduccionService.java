@@ -82,6 +82,29 @@ public class ProduccionService {
   }
 
   @Transactional
+  public ProduccionDto actualizar(Long id, ProduccionRequest req) {
+    Produccion p = produccionRepo.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producción no encontrada"));
+    if (req.productoResultadoId().equals(req.productoInsumoId())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El resultado y el insumo no pueden ser el mismo producto");
+    }
+    Producto resultado = productoRepo.findById(req.productoResultadoId())
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto resultado no encontrado"));
+    Producto insumo = productoRepo.findById(req.productoInsumoId())
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto insumo no encontrado"));
+    if (!resultado.isActivo() || !insumo.isActivo()) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El producto está dado de baja del inventario");
+    }
+    p.setFecha(req.fecha());
+    p.setProductoResultado(resultado);
+    p.setCantidadResultado(req.cantidadResultado());
+    p.setProductoInsumo(insumo);
+    p.setCantidadInsumo(req.cantidadInsumo());
+    return toDto(produccionRepo.save(p));
+  }
+
+  @Transactional
   public void eliminar(Long id) {
     if (!produccionRepo.existsById(id)) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Producción no encontrada");

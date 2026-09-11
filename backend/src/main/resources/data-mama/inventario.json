@@ -1,0 +1,622 @@
+[
+  {
+    "nombre": "Abrillantador",
+    "precioCompra": 20,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Almorol",
+    "precioCompra": 40,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Atomizador 1/2",
+    "precioCompra": 10.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Atomizador 1/4",
+    "precioCompra": 9.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Atomizador 1L",
+    "precioCompra": 31,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Atrapa moscas",
+    "precioCompra": 2.78,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Axion",
+    "precioCompra": 20,
+    "cantidadInicial": 5
+  },
+  {
+    "nombre": "Bandeja flourecente",
+    "precioCompra": 13.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Bandeja normal",
+    "precioCompra": 3.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Base Fabuloso Bosques",
+    "precioCompra": 70,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Base Fabuloso Brisas",
+    "precioCompra": 70,
+    "cantidadInicial": 1
+  },
+  {
+    "nombre": "Base Fabuloso Chicle",
+    "precioCompra": 70,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Base Fabuloso Flores",
+    "precioCompra": 70,
+    "cantidadInicial": 1
+  },
+  {
+    "nombre": "Base Fabuloso Frutas",
+    "precioCompra": 70,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Base Fabuloso Lavanda",
+    "precioCompra": 70,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Base Fabuloso Limon",
+    "precioCompra": 70,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Base Fabuloso Mandarina",
+    "precioCompra": 70,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Base Fabuloso Manzana Canela",
+    "precioCompra": 70,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Base Fabuloso Pera Manzana",
+    "precioCompra": 70,
+    "cantidadInicial": 1
+  },
+  {
+    "nombre": "Bolsa para basura jumbo con cinta",
+    "precioCompra": 2.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Bolsa para basura mediana con cinta",
+    "precioCompra": 1.33,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Bomba WC",
+    "precioCompra": 22,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Brazo",
+    "precioCompra": 18,
+    "cantidadInicial": 5
+  },
+  {
+    "nombre": "Cepillo 20 perico",
+    "precioCompra": 12,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cepillo 30 perico",
+    "precioCompra": 14,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cepillo chico",
+    "precioCompra": 8,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cepillo chico cosmo",
+    "precioCompra": 9,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cepillo grande",
+    "precioCompra": 9.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cloro",
+    "precioCompra": 1.8,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cloro gel",
+    "precioCompra": 16,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Coladera aro #6",
+    "precioCompra": 13,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Coladera aro #8",
+    "precioCompra": 17,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Coladera vaso",
+    "precioCompra": 13,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Creolina",
+    "precioCompra": 24,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cuadritela Mediana",
+    "precioCompra": 6,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cubeta chica",
+    "precioCompra": 25,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cubeta grande",
+    "precioCompra": 30,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Cubeta mediana",
+    "precioCompra": 28,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Desengrasante de motor",
+    "precioCompra": 24,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Desengrasante industrial",
+    "precioCompra": 25,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Downy Azul",
+    "precioCompra": 9,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Downy Rosa",
+    "precioCompra": 8,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Embudo grande",
+    "precioCompra": 21,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Embudo mediano",
+    "precioCompra": 17,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Escoba",
+    "precioCompra": 25,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Escoba Alfa",
+    "precioCompra": 37,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Escoba economica",
+    "precioCompra": 31,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Escoba perico",
+    "precioCompra": 39,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Escobillon para mamila",
+    "precioCompra": 8.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Escobillon wc c/taza",
+    "precioCompra": 26,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Esponja chica",
+    "precioCompra": 5.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fabuloso Brisas",
+    "precioCompra": 4.37,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fabuloso Chicle",
+    "precioCompra": 4.37,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fabuloso Flores",
+    "precioCompra": 4.37,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fabuloso Frutas",
+    "precioCompra": 4.37,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fabuloso Lavanda",
+    "precioCompra": 4.37,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fabuloso Mandarina",
+    "precioCompra": 4.37,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fabuloso Manzana Canela",
+    "precioCompra": 4.38,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra blanca economica",
+    "precioCompra": 8,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra con ajax",
+    "precioCompra": 2,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra de alambre",
+    "precioCompra": 6,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra de alambre chica",
+    "precioCompra": 3.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra negra economica",
+    "precioCompra": 7,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra negra scotch entera",
+    "precioCompra": 22,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Mechudo 1kg",
+    "precioCompra": 42,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra negra scotch mitad",
+    "precioCompra": 11,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra verde",
+    "precioCompra": 1.66,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra verde con esponja",
+    "precioCompra": 5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra verde con esponja Scotch",
+    "precioCompra": 20,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra verde grande",
+    "precioCompra": 5.33,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Guante #8 Silk Han",
+    "precioCompra": 20,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra verde mediana",
+    "precioCompra": 3.67,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Franela",
+    "precioCompra": 17,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Guante #7 Silk Han",
+    "precioCompra": 20,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Guante #7 Vitex",
+    "precioCompra": 19,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Guante #8 Vitex",
+    "precioCompra": 19,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Hipoclorito",
+    "precioCompra": 10.5,
+    "cantidadInicial": 5
+  },
+  {
+    "nombre": "Jabon manos durazno",
+    "precioCompra": 16,
+    "cantidadInicial": 5
+  },
+  {
+    "nombre": "Jabon tipo Ariel",
+    "precioCompra": 14,
+    "cantidadInicial": 5
+  },
+  {
+    "nombre": "Jabon tipo Carisma",
+    "precioCompra": 15,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Jabon tipo Detercon",
+    "precioCompra": 14,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Jabon tipo Mas color",
+    "precioCompra": 12.5,
+    "cantidadInicial": 5
+  },
+  {
+    "nombre": "Jabon tipo Persil",
+    "precioCompra": 15,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Jabon tipo Vanish",
+    "precioCompra": 10,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Jabon tipo Zote Rosa",
+    "precioCompra": 15,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Jalador con esponja para vidrios",
+    "precioCompra": 34,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Jalador para piso perico",
+    "precioCompra": 40.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Jalador para vidrios manual perico",
+    "precioCompra": 19,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Jerga",
+    "precioCompra": 18,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Limpia vidrios",
+    "precioCompra": 4.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Matamoscas",
+    "precioCompra": 12.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Mechudo 1/2 kg",
+    "precioCompra": 46,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Mechudo respuesto perico",
+    "precioCompra": 41,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Micro fibra grande",
+    "precioCompra": 15.1,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Pastilla de baño",
+    "precioCompra": 12,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Pastilla de baño Impek",
+    "precioCompra": 9,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Pastilla de cloro",
+    "precioCompra": 1,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Piedra pomex",
+    "precioCompra": 0.42,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Pino",
+    "precioCompra": 6.5,
+    "cantidadInicial": 5
+  },
+  {
+    "nombre": "Pinzas paquete",
+    "precioCompra": 20,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Quita sarro en gel",
+    "precioCompra": 17.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Recogedor de mano",
+    "precioCompra": 20,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Recogedor reforzado",
+    "precioCompra": 33,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Shampoo con cera",
+    "precioCompra": 12,
+    "cantidadInicial": 5
+  },
+  {
+    "nombre": "Suavitel blanco (bebe)",
+    "precioCompra": 8,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Sosa",
+    "precioCompra": 10,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Sosa caustica (destapacaño)",
+    "precioCompra": 10,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Suavitel Azul",
+    "precioCompra": 8,
+    "cantidadInicial": 5
+  },
+  {
+    "nombre": "Suavitel Verde",
+    "precioCompra": 8,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Teflon",
+    "precioCompra": 40,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Tendedero azul",
+    "precioCompra": 15,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Tendedero blanco",
+    "precioCompra": 15,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Tendedero de tela",
+    "precioCompra": 15,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Tierra de ajax",
+    "precioCompra": 2,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Tinas Medianas",
+    "precioCompra": 20,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Trapo cocina",
+    "precioCompra": 5.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Zacate salux",
+    "precioCompra": 13.5,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Shampoo mascotas",
+    "precioCompra": 13,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fibra verde scotch grande",
+    "precioCompra": 16,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Baston de madera",
+    "precioCompra": 14,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Escoba suave perico",
+    "precioCompra": 58,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Guante #7 plus vitex",
+    "precioCompra": 35,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Guante #8 plus vitex",
+    "precioCompra": 35,
+    "cantidadInicial": 0
+  },
+  {
+    "nombre": "Fabuloso Pera Manzana",
+    "precioCompra": 4.38,
+    "cantidadInicial": 0
+  }
+]

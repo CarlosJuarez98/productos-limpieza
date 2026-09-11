@@ -4,16 +4,23 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { InversionItem, InversionResumen } from '../../modelos';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
+import { ClearableDirective } from '../../clearable.directive';
 
 @Component({
   selector: 'app-inversion',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PaginadorComponent, ClearableDirective],
   templateUrl: './inversion.component.html',
   styleUrl: './inversion.component.scss',
 })
 export class InversionComponent implements OnInit {
   data: InversionResumen | null = null;
+  productos: InversionItem[] = [];
+  infraestructura: InversionItem[] = [];
+  pagProductos = new PaginacionEstado<InversionItem>();
+  pagInfra = new PaginacionEstado<InversionItem>();
   error = '';
   ok = '';
   editando: InversionItem | null = null;
@@ -34,12 +41,11 @@ export class InversionComponent implements OnInit {
     this.cargar();
   }
 
-  get productos(): InversionItem[] {
-    return (this.data?.items ?? []).filter((i) => i.tipo === 'PRODUCTO');
-  }
-
-  get infraestructura(): InversionItem[] {
-    return (this.data?.items ?? []).filter((i) => i.tipo === 'INFRAESTRUCTURA');
+  private syncPaginadores(): void {
+    this.productos = (this.data?.items ?? []).filter((i) => i.tipo === 'PRODUCTO');
+    this.infraestructura = (this.data?.items ?? []).filter((i) => i.tipo === 'INFRAESTRUCTURA');
+    this.pagProductos.setItems(this.productos, false);
+    this.pagInfra.setItems(this.infraestructura, false);
   }
 
   get retornoPositivo(): boolean {
@@ -56,7 +62,10 @@ export class InversionComponent implements OnInit {
 
   cargar(): void {
     this.api.inversion().subscribe({
-      next: (d) => (this.data = d),
+      next: (d) => {
+        this.data = d;
+        this.syncPaginadores();
+      },
       error: (e) => (this.error = e.error?.error || 'No se pudo cargar inversión'),
     });
   }

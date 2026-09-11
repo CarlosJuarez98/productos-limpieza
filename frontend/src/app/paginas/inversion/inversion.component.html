@@ -82,7 +82,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (i of productos; track i.id) {
+        @for (i of pagProductos.paginaItems; track i.id) {
           <tr>
             <td>{{ i.concepto }}</td>
             <td class="money">{{ i.cantidad != null ? (i.cantidad | number: '1.2-2') : '—' }}</td>
@@ -108,7 +108,7 @@
   </div>
 
   <ul class="hist-cards">
-    @for (i of productos; track i.id) {
+    @for (i of pagProductos.paginaItems; track i.id) {
       <li>
         <div class="item-meta">
           <span>
@@ -148,6 +148,14 @@
       <li class="vacio muted">Sin productos iniciales registrados.</li>
     }
   </ul>
+  <app-paginador
+    [total]="pagProductos.total"
+    [pagina]="pagProductos.pagina"
+    [pageSize]="pagProductos.pageSize"
+    ariaLabel="Páginas de productos iniciales"
+    (prev)="pagProductos.anterior()"
+    (next)="pagProductos.siguiente()"
+  />
 </section>
 
 <section class="panel" style="margin-top: 1rem">
@@ -155,7 +163,7 @@
   <form class="form-grid form-infra" (ngSubmit)="guardarInfra()">
     <label>
       Concepto
-      <input [(ngModel)]="form.concepto" name="conceptoInfra" placeholder="Ej. Estantería" />
+      <input appClearable [(ngModel)]="form.concepto" name="conceptoInfra" placeholder="Ej. Estantería" />
     </label>
     <label>
       Monto
@@ -164,6 +172,7 @@
         <input
           type="text"
           inputmode="decimal"
+          appClearable
           [(ngModel)]="form.monto"
           name="montoInfra"
           placeholder="0"
@@ -182,7 +191,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (i of infraestructura; track i.id) {
+        @for (i of pagInfra.paginaItems; track i.id) {
           <tr>
             <td>{{ i.concepto }}</td>
             <td class="money">${{ i.monto | number: '1.2-2' }}</td>
@@ -200,7 +209,7 @@
   </div>
 
   <ul class="hist-cards">
-    @for (i of infraestructura; track i.id) {
+    @for (i of pagInfra.paginaItems; track i.id) {
       <li>
         <div class="item-meta">
           <span>Infra</span>
@@ -233,4 +242,12 @@
       <li class="vacio muted">Sin ítems de infraestructura.</li>
     }
   </ul>
+  <app-paginador
+    [total]="pagInfra.total"
+    [pagina]="pagInfra.pagina"
+    [pageSize]="pagInfra.pageSize"
+    ariaLabel="Páginas de infraestructura"
+    (prev)="pagInfra.anterior()"
+    (next)="pagInfra.siguiente()"
+  />
 </section>

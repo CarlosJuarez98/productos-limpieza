@@ -1,11 +1,13 @@
 package com.productoslimpieza.domain;
 
+import com.productoslimpieza.tenant.TenantEntity;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "inversion_items")
-public class InversionItem {
+public class InversionItem extends TenantEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)

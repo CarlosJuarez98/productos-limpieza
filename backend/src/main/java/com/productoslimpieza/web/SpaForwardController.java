@@ -8,8 +8,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class SpaForwardController {
 
   @RequestMapping(value = {
+      "/login",
       "/ventas", "/entradas", "/inventario", "/uso-casa", "/traspasos",
-      "/caja", "/apartados", "/inversion", "/precios", "/lista-precios"
+      "/caja", "/apartados", "/inversion", "/precios", "/lista-precios", "/surtir"
   })
   public String forward() {
     return "forward:/index.html";

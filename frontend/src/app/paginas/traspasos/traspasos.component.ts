@@ -1,11 +1,17 @@
-import { ChangeDetectorRef, Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { ClearableDirective } from '../../clearable.directive';
 import { InventarioItem, TraspasosResumen } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
+import { PullRefreshService } from '../../pull-refresh.service';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
+import { Traspaso, TraspasoAbono } from '../../modelos';
 
 interface LineaForm {
   key: number;
@@ -16,24 +22,34 @@ interface LineaForm {
 @Component({
   selector: 'app-traspasos',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProductoAutocompleteComponent, FechaDmYPipe],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ProductoAutocompleteComponent,
+    FechaDmYPipe,
+    ClearableDirective,
+    PaginadorComponent,
+  ],
   templateUrl: './traspasos.component.html',
   styleUrl: './traspasos.component.scss',
 })
-export class TraspasosComponent implements OnInit {
+export class TraspasosComponent implements OnInit, OnDestroy {
   @ViewChildren('prodLote') prodAutos!: QueryList<ProductoAutocompleteComponent>;
   @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   data: TraspasosResumen | null = null;
+  pagTraspasos = new PaginacionEstado<Traspaso>();
+  pagAbonos = new PaginacionEstado<TraspasoAbono>();
   productos: InventarioItem[] = [];
   error = '';
   private nextKey = 1;
+  private pullSub?: Subscription;
   form = {
     fecha: new Date().toISOString().slice(0, 10),
     persona: '',
     nota: '',
   };
-  lineas: LineaForm[] = [this.nuevaLinea(), this.nuevaLinea(), this.nuevaLinea()];
+  lineas: LineaForm[] = [this.nuevaLinea()];
   abono = {
     fecha: new Date().toISOString().slice(0, 10),
     monto: null as number | null,
@@ -44,11 +60,17 @@ export class TraspasosComponent implements OnInit {
   constructor(
     private api: ApiService,
     private confirmDlg: ConfirmDialogService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private pullRefresh: PullRefreshService
   ) {}
 
   ngOnInit(): void {
     this.cargar();
+    this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
+  }
+
+  ngOnDestroy(): void {
+    this.pullSub?.unsubscribe();
   }
 
   private nuevaLinea(): LineaForm {
@@ -158,9 +180,17 @@ export class TraspasosComponent implements OnInit {
     this.lineas.splice(index, 1);
   }
 
+  private syncPaginadores(reset = false): void {
+    this.pagTraspasos.setItems(this.data?.traspasos ?? [], reset);
+    this.pagAbonos.setItems(this.data?.abonos ?? [], reset);
+  }
+
   cargar(): void {
     this.api.traspasos().subscribe({
-      next: (d) => (this.data = d),
+      next: (d) => {
+        this.data = d;
+        this.syncPaginadores(true);
+      },
       error: (e) => (this.error = this.msgError(e) || 'No se pudieron cargar traspasos'),
     });
     this.api.inventario().subscribe({ next: (p) => (this.productos = p) });

@@ -4,11 +4,16 @@
 .vscode/
 target/
 
-# Base de datos H2 local (legado)
+# Base de datos H2 local (legado; ya no se usa)
 db/
 *.mv.db
 *.trace.db
 *.lock.db
+
+# Wallets ATP (nunca en git; la nube usa wallet en la VM)
+Wallet*.zip
+wallet-local/
+wallet/
 
 # Node / Angular
 frontend/node_modules/
@@ -28,5 +33,13 @@ Desktop.ini
 .env.cloud
 _migrate/.env.cloud
 _migrate/full_dump.json
+_migrate/cloud_dump.json
 _migrate/*.tar.gz
+_migrate/node_modules/
 
+# Basura de pruebas locales
+_b64.txt
+_caja_*.json
+_fix*
+_retiro_*.json
+_test_caja*

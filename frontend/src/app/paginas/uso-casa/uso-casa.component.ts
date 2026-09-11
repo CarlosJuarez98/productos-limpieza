@@ -2,17 +2,23 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  OnDestroy,
   OnInit,
   QueryList,
   ViewChildren,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
-import { formatFechaDmY } from '../../fecha-dmy.pipe';
+import { ClearableDirective } from '../../clearable.directive';
+import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { CajaResumen, InventarioItem, Venta } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
+import { PullRefreshService } from '../../pull-refresh.service';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
 
 interface LineaUso {
   key: number;
@@ -60,30 +66,52 @@ const INICIO_HISTORICO = '2025-10-29';
 @Component({
   selector: 'app-uso-casa',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProductoAutocompleteComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ProductoAutocompleteComponent,
+    FechaDmYPipe,
+    ClearableDirective,
+    PaginadorComponent,
+  ],
   templateUrl: './uso-casa.component.html',
   styleUrl: './uso-casa.component.scss',
 })
-export class UsoCasaComponent implements OnInit {
+export class UsoCasaComponent implements OnInit, OnDestroy {
   movimientos: Venta[] = [];
+  movimientosDelPeriodo: Venta[] = [];
+  pagHist = new PaginacionEstado<Venta>();
   productos: InventarioItem[] = [];
   caja: CajaResumen | null = null;
   error = '';
+  errorEdit = '';
   ok = '';
   guardando = false;
+  guardandoEdit = false;
   /** 'actual' o yyyy-MM-dd del corte. */
   periodoId = 'actual';
   mostrarCortes = false;
+  /** Móvil: gráfica colapsada para priorizar captura. */
+  chartAbierto = typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
   fecha = this.hoyLocal();
   lineas: LineaUso[] = [];
+  editandoId: number | null = null;
+  formEdit = {
+    fecha: this.hoyLocal(),
+    productoId: null as number | null,
+    cantidad: null as number | null,
+  };
   private nextKey = 1;
+  private pullSub?: Subscription;
 
-  @ViewChildren(ProductoAutocompleteComponent) prodAutos!: QueryList<ProductoAutocompleteComponent>;
+  @ViewChildren('prodLote') prodAutos!: QueryList<ProductoAutocompleteComponent>;
   @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   constructor(
     private api: ApiService,
-    private cdr: ChangeDetectorRef
+    private confirmDlg: ConfirmDialogService,
+    private cdr: ChangeDetectorRef,
+    private pullRefresh: PullRefreshService
   ) {}
 
   hoyLocal(): string {
@@ -101,6 +129,15 @@ export class UsoCasaComponent implements OnInit {
   ngOnInit(): void {
     this.resetLineas(1);
     this.cargar();
+    this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
+  }
+
+  ngOnDestroy(): void {
+    this.pullSub?.unsubscribe();
+  }
+
+  toggleChart(): void {
+    this.chartAbierto = !this.chartAbierto;
   }
 
   sumarDias(iso: string, dias: number): string {
@@ -181,16 +218,23 @@ export class UsoCasaComponent implements OnInit {
     if (id !== 'actual') {
       this.mostrarCortes = false;
     }
+    this.syncMovimientosPeriodo(true);
   }
 
   toggleCortes(): void {
     this.mostrarCortes = !this.mostrarCortes;
   }
 
-  get movimientosDelPeriodo(): Venta[] {
+  private syncMovimientosPeriodo(reset = false): void {
     const p = this.periodoActivo;
-    if (!p) return [];
-    return this.movimientos.filter((m) => m.fecha >= p.desde && m.fecha <= p.hasta);
+    if (!p) {
+      this.movimientosDelPeriodo = [];
+    } else {
+      this.movimientosDelPeriodo = this.movimientos.filter(
+        (m) => m.fecha >= p.desde && m.fecha <= p.hasta
+      );
+    }
+    this.pagHist.setItems(this.movimientosDelPeriodo, reset);
   }
 
   get totalImporte(): number {
@@ -285,7 +329,10 @@ export class UsoCasaComponent implements OnInit {
 
   cargar(): void {
     this.api.usoCasa().subscribe({
-      next: (v) => (this.movimientos = v),
+      next: (v) => {
+        this.movimientos = v;
+        this.syncMovimientosPeriodo();
+      },
       error: (e) => (this.error = e.error?.error || 'No se pudo cargar uso en casa'),
     });
     this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
@@ -295,6 +342,7 @@ export class UsoCasaComponent implements OnInit {
         if (!this.periodos.some((p) => p.id === this.periodoId)) {
           this.periodoId = 'actual';
         }
+        this.syncMovimientosPeriodo();
       },
       error: () => {
         /* sin caja: solo periodo genérico */
@@ -358,6 +406,86 @@ export class UsoCasaComponent implements OnInit {
     el.select();
   }
 
+  editar(m: Venta): void {
+    this.errorEdit = '';
+    this.editandoId = m.id;
+    this.formEdit = {
+      fecha: m.fecha,
+      productoId: m.productoId,
+      cantidad: m.cantidad,
+    };
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      const el =
+        document.querySelector('.hist-edicion-movil') || document.querySelector('.fila-edicion');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }
+
+  cancelarEdicion(): void {
+    this.editandoId = null;
+    this.errorEdit = '';
+    this.guardandoEdit = false;
+  }
+
+  guardarEdicion(): void {
+    if (this.editandoId == null) return;
+    this.errorEdit = '';
+    if (!this.formEdit.fecha) {
+      this.errorEdit = 'Indica la fecha';
+      return;
+    }
+    if (this.formEdit.fecha > this.hoyLocal()) {
+      this.errorEdit = 'No se pueden registrar fechas futuras';
+      return;
+    }
+    const cant = Number(this.formEdit.cantidad);
+    if (this.formEdit.productoId == null || !Number.isFinite(cant) || cant <= 0) {
+      this.errorEdit = 'Completa producto y cantidad';
+      return;
+    }
+    this.guardandoEdit = true;
+    this.api
+      .actualizarVenta(this.editandoId, {
+        fecha: this.formEdit.fecha,
+        productoId: this.formEdit.productoId,
+        tipoVenta: 'CASA',
+        cantidad: cant,
+      })
+      .subscribe({
+        next: () => {
+          this.guardandoEdit = false;
+          const fechaEdit = this.formEdit.fecha;
+          this.cancelarEdicion();
+          this.api.usoCasa().subscribe({
+            next: (v) => {
+              this.movimientos = v;
+              this.seleccionarPeriodoDeFecha(fechaEdit);
+              this.syncMovimientosPeriodo();
+            },
+          });
+          this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
+        },
+        error: (e) => {
+          this.guardandoEdit = false;
+          this.errorEdit = e.error?.error || 'Error al actualizar';
+        },
+      });
+  }
+
+  async eliminar(id: number): Promise<void> {
+    const ok = await this.confirmDlg.ask('¿Eliminar este uso en casa?', { confirmarTexto: 'Eliminar' });
+    if (!ok) return;
+    if (this.editandoId === id) this.cancelarEdicion();
+    this.api.eliminarVenta(id).subscribe({
+      next: () => {
+        this.cargar();
+        this.ok = 'Uso eliminado';
+      },
+      error: (e) => (this.error = e.error?.error || 'Error al eliminar'),
+    });
+  }
+
   guardar(): void {
     this.error = '';
     this.ok = '';
@@ -402,6 +530,7 @@ export class UsoCasaComponent implements OnInit {
           next: (v) => {
             this.movimientos = v;
             this.seleccionarPeriodoDeFecha(fechaGuardada);
+            this.syncMovimientosPeriodo(true);
           },
         });
         this.api.inventario().subscribe({ next: (p) => (this.productos = p) });

@@ -33,7 +33,17 @@ import { InventarioItem } from './modelos';
         [required]="required"
         autocomplete="off"
         [name]="inputName"
+        [class.con-clear]="texto.trim()"
       />
+      @if (texto.trim()) {
+        <button
+          type="button"
+          class="ac-clear"
+          aria-label="Borrar"
+          tabindex="-1"
+          (mousedown)="limpiar($event)"
+        >×</button>
+      }
       @if (abierto && texto.trim()) {
         <ul class="sugerencias" [class.arriba]="abreArriba" role="listbox">
           @for (p of filtrados; track p.id; let i = $index) {
@@ -70,6 +80,43 @@ import { InventarioItem } from './modelos';
       }
       .producto-ac input {
         width: 100%;
+      }
+      .producto-ac input.con-clear {
+        padding-right: 2.25rem;
+      }
+      .ac-clear {
+        position: absolute;
+        right: 0.15rem;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 2rem;
+        height: 2rem;
+        min-width: 2rem;
+        min-height: 2rem;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 1.35rem;
+        font-weight: 700;
+        line-height: 1;
+        padding: 0;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .ac-clear:hover,
+      .ac-clear:active {
+        color: var(--text);
+        background: rgba(26, 43, 35, 0.1);
+      }
+      @media (max-width: 767px) {
+        .producto-ac input {
+          min-height: 2.5rem;
+        }
       }
       .sugerencias {
         position: absolute;
@@ -140,6 +187,20 @@ export class ProductoAutocompleteComponent implements OnChanges {
 
   focus(): void {
     this.inputEl?.nativeElement?.focus();
+  }
+
+  blur(): void {
+    this.inputEl?.nativeElement?.blur();
+  }
+
+  limpiar(ev: Event): void {
+    ev.preventDefault();
+    this.texto = '';
+    this.productoId = null;
+    this.productoIdChange.emit(null);
+    this.abierto = false;
+    this.indiceActivo = -1;
+    this.focus();
   }
 
   onKeydown(ev: KeyboardEvent): void {

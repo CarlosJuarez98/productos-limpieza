@@ -13,6 +13,10 @@ import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.CorteCajaRepository;
 import com.productoslimpieza.repo.ProductoRepository;
 import com.productoslimpieza.repo.VentaRepository;
+import com.productoslimpieza.tenant.TenantContext;
+import com.productoslimpieza.tenant.TenantEntity;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
@@ -21,6 +25,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import javax.sql.DataSource;
+import org.hibernate.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -40,6 +45,7 @@ public class DataNormalizeRunner implements ApplicationRunner {
   private static final Logger log = LoggerFactory.getLogger(DataNormalizeRunner.class);
   private static final ZoneId ZONA = ZoneId.of("America/Mexico_City");
   private static final BigDecimal FONDO_POST_CORTE = new BigDecimal("200.00");
+  private static final List<String> TENANTS = List.of("mama", "admin");
 
   private final VentaRepository ventaRepo;
   private final ApartadoRepository apartadoRepo;
@@ -48,6 +54,9 @@ public class DataNormalizeRunner implements ApplicationRunner {
   private final ProductoRepository productoRepo;
   private final DataSource dataSource;
   private final TransactionTemplate txTemplate;
+
+  @PersistenceContext
+  private EntityManager entityManager;
 
   public DataNormalizeRunner(
       VentaRepository ventaRepo,
@@ -69,13 +78,32 @@ public class DataNormalizeRunner implements ApplicationRunner {
   @Override
   public void run(ApplicationArguments args) {
     permitirCategoriaServicios();
-    txTemplate.executeWithoutResult(status -> {
-      normalizarVentasMuestraCero();
-      normalizarApartadosTipo();
-      alinearPeriodoAlUltimoCorte();
-      normalizarParaApartarCortes();
-      normalizarVendePorProductos();
-    });
+    for (String tenant : TENANTS) {
+      TenantContext.set(tenant);
+      try {
+        txTemplate.executeWithoutResult(status -> {
+          enableTenantFilter();
+          normalizarVentasMuestraCero();
+          normalizarApartadosTipo();
+          alinearPeriodoAlUltimoCorte();
+          normalizarParaApartarCortes();
+          normalizarVendePorProductos();
+        });
+      } finally {
+        TenantContext.clear();
+      }
+    }
+  }
+
+  private void enableTenantFilter() {
+    String tenant = TenantContext.require();
+    Session session = entityManager.unwrap(Session.class);
+    var filter = session.getEnabledFilter(TenantEntity.FILTER);
+    if (filter == null) {
+      session.enableFilter(TenantEntity.FILTER).setParameter("tenantId", tenant);
+    } else {
+      filter.setParameter("tenantId", tenant);
+    }
   }
 
   private void permitirCategoriaServicios() {
@@ -112,7 +140,7 @@ public class DataNormalizeRunner implements ApplicationRunner {
       v.setTotal(cero);
     }
     ventaRepo.saveAll(malas);
-    log.info("Normalizadas {} ventas Muestra a total $0", malas.size());
+    log.info("[{}] Normalizadas {} ventas Muestra a total $0", TenantContext.get(), malas.size());
   }
 
   private void normalizarApartadosTipo() {
@@ -126,7 +154,7 @@ public class DataNormalizeRunner implements ApplicationRunner {
       a.setTipo(TipoMovimientoApartado.INGRESO);
     }
     apartadoRepo.saveAll(sinTipo);
-    log.info("Normalizados {} apartados sin tipo → INGRESO", sinTipo.size());
+    log.info("[{}] Normalizados {} apartados sin tipo → INGRESO", TenantContext.get(), sinTipo.size());
   }
 
   /** Periodo = día siguiente al último corte en BD. */
@@ -136,11 +164,16 @@ public class DataNormalizeRunner implements ApplicationRunner {
       return;
     }
     LocalDate inicioEsperado = ultimo.plusDays(1);
-    CajaConfig cfg = cajaConfigRepo.findById(1L).orElseGet(() -> {
+    String tenant = TenantContext.require();
+    CajaConfig cfg = cajaConfigRepo.findByTenantId(tenant).orElseGet(() -> {
       CajaConfig c = new CajaConfig();
-      c.setId(1L);
+      c.setId(cajaConfigRepo.nextId());
+      c.setTenantId(tenant);
       return c;
     });
+    if (cfg.getId() == null) {
+      cfg.setId(cajaConfigRepo.nextId());
+    }
     boolean cambio = false;
     if (cfg.getFechaInicio() == null || !inicioEsperado.equals(cfg.getFechaInicio())) {
       cfg.setFechaInicio(inicioEsperado);
@@ -159,7 +192,8 @@ public class DataNormalizeRunner implements ApplicationRunner {
     if (cambio) {
       cajaConfigRepo.save(cfg);
       log.info(
-          "Periodo alineado al último corte {}: inicio={}, fin={}, fondo={}",
+          "[{}] Periodo alineado al último corte {}: inicio={}, fin={}, fondo={}",
+          tenant,
           ultimo,
           cfg.getFechaInicio(),
           cfg.getFechaFin(),
@@ -170,7 +204,7 @@ public class DataNormalizeRunner implements ApplicationRunner {
   /** paraApartar = contado (o total caja) − fondo $200 que queda en caja. */
   private void normalizarParaApartarCortes() {
     BigDecimal fondo = FONDO_POST_CORTE;
-    CajaConfig cfg = cajaConfigRepo.findById(1L).orElse(null);
+    CajaConfig cfg = cajaConfigRepo.findByTenantId(TenantContext.require()).orElse(null);
     if (cfg != null && cfg.getFondoInicial() != null && cfg.getFondoInicial().compareTo(BigDecimal.ZERO) > 0) {
       fondo = cfg.getFondoInicial();
     }
@@ -190,14 +224,15 @@ public class DataNormalizeRunner implements ApplicationRunner {
       corteRepo.save(c);
       n++;
       log.info(
-          "Corte {}: paraApartar=${} (contado ${} − fondo ${})",
+          "[{}] Corte {}: paraApartar=${} (contado ${} − fondo ${})",
+          TenantContext.get(),
           c.getFecha(),
           para,
           contado,
           fondo);
     }
     if (n > 0) {
-      log.info("Completado paraApartar en {} corte(s)", n);
+      log.info("[{}] Completado paraApartar en {} corte(s)", TenantContext.get(), n);
     }
   }
 
@@ -218,7 +253,7 @@ public class DataNormalizeRunner implements ApplicationRunner {
       n++;
     }
     if (n > 0) {
-      log.info("Asignado vendePor a {} producto(s)", n);
+      log.info("[{}] Asignado vendePor a {} producto(s)", TenantContext.get(), n);
     }
   }
 }
