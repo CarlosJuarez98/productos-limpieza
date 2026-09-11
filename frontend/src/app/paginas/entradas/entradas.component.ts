@@ -13,7 +13,7 @@ import { ProductoAutocompleteComponent } from '../../producto-autocomplete.compo
 import { ProductoAltaFormComponent } from '../../producto-alta-form.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { PullRefreshService } from '../../pull-refresh.service';
-import { PaginacionEstado } from '../../paginacion.util';
+import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { AutoHideDirective } from '../../auto-hide.directive';
 
@@ -102,7 +102,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
   fecha = this.hoyLocal();
   fechaMin: string | null = null;
   fechaUltimoCorte: string | null = null;
-  lineas: LineaForm[] = [this.nuevaLinea(), this.nuevaLinea()];
+  lineas: LineaForm[] = this.crearLineasVacias();
   prep = {
     fecha: this.hoyLocal(),
     productoResultadoId: null as number | null,
@@ -301,6 +301,10 @@ export class EntradasComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  private crearLineasVacias(): LineaForm[] {
+    return Array.from({ length: capturaLineasVacias() }, () => this.nuevaLinea());
+  }
+
   private nuevaLinea(): LineaForm {
     return {
       key: this.nextKey++,
@@ -470,11 +474,10 @@ export class EntradasComponent implements OnInit, OnDestroy {
   }
 
   quitarLinea(index: number): void {
-    if (this.lineas.length <= 2) {
+    const min = capturaLineasVacias();
+    if (this.lineas.length <= min) {
       this.lineas[index] = this.nuevaLinea();
-      if (this.lineas.length < 2) {
-        this.lineas = [this.nuevaLinea(), this.nuevaLinea()];
-      }
+      if (this.lineas.length < min) this.lineas = this.crearLineasVacias();
       return;
     }
     this.lineas.splice(index, 1);
@@ -719,7 +722,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
           this.ok = nTr
             ? `Entrada registrada y traspaso a ${persona} listo`
             : 'Entrada registrada';
-          this.lineas = [this.nuevaLinea(), this.nuevaLinea()];
+          this.lineas = this.crearLineasVacias();
           this.traspasoPersona = '';
           this.persistirBorrador();
           this.cargar();

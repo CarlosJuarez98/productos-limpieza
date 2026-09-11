@@ -4,6 +4,33 @@
   </div>
 }
 
+@if (!esLogin && (offlineBanner || pendientes > 0 || offlineMsg)) {
+  <div
+    class="offline-banner"
+    [class.offline]="!enLinea"
+    [class.pending]="enLinea && pendientes > 0"
+    role="status"
+  >
+    <div class="offline-banner-text">
+      @if (!enLinea) {
+        <strong>Sin conexión.</strong>
+        <span>Puedes registrar; se subirá al volver internet.</span>
+      } @else if (sincronizando) {
+        <strong>Sincronizando…</strong>
+        <span>{{ pendientes }} pendiente(s)</span>
+      } @else if (pendientes > 0) {
+        <strong>{{ pendientes }} cambio(s) pendiente(s).</strong>
+        <span>{{ offlineMsg || 'Se suben al recuperar la red.' }}</span>
+      } @else if (offlineMsg) {
+        <span>{{ offlineMsg }}</span>
+      }
+    </div>
+    @if (enLinea && pendientes > 0 && !sincronizando) {
+      <button type="button" class="offline-sync-btn" (click)="sincronizarAhora()">Subir ahora</button>
+    }
+  </div>
+}
+
 @if (!esLogin) {
   <header class="top">
     <div class="brand">

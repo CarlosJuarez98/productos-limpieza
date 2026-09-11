@@ -4,6 +4,12 @@ export function pageSizeDefault(movil = 12, escritorio = 25): number {
   return window.matchMedia('(max-width: 767px)').matches ? movil : escritorio;
 }
 
+/** Filas vacías al capturar lote: 1 en móvil, 2 en PC. */
+export function capturaLineasVacias(movil = 1, escritorio = 2): number {
+  if (typeof window === 'undefined') return escritorio;
+  return window.matchMedia('(max-width: 767px)').matches ? movil : escritorio;
+}
+
 /** Estado de paginación sobre un arreglo ya filtrado. */
 export class PaginacionEstado<T> {
   items: T[] = [];
