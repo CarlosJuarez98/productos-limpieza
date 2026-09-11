@@ -116,8 +116,21 @@ for t in names:
     if t not in tables:
         continue
     meta = tables[t]
-    cols = meta["columns"]
+    cols = list(meta["columns"])
     rows = meta["rows"]
+    # Si local exige TENANT_ID y el dump de ATP no lo trae, lo inyectamos.
+    cur.execute(
+        """
+        SELECT COUNT(*) FROM user_tab_columns
+        WHERE table_name = :t AND column_name = 'TENANT_ID'
+        """,
+        {"t": t},
+    )
+    local_has_tenant = cur.fetchone()[0] > 0
+    dump_has_tenant = any(c.upper() == "TENANT_ID" for c in cols)
+    inject_tenant = local_has_tenant and not dump_has_tenant
+    if inject_tenant:
+        cols = cols + ["TENANT_ID"]
     if not rows:
         print(f"{t}: 0")
         continue
@@ -128,6 +141,9 @@ for t in names:
     for row in rows:
         vals = []
         for c in cols:
+            if inject_tenant and c.upper() == "TENANT_ID":
+                vals.append("mama")
+                continue
             v = parse_val(row.get(c))
             if v is None and c.upper() == "TENANT_ID":
                 v = "mama"
