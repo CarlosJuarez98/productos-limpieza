@@ -9,7 +9,7 @@ export type TipoVenta =
   | 'PAGO_DE_SERVICIOS';
 
 /** Cómo se captura la venta en UI (menudeo usa vendePor del producto). */
-export type ModoVenta = 'MENUDEO' | 'MAYOREO' | 'MUESTRA' | 'PESOS';
+export type ModoVenta = 'MENUDEO' | 'MAYOREO' | 'MUESTRA' | 'PESOS' | 'CASA';
 
 export type UnidadVenta = 'LITROS' | 'PIEZA';
 
@@ -19,7 +19,17 @@ export type TipoMovimientoCaja =
   | 'RETIRO_TRANSFERENCIA'
   | 'TRANSFERENCIA';
 
-export type CategoriaApartado = 'GENERAL' | 'PRODUCTOS' | 'CASA' | 'SALARIOS' | 'SERVICIOS';
+export type CategoriaApartado = string;
+
+export interface ApartadoRubro {
+  id: number;
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+  orden: number;
+  liquidaCorte: boolean;
+}
+
 export type TipoMovimientoApartado = 'INGRESO' | 'GASTO';
 
 export interface Venta {
@@ -164,10 +174,11 @@ export interface Apartado {
 }
 
 export interface ApartadosResumen {
-  /** Saldos actuales (ingresos − gastos). */
-  totales: Record<CategoriaApartado, number>;
-  ingresos: Record<CategoriaApartado, number>;
-  gastos: Record<CategoriaApartado, number>;
+  rubros: ApartadoRubro[];
+  /** Saldos actuales (ingresos − gastos) por código. */
+  totales: Record<string, number>;
+  ingresos: Record<string, number>;
+  gastos: Record<string, number>;
   movimientos: Apartado[];
 }
 
@@ -188,6 +199,22 @@ export interface RecetaSugerida {
   productoInsumoId: number | null;
   productoInsumoNombre: string | null;
   encontrada: boolean;
+  cantidadProducto?: number | null;
+  cantidadAgua?: number | null;
+  cantidadInsumo?: number | null;
+  ratioInsumo?: number | null;
+}
+
+/** Fórmula de preparación asociada a un producto. */
+export interface Receta {
+  id: number;
+  productoResultadoId: number;
+  productoResultadoNombre: string;
+  productoInsumoId: number;
+  productoInsumoNombre: string;
+  cantidadProducto: number;
+  cantidadAgua: number;
+  cantidadInsumo: number;
 }
 
 export interface MargenConfig {
@@ -352,9 +379,10 @@ export interface PedidoRegistrado {
 
 export const MODOS_VENTA: { value: ModoVenta; label: string }[] = [
   { value: 'MENUDEO', label: 'Menudeo' },
+  { value: 'PESOS', label: 'Pesos' },
+  { value: 'CASA', label: 'Casa' },
   { value: 'MAYOREO', label: 'Mayoreo' },
   { value: 'MUESTRA', label: 'Muestra' },
-  { value: 'PESOS', label: 'Pesos' },
 ];
 
 /** @deprecated Usar MODOS_VENTA; se mantiene por compatibilidad. */

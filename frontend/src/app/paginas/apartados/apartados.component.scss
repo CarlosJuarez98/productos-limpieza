@@ -28,6 +28,112 @@
   background: #fff8f0;
 }
 
+.rubros-panel {
+  margin-bottom: 0.55rem;
+  padding: 0.4rem 0.65rem;
+}
+
+.rubros-panel .panel-titulo {
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.rubros-panel .panel-toggle-body {
+  margin-top: 0.45rem;
+}
+
+.rubros-lista {
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rubros-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.4rem;
+  min-height: 1.85rem;
+}
+
+.rubro-nombre {
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 5rem;
+  flex: 1 1 auto;
+}
+
+.rubro-acciones {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.rubro-acciones .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  min-width: 1.85rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.rubro-acciones .icon-btn svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: currentColor;
+}
+
+.rubro-acciones .icon-btn.danger {
+  color: var(--danger);
+}
+
+.rubro-acciones .icon-btn.danger svg {
+  fill: none;
+}
+
+.rubro-acciones .icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rubros-lista input[type='text'],
+.rubro-nuevo input[type='text'] {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+  min-height: 2rem;
+  font-size: 0.9rem;
+}
+
+.btn-mini {
+  min-height: 2rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.82rem;
+}
+
+.btn-mini.ghost {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.rubro-nuevo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
 .acciones-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -354,7 +460,7 @@ h3 {
 
 .bloque-cols {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: 0.55rem;
   align-items: stretch;
 }

@@ -86,34 +86,20 @@ h3 {
   width: 100%;
   max-width: 100%;
   margin-top: 0 !important;
+  overflow: hidden;
 }
 
-/* Escritorio: campos en fila; Producto un poco más ancho, precios como márgenes */
-.form-alta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  align-items: end;
+.panel-ajuste .lista-toggle {
   margin-bottom: 0;
 }
 
-.form-alta label {
-  flex: 0 1 auto;
-  min-width: 8.75rem;
+.panel-ajuste .lista-toggle[aria-expanded='true'] {
+  margin-bottom: 0.65rem;
 }
 
-.form-alta label:first-child {
-  flex: 1 1 11rem;
-  min-width: 11rem;
-  max-width: none;
-}
-
-.form-alta input,
-.form-alta select,
-.form-alta .precio-input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+/* Misma rejilla igual que .form-grid (sin estirar el primer campo) */
+.form-alta {
+  margin-bottom: 0;
 }
 
 .form-alta input,
@@ -122,17 +108,15 @@ h3 {
 }
 
 .form-alta button[type='submit'] {
-  flex: 0 0 auto;
   white-space: nowrap;
   min-height: 2.35rem;
-  margin-left: auto;
 }
 
 .form-alta .campo-unitario {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  min-width: 8.75rem;
+  min-width: 0;
 }
 
 .form-alta .campo-unitario .campo-label {
@@ -142,11 +126,8 @@ h3 {
 }
 
 .form-alta .campo-unitario .dato-fijo {
+  /* recuadro global; solo altura de fila alta */
   min-height: 2.35rem;
-  display: flex;
-  align-items: center;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 .form-alta .hint-unitario {
@@ -613,6 +594,23 @@ input[readonly] {
   align-items: end;
 }
 
+.ajuste-en-edicion {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed var(--line);
+}
+
+.ajuste-en-edicion-titulo {
+  margin: 0 0 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.form-ajuste-inline {
+  margin: 0;
+}
+
 .edicion-actions {
   display: flex;
   gap: 0.45rem;
@@ -665,19 +663,6 @@ input[readonly] {
 
   .buscar-ir {
     min-height: 2.45rem;
-  }
-
-  .form-alta {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .form-alta label,
-  .form-alta label:first-child {
-    flex: 0 0 auto;
-    width: 100%;
-    max-width: none;
-    min-width: 0;
   }
 
   .form-alta button[type='submit'] {

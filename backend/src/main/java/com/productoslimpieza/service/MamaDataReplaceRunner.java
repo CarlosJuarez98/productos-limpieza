@@ -61,6 +61,7 @@ public class MamaDataReplaceRunner implements ApplicationRunner {
       "CORTES_CAJA",
       "CAJA_CONFIG",
       "MARGEN_CONFIG",
+      "APARTADO_RUBROS",
       "PRODUCTOS",
       "PERSONAS"
   );

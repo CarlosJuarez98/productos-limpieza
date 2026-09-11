@@ -37,7 +37,8 @@ public class TenantSchemaBootstrap implements ApplicationRunner {
       "CORTES_CAJA",
       "AJUSTES_INVENTARIO",
       "PEDIDOS",
-      "PEDIDO_ITEMS"
+      "PEDIDO_ITEMS",
+      "APARTADO_RUBROS"
   );
 
   private final JdbcTemplate jdbc;

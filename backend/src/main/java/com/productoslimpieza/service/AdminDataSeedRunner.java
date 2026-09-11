@@ -272,7 +272,7 @@ public class AdminDataSeedRunner implements ApplicationRunner {
       Apartado a = new Apartado();
       a.setTenantId(TENANT);
       a.setFecha(date(row.get("FECHA")));
-      a.setCategoria(CategoriaApartado.valueOf(str(row.get("CATEGORIA"))));
+      a.setCategoria(str(row.get("CATEGORIA")));
       a.setIngreso(nz(dec(row.get("INGRESO"))));
       String tipo = str(row.get("TIPO"));
       a.setTipo(tipo == null || tipo.isBlank()

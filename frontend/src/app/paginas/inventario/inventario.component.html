@@ -212,7 +212,7 @@
                 }
                 <td class="col-acciones">
                   <div class="stock-btns">
-                    @if (editando?.id !== i.id) {
+                    @if (editando?.id !== i.id && !mostrandoAjusteEn(i)) {
                       <button
                         type="button"
                         class="icon-btn"
@@ -309,6 +309,17 @@
                         <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
                       </div>
                     </form>
+                    <div class="ajuste-en-edicion">
+                      <p class="ajuste-en-edicion-titulo">Ajuste de stock</p>
+                      <ng-container *ngTemplateOutlet="ajusteInlineTpl; context: { sufijo: 'Edit' }" />
+                    </div>
+                  </td>
+                </tr>
+              } @else if (mostrandoAjusteEn(i)) {
+                <tr class="fila-edicion fila-ajuste">
+                  <td [attr.colspan]="colspanEdicion">
+                    <p class="ajuste-en-edicion-titulo">Ajuste de stock — {{ i.nombre }}</p>
+                    <ng-container *ngTemplateOutlet="ajusteInlineTpl; context: { sufijo: 'Fila' }" />
                   </td>
                 </tr>
               }
@@ -377,6 +388,15 @@
               <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
             </div>
           </form>
+          <div class="ajuste-en-edicion">
+            <p class="ajuste-en-edicion-titulo">Ajuste de stock</p>
+            <ng-container *ngTemplateOutlet="ajusteInlineTpl; context: { sufijo: 'EditMovil' }" />
+          </div>
+        </div>
+      } @else if (ajusteEnFila && formAjuste.productoId != null) {
+        <div class="hist-edicion-movil hist-ajuste-movil">
+          <p class="ajuste-en-edicion-titulo">Ajuste de stock</p>
+          <ng-container *ngTemplateOutlet="ajusteInlineTpl; context: { sufijo: 'FilaMovil' }" />
         </div>
       }
 
@@ -401,7 +421,7 @@
                 </span>
               </div>
               <div class="acciones">
-                @if (editando?.id !== i.id) {
+                @if (editando?.id !== i.id && !mostrandoAjusteEn(i)) {
                   <button
                     type="button"
                     class="icono"
@@ -508,31 +528,21 @@
 
 <section class="panel panel-ajuste" id="panel-ajuste-stock">
   <button type="button" class="lista-toggle" (click)="toggleAjuste()" [attr.aria-expanded]="ajusteAbierto">
-    <span class="lista-toggle-titulo">
-      {{ editandoAjuste ? 'Editar ajuste de stock' : 'Ajuste de stock' }}
-    </span>
+    <span class="lista-toggle-titulo">Historial de ajustes</span>
     <span class="chev" aria-hidden="true">{{ ajusteAbierto ? '▾' : '▸' }}</span>
   </button>
 
   @if (ajusteAbierto) {
-  <form class="form-grid form-alta" (ngSubmit)="guardarAjuste()">
+  @if (editandoAjuste) {
+  <form class="form-grid form-alta form-ajuste" (ngSubmit)="guardarAjuste()">
     <label>
       Fecha
       <input type="date" [(ngModel)]="formAjuste.fecha" name="fechaAjuste" required />
     </label>
-    <label>
-      Producto
-      <app-producto-autocomplete
-        [productos]="items"
-        [productoId]="formAjuste.productoId"
-        (productoIdChange)="onProductoAjusteChange($event)"
-        [required]="true"
-        [disabled]="!!editandoAjuste"
-        placeholder="Escribe el producto del inventario…"
-        inputName="prodAjuste"
-        mostrarExtra="stock"
-      />
-    </label>
+    <div class="campo-unitario">
+      <span class="campo-label">Producto</span>
+      <div class="dato-fijo">{{ editandoAjuste.productoNombre }}</div>
+    </div>
     <label>
       Dejar stock en
       <input
@@ -542,7 +552,7 @@
         [(ngModel)]="formAjuste.stockDeseado"
         name="stockDeseadoAjuste"
         [placeholder]="pistaStockAjuste()"
-        [title]="formAjuste.productoId != null ? pistaStockAjuste() : 'Cantidad final deseada'"
+        [title]="pistaStockAjuste()"
         required
       />
     </label>
@@ -560,13 +570,12 @@
     </label>
     <div class="edicion-actions">
       <button type="submit" [disabled]="guardandoAjuste">
-        {{ guardandoAjuste ? '…' : editandoAjuste ? 'Guardar cambio' : 'Registrar ajuste' }}
+        {{ guardandoAjuste ? '…' : 'Guardar cambio' }}
       </button>
-      @if (editandoAjuste || formAjuste.productoId) {
-        <button type="button" class="secondary" (click)="cancelarAjuste()">Cancelar</button>
-      }
+      <button type="button" class="secondary" (click)="cancelarAjuste()">Cancelar</button>
     </div>
   </form>
+  }
   @if (errorAjuste) {
     <p class="error">{{ errorAjuste }}</p>
   }
@@ -574,7 +583,6 @@
     <p class="ok-msg" appAutoHide (autoHide)="okAjuste = ''">{{ okAjuste }}</p>
   }
 
-  <h4 class="panel-subtitulo" style="margin-top: 1rem">Historial de ajustes</h4>
   <div class="table-wrap hist-tabla">
     <table>
       <thead>
@@ -719,3 +727,51 @@
   }
 </section>
 </div>
+
+<ng-template #ajusteInlineTpl let-sufijo="sufijo">
+  <form class="form-grid form-edicion form-ajuste-inline" (ngSubmit)="guardarAjuste()">
+    <label>
+      Fecha
+      <input type="date" [(ngModel)]="formAjuste.fecha" [name]="'fechaAjuste' + sufijo" required />
+    </label>
+    <label>
+      Dejar stock en
+      <input
+        type="text"
+        inputmode="decimal"
+        appClearable
+        [(ngModel)]="formAjuste.stockDeseado"
+        [name]="'stockDeseado' + sufijo"
+        [placeholder]="pistaStockAjuste()"
+        [title]="pistaStockAjuste()"
+        required
+      />
+    </label>
+    <label>
+      Motivo
+      <select [(ngModel)]="formAjuste.motivo" [name]="'motivoAjuste' + sufijo" required>
+        <option value="">Elige motivo…</option>
+        @for (m of motivosAjuste; track m) {
+          <option [value]="m">{{ m }}</option>
+        }
+        @if (motivoAjusteExtra()) {
+          <option [value]="formAjuste.motivo">{{ formAjuste.motivo }}</option>
+        }
+      </select>
+    </label>
+    <div class="edicion-actions">
+      <button type="submit" [disabled]="guardandoAjuste">
+        {{ guardandoAjuste ? '…' : 'Registrar ajuste' }}
+      </button>
+      @if (!editando) {
+        <button type="button" class="secondary" (click)="cancelarAjuste()">Cancelar</button>
+      }
+    </div>
+  </form>
+  @if (errorAjuste) {
+    <p class="error">{{ errorAjuste }}</p>
+  }
+  @if (okAjuste) {
+    <p class="ok-msg" appAutoHide (autoHide)="okAjuste = ''">{{ okAjuste }}</p>
+  }
+</ng-template>

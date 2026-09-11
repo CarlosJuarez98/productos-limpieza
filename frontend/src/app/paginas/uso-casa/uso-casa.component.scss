@@ -3,24 +3,34 @@
   font-size: 1.1rem;
 }
 
+.page-sub {
+  margin: -0.35rem 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.hint-captura {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
+
+.hint-captura a {
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.ok-msg {
+  color: var(--ok);
+  margin: 0 0 0.5rem;
+}
+
 .uso-flow {
   display: flex;
   flex-direction: column;
 }
 
 @media (max-width: 767px) {
-  .uso-captura {
-    order: 1;
-    margin-top: 0 !important;
-  }
-
-  .uso-chart {
-    order: 2;
-    margin-top: 1rem;
-  }
-
   .historial-panel {
-    order: 3;
+    order: 2;
   }
 }
 

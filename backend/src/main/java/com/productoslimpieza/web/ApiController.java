@@ -20,9 +20,11 @@ public class ApiController {
   private final PrecioHistoricoService precioHistoricoService;
   private final CajaService cajaService;
   private final ApartadoService apartadoService;
+  private final ApartadoRubroService apartadoRubroService;
   private final InversionService inversionService;
   private final ProduccionService produccionService;
   private final MargenService margenService;
+  private final RecetaService recetaService;
   private final TraspasoService traspasoService;
   private final PedidoService pedidoService;
   private final PedidoRegistroService pedidoRegistroService;
@@ -35,9 +37,11 @@ public class ApiController {
       PrecioHistoricoService precioHistoricoService,
       CajaService cajaService,
       ApartadoService apartadoService,
+      ApartadoRubroService apartadoRubroService,
       InversionService inversionService,
       ProduccionService produccionService,
       MargenService margenService,
+      RecetaService recetaService,
       TraspasoService traspasoService,
       PedidoService pedidoService,
       PedidoRegistroService pedidoRegistroService,
@@ -48,9 +52,11 @@ public class ApiController {
     this.precioHistoricoService = precioHistoricoService;
     this.cajaService = cajaService;
     this.apartadoService = apartadoService;
+    this.apartadoRubroService = apartadoRubroService;
     this.inversionService = inversionService;
     this.produccionService = produccionService;
     this.margenService = margenService;
+    this.recetaService = recetaService;
     this.traspasoService = traspasoService;
     this.pedidoService = pedidoService;
     this.pedidoRegistroService = pedidoRegistroService;
@@ -72,6 +78,11 @@ public class ApiController {
   @PostMapping("/ventas")
   public VentaDto crearVenta(@Valid @RequestBody VentaRequest req) {
     return ventaService.crear(req);
+  }
+
+  @PostMapping("/ventas/lote")
+  public List<VentaDto> crearVentasLote(@Valid @RequestBody VentasLoteRequest req) {
+    return ventaService.crearLote(req);
   }
 
   @PutMapping("/ventas/{id}")
@@ -190,6 +201,26 @@ public class ApiController {
     return margenService.aplicarPrecios();
   }
 
+  @GetMapping("/recetas")
+  public List<RecetaDto> recetas() {
+    return recetaService.listar();
+  }
+
+  @PostMapping("/recetas")
+  public RecetaDto crearReceta(@Valid @RequestBody RecetaRequest req) {
+    return recetaService.crear(req);
+  }
+
+  @PutMapping("/recetas/{id}")
+  public RecetaDto actualizarReceta(@PathVariable Long id, @Valid @RequestBody RecetaRequest req) {
+    return recetaService.actualizar(id, req);
+  }
+
+  @DeleteMapping("/recetas/{id}")
+  public void eliminarReceta(@PathVariable Long id) {
+    recetaService.eliminar(id);
+  }
+
   @GetMapping("/traspasos")
   public TraspasosResumenDto traspasos() {
     return traspasoService.resumen();
@@ -286,9 +317,35 @@ public class ApiController {
     return apartadoService.crear(req);
   }
 
+  @PostMapping("/apartados/lote")
+  public List<ApartadoDto> crearApartadosLote(@Valid @RequestBody ApartadosLoteRequest req) {
+    return apartadoService.crearLote(req);
+  }
+
   @DeleteMapping("/apartados/{id}")
   public void eliminarApartado(@PathVariable Long id) {
     apartadoService.eliminar(id);
+  }
+
+  @GetMapping("/apartados/rubros")
+  public List<ApartadoRubroDto> apartadosRubros() {
+    return apartadoRubroService.listarActivos();
+  }
+
+  @PostMapping("/apartados/rubros")
+  public ApartadoRubroDto crearApartadoRubro(@Valid @RequestBody ApartadoRubroRequest req) {
+    return apartadoRubroService.crear(req);
+  }
+
+  @PutMapping("/apartados/rubros/{id}")
+  public ApartadoRubroDto renombrarApartadoRubro(
+      @PathVariable Long id, @Valid @RequestBody ApartadoRubroRequest req) {
+    return apartadoRubroService.renombrar(id, req);
+  }
+
+  @DeleteMapping("/apartados/rubros/{id}")
+  public void eliminarApartadoRubro(@PathVariable Long id) {
+    apartadoRubroService.eliminar(id);
   }
 
   @GetMapping("/inversion")

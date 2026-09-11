@@ -228,7 +228,7 @@
                   {{ stockDisponible(l.productoId) | number: '1.0-2' }}
                 </div>
               } @else {
-                <span class="muted">—</span>
+                <div class="dato-fijo muted">—</div>
               }
             </div>
 
@@ -237,7 +237,7 @@
               @if (l.productoId != null && precioCompra(l.productoId) > 0) {
                 <div class="dato-fijo money">${{ precioCompra(l.productoId) | number: '1.2-2' }}</div>
               } @else {
-                <span class="muted">—</span>
+                <div class="dato-fijo muted">—</div>
               }
             </div>
 
@@ -246,7 +246,7 @@
               @if (totalLinea(l) > 0) {
                 <div class="dato-fijo money">${{ totalLinea(l) | number: '1.2-2' }}</div>
               } @else {
-                <span class="muted">—</span>
+                <div class="dato-fijo muted">—</div>
               }
             </div>
           </div>
@@ -395,6 +395,7 @@
                   <span class="ln-producto">{{ ln.productoNombre }}</span>
                   <span class="ln-meta">
                     <span class="ln-cant">{{ ln.cantidad | number: '1.0-2' }}</span>
+                    <span class="ln-total muted">${{ ln.total | number: '1.2-2' }}</span>
                   </span>
                 </li>
               } @empty {

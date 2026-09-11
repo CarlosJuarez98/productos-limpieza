@@ -1,4 +1,12 @@
 <h2 class="page-title">Uso en casa</h2>
+<p class="muted page-sub">Historial y consumo. El alta se hace en Ventas (modo Casa).</p>
+
+@if (error) {
+  <p class="error">{{ error }}</p>
+}
+@if (ok) {
+  <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
+}
 
 <div class="uso-flow">
 <section class="panel chart-panel uso-chart">
@@ -86,136 +94,6 @@
     <p class="muted vacio-mes">Sin consumo en {{ labelPeriodo }}.</p>
   }
   </div>
-  }
-</section>
-
-<section class="panel captura-panel uso-captura" style="margin-top: 1rem">
-  <div class="captura-head">
-    <label class="fecha-field">
-      Fecha
-      <input type="date" [(ngModel)]="fecha" name="fechaLote" [max]="fechaMax" required />
-    </label>
-  </div>
-
-  <!-- Escritorio: tabla -->
-  <div class="table-wrap lote-wrap">
-    <table class="lote">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Producto</th>
-          <th>Cantidad</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (l of lineas; track l.key; let i = $index) {
-          <tr>
-            <td class="muted">{{ i + 1 }}</td>
-            <td>
-              <app-producto-autocomplete
-                #prodLote
-                [productos]="productos"
-                [productoId]="l.productoId"
-                [inputName]="'prod' + l.key"
-                (productoIdChange)="l.productoId = $event"
-                (enterConfirmado)="onProductoEnter(i)"
-              />
-            </td>
-            <td>
-              <div class="cant-wrap">
-                <input
-                  #cantInput
-                  type="text"
-                  inputmode="decimal"
-                  appClearable
-                  [(ngModel)]="l.cantidad"
-                  [name]="'cant' + l.key"
-                  placeholder="0"
-                  (keydown.enter)="onCantidadEnter($event, i)"
-                />
-                <span class="unidad">{{ unidadDe(l.productoId) }}</span>
-              </div>
-            </td>
-            <td class="actions">
-              <button type="button" class="danger" (click)="quitarLinea(i)" title="Quitar fila">×</button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Móvil: tarjetas -->
-  <div class="lote-cards">
-    @for (l of lineas; track l.key; let i = $index) {
-      <article class="linea-card">
-        <header class="linea-top">
-          <span class="linea-num">{{ i + 1 }}</span>
-          <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
-        </header>
-
-        <label class="campo producto-campo">
-          Producto
-          <app-producto-autocomplete
-            [productos]="productos"
-            [productoId]="l.productoId"
-            [inputName]="'prodM' + l.key"
-            (productoIdChange)="l.productoId = $event"
-            (enterConfirmado)="onProductoEnter(i)"
-          />
-        </label>
-
-        <label class="campo">
-          Cantidad
-          <div class="cant-wrap">
-            <input
-              type="text"
-              inputmode="decimal"
-              appClearable
-              [(ngModel)]="l.cantidad"
-              [name]="'cantM' + l.key"
-              placeholder="0"
-              (keydown.enter)="onCantidadEnter($event, i)"
-            />
-            <span class="unidad">{{ unidadDe(l.productoId) }}</span>
-          </div>
-        </label>
-      </article>
-    }
-  </div>
-
-  <div class="captura-actions">
-    <button
-      type="button"
-      class="btn-agregar-linea"
-      (click)="agregarLinea()"
-      title="Agregar producto"
-      aria-label="Agregar producto"
-    >
-      +
-    </button>
-    <button
-      type="button"
-      class="btn-guardar-filas guardar-lote"
-      (click)="guardar()"
-      [disabled]="guardando || lineasConDatos === 0"
-    >
-      {{
-        guardando
-          ? 'Guardando…'
-          : lineasConDatos <= 1
-            ? 'Registrar uso'
-            : 'Registrar usos'
-      }}
-    </button>
-  </div>
-
-  @if (error) {
-    <p class="error">{{ error }}</p>
-  }
-  @if (ok) {
-    <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
   }
 </section>
 

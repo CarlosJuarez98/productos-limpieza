@@ -41,6 +41,7 @@ WIPE_ORDER = [
     "CORTES_CAJA",
     "CAJA_CONFIG",
     "MARGEN_CONFIG",
+    "APARTADO_RUBROS",
     "PRODUCTOS",
     "PERSONAS",
 ]

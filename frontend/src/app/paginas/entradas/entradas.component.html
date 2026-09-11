@@ -25,179 +25,64 @@
     </p>
   </div>
 
-  <!-- Escritorio: tabla -->
-  <div class="table-wrap lote-wrap">
-    <table class="lote" [class.con-traspaso]="tambienTraspasar">
-      <colgroup>
-        <col class="c-num" />
-        <col class="c-prod" />
-        <col class="c-cant" />
-        <col class="c-precio" />
-        <col class="c-ultima" />
-        <col class="c-cambio" />
-        <col class="c-total" />
-        @if (tambienTraspasar) {
-          <col class="c-traspaso" />
-        }
-        <col class="c-acciones" />
-      </colgroup>
-      <thead>
-        <tr>
-          <th class="col-num">#</th>
-          <th class="col-producto">Producto</th>
-          <th class="money col-cant">Cantidad</th>
-          <th class="money col-precio">Precio $</th>
-          <th class="money col-ultima">Última compra</th>
-          <th class="col-cambio" title="¿Subió, bajó o igual vs la última compra?">¿Subió?</th>
-          <th class="money col-total">Total $</th>
-          @if (tambienTraspasar) {
-            <th class="money col-traspaso">Traspasar</th>
-          }
-          <th class="col-acciones" aria-label="Acciones"></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (l of lineas; track l.key; let i = $index) {
-          <tr
-            [class.warn]="cambioLinea(l) === 'SUBIO'"
-            [class.bajo]="cambioLinea(l) === 'BAJO'"
-          >
-            <td class="col-num muted">{{ i + 1 }}</td>
-            <td class="col-producto">
-              <app-producto-autocomplete
-                #prodLote
-                [productos]="productosParaEntrada"
-                [productoId]="l.productoId"
-                [inputName]="'prod' + l.key"
-                (productoIdChange)="onProductoChange(l, $event)"
-                (enterConfirmado)="onProductoEnter(i)"
-              />
-            </td>
-            <td class="money col-cant">
-              <input
-                #cantInput
-                type="text"
-                inputmode="decimal"
-                appClearable
-                [(ngModel)]="l.cantidad"
-                [name]="'cant' + l.key"
-                placeholder="0"
-                (keydown.enter)="onCantidadEnter($event, i)"
-              />
-            </td>
-            <td class="money col-precio">
-              <div class="precio-input">
-                <span class="peso">$</span>
-                <input
-                  #precioInput
-                  type="text"
-                  inputmode="decimal"
-                  appClearable
-                  [(ngModel)]="l.precioProveedor"
-                  [name]="'precio' + l.key"
-                  [placeholder]="ultimaCompra(l.productoId) != null ? (ultimaCompra(l.productoId) | number: '1.2-2') : '0'"
-                  (keydown.enter)="onPrecioEnter($event, i)"
-                />
-              </div>
-            </td>
-            <td class="money col-ultima">
-              @if (ultimaCompra(l.productoId) != null) {
-                <span class="money muted">${{ ultimaCompra(l.productoId) | number: '1.2-2' }}</span>
-              } @else {
-                <span class="muted">—</span>
-              }
-            </td>
-            <td class="col-cambio">
-              @switch (cambioLinea(l)) {
-                @case ('SUBIO') {
-                  <span
-                    class="icono-cambio subio"
-                    [title]="'Subió +$' + (diffAbsLinea(l) | number: '1.2-2')"
-                    aria-label="Subió"
-                  >↑</span>
-                }
-                @case ('IGUAL') {
-                  <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
-                }
-                @case ('BAJO') {
-                  <span
-                    class="icono-cambio bajo"
-                    [title]="'Bajó −$' + (diffAbsLinea(l) | number: '1.2-2')"
-                    aria-label="Bajó"
-                  >↓</span>
-                }
-                @default {
-                  <span class="muted">—</span>
-                }
-              }
-            </td>
-            <td class="money col-total">
-              @if (totalLinea(l) != null) {
-                <span class="money">${{ totalLinea(l) | number: '1.2-2' }}</span>
-              } @else {
-                <span class="muted">—</span>
-              }
-            </td>
-            @if (tambienTraspasar) {
-              <td class="money col-traspaso">
-                <input
-                  type="text"
-                  inputmode="decimal"
-                  appClearable
-                  [(ngModel)]="l.cantidadTraspaso"
-                  [name]="'tr' + l.key"
-                  placeholder="0"
-                  [class.input-warn]="excedeTraspaso(l)"
-                  title="Cantidad a traspasar (no más de lo que entra)"
-                />
-              </td>
-            }
-            <td class="col-acciones">
-              <div class="acciones-celda">
-                <button
-                  type="button"
-                  class="icon-btn danger"
-                  (click)="quitarLinea(i)"
-                  title="Quitar fila"
-                  aria-label="Quitar fila"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M6 6l12 12M18 6L6 18"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.25"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Móvil: tarjetas -->
   <div class="lote-cards">
     @for (l of lineas; track l.key; let i = $index) {
       <article
         class="linea-card"
         [class.warn]="cambioLinea(l) === 'SUBIO'"
         [class.bajo]="cambioLinea(l) === 'BAJO'"
+        [class.con-traspaso]="l.tambienTraspasar"
       >
         <header class="linea-top">
           <span class="linea-num">{{ i + 1 }}</span>
-          <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
+          <div class="linea-acciones">
+            <button
+              type="button"
+              class="icon-btn traspaso-btn"
+              [class.activo]="l.tambienTraspasar"
+              (click)="toggleTraspasoLinea(l)"
+              [title]="l.tambienTraspasar ? 'Quitar traspaso de este producto' : 'Traspasar este producto'"
+              [attr.aria-label]="l.tambienTraspasar ? 'Quitar traspaso de este producto' : 'Traspasar este producto'"
+              [attr.aria-pressed]="l.tambienTraspasar"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M7 8h11l-2.5-2.5M17 16H6l2.5 2.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.1"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="icon-btn danger"
+              (click)="quitarLinea(i)"
+              title="Quitar fila"
+              aria-label="Quitar fila"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.25"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
         </header>
 
         <label class="campo producto-campo">
           Producto
           <app-producto-autocomplete
+            #prodLote
             [productos]="productosParaEntrada"
             [productoId]="l.productoId"
-            [inputName]="'prodM' + l.key"
+            [inputName]="'prod' + l.key"
             (productoIdChange)="onProductoChange(l, $event)"
             (enterConfirmado)="onProductoEnter(i)"
           />
@@ -207,26 +92,28 @@
           <label class="campo">
             Cantidad
             <input
+              #cantInput
               type="text"
               inputmode="decimal"
               appClearable
               [(ngModel)]="l.cantidad"
-              [name]="'cantM' + l.key"
+              [name]="'cant' + l.key"
               placeholder="0"
               (keydown.enter)="onCantidadEnter($event, i)"
             />
           </label>
 
           <label class="campo">
-            Precio proveedor
+            Precio $
             <div class="precio-input">
               <span class="peso">$</span>
               <input
+                #precioInput
                 type="text"
                 inputmode="decimal"
                 appClearable
                 [(ngModel)]="l.precioProveedor"
-                [name]="'precioM' + l.key"
+                [name]="'precio' + l.key"
                 [placeholder]="ultimaCompra(l.productoId) != null ? (ultimaCompra(l.productoId) | number: '1.2-2') : '0'"
                 (keydown.enter)="onPrecioEnter($event, i)"
               />
@@ -234,17 +121,17 @@
           </label>
 
           <div class="campo">
-            <span class="campo-label">Última compra</span>
+            <span class="campo-label">Última</span>
             @if (ultimaCompra(l.productoId) != null) {
               <div class="dato-fijo money muted">${{ ultimaCompra(l.productoId) | number: '1.2-2' }}</div>
             } @else {
-              <span class="muted">—</span>
+              <div class="dato-fijo muted">—</div>
             }
           </div>
 
           <div class="campo">
             <span class="campo-label">¿Subió?</span>
-            <div class="dato-fijo">
+            <div class="dato-fijo cambio-box">
               @switch (cambioLinea(l)) {
                 @case ('SUBIO') {
                   <span
@@ -275,42 +162,35 @@
             @if (totalLinea(l) != null) {
               <div class="dato-fijo money">${{ totalLinea(l) | number: '1.2-2' }}</div>
             } @else {
-              <span class="muted">—</span>
+              <div class="dato-fijo muted">—</div>
             }
           </div>
 
-          @if (tambienTraspasar) {
+          @if (l.tambienTraspasar) {
             <label class="campo">
-              Cantidad a traspasar
+              Traspasar
               <input
                 type="text"
                 inputmode="decimal"
                 appClearable
                 [(ngModel)]="l.cantidadTraspaso"
-                [name]="'trM' + l.key"
+                [name]="'tr' + l.key"
                 placeholder="0"
                 [class.input-warn]="excedeTraspaso(l)"
+                title="Cantidad a traspasar (no más de lo que entra)"
               />
             </label>
-            @if (excedeTraspaso(l)) {
-              <p class="error traspaso-warn">No puede ser más de lo que entra</p>
-            }
           }
         </div>
+        @if (l.tambienTraspasar && excedeTraspaso(l)) {
+          <p class="error traspaso-warn">No puede ser más de lo que entra</p>
+        }
       </article>
     }
   </div>
 
-  <div class="traspaso-opcion">
-    <button
-      type="button"
-      class="btn-traspasar"
-      [class.activo]="tambienTraspasar"
-      (click)="toggleTambienTraspasar()"
-    >
-      {{ tambienTraspasar ? 'Quitar traspaso' : 'También traspasar' }}
-    </button>
-    @if (tambienTraspasar) {
+  @if (hayTraspasoActivo) {
+    <div class="traspaso-opcion">
       <label class="persona-traspaso">
         Persona
         <select [(ngModel)]="traspasoPersona" name="traspasoPersona" required>
@@ -323,8 +203,8 @@
       @if (!personasNombres.length) {
         <p class="muted hint-persona">No hay personas. Agrégalas en Traspasos.</p>
       }
-    }
-  </div>
+    </div>
+  }
 
   <div class="toolbar lote-actions">
     <button
@@ -340,7 +220,7 @@
       {{
         guardando
           ? 'Guardando...'
-          : tambienTraspasar
+          : hayTraspasoActivo
             ? 'Registrar entrada y traspaso'
             : 'Registrar entradas'
       }}
@@ -354,14 +234,137 @@
   }
 </section>
 
-<section class="panel panel-prep" style="margin-top: 1rem">
+<section class="panel panel-prep" id="panel-prep" style="margin-top: 1rem">
   <button type="button" class="panel-toggle" (click)="togglePrep()" [attr.aria-expanded]="prepAbierta">
     <h3 class="panel-titulo">Preparación</h3>
     <span class="chev">{{ prepAbierta ? '▾' : '▸' }}</span>
   </button>
   @if (prepAbierta) {
   <div class="panel-toggle-body">
-  <form class="form-grid" (ngSubmit)="guardarPreparacion()">
+  <div class="recetas-bar">
+    <button type="button" class="secondary btn-recetas" (click)="toggleRecetas()" [attr.aria-expanded]="recetasAbierta">
+      {{ recetasAbierta ? 'Ocultar fórmulas' : 'Editar fórmulas' }}
+    </button>
+  </div>
+  @if (recetasAbierta) {
+    <div class="recetas-editor">
+      @if (recetas.length) {
+        <ul class="recetas-lista">
+          @for (r of recetas; track r.id) {
+            <li>
+              <span>
+                {{ r.cantidadProducto | number: '1.0-4' }} L {{ r.productoResultadoNombre }}
+                =
+                {{ r.cantidadAgua | number: '1.0-4' }} L agua
+                +
+                {{ r.cantidadInsumo | number: '1.0-4' }} L {{ r.productoInsumoNombre }}
+              </span>
+              <span class="receta-lista-acciones">
+                <button type="button" class="secondary" (click)="editarFormula(r)">Editar</button>
+                <button type="button" class="danger" (click)="eliminarFormula(r)">Eliminar</button>
+              </span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="muted">Aún no hay fórmulas. Crea la primera abajo.</p>
+      }
+
+      <div class="form-recetas">
+        <div class="campo-receta campo-receta-wide">
+          <span class="campo-receta-label">Producto preparado</span>
+          <app-producto-autocomplete
+            [productos]="productos"
+            [productoId]="formReceta.productoResultadoId"
+            (productoIdChange)="formReceta.productoResultadoId = $event"
+            placeholder="Elige o crea el producto…"
+            inputName="recetaProd"
+          />
+          <button type="button" class="linkish" (click)="abrirAltaProducto('resultado')">
+            + Producto nuevo
+          </button>
+        </div>
+        <div class="campo-receta campo-receta-wide">
+          <span class="campo-receta-label">Insumo</span>
+          <app-producto-autocomplete
+            [productos]="productos"
+            [productoId]="formReceta.productoInsumoId"
+            (productoIdChange)="formReceta.productoInsumoId = $event"
+            placeholder="Ej. Hipoclorito / Base…"
+            inputName="recetaIns"
+            mostrarExtra="stock"
+          />
+          <button type="button" class="linkish" (click)="abrirAltaProducto('insumo')">
+            + Insumo nuevo
+          </button>
+        </div>
+        <div class="campo-receta">
+          <label class="campo-receta-label" for="recetaCantProd">Producto (L)</label>
+          <input
+            id="recetaCantProd"
+            type="text"
+            inputmode="decimal"
+            [(ngModel)]="formReceta.cantidadProducto"
+            name="recetaCantProd"
+          />
+          <span class="campo-receta-foot" aria-hidden="true"></span>
+        </div>
+        <div class="campo-receta">
+          <label class="campo-receta-label" for="recetaCantAgua">Agua (L)</label>
+          <input
+            id="recetaCantAgua"
+            type="text"
+            inputmode="decimal"
+            [(ngModel)]="formReceta.cantidadAgua"
+            name="recetaCantAgua"
+          />
+          <span class="campo-receta-foot" aria-hidden="true"></span>
+        </div>
+        <div class="campo-receta">
+          <label class="campo-receta-label" for="recetaCantIns">Insumo (L)</label>
+          <input
+            id="recetaCantIns"
+            type="text"
+            inputmode="decimal"
+            [(ngModel)]="formReceta.cantidadInsumo"
+            name="recetaCantIns"
+          />
+          <span class="campo-receta-foot" aria-hidden="true"></span>
+        </div>
+      </div>
+
+      @if (altaProductoPara) {
+        <div class="alta-en-receta">
+          <p class="muted">
+            {{ altaProductoPara === 'resultado' ? 'Nuevo producto preparado' : 'Nuevo insumo' }}
+          </p>
+          <app-producto-alta-form
+            [namePrefix]="'prepAlta' + altaProductoPara"
+            [submitLabel]="'Registrar y usar'"
+            (creado)="onProductoCreadoFormula($event)"
+            (cancelado)="altaProductoPara = null"
+          />
+        </div>
+      }
+
+      <div class="recetas-actions">
+        <button type="button" (click)="guardarFormula()" [disabled]="guardandoRecetas">
+          {{ guardandoRecetas ? 'Guardando…' : editandoRecetaId != null ? 'Guardar cambios' : 'Crear fórmula' }}
+        </button>
+        @if (editandoRecetaId != null) {
+          <button type="button" class="secondary" (click)="nuevaFormula()">Nueva</button>
+        }
+        <button type="button" class="secondary" (click)="cancelarEdicionRecetas()">Cerrar</button>
+      </div>
+      @if (errorRecetas) {
+        <p class="error">{{ errorRecetas }}</p>
+      }
+      @if (okRecetas) {
+        <p class="ok-msg" appAutoHide (autoHide)="okRecetas = ''">{{ okRecetas }}</p>
+      }
+    </div>
+  }
+  <form class="form-grid form-prep" (ngSubmit)="guardarPreparacion()">
     <label>
       Fecha
       <input
@@ -380,7 +383,7 @@
         [productoId]="prep.productoResultadoId"
         (productoIdChange)="onResultadoChange($event)"
         [required]="true"
-        placeholder="Cloro o Fabuloso..."
+        placeholder="Productos con fórmula…"
       />
     </label>
     <label>
@@ -390,6 +393,7 @@
         inputmode="decimal"
         appClearable
         [(ngModel)]="prep.cantidadResultado"
+        (ngModelChange)="onCantidadPrepChange()"
         name="prepCantRes"
         placeholder="0"
         required
@@ -401,25 +405,39 @@
     </label>
     <label>
       Cantidad de insumo
-      <input
-        type="text"
-        inputmode="decimal"
-        appClearable
-        [(ngModel)]="prep.cantidadInsumo"
-        name="prepCantIns"
-        placeholder="0"
-        required
-      />
+      <div class="dato-fijo" [class.disp-warn]="excedeStockInsumoPrep">
+        @if (prep.cantidadInsumo != null) {
+          {{ prep.cantidadInsumo | number: '1.0-2' }} L
+        } @else {
+          <span class="muted">—</span>
+        }
+      </div>
     </label>
-    <div class="prep-actions">
-      <button type="submit">
-        {{ editandoPrepId != null ? 'Guardar cambios' : 'Registrar preparación' }}
-      </button>
-      @if (editandoPrepId != null) {
-        <button type="button" class="secondary" (click)="cancelarEdicionPrep()">Cancelar</button>
-      }
-    </div>
+    <label class="campo-accion">
+      <span class="campo-accion-spacer" aria-hidden="true">&nbsp;</span>
+      <div class="prep-actions">
+        <button type="submit" [disabled]="excedeStockInsumoPrep">
+          {{ editandoPrepId != null ? 'Guardar cambios' : 'Registrar preparación' }}
+        </button>
+        @if (editandoPrepId != null) {
+          <button type="button" class="secondary" (click)="cancelarEdicionPrep()">Cancelar</button>
+        }
+      </div>
+    </label>
   </form>
+  @if (prep.productoInsumoId != null) {
+    <p class="prep-stock" [class.disp-warn]="excedeStockInsumoPrep" [class.ok-stock]="!excedeStockInsumoPrep && (prep.cantidadInsumo ?? 0) > 0">
+      @if (excedeStockInsumoPrep) {
+        No alcanza el {{ prep.insumoNombre || 'insumo' }}:
+        necesitas {{ prep.cantidadInsumo | number: '1.0-2' }} L,
+        hay {{ stockInsumoPrep | number: '1.0-2' }} L.
+      } @else if ((prep.cantidadInsumo ?? 0) > 0) {
+        Hay {{ stockInsumoPrep | number: '1.0-2' }} L de {{ prep.insumoNombre }} — suficiente.
+      } @else {
+        Disp. {{ prep.insumoNombre || 'insumo' }}: {{ stockInsumoPrep | number: '1.0-2' }} L
+      }
+    </p>
+  }
   @if (errorPrep) {
     <p class="error">{{ errorPrep }}</p>
   }

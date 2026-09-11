@@ -1,8 +1,9 @@
-import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
+import { CapturaDraftService } from '../../captura-draft.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { InventarioItem, TraspasosResumen } from '../../modelos';
@@ -19,6 +20,12 @@ interface LineaForm {
   cantidad: number | null;
 }
 
+type DraftTraspasos = {
+  form: { fecha: string; persona: string; nota: string };
+  lineas: Omit<LineaForm, 'key'>[];
+  nextKey: number;
+};
+
 @Component({
   selector: 'app-traspasos',
   standalone: true,
@@ -34,6 +41,8 @@ interface LineaForm {
   styleUrl: './traspasos.component.scss',
 })
 export class TraspasosComponent implements OnInit, OnDestroy {
+  private static readonly DRAFT = 'traspasos';
+
   @ViewChildren('prodLote') prodAutos!: QueryList<ProductoAutocompleteComponent>;
   @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
@@ -61,16 +70,24 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     private api: ApiService,
     private confirmDlg: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
-    private pullRefresh: PullRefreshService
+    private pullRefresh: PullRefreshService,
+    private drafts: CapturaDraftService
   ) {}
 
   ngOnInit(): void {
+    this.restaurarBorrador();
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
 
   ngOnDestroy(): void {
+    this.persistirBorrador();
     this.pullSub?.unsubscribe();
+  }
+
+  @HostListener('window:pagehide')
+  onPageHide(): void {
+    this.persistirBorrador();
   }
 
   private nuevaLinea(): LineaForm {
@@ -225,9 +242,13 @@ export class TraspasosComponent implements OnInit, OnDestroy {
           this.form.persona = '';
           this.form.nota = '';
           this.lineas = [this.nuevaLinea(), this.nuevaLinea(), this.nuevaLinea()];
+          this.drafts.clear(TraspasosComponent.DRAFT);
           this.cargar();
         },
-        error: (e) => (this.error = this.msgError(e) || 'Error al guardar traspaso'),
+        error: (e) => {
+          this.error = this.msgError(e) || 'Error al guardar traspaso';
+          this.persistirBorrador();
+        },
       });
   }
 
@@ -269,5 +290,49 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     const ok = await this.confirmDlg.ask('¿Eliminar abono?', { confirmarTexto: 'Eliminar' });
     if (!ok) return;
     this.api.eliminarAbonoTraspaso(id).subscribe({ next: () => this.cargar() });
+  }
+
+  private hayBorradorUtil(): boolean {
+    return (
+      !!this.form.persona.trim() ||
+      !!this.form.nota.trim() ||
+      this.lineas.some(
+        (l) =>
+          l.productoId != null || (l.cantidad != null && Number(l.cantidad) !== 0)
+      )
+    );
+  }
+
+  private persistirBorrador(): void {
+    if (!this.hayBorradorUtil()) {
+      this.drafts.clear(TraspasosComponent.DRAFT);
+      return;
+    }
+    const draft: DraftTraspasos = {
+      form: { ...this.form },
+      nextKey: this.nextKey,
+      lineas: this.lineas.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
+    };
+    this.drafts.save(TraspasosComponent.DRAFT, draft);
+  }
+
+  private restaurarBorrador(): void {
+    const draft = this.drafts.load<DraftTraspasos>(TraspasosComponent.DRAFT);
+    if (!draft) return;
+    if (draft.form) {
+      this.form = {
+        fecha: draft.form.fecha || this.form.fecha,
+        persona: draft.form.persona || '',
+        nota: draft.form.nota || '',
+      };
+    }
+    this.nextKey = Math.max(1, Number(draft.nextKey) || 1);
+    if (draft.lineas?.length) {
+      this.lineas = draft.lineas.map((l) => ({
+        key: this.nextKey++,
+        productoId: l.productoId ?? null,
+        cantidad: l.cantidad ?? null,
+      }));
+    }
   }
 }

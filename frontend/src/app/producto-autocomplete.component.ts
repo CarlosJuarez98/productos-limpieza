@@ -73,9 +73,17 @@ import { InventarioItem } from './modelos';
   `,
   styles: [
     `
+      :host {
+        display: block;
+        width: 100%;
+        min-width: 0;
+      }
       .producto-ac {
         position: relative;
         z-index: 1;
+        display: block;
+        width: 100%;
+        min-width: 0;
       }
       .producto-ac:focus-within {
         z-index: 40;

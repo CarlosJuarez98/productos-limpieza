@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AjusteInventario,
   Apartado,
+  ApartadoRubro,
   ApartadosResumen,
   CajaResumen,
   CortePeriodo,
@@ -16,6 +17,7 @@ import {
   Persona,
   PrecioHistorico,
   Produccion,
+  Receta,
   RecetaSugerida,
   PedidoSugerido,
   PedidoRegistrado,
@@ -44,6 +46,10 @@ export class ApiService {
 
   crearVenta(body: unknown): Observable<Venta> {
     return this.http.post<Venta>(`${this.base}/ventas`, body);
+  }
+
+  crearVentasLote(body: { fecha: string; lineas: unknown[] }): Observable<Venta[]> {
+    return this.http.post<Venta[]>(`${this.base}/ventas/lote`, body);
   }
 
   actualizarVenta(id: number, body: unknown): Observable<Venta> {
@@ -143,6 +149,22 @@ export class ApiService {
     return this.http.post<MargenConfig>(`${this.base}/margenes/aplicar-precios`, {});
   }
 
+  recetas(): Observable<Receta[]> {
+    return this.http.get<Receta[]>(`${this.base}/recetas`);
+  }
+
+  crearReceta(body: unknown): Observable<Receta> {
+    return this.http.post<Receta>(`${this.base}/recetas`, body);
+  }
+
+  actualizarReceta(id: number, body: unknown): Observable<Receta> {
+    return this.http.put<Receta>(`${this.base}/recetas/${id}`, body);
+  }
+
+  eliminarReceta(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/recetas/${id}`);
+  }
+
   traspasos(): Observable<TraspasosResumen> {
     return this.http.get<TraspasosResumen>(`${this.base}/traspasos`);
   }
@@ -220,8 +242,32 @@ export class ApiService {
     return this.http.post<Apartado>(`${this.base}/apartados`, body);
   }
 
+  crearApartadosLote(body: {
+    fecha: string;
+    lineas: Array<{
+      categoria: string;
+      ingreso: number;
+      tipo: string;
+      motivo?: string | null;
+    }>;
+  }): Observable<Apartado[]> {
+    return this.http.post<Apartado[]>(`${this.base}/apartados/lote`, body);
+  }
+
   eliminarApartado(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/apartados/${id}`);
+  }
+
+  crearApartadoRubro(nombre: string): Observable<ApartadoRubro> {
+    return this.http.post<ApartadoRubro>(`${this.base}/apartados/rubros`, { nombre });
+  }
+
+  renombrarApartadoRubro(id: number, nombre: string): Observable<ApartadoRubro> {
+    return this.http.put<ApartadoRubro>(`${this.base}/apartados/rubros/${id}`, { nombre });
+  }
+
+  eliminarApartadoRubro(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/apartados/rubros/${id}`);
   }
 
   inversion(): Observable<InversionResumen> {

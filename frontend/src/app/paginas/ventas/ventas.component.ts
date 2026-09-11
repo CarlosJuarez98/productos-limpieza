@@ -2,6 +2,7 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  HostListener,
   OnDestroy,
   OnInit,
   QueryList,
@@ -10,8 +11,9 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
+import { CapturaDraftService } from '../../captura-draft.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { InventarioItem, MODOS_VENTA, ModoVenta, TipoVenta, Venta } from '../../modelos';
@@ -20,6 +22,7 @@ import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
+import { RouterLink } from '@angular/router';
 
 interface LineaVenta {
   key: number;
@@ -31,12 +34,19 @@ interface LineaVenta {
   total: number | null;
 }
 
+type DraftVentas = {
+  fecha: string;
+  lineas: Omit<LineaVenta, 'key'>[];
+  nextKey: number;
+};
+
 @Component({
   selector: 'app-ventas',
   standalone: true,
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     ProductoAutocompleteComponent,
     FechaDmYPipe,
     ClearableDirective,
@@ -46,6 +56,8 @@ interface LineaVenta {
   styleUrl: './ventas.component.scss',
 })
 export class VentasComponent implements OnInit, OnDestroy {
+  private static readonly DRAFT = 'ventas';
+
   ventas: Venta[] = [];
   productos: InventarioItem[] = [];
   modos = MODOS_VENTA;
@@ -68,6 +80,7 @@ export class VentasComponent implements OnInit, OnDestroy {
   private nextKey = 1;
   private pullSub?: Subscription;
   private filtroTimer: ReturnType<typeof setTimeout> | null = null;
+  private idsPreparables = new Set<number>();
 
   @ViewChild('listaHistorial') listaHistorial?: ElementRef<HTMLElement>;
   @ViewChildren(ProductoAutocompleteComponent) prodAutos!: QueryList<ProductoAutocompleteComponent>;
@@ -77,7 +90,8 @@ export class VentasComponent implements OnInit, OnDestroy {
     private api: ApiService,
     private confirmDlg: ConfirmDialogService,
     private cdr: ChangeDetectorRef,
-    private pullRefresh: PullRefreshService
+    private pullRefresh: PullRefreshService,
+    private drafts: CapturaDraftService
   ) {}
 
   hoyLocal(): string {
@@ -109,14 +123,20 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    if (!this.restaurarBorrador()) this.resetLineas(2);
     this.cargar();
-    this.resetLineas(1);
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
 
   ngOnDestroy(): void {
+    this.persistirBorrador();
     this.pullSub?.unsubscribe();
     if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
+  }
+
+  @HostListener('window:pagehide')
+  onPageHide(): void {
+    this.persistirBorrador();
   }
 
   private rebuildFiltradas(reset = false): void {
@@ -226,13 +246,99 @@ export class VentasComponent implements OnInit, OnDestroy {
     return this.lineas.filter((l) => this.tieneDatos(l) && l.productoId != null).length;
   }
 
+  get etiquetaGuardar(): string {
+    if (this.guardando) return 'Guardando…';
+    const pendientes = this.lineas.filter((l) => this.tieneDatos(l) && l.productoId != null);
+    const soloCasa = pendientes.length > 0 && pendientes.every((l) => l.modo === 'CASA');
+    if (soloCasa) {
+      return pendientes.length <= 1 ? 'Registrar uso en casa' : 'Registrar usos en casa';
+    }
+    const soloMuestra = pendientes.length > 0 && pendientes.every((l) => l.modo === 'MUESTRA');
+    if (soloMuestra) {
+      const costo = this.costoTicketSinCobro;
+      const base = pendientes.length <= 1 ? 'Registrar muestra' : 'Registrar muestras';
+      return costo > 0 ? `${base} · nos cuesta $${costo.toFixed(2)}` : base;
+    }
+    const base = pendientes.length <= 1 ? 'Guardar venta' : 'Guardar ventas';
+    return `${base} · $${this.totalTicket.toFixed(2)}`;
+  }
+
+  /** Costo de compra de muestras/casa en el ticket (no se cobra, sí se pierde). */
+  get costoTicketSinCobro(): number {
+    return (
+      Math.round(
+        this.lineas.reduce((s, l) => {
+          if (!this.tieneDatos(l) || l.productoId == null || !this.esSinCobro(l)) return s;
+          const c = this.costoEstimado(l);
+          return s + (c != null ? c : 0);
+        }, 0) * 100
+      ) / 100
+    );
+  }
+
   productoDe(l: LineaVenta): InventarioItem | undefined {
     return this.productos.find((x) => x.id === l.productoId);
   }
 
+  productoPorId(id: number | null | undefined): InventarioItem | undefined {
+    if (id == null) return undefined;
+    return this.productos.find((x) => x.id === id);
+  }
+
+  stockDisponible(productoId: number | null): number | null {
+    if (productoId == null) return null;
+    const p = this.productoPorId(productoId);
+    if (!p) return null;
+    return Number(p.stockActual) || 0;
+  }
+
+  /**
+   * Unidades físicas que pide la línea (en Pesos: $ / menudeo).
+   */
+  unidadesPedidas(l: LineaVenta): number {
+    const cant = Number(l.cantidad);
+    if (!Number.isFinite(cant) || cant <= 0) return 0;
+    if (l.modo === 'PESOS') {
+      const precio = this.precioLista(l);
+      if (precio <= 0) return 0;
+      return cant / precio;
+    }
+    return cant;
+  }
+
+  unidadesPedidasOtros(productoId: number, exceptoIndex: number): number {
+    return this.lineas.reduce((s, l, i) => {
+      if (i === exceptoIndex || l.productoId !== productoId) return s;
+      return s + this.unidadesPedidas(l);
+    }, 0);
+  }
+
+  excedeStock(l: LineaVenta, index: number): boolean {
+    if (l.productoId == null) return false;
+    const stock = this.stockDisponible(l.productoId);
+    if (stock == null) return false;
+    const pedidas = this.unidadesPedidas(l);
+    if (pedidas <= 0) return false;
+    return pedidas + this.unidadesPedidasOtros(l.productoId, index) > stock + 1e-9;
+  }
+
+  get hayExcesoStock(): boolean {
+    return this.lineas.some((l, i) => this.excedeStock(l, i) && this.tieneDatos(l));
+  }
+
+  avisoStock(l: LineaVenta, _index: number): string | null {
+    if (!this.excedeStock(l, _index)) return null;
+    const nombre = this.productoDe(l)?.nombre || 'este producto';
+    return `No tienes suficiente ${nombre}.`;
+  }
+
+  /** Productos con fórmula de preparación. */
+  esPreparable(l: LineaVenta): boolean {
+    return l.productoId != null && this.idsPreparables.has(l.productoId);
+  }
+
   unidadDe(l: LineaVenta): string {
     if (l.modo === 'PESOS') return '$';
-    if (l.modo === 'MUESTRA') return 'u';
     const p = this.productoDe(l);
     return p?.vendePor === 'PIEZA' ? 'pza' : 'L';
   }
@@ -247,6 +353,11 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   esMayoreo(l: LineaVenta): boolean {
     return l.modo === 'MAYOREO';
+  }
+
+  /** Muestra / Casa: no se cobra, pero sí sale del inventario y tiene costo. */
+  esSinCobro(l: LineaVenta): boolean {
+    return l.modo === 'MUESTRA' || l.modo === 'CASA';
   }
 
   permitePrecioManual(l: LineaVenta): boolean {
@@ -264,6 +375,31 @@ export class VentasComponent implements OnInit, OnDestroy {
   precioLista(l: LineaVenta): number {
     const p = this.productoDe(l);
     return p ? Number(p.precioVentaHoy) || 0 : 0;
+  }
+
+  precioCompraDe(l: LineaVenta): number {
+    const p = this.productoDe(l);
+    return p ? Number(p.precioCompra) || 0 : 0;
+  }
+
+  /** Costo de mercancía (cant × compra) para muestra/casa. */
+  costoEstimado(l: LineaVenta): number | null {
+    const cant = Number(l.cantidad);
+    if (!Number.isFinite(cant) || cant <= 0 || l.productoId == null) return null;
+    const compra = this.precioCompraDe(l);
+    if (compra <= 0) return null;
+    return Math.round(cant * compra * 100) / 100;
+  }
+
+  /** Costo histórico de una venta muestra/casa (desde inventario actual). */
+  costoVenta(v: Venta): number | null {
+    if (v.tipoVenta !== 'MUESTRA' && v.tipoVenta !== 'CASA') return null;
+    const p = this.productoPorId(v.productoId);
+    if (!p) return null;
+    const compra = Number(p.precioCompra) || 0;
+    const cant = Number(v.cantidad) || 0;
+    if (compra <= 0 || cant <= 0) return null;
+    return Math.round(cant * compra * 100) / 100;
   }
 
   totalEstimado(l: LineaVenta): number | null {
@@ -297,6 +433,59 @@ export class VentasComponent implements OnInit, OnDestroy {
     if (cant >= 10) return Number(p.precioMayoreo10) || Number(p.precioVentaHoy) || 0;
     if (cant >= 5) return Number(p.precioMayoreo5) || Number(p.precioVentaHoy) || 0;
     return Number(p.precioVentaHoy) || 0;
+  }
+
+  private fmtMoney(n: number): string {
+    return n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  /** Pista del precio unitario mayoreo (≥5 / ≥10). */
+  pistaPrecioMayoreo(l: LineaVenta): string {
+    const p = this.productoDe(l);
+    if (!p) return 'unitario';
+    const m5 = Number(p.precioMayoreo5) || 0;
+    const m10 = Number(p.precioMayoreo10) || 0;
+    const partes: string[] = [];
+    if (m5 > 0) partes.push(`≥5 $${this.fmtMoney(m5)}`);
+    if (m10 > 0) partes.push(`≥10 $${this.fmtMoney(m10)}`);
+    return partes.length ? partes.join(' · ') : 'unitario';
+  }
+
+  /** Pista del total: según cantidad, o totales de referencia 5 L / 10 L. */
+  pistaTotalMayoreo(l: LineaVenta): string {
+    const p = this.productoDe(l);
+    if (!p) return '0';
+    const cant = Number(l.cantidad) || 0;
+    const m5 = Number(p.precioMayoreo5) || 0;
+    const m10 = Number(p.precioMayoreo10) || 0;
+    if (cant >= 5) {
+      const unit = this.precioUnitarioMayoreo(l);
+      if (unit > 0) {
+        const tramo = cant >= 10 ? '≥10' : '≥5';
+        return `${tramo} ≈ $${this.fmtMoney(unit * cant)}`;
+      }
+    }
+    const partes: string[] = [];
+    if (m5 > 0) partes.push(`5L $${this.fmtMoney(m5 * 5)}`);
+    if (m10 > 0) partes.push(`10L $${this.fmtMoney(m10 * 10)}`);
+    return partes.length ? partes.join(' · ') : '0';
+  }
+
+  tituloPistaMayoreo(l: LineaVenta): string {
+    const p = this.productoDe(l);
+    if (!p) return 'Precios de mayoreo del producto';
+    const m5 = Number(p.precioMayoreo5) || 0;
+    const m10 = Number(p.precioMayoreo10) || 0;
+    const u = p.vendePor === 'PIEZA' ? 'pza' : 'L';
+    const lineas: string[] = [];
+    if (m5 > 0) {
+      lineas.push(`≥5 ${u}: $${this.fmtMoney(m5)} c/u (5 → $${this.fmtMoney(m5 * 5)})`);
+    }
+    if (m10 > 0) {
+      lineas.push(`≥10 ${u}: $${this.fmtMoney(m10)} c/u (10 → $${this.fmtMoney(m10 * 10)})`);
+    }
+    lineas.push('Si dejas el precio vacío, se usa el tramo según la cantidad.');
+    return lineas.join('\n');
   }
 
   sugerirTotalMayoreo(l: LineaVenta): void {
@@ -342,6 +531,14 @@ export class VentasComponent implements OnInit, OnDestroy {
       error: (e) => (this.error = e.error?.error || 'No se pudieron cargar ventas'),
     });
     this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
+    this.api.recetas().subscribe({
+      next: (lista) => {
+        this.idsPreparables = new Set((lista || []).map((r) => r.productoResultadoId));
+      },
+      error: () => {
+        this.idsPreparables = new Set();
+      },
+    });
     this.api.caja().subscribe({
       next: (c) => {
         this.fechaMin = c.fechaInicio || null;
@@ -401,8 +598,9 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   quitarLinea(index: number): void {
-    if (this.lineas.length <= 1) {
-      this.lineas = [this.nuevaLinea()];
+    if (this.lineas.length <= 2) {
+      this.lineas[index] = this.nuevaLinea();
+      if (this.lineas.length < 2) this.resetLineas(2);
       return;
     }
     this.lineas.splice(index, 1);
@@ -453,30 +651,40 @@ export class VentasComponent implements OnInit, OnDestroy {
       }
     }
 
-    this.guardando = true;
-    const requests = pendientes.map((l) =>
-      this.api.crearVenta({
-        fecha: this.fecha,
-        productoId: l.productoId,
-        tipoVenta: this.tipoVentaEfectivo(l),
-        cantidad: Number(l.cantidad),
-        total: this.totalParaGuardar(l),
-      })
-    );
+    const exceso = this.lineas.findIndex((l, i) => this.excedeStock(l, i) && this.tieneDatos(l));
+    if (exceso >= 0) {
+      this.error =
+        this.avisoStock(this.lineas[exceso], exceso) ||
+        'Hay cantidades mayores al stock. Revisa Inventario, Surtir o Preparar.';
+      return;
+    }
 
-    forkJoin(requests).subscribe({
-      next: () => {
-        this.guardando = false;
-        this.resetLineas(1);
-        this.cargar();
-        setTimeout(() => this.focusProducto(0), 50);
-      },
-      error: (e) => {
-        this.guardando = false;
-        this.error = e.error?.error || 'Error al guardar. Revisa las filas e intenta de nuevo.';
-        this.cargar();
-      },
-    });
+    this.guardando = true;
+    this.api
+      .crearVentasLote({
+        fecha: this.fecha,
+        lineas: pendientes.map((l) => ({
+          productoId: l.productoId,
+          tipoVenta: this.tipoVentaEfectivo(l),
+          cantidad: Number(l.cantidad),
+          total: this.totalParaGuardar(l),
+        })),
+      })
+      .subscribe({
+        next: () => {
+          this.guardando = false;
+          this.drafts.clear(VentasComponent.DRAFT);
+          this.resetLineas(2);
+          this.cargar();
+          setTimeout(() => this.focusProducto(0), 50);
+        },
+        error: (e) => {
+          this.guardando = false;
+          this.error = e.error?.error || 'Error al guardar. Revisa las filas e intenta de nuevo.';
+          this.persistirBorrador();
+          this.cargar();
+        },
+      });
   }
 
   async eliminar(id: number): Promise<void> {
@@ -510,5 +718,44 @@ export class VentasComponent implements OnInit, OnDestroy {
       precioManual: null,
       total: null,
     };
+  }
+
+  private hayBorradorUtil(): boolean {
+    return this.lineas.some((l) => this.tieneDatos(l));
+  }
+
+  private persistirBorrador(): void {
+    if (!this.hayBorradorUtil()) {
+      this.drafts.clear(VentasComponent.DRAFT);
+      return;
+    }
+    const draft: DraftVentas = {
+      fecha: this.fecha,
+      nextKey: this.nextKey,
+      lineas: this.lineas.map(({ modo, productoId, cantidad, precioManual, total }) => ({
+        modo,
+        productoId,
+        cantidad,
+        precioManual,
+        total,
+      })),
+    };
+    this.drafts.save(VentasComponent.DRAFT, draft);
+  }
+
+  private restaurarBorrador(): boolean {
+    const draft = this.drafts.load<DraftVentas>(VentasComponent.DRAFT);
+    if (!draft?.lineas?.length) return false;
+    this.fecha = draft.fecha || this.hoyLocal();
+    this.nextKey = Math.max(1, Number(draft.nextKey) || 1);
+    this.lineas = draft.lineas.map((l) => ({
+      key: this.nextKey++,
+      modo: l.modo || 'MENUDEO',
+      productoId: l.productoId ?? null,
+      cantidad: l.cantidad ?? null,
+      precioManual: l.precioManual ?? null,
+      total: l.total ?? null,
+    }));
+    return this.hayBorradorUtil();
   }
 }

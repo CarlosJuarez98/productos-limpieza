@@ -1,15 +1,12 @@
 import {
   ChangeDetectorRef,
   Component,
-  ElementRef,
   OnDestroy,
   OnInit,
-  QueryList,
-  ViewChildren,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
@@ -20,12 +17,6 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { AutoHideDirective } from '../../auto-hide.directive';
-
-interface LineaUso {
-  key: number;
-  productoId: number | null;
-  cantidad: number | null;
-}
 
 interface ProductoPeriodo {
   productoId: number | null;
@@ -88,26 +79,18 @@ export class UsoCasaComponent implements OnInit, OnDestroy {
   error = '';
   errorEdit = '';
   ok = '';
-  guardando = false;
   guardandoEdit = false;
   /** 'actual' o yyyy-MM-dd del corte. */
   periodoId = 'actual';
   mostrarCortes = false;
-  /** Móvil: gráfica colapsada para priorizar captura. */
-  chartAbierto = typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
-  fecha = this.hoyLocal();
-  lineas: LineaUso[] = [];
+  chartAbierto = true;
   editandoId: number | null = null;
   formEdit = {
     fecha: this.hoyLocal(),
     productoId: null as number | null,
     cantidad: null as number | null,
   };
-  private nextKey = 1;
   private pullSub?: Subscription;
-
-  @ViewChildren('prodLote') prodAutos!: QueryList<ProductoAutocompleteComponent>;
-  @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   constructor(
     private api: ApiService,
@@ -129,7 +112,6 @@ export class UsoCasaComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.resetLineas(1);
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
@@ -243,10 +225,6 @@ export class UsoCasaComponent implements OnInit, OnDestroy {
     return Math.round(this.movimientosDelPeriodo.reduce((s, m) => s + this.importeDe(m), 0) * 100) / 100;
   }
 
-  get lineasConDatos(): number {
-    return this.lineas.filter((l) => this.tieneDatos(l)).length;
-  }
-
   /** Productos del periodo: barras por litros o piezas. */
   get productosDelPeriodo(): ProductoPeriodo[] {
     const map = new Map<string, ProductoPeriodo>();
@@ -352,62 +330,6 @@ export class UsoCasaComponent implements OnInit, OnDestroy {
     });
   }
 
-  private nuevaLinea(): LineaUso {
-    return { key: this.nextKey++, productoId: null, cantidad: null };
-  }
-
-  private resetLineas(n: number): void {
-    this.lineas = Array.from({ length: n }, () => this.nuevaLinea());
-  }
-
-  private tieneDatos(l: LineaUso): boolean {
-    return l.productoId != null || (Number(l.cantidad) > 0);
-  }
-
-  private lineaCompleta(l: LineaUso): boolean {
-    const cant = Number(l.cantidad);
-    return l.productoId != null && Number.isFinite(cant) && cant > 0;
-  }
-
-  agregarLinea(): void {
-    this.lineas.push(this.nuevaLinea());
-    this.cdr.detectChanges();
-    setTimeout(() => this.focusProducto(this.lineas.length - 1), 0);
-  }
-
-  quitarLinea(index: number): void {
-    if (this.lineas.length <= 1) {
-      this.lineas = [this.nuevaLinea()];
-      return;
-    }
-    this.lineas.splice(index, 1);
-  }
-
-  onProductoEnter(index: number): void {
-    setTimeout(() => this.focusCantidad(index), 0);
-  }
-
-  onCantidadEnter(ev: Event, index: number): void {
-    ev.preventDefault();
-    const irA = index + 1;
-    if (irA >= this.lineas.length) {
-      this.agregarLinea();
-      return;
-    }
-    setTimeout(() => this.focusProducto(irA), 0);
-  }
-
-  private focusProducto(index: number): void {
-    this.prodAutos?.get(index)?.focus();
-  }
-
-  private focusCantidad(index: number): void {
-    const el = this.cantInputs?.get(index)?.nativeElement;
-    if (!el) return;
-    el.focus();
-    el.select();
-  }
-
   editar(m: Venta): void {
     this.errorEdit = '';
     this.editandoId = m.id;
@@ -485,64 +407,6 @@ export class UsoCasaComponent implements OnInit, OnDestroy {
         this.ok = 'Uso eliminado';
       },
       error: (e) => (this.error = e.error?.error || 'Error al eliminar'),
-    });
-  }
-
-  guardar(): void {
-    this.error = '';
-    this.ok = '';
-    if (!this.fecha) {
-      this.error = 'Indica la fecha';
-      return;
-    }
-    if (this.fecha > this.hoyLocal()) {
-      this.error = 'No se pueden registrar fechas futuras';
-      return;
-    }
-
-    const incompletas = this.lineas.filter((l) => this.tieneDatos(l) && !this.lineaCompleta(l));
-    if (incompletas.length) {
-      this.error = 'Completa producto y cantidad en cada fila';
-      return;
-    }
-
-    const pendientes = this.lineas.filter((l) => this.lineaCompleta(l));
-    if (!pendientes.length) {
-      this.error = 'Agrega al menos un producto';
-      return;
-    }
-
-    const fechaGuardada = this.fecha;
-    this.guardando = true;
-    const requests = pendientes.map((l) =>
-      this.api.crearVenta({
-        fecha: this.fecha,
-        productoId: l.productoId!,
-        tipoVenta: 'CASA',
-        cantidad: Number(l.cantidad),
-      })
-    );
-
-    forkJoin(requests).subscribe({
-      next: () => {
-        this.guardando = false;
-        this.resetLineas(1);
-        this.ok = pendientes.length === 1 ? 'Uso registrado' : `${pendientes.length} usos registrados`;
-        this.api.usoCasa().subscribe({
-          next: (v) => {
-            this.movimientos = v;
-            this.seleccionarPeriodoDeFecha(fechaGuardada);
-            this.syncMovimientosPeriodo(true);
-          },
-        });
-        this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
-        setTimeout(() => this.focusProducto(0), 50);
-      },
-      error: (e) => {
-        this.guardando = false;
-        this.error = e.error?.error || 'Error al guardar. Revisa las filas e intenta de nuevo.';
-        this.cargar();
-      },
     });
   }
 }

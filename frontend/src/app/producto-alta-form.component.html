@@ -1,0 +1,79 @@
+<form class="form-grid form-alta" (ngSubmit)="guardar()">
+  <label>
+    Nombre del producto
+    <input
+      appClearable
+      [(ngModel)]="form.nombre"
+      [name]="namePrefix + 'Nombre'"
+      required
+    />
+  </label>
+  <label>
+    Se vende por
+    <select [(ngModel)]="form.vendePor" [name]="namePrefix + 'VendePor'">
+      <option value="LITROS">Litros</option>
+      <option value="PIEZA">Pieza</option>
+    </select>
+  </label>
+  <label>
+    Cantidad comprada
+    <input
+      type="text"
+      inputmode="decimal"
+      appClearable
+      [ngModel]="form.cantidadInicial"
+      (ngModelChange)="onCantidadChange($event)"
+      [name]="namePrefix + 'Cantidad'"
+      placeholder="Vacío = 1"
+    />
+  </label>
+  <label>
+    Total pagado
+    <div class="precio-input">
+      <span class="peso">$</span>
+      <input
+        type="text"
+        inputmode="decimal"
+        appClearable
+        [ngModel]="form.totalPagado"
+        (ngModelChange)="onTotalChange($event)"
+        [name]="namePrefix + 'Total'"
+        placeholder="Ej. 25"
+        required
+      />
+    </div>
+  </label>
+  <div class="campo-unitario">
+    <span class="campo-label">Precio unitario</span>
+    @if (unitario != null) {
+      <div class="dato-fijo money">${{ unitario | number: '1.2-2' }}</div>
+    } @else {
+      <div class="dato-fijo muted">—</div>
+    }
+  </div>
+  <label>
+    Precio menudeo
+    <div class="precio-input">
+      <span class="peso">$</span>
+      <input
+        type="text"
+        inputmode="decimal"
+        appClearable
+        [(ngModel)]="form.precioVenta"
+        [name]="namePrefix + 'Menudeo'"
+        required
+        (ngModelChange)="onMenudeoChange()"
+        [placeholder]="menudeoPlaceholder"
+      />
+    </div>
+  </label>
+  <div class="edicion-actions">
+    <button type="submit" [disabled]="!completa || guardando">
+      {{ guardando ? '…' : submitLabel }}
+    </button>
+    <button type="button" class="secondary" (click)="cancelado.emit()">Cancelar</button>
+  </div>
+</form>
+@if (error) {
+  <p class="error">{{ error }}</p>
+}

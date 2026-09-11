@@ -6,9 +6,9 @@ import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import {
   Apartado,
+  ApartadoRubro,
   ApartadosResumen,
   CajaResumen,
-  CategoriaApartado,
   TipoMovimientoApartado,
 } from '../../modelos';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
@@ -33,8 +33,6 @@ export class ApartadosComponent implements OnInit {
 
   formIngreso = {
     fecha: this.hoyLocal(),
-    categoria: 'PRODUCTOS' as CategoriaApartado,
-    ingreso: null as number | null,
   };
 
   /** Fecha común para el lote de gastos. */
@@ -43,27 +41,22 @@ export class ApartadosComponent implements OnInit {
   private nextGastoKey = 1;
   gastos: {
     key: number;
-    categoria: CategoriaApartado;
+    categoria: string;
     ingreso: number | null;
     motivo: string;
-  }[] = [this.nuevaGasto(), this.nuevaGasto(), this.nuevaGasto()];
+  }[] = [];
 
-  /** Montos a repartir (no porcentajes). */
-  montos = {
-    productos: null as number | null,
-    casa: null as number | null,
-    salarios: null as number | null,
-  };
+  /** Montos a repartir por código de rubro (liquida corte). */
+  montos: Record<string, number | null> = {};
+
+  nuevoRubroNombre = '';
+  editandoRubroId: number | null = null;
+  editandoRubroNombre = '';
+  adminRubrosAbierto = false;
 
   readonly bloquesRegistros: { titulo: string; tipo: TipoMovimientoApartado }[] = [
     { titulo: 'Ganancias', tipo: 'INGRESO' },
     { titulo: 'Gastos', tipo: 'GASTO' },
-  ];
-
-  readonly categoriasRegistros: { key: CategoriaApartado; label: string }[] = [
-    { key: 'PRODUCTOS', label: 'Productos' },
-    { key: 'CASA', label: 'Casa' },
-    { key: 'SALARIOS', label: 'Salarios' },
   ];
 
   constructor(
@@ -74,6 +67,15 @@ export class ApartadosComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+  }
+
+  get rubros(): ApartadoRubro[] {
+    return this.data?.rubros ?? [];
+  }
+
+  /** Rubros que reciben dinero de caja / liquidan corte. */
+  get rubrosApartar(): ApartadoRubro[] {
+    return this.rubros.filter((r) => r.liquidaCorte);
   }
 
   hoyLocal(): string {
@@ -92,40 +94,54 @@ export class ApartadosComponent implements OnInit {
       next: ({ apartados, caja }) => {
         this.data = apartados;
         this.caja = caja;
+        this.syncMontosKeys();
+        if (!this.gastos.length) {
+          this.gastos = [this.nuevaGasto(), this.nuevaGasto(), this.nuevaGasto()];
+        } else {
+          const def = this.rubros[0]?.codigo ?? 'PRODUCTOS';
+          for (const g of this.gastos) {
+            if (!this.rubros.some((r) => r.codigo === g.categoria)) {
+              g.categoria = def;
+            }
+          }
+        }
         this.syncPaginadores(true);
       },
       error: (e) => (this.error = e.error?.error || 'No se pudieron cargar apartados'),
     });
   }
 
-  /** Contado − fondo del último corte (lo que salió / debe salir a apartados). */
+  private syncMontosKeys(): void {
+    const next: Record<string, number | null> = {};
+    for (const r of this.rubrosApartar) {
+      next[r.codigo] = this.montos[r.codigo] ?? null;
+    }
+    this.montos = next;
+  }
+
   get delCorteParaApartar(): number {
     const v = Number(this.caja?.paraApartarUltimoCorte);
     if (Number.isFinite(v)) return v;
     return Math.round((this.yaApartadoDelCorte + this.disponibleCaja) * 100) / 100;
   }
 
-  /** Ya registrado como ingreso a apartados tras el último corte. */
   get yaApartadoDelCorte(): number {
     const v = Number(this.caja?.yaApartadoDesdeUltimoCorte);
     if (Number.isFinite(v)) return v;
     return 0;
   }
 
-  /** Lo que aún falta por apartar del último corte. */
   get disponibleCaja(): number {
     const v = Number(this.caja?.disponibleParaApartar);
     if (Number.isFinite(v)) return v;
     return 0;
   }
 
-  /** Saldo actual (ingresos − gastos). */
-  saldo(cat: CategoriaApartado): number {
+  saldo(cat: string): number {
     return Number(this.data?.totales?.[cat] ?? 0);
   }
 
-  /** Suma de la columna: ingresos o gastos de esa categoría (no el saldo). */
-  totalColumna(cat: CategoriaApartado, tipo: TipoMovimientoApartado): number {
+  totalColumna(cat: string, tipo: TipoMovimientoApartado): number {
     if (tipo === 'INGRESO') {
       const v = Number(this.data?.ingresos?.[cat]);
       if (Number.isFinite(v)) return v;
@@ -138,51 +154,45 @@ export class ApartadosComponent implements OnInit {
 
   totalBloque(tipo: TipoMovimientoApartado): number {
     return (
-      Math.round(
-        this.categoriasRegistros.reduce((s, c) => s + this.totalColumna(c.key, tipo), 0) * 100
-      ) / 100
+      Math.round(this.rubros.reduce((s, c) => s + this.totalColumna(c.codigo, tipo), 0) * 100) / 100
     );
   }
 
-  /** Altura relativa de barra (máximo del bloque = 100%). */
-  alturaBarra(tipo: TipoMovimientoApartado, cat: CategoriaApartado): number {
+  alturaBarra(tipo: TipoMovimientoApartado, cat: string): number {
     const v = this.totalColumna(cat, tipo);
     if (v <= 0) return 0;
-    const max = Math.max(
-      ...this.categoriasRegistros.map((c) => this.totalColumna(c.key, tipo)),
-      0
-    );
+    const max = Math.max(...this.rubros.map((c) => this.totalColumna(c.codigo, tipo)), 0);
     if (max <= 0) return 0;
     return Math.max(4, Math.round((v / max) * 100));
   }
 
   get totalSubapartados(): number {
-    return this.saldo('PRODUCTOS') + this.saldo('CASA') + this.saldo('SALARIOS');
+    return Math.round(this.rubrosApartar.reduce((s, r) => s + this.saldo(r.codigo), 0) * 100) / 100;
   }
 
-  movimientosDe(cat: CategoriaApartado, tipo: TipoMovimientoApartado): Apartado[] {
+  movimientosDe(cat: string, tipo: TipoMovimientoApartado): Apartado[] {
     return (this.data?.movimientos ?? [])
       .filter((a) => a.categoria === cat && a.tipo === tipo)
       .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id - a.id);
   }
 
-  private pagKey(cat: CategoriaApartado, tipo: TipoMovimientoApartado): string {
+  private pagKey(cat: string, tipo: TipoMovimientoApartado): string {
     return `${tipo}-${cat}`;
   }
 
   private syncPaginadores(reset = false): void {
     for (const bloque of this.bloquesRegistros) {
-      for (const cat of this.categoriasRegistros) {
-        const key = this.pagKey(cat.key, bloque.tipo);
+      for (const cat of this.rubros) {
+        const key = this.pagKey(cat.codigo, bloque.tipo);
         if (!this.pagMovs.has(key)) {
           this.pagMovs.set(key, new PaginacionEstado<Apartado>());
         }
-        this.pagMovs.get(key)!.setItems(this.movimientosDe(cat.key, bloque.tipo), reset);
+        this.pagMovs.get(key)!.setItems(this.movimientosDe(cat.codigo, bloque.tipo), reset);
       }
     }
   }
 
-  pagMov(cat: CategoriaApartado, tipo: TipoMovimientoApartado): PaginacionEstado<Apartado> {
+  pagMov(cat: string, tipo: TipoMovimientoApartado): PaginacionEstado<Apartado> {
     const key = this.pagKey(cat, tipo);
     if (!this.pagMovs.has(key)) {
       const pag = new PaginacionEstado<Apartado>();
@@ -192,19 +202,16 @@ export class ApartadosComponent implements OnInit {
     return this.pagMovs.get(key)!;
   }
 
-  montoDe(cat: 'productos' | 'casa' | 'salarios'): number {
-    return Math.max(0, Number(this.montos[cat]) || 0);
+  montoDe(codigo: string): number {
+    return Math.max(0, Number(this.montos[codigo]) || 0);
   }
 
   get totalApartar(): number {
     return (
-      Math.round(
-        (this.montoDe('productos') + this.montoDe('casa') + this.montoDe('salarios')) * 100
-      ) / 100
+      Math.round(this.rubrosApartar.reduce((s, r) => s + this.montoDe(r.codigo), 0) * 100) / 100
     );
   }
 
-  /** Lo que aún se puede repartir (disponible − lo capturado). */
   get restanteApartar(): number {
     return Math.round(Math.max(0, this.disponibleCaja - this.totalApartar) * 100) / 100;
   }
@@ -217,12 +224,11 @@ export class ApartadosComponent implements OnInit {
     return this.totalApartar > 0 && this.cabeEnCaja;
   }
 
-  /** Recorta el campo si el total supera lo disponible y corrige el input. */
-  onMontoInput(campo: 'productos' | 'casa' | 'salarios', ev: Event): void {
+  onMontoInput(codigo: string, ev: Event): void {
     const el = ev.target as HTMLInputElement;
     const raw = el.value;
     if (raw === '' || raw == null) {
-      this.montos[campo] = null;
+      this.montos[codigo] = null;
       return;
     }
     const limpio = Number(String(raw).replace(/,/g, '').trim());
@@ -230,18 +236,16 @@ export class ApartadosComponent implements OnInit {
       return;
     }
     if (limpio <= 0) {
-      this.montos[campo] = limpio === 0 ? 0 : null;
+      this.montos[codigo] = limpio === 0 ? 0 : null;
       el.value = limpio === 0 ? '0' : '';
       return;
     }
-    const otros =
-      (campo === 'productos' ? 0 : this.montoDe('productos')) +
-      (campo === 'casa' ? 0 : this.montoDe('casa')) +
-      (campo === 'salarios' ? 0 : this.montoDe('salarios'));
+    const otros = this.rubrosApartar
+      .filter((r) => r.codigo !== codigo)
+      .reduce((s, r) => s + this.montoDe(r.codigo), 0);
     const maxCampo = Math.round(Math.max(0, this.disponibleCaja - otros) * 100) / 100;
     const valor = Math.round(Math.min(limpio, maxCampo) * 100) / 100;
-    this.montos[campo] = valor;
-    // Forzar el tope en el input (ngModel no siempre refleja el clamp al teclear).
+    this.montos[codigo] = valor;
     if (valor !== limpio || el.value !== String(valor)) {
       el.value = String(valor);
     }
@@ -278,51 +282,51 @@ export class ApartadosComponent implements OnInit {
       return;
     }
 
-    // Validar que no se gaste más del saldo por subapartado (sumando el lote).
-    const uso: Record<string, number> = { PRODUCTOS: 0, CASA: 0, SALARIOS: 0 };
+    const uso: Record<string, number> = {};
     for (const g of lineas) {
       uso[g.categoria] = (uso[g.categoria] || 0) + Number(g.ingreso);
     }
-    for (const cat of ['PRODUCTOS', 'CASA', 'SALARIOS'] as CategoriaApartado[]) {
-      const ped = Math.round((uso[cat] || 0) * 100) / 100;
+    for (const [cat, pedRaw] of Object.entries(uso)) {
+      const ped = Math.round(pedRaw * 100) / 100;
       if (ped <= 0) continue;
       const disponible = this.saldo(cat);
       if (ped > disponible + 0.001) {
-        this.error = `En ${cat.toLowerCase()} solo hay $${disponible.toFixed(2)}; intentas gastar $${ped.toFixed(2)}`;
+        const nombre = this.rubros.find((r) => r.codigo === cat)?.nombre ?? cat;
+        this.error = `En ${nombre} solo hay $${disponible.toFixed(2)}; intentas gastar $${ped.toFixed(2)}`;
         return;
       }
     }
 
-    const requests = lineas.map((g) =>
-      this.api.crearApartado({
+    this.api
+      .crearApartadosLote({
         fecha,
-        categoria: g.categoria,
-        ingreso: Number(g.ingreso),
-        tipo: 'GASTO' as TipoMovimientoApartado,
-        motivo: g.motivo.trim(),
+        lineas: lineas.map((g) => ({
+          categoria: g.categoria,
+          ingreso: Number(g.ingreso),
+          tipo: 'GASTO',
+          motivo: g.motivo.trim(),
+        })),
       })
-    );
-
-    forkJoin(requests).subscribe({
-      next: () => {
-        const total = Math.round(lineas.reduce((s, g) => s + Number(g.ingreso), 0) * 100) / 100;
-        this.ok = `Se registraron ${lineas.length} gasto(s) por $${total.toFixed(2)}`;
-        this.gastos = [this.nuevaGasto(), this.nuevaGasto(), this.nuevaGasto()];
-        this.cargar();
-      },
-      error: (e) => (this.error = e.error?.error || 'Error al guardar gastos'),
-    });
+      .subscribe({
+        next: () => {
+          const total = Math.round(lineas.reduce((s, g) => s + Number(g.ingreso), 0) * 100) / 100;
+          this.ok = `Se registraron ${lineas.length} gasto(s) por $${total.toFixed(2)}`;
+          this.gastos = [this.nuevaGasto(), this.nuevaGasto(), this.nuevaGasto()];
+          this.cargar();
+        },
+        error: (e) => (this.error = e.error?.error || 'Error al guardar gastos'),
+      });
   }
 
   nuevaGasto(): {
     key: number;
-    categoria: CategoriaApartado;
+    categoria: string;
     ingreso: number | null;
     motivo: string;
   } {
     return {
       key: this.nextGastoKey++,
-      categoria: 'PRODUCTOS',
+      categoria: this.rubros[0]?.codigo ?? 'PRODUCTOS',
       ingreso: null,
       motivo: '',
     };
@@ -354,9 +358,6 @@ export class ApartadosComponent implements OnInit {
   registrarReparto(): void {
     this.error = '';
     this.ok = '';
-    const prod = this.montoDe('productos');
-    const casa = this.montoDe('casa');
-    const sal = this.montoDe('salarios');
     const total = this.totalApartar;
 
     if (total <= 0) {
@@ -374,48 +375,97 @@ export class ApartadosComponent implements OnInit {
       this.formIngreso.fecha = this.hoyLocal();
       return;
     }
-    const requests = [];
-    if (prod > 0) {
-      requests.push(
-        this.api.crearApartado({
-          fecha,
-          categoria: 'PRODUCTOS',
-          ingreso: prod,
-          tipo: 'INGRESO',
-          motivo: null,
-        })
-      );
-    }
-    if (casa > 0) {
-      requests.push(
-        this.api.crearApartado({
-          fecha,
-          categoria: 'CASA',
-          ingreso: casa,
-          tipo: 'INGRESO',
-          motivo: null,
-        })
-      );
-    }
-    if (sal > 0) {
-      requests.push(
-        this.api.crearApartado({
-          fecha,
-          categoria: 'SALARIOS',
-          ingreso: sal,
-          tipo: 'INGRESO',
-          motivo: null,
-        })
-      );
-    }
+    const lineas = this.rubrosApartar
+      .filter((r) => this.montoDe(r.codigo) > 0)
+      .map((r) => ({
+        categoria: r.codigo,
+        ingreso: this.montoDe(r.codigo),
+        tipo: 'INGRESO' as const,
+        motivo: null as string | null,
+      }));
 
-    forkJoin(requests).subscribe({
+    this.api.crearApartadosLote({ fecha, lineas }).subscribe({
       next: () => {
         this.ok = `Se apartaron $${total.toFixed(2)} de la caja`;
-        this.montos = { productos: null, casa: null, salarios: null };
+        this.montos = {};
+        this.syncMontosKeys();
         this.cargar();
       },
       error: (e) => (this.error = e.error?.error || 'Error al registrar el reparto'),
+    });
+  }
+
+  crearRubro(): void {
+    this.error = '';
+    this.ok = '';
+    const nombre = this.nuevoRubroNombre.trim();
+    if (!nombre) {
+      this.error = 'Escribe el nombre del nuevo apartado';
+      return;
+    }
+    this.api.crearApartadoRubro(nombre).subscribe({
+      next: () => {
+        this.ok = `Apartado «${nombre}» creado`;
+        this.nuevoRubroNombre = '';
+        this.cargar();
+      },
+      error: (e) => (this.error = e.error?.error || 'No se pudo crear el apartado'),
+    });
+  }
+
+  toggleAdminRubros(): void {
+    this.adminRubrosAbierto = !this.adminRubrosAbierto;
+    if (!this.adminRubrosAbierto) {
+      this.cancelarEditarRubro();
+    }
+  }
+
+  empezarEditarRubro(r: ApartadoRubro): void {
+    this.editandoRubroId = r.id;
+    this.editandoRubroNombre = r.nombre;
+  }
+
+  cancelarEditarRubro(): void {
+    this.editandoRubroId = null;
+    this.editandoRubroNombre = '';
+  }
+
+  guardarNombreRubro(r: ApartadoRubro): void {
+    this.error = '';
+    this.ok = '';
+    const nombre = this.editandoRubroNombre.trim();
+    if (!nombre) {
+      this.error = 'El nombre no puede quedar vacío';
+      return;
+    }
+    this.api.renombrarApartadoRubro(r.id, nombre).subscribe({
+      next: () => {
+        this.ok = `Apartado renombrado a «${nombre}»`;
+        this.cancelarEditarRubro();
+        this.cargar();
+      },
+      error: (e) => (this.error = e.error?.error || 'No se pudo renombrar'),
+    });
+  }
+
+  async eliminarRubro(r: ApartadoRubro): Promise<void> {
+    this.error = '';
+    this.ok = '';
+    if (this.rubros.length <= 1) {
+      this.error = 'Debe quedar al menos un apartado';
+      return;
+    }
+    const ok = await this.confirmDlg.ask(`¿Borrar el apartado «${r.nombre}»?`, {
+      confirmarTexto: 'Borrar',
+    });
+    if (!ok) return;
+    this.api.eliminarApartadoRubro(r.id).subscribe({
+      next: () => {
+        this.ok = `Apartado «${r.nombre}» borrado`;
+        if (this.editandoRubroId === r.id) this.cancelarEditarRubro();
+        this.cargar();
+      },
+      error: (e) => (this.error = e.error?.error || 'No se pudo borrar el apartado'),
     });
   }
 
