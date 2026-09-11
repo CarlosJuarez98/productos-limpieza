@@ -100,10 +100,13 @@ Get-Item $Dump | Format-List Name, Length
 # Import con DELETE + orden FK (mismo criterio que ImportPlJson / import_full).
 $importPath = Join-Path $Migrate "import_cloud_local.py"
 $importSrc = Join-Path $ProjectRoot "_migrate\import_cloud_local.py"
-if (Test-Path $importSrc) {
-  Copy-Item -Force $importSrc $importPath
-} else {
+if (-not (Test-Path $importSrc)) {
   throw "Falta _migrate/import_cloud_local.py (import replace con orden FK)"
+}
+$srcFull = (Resolve-Path $importSrc).Path
+$dstFull = $importPath
+if ($srcFull -ne $dstFull) {
+  Copy-Item -Force $importSrc $importPath
 }
 
 Write-Host "==> Import JSON → Oracle local (replace)"

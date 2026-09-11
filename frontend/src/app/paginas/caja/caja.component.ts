@@ -10,6 +10,7 @@ import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
+import { AutoHideDirective } from '../../auto-hide.directive';
 
 interface Denominacion {
   valor: number;
@@ -19,7 +20,7 @@ interface Denominacion {
 @Component({
   selector: 'app-caja',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, PaginadorComponent],
+  imports: [CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, PaginadorComponent, AutoHideDirective],
   templateUrl: './caja.component.html',
   styleUrl: './caja.component.scss',
 })

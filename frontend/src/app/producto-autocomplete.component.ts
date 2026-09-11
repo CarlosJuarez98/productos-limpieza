@@ -31,11 +31,13 @@ import { InventarioItem } from './modelos';
         aria-autocomplete="list"
         [placeholder]="placeholder"
         [required]="required"
+        [disabled]="disabled"
+        [readonly]="disabled"
         autocomplete="off"
         [name]="inputName"
-        [class.con-clear]="texto.trim()"
+        [class.con-clear]="texto.trim() && !disabled"
       />
-      @if (texto.trim()) {
+      @if (texto.trim() && !disabled) {
         <button
           type="button"
           class="ac-clear"
@@ -168,6 +170,7 @@ export class ProductoAutocompleteComponent implements OnChanges {
   @Input() productos: InventarioItem[] = [];
   @Input() productoId: number | null = null;
   @Input() required = false;
+  @Input() disabled = false;
   @Input() placeholder = 'Escribe el producto...';
   @Input() inputName = 'productoTexto';
   /** Extra en sugerencias: stock (inventario) o precio compra. */
@@ -264,11 +267,13 @@ export class ProductoAutocompleteComponent implements OnChanges {
   }
 
   abrir(): void {
+    if (this.disabled) return;
     this.abierto = true;
     this.actualizarDireccion();
   }
 
   onTexto(value: string): void {
+    if (this.disabled) return;
     this.texto = value;
     this.indiceActivo = -1;
     this.abrir();

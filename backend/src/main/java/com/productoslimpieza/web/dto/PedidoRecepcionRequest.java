@@ -11,6 +11,8 @@ public record PedidoRecepcionRequest(
 ) {
   public record Linea(
       @NotNull Long itemId,
-      @NotNull BigDecimal cantidadRecibida
+      @NotNull BigDecimal cantidadRecibida,
+      /** Precio unitario del proveedor; si viene, se usa en la entrada y actualiza compra. */
+      BigDecimal precioProveedor
   ) {}
 }

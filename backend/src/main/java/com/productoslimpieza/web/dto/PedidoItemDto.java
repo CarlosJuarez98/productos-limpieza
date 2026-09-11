@@ -10,5 +10,7 @@ public record PedidoItemDto(
     String vendePorLabel,
     BigDecimal cantidadPedida,
     BigDecimal cantidadRecibida,
-    BigDecimal cantidadFaltante
+    BigDecimal cantidadFaltante,
+    /** Precio de compra actual del producto (para precargar al recibir). */
+    BigDecimal precioCompra
 ) {}

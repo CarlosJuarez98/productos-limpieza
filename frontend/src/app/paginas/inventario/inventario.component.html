@@ -4,7 +4,7 @@
 <section class="panel panel-lista">
   <button type="button" class="lista-toggle" (click)="toggleLista()" [attr.aria-expanded]="listaAbierta">
     <span class="lista-toggle-titulo">Productos en inventario</span>
-    <span class="lista-toggle-hint">{{ listaAbierta ? 'Ocultar' : 'Mostrar' }}</span>
+    <span class="chev" aria-hidden="true">{{ listaAbierta ? '▾' : '▸' }}</span>
   </button>
 
   @if (listaAbierta) {
@@ -128,13 +128,13 @@
         </div>
       }
       @if (ok) {
-        <p class="ok-msg">{{ ok }}</p>
+        <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
       }
       @if (error) {
         <p class="error">{{ error }}</p>
       }
       <div class="table-wrap hist-tabla">
-        <table class="inv-table" [attr.data-cols]="colsDatosVisibles">
+        <table class="inv-table" [style.--cols]="colsTabla">
           <thead>
             <tr>
               @if (col('producto')) {
@@ -159,13 +159,13 @@
                 <th class="money col-extra">Compra</th>
               }
               @if (col('minSug')) {
-                <th class="money col-sugerido col-extra">Mín. sugerido</th>
+                <th class="money col-sugerido col-extra" title="Mínimo sugerido">Mín. sug.</th>
               }
               @if (col('maxSug')) {
-                <th class="money col-sugerido col-extra">Máx. sugerido</th>
+                <th class="money col-sugerido col-extra" title="Máximo sugerido">Máx. sug.</th>
               }
               @if (col('ganancia')) {
-                <th class="money col-extra">% ganancia</th>
+                <th class="money col-extra" title="% de ganancia">% gan.</th>
               }
               <th class="col-acciones" aria-label="Acciones"></th>
             </tr>
@@ -511,7 +511,7 @@
     <span class="lista-toggle-titulo">
       {{ editandoAjuste ? 'Editar ajuste de stock' : 'Ajuste de stock' }}
     </span>
-    <span class="lista-toggle-hint">{{ ajusteAbierto ? 'Ocultar' : 'Mostrar' }}</span>
+    <span class="chev" aria-hidden="true">{{ ajusteAbierto ? '▾' : '▸' }}</span>
   </button>
 
   @if (ajusteAbierto) {
@@ -522,20 +522,16 @@
     </label>
     <label>
       Producto
-      <select
-        [ngModel]="formAjuste.productoId"
-        (ngModelChange)="onProductoAjusteChange($event)"
-        name="prodAjuste"
-        required
+      <app-producto-autocomplete
+        [productos]="items"
+        [productoId]="formAjuste.productoId"
+        (productoIdChange)="onProductoAjusteChange($event)"
+        [required]="true"
         [disabled]="!!editandoAjuste"
-      >
-        <option [ngValue]="null">Elige del inventario…</option>
-        @for (p of items; track p.id) {
-          <option [ngValue]="p.id">
-            {{ p.nombre }} — stock {{ p.stockActual | number: '1.0-2' }}
-          </option>
-        }
-      </select>
+        placeholder="Escribe el producto del inventario…"
+        inputName="prodAjuste"
+        mostrarExtra="stock"
+      />
     </label>
     <label>
       Dejar stock en
@@ -545,19 +541,22 @@
         appClearable
         [(ngModel)]="formAjuste.stockDeseado"
         name="stockDeseadoAjuste"
-        placeholder="Cantidad final"
+        [placeholder]="pistaStockAjuste()"
+        [title]="formAjuste.productoId != null ? pistaStockAjuste() : 'Cantidad final deseada'"
         required
       />
     </label>
     <label>
       Motivo
-      <input
-        appClearable
-        [(ngModel)]="formAjuste.motivo"
-        name="motivoAjuste"
-        placeholder="Derrame, conteo físico…"
-        required
-      />
+      <select [(ngModel)]="formAjuste.motivo" name="motivoAjuste" required>
+        <option value="">Elige motivo…</option>
+        @for (m of motivosAjuste; track m) {
+          <option [value]="m">{{ m }}</option>
+        }
+        @if (motivoAjusteExtra()) {
+          <option [value]="formAjuste.motivo">{{ formAjuste.motivo }}</option>
+        }
+      </select>
     </label>
     <div class="edicion-actions">
       <button type="submit" [disabled]="guardandoAjuste">
@@ -568,23 +567,11 @@
       }
     </div>
   </form>
-  @if (formAjuste.productoId != null) {
-    <p class="muted resumen">
-      Stock actual: {{ stockBaseAjuste() | number: '1.0-2' }}
-      {{ unidadAjuste(formAjuste.productoId) }}
-      @if (cantidadAjusteCalculada() != null) {
-        · se {{ cantidadAjusteCalculada()! > 0 ? 'suma' : 'resta' }}
-        {{ cantidadAjusteCalculada()! > 0 ? '+' : '' }}{{ cantidadAjusteCalculada() | number: '1.0-2' }}
-        {{ unidadAjuste(formAjuste.productoId) }}
-        automático
-      }
-    </p>
-  }
   @if (errorAjuste) {
     <p class="error">{{ errorAjuste }}</p>
   }
   @if (okAjuste) {
-    <p class="ok-msg">{{ okAjuste }}</p>
+    <p class="ok-msg" appAutoHide (autoHide)="okAjuste = ''">{{ okAjuste }}</p>
   }
 
   <h4 class="panel-subtitulo" style="margin-top: 1rem">Historial de ajustes</h4>
@@ -656,7 +643,7 @@
 <section class="panel panel-alta">
   <button type="button" class="lista-toggle" (click)="toggleAlta()" [attr.aria-expanded]="altaAbierta">
     <span class="lista-toggle-titulo">Agregar producto nuevo</span>
-    <span class="lista-toggle-hint">{{ altaAbierta ? 'Ocultar' : 'Mostrar' }}</span>
+    <span class="chev" aria-hidden="true">{{ altaAbierta ? '▾' : '▸' }}</span>
   </button>
 
   @if (altaAbierta) {
@@ -678,28 +665,36 @@
         type="text"
         inputmode="decimal"
         appClearable
-        [(ngModel)]="formAlta.cantidadInicial"
+        [ngModel]="formAlta.cantidadInicial"
+        (ngModelChange)="onCantidadAltaChange($event)"
         name="cantidadAlta"
-        placeholder="0"
-        required
+        placeholder="Vacío = 1"
       />
     </label>
     <label>
-      Precio compra
+      Total pagado
       <div class="precio-input">
         <span class="peso">$</span>
         <input
           type="text"
           inputmode="decimal"
           appClearable
-          [(ngModel)]="formAlta.precioCompra"
-          name="compraAlta"
-          placeholder="0"
+          [ngModel]="formAlta.totalPagado"
+          (ngModelChange)="onTotalPagadoAltaChange($event)"
+          name="totalPagadoAlta"
+          placeholder="Ej. 25"
           required
-          (ngModelChange)="onCompraAltaChange()"
         />
       </div>
     </label>
+    <div class="campo-unitario">
+      <span class="campo-label">Precio unitario</span>
+      @if (unitarioAlta != null) {
+        <div class="dato-fijo money">${{ unitarioAlta | number: '1.2-2' }}</div>
+      } @else {
+        <div class="dato-fijo muted">—</div>
+      }
+    </div>
     <label>
       Precio menudeo
       <div class="precio-input">

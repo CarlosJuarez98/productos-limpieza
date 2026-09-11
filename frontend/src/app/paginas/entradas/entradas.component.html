@@ -27,26 +27,33 @@
 
   <!-- Escritorio: tabla -->
   <div class="table-wrap lote-wrap">
-    <table class="lote">
+    <table class="lote" [class.con-traspaso]="tambienTraspasar">
+      <colgroup>
+        <col class="c-num" />
+        <col class="c-prod" />
+        <col class="c-cant" />
+        <col class="c-precio" />
+        <col class="c-ultima" />
+        <col class="c-cambio" />
+        <col class="c-total" />
+        @if (tambienTraspasar) {
+          <col class="c-traspaso" />
+        }
+        <col class="c-acciones" />
+      </colgroup>
       <thead>
         <tr>
-          <th>#</th>
-          <th>Producto</th>
-          <th>Cantidad</th>
-          <th>Precio proveedor $</th>
-          <th>Última compra</th>
+          <th class="col-num">#</th>
+          <th class="col-producto">Producto</th>
+          <th class="money col-cant">Cantidad</th>
+          <th class="money col-precio">Precio $</th>
+          <th class="money col-ultima">Última compra</th>
           <th class="col-cambio" title="¿Subió, bajó o igual vs la última compra?">¿Subió?</th>
-          <th>Total $</th>
-          <th
-            class="col-pedido"
-            title="Si viene de lo que pediste en Surtir, elige el #. Si es oferta o compra suelta: Libre."
-          >
-            Pedido Surtir
-          </th>
+          <th class="money col-total">Total $</th>
           @if (tambienTraspasar) {
-            <th>Traspasar</th>
+            <th class="money col-traspaso">Traspasar</th>
           }
-          <th></th>
+          <th class="col-acciones" aria-label="Acciones"></th>
         </tr>
       </thead>
       <tbody>
@@ -55,8 +62,8 @@
             [class.warn]="cambioLinea(l) === 'SUBIO'"
             [class.bajo]="cambioLinea(l) === 'BAJO'"
           >
-            <td class="muted">{{ i + 1 }}</td>
-            <td>
+            <td class="col-num muted">{{ i + 1 }}</td>
+            <td class="col-producto">
               <app-producto-autocomplete
                 #prodLote
                 [productos]="productosParaEntrada"
@@ -66,7 +73,7 @@
                 (enterConfirmado)="onProductoEnter(i)"
               />
             </td>
-            <td>
+            <td class="money col-cant">
               <input
                 #cantInput
                 type="text"
@@ -78,7 +85,7 @@
                 (keydown.enter)="onCantidadEnter($event, i)"
               />
             </td>
-            <td>
+            <td class="money col-precio">
               <div class="precio-input">
                 <span class="peso">$</span>
                 <input
@@ -93,7 +100,7 @@
                 />
               </div>
             </td>
-            <td>
+            <td class="money col-ultima">
               @if (ultimaCompra(l.productoId) != null) {
                 <span class="money muted">${{ ultimaCompra(l.productoId) | number: '1.2-2' }}</span>
               } @else {
@@ -124,29 +131,15 @@
                 }
               }
             </td>
-            <td>
+            <td class="money col-total">
               @if (totalLinea(l) != null) {
                 <span class="money">${{ totalLinea(l) | number: '1.2-2' }}</span>
               } @else {
                 <span class="muted">—</span>
               }
             </td>
-            <td class="col-pedido">
-              <select
-                [(ngModel)]="l.pedidoId"
-                [name]="'ped' + l.key"
-                (ngModelChange)="onPedidoChange(l)"
-                [class.hint-falta]="tieneFaltantePedido(l.productoId)"
-                title="Liga esta compra a un pedido de Surtir, o déjala libre"
-              >
-                <option [ngValue]="null">Libre / oferta</option>
-                @for (p of pedidosParaLinea(l.productoId); track p.id) {
-                  <option [ngValue]="p.id">{{ etiquetaPedido(p) }}</option>
-                }
-              </select>
-            </td>
             @if (tambienTraspasar) {
-              <td>
+              <td class="money col-traspaso">
                 <input
                   type="text"
                   inputmode="decimal"
@@ -159,8 +152,26 @@
                 />
               </td>
             }
-            <td class="actions">
-              <button type="button" class="danger" (click)="quitarLinea(i)" title="Quitar fila">×</button>
+            <td class="col-acciones">
+              <div class="acciones-celda">
+                <button
+                  type="button"
+                  class="icon-btn danger"
+                  (click)="quitarLinea(i)"
+                  title="Quitar fila"
+                  aria-label="Quitar fila"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.25"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
             </td>
           </tr>
         }
@@ -268,21 +279,6 @@
             }
           </div>
 
-          <label class="campo check-pedido-movil" [class.hint-falta]="tieneFaltantePedido(l.productoId)">
-            <span class="campo-label">Pedido Surtir</span>
-            <select
-              [(ngModel)]="l.pedidoId"
-              [name]="'pedM' + l.key"
-              (ngModelChange)="onPedidoChange(l)"
-              title="Liga esta compra a un pedido de Surtir, o déjala libre"
-            >
-              <option [ngValue]="null">Libre / oferta</option>
-              @for (p of pedidosParaLinea(l.productoId); track p.id) {
-                <option [ngValue]="p.id">{{ etiquetaPedido(p) }}</option>
-              }
-            </select>
-          </label>
-
           @if (tambienTraspasar) {
             <label class="campo">
               Cantidad a traspasar
@@ -351,7 +347,7 @@
     </button>
   </div>
   @if (ok) {
-    <p class="ok-msg">{{ ok }}</p>
+    <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
   }
   @if (error) {
     <p class="error">{{ error }}</p>
@@ -428,44 +424,66 @@
     <p class="error">{{ errorPrep }}</p>
   }
   @if (okPrep) {
-    <p class="ok-msg">{{ okPrep }}</p>
+    <p class="ok-msg" appAutoHide (autoHide)="okPrep = ''">{{ okPrep }}</p>
   }
 
-  <div class="table-wrap hist-tabla" style="margin-top: 1rem">
+  <div class="table-wrap hist-tabla hist-prep">
     <table>
       <thead>
         <tr>
-          <th>Fecha</th>
-          <th>Preparado</th>
-          <th>Cantidad</th>
-          <th>Insumo usado</th>
-          <th>Cant. insumo</th>
-          <th></th>
+          <th class="col-fecha">Fecha</th>
+          <th class="col-producto">Preparado</th>
+          <th class="money col-cant">Cantidad</th>
+          <th class="col-insumo">Insumo usado</th>
+          <th class="money col-cant-insumo">Cant. insumo</th>
+          <th class="col-acciones" aria-label="Acciones"></th>
         </tr>
       </thead>
       <tbody>
         @for (p of pagPrep.paginaItems; track p.id) {
           <tr [class.editando-fila]="editandoPrepId === p.id">
-            <td>{{ p.fecha | fechaDmY }}</td>
-            <td>{{ p.productoResultadoNombre }}</td>
-            <td class="money">{{ p.cantidadResultado | number: '1.2-2' }}</td>
-            <td>{{ p.productoInsumoNombre }}</td>
-            <td class="money">{{ p.cantidadInsumo | number: '1.2-2' }}</td>
-            <td class="actions">
-              <button
-                type="button"
-                class="icon-btn"
-                title="Editar"
-                aria-label="Editar"
-                (click)="editarProduccion(p)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                  />
-                </svg>
-              </button>
-              <button type="button" class="danger" (click)="eliminarProduccion(p.id)" title="Eliminar">×</button>
+            <td class="col-fecha">{{ p.fecha | fechaDmY }}</td>
+            <td class="col-producto">{{ p.productoResultadoNombre }}</td>
+            <td class="money col-cant">{{ p.cantidadResultado | number: '1.2-2' }}</td>
+            <td class="col-insumo">{{ p.productoInsumoNombre }}</td>
+            <td class="money col-cant-insumo">{{ p.cantidadInsumo | number: '1.2-2' }}</td>
+            <td class="col-acciones">
+              <div class="acciones-celda">
+                @if (editandoPrepId !== p.id) {
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    title="Editar"
+                    aria-label="Editar"
+                    (click)="editarProduccion(p)"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                      />
+                    </svg>
+                  </button>
+                } @else {
+                  <span class="icon-btn-spacer" aria-hidden="true"></span>
+                }
+                <button
+                  type="button"
+                  class="icon-btn danger"
+                  title="Eliminar"
+                  aria-label="Eliminar"
+                  (click)="eliminarProduccion(p.id)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.25"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
             </td>
           </tr>
         }
@@ -545,19 +563,13 @@
       <thead>
         <tr>
           <th class="col-fecha">Fecha</th>
-          <th>Producto</th>
-          <th>Cantidad</th>
-          <th>Precio proveedor</th>
-          <th>Total</th>
-          <th>Última compra</th>
+          <th class="col-producto">Producto</th>
+          <th class="money col-cant">Cantidad</th>
+          <th class="money col-precio">Precio</th>
+          <th class="money col-total">Total</th>
+          <th class="money col-ultima">Última compra</th>
           <th class="col-cambio" title="¿Subió, bajó o igual vs la última compra?">¿Subió?</th>
-          <th
-            class="col-pedido-hist"
-            title="Pedido de Surtir al que se aplicó esta compra (Libre = oferta o suelta)"
-          >
-            Pedido Surtir
-          </th>
-          <th></th>
+          <th class="col-acciones" aria-label="Acciones"></th>
         </tr>
       </thead>
       <tbody>
@@ -568,11 +580,11 @@
             [class.editando-fila]="editandoEntradaId === e.id"
           >
             <td class="col-fecha">{{ e.fecha | fechaDmY }}</td>
-            <td>{{ e.productoNombre }}</td>
-            <td class="money">{{ e.cantidad | number: '1.2-2' }}</td>
-            <td class="money">{{ e.precioProveedor != null ? ('$' + (e.precioProveedor | number: '1.2-2')) : '—' }}</td>
-            <td class="money">{{ e.total != null ? ('$' + (e.total | number: '1.2-2')) : '—' }}</td>
-            <td class="money">
+            <td class="col-producto" [title]="e.productoNombre">{{ e.productoNombre }}</td>
+            <td class="money col-cant">{{ e.cantidad | number: '1.2-2' }}</td>
+            <td class="money col-precio">{{ e.precioProveedor != null ? ('$' + (e.precioProveedor | number: '1.2-2')) : '—' }}</td>
+            <td class="money col-total">{{ e.total != null ? ('$' + (e.total | number: '1.2-2')) : '—' }}</td>
+            <td class="money col-ultima">
               {{ e.precioCompraAnterior != null ? ('$' + (e.precioCompraAnterior | number: '1.2-2')) : '—' }}
             </td>
             <td class="col-cambio">
@@ -591,35 +603,48 @@
                 }
               }
             </td>
-            <td class="col-pedido-hist">
-              @if (e.aplicadaAPedido && e.pedidoId != null) {
-                <span class="item-tag">#{{ e.pedidoId }}</span>
-              } @else {
-                <span class="muted">Libre</span>
-              }
-            </td>
-            <td class="actions">
-              @if (editandoEntradaId !== e.id) {
+            <td class="col-acciones">
+              <div class="acciones-celda">
+                @if (editandoEntradaId !== e.id) {
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    title="Editar"
+                    aria-label="Editar"
+                    (click)="editarEntrada(e)"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                      />
+                    </svg>
+                  </button>
+                } @else {
+                  <span class="icon-btn-spacer" aria-hidden="true"></span>
+                }
                 <button
                   type="button"
-                  class="icon-btn"
-                  title="Editar"
-                  aria-label="Editar"
-                  (click)="editarEntrada(e)"
+                  class="icon-btn danger"
+                  title="Eliminar"
+                  aria-label="Eliminar"
+                  (click)="eliminar(e.id)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
-                      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                      d="M6 6l12 12M18 6L6 18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.25"
+                      stroke-linecap="round"
                     />
                   </svg>
                 </button>
-              }
-              <button type="button" class="danger" (click)="eliminar(e.id)" title="Eliminar">×</button>
+              </div>
             </td>
           </tr>
           @if (editandoEntradaId === e.id) {
             <tr class="fila-edicion">
-              <td colspan="9">
+              <td colspan="8">
                 <form class="form-grid form-edicion" (ngSubmit)="guardarEdicionEntrada()">
                   <label>
                     Fecha
@@ -666,23 +691,6 @@
                         placeholder="0"
                       />
                     </div>
-                  </label>
-                  <label class="col-pedido" [class.hint-falta]="tieneFaltantePedido(formEdit.productoId)">
-                    Pedido Surtir
-                    <select
-                      [(ngModel)]="formEdit.pedidoId"
-                      name="editPedido"
-                      (ngModelChange)="onPedidoEditChange()"
-                      title="Liga esta compra a un pedido de Surtir, o déjala libre"
-                    >
-                      <option [ngValue]="null">Libre / oferta</option>
-                      @if (pedidoEditAusenteDeLista()) {
-                        <option [ngValue]="formEdit.pedidoId">#{{ formEdit.pedidoId }} (actual)</option>
-                      }
-                      @for (p of pedidosParaEdicion(formEdit.productoId, formEdit.pedidoId); track p.id) {
-                        <option [ngValue]="p.id">{{ etiquetaPedido(p) }}</option>
-                      }
-                    </select>
                   </label>
                   <div class="edicion-actions">
                     <button type="submit" [disabled]="guardandoEdit">
@@ -751,23 +759,6 @@
             />
           </div>
         </label>
-        <label [class.hint-falta]="tieneFaltantePedido(formEdit.productoId)">
-          Pedido Surtir
-          <select
-            [(ngModel)]="formEdit.pedidoId"
-            name="editPedidoMovil"
-            (ngModelChange)="onPedidoEditChange()"
-            title="Liga esta compra a un pedido de Surtir, o déjala libre"
-          >
-            <option [ngValue]="null">Libre / oferta</option>
-            @if (pedidoEditAusenteDeLista()) {
-              <option [ngValue]="formEdit.pedidoId">#{{ formEdit.pedidoId }} (actual)</option>
-            }
-            @for (p of pedidosParaEdicion(formEdit.productoId, formEdit.pedidoId); track p.id) {
-              <option [ngValue]="p.id">{{ etiquetaPedido(p) }}</option>
-            }
-          </select>
-        </label>
         <div class="edicion-actions">
           <button type="submit" [disabled]="guardandoEdit">
             {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
@@ -805,9 +796,6 @@
           </span>
         </div>
         <p class="item-motivo">{{ e.productoNombre }}</p>
-        @if (e.aplicadaAPedido && e.pedidoId != null) {
-          <p class="muted">Pedido Surtir #{{ e.pedidoId }}</p>
-        }
         <div class="item-fila">
           <strong class="money">
             @if (e.total != null) {

@@ -7,11 +7,12 @@ import { InversionItem, InversionResumen } from '../../modelos';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { ClearableDirective } from '../../clearable.directive';
+import { AutoHideDirective } from '../../auto-hide.directive';
 
 @Component({
   selector: 'app-inversion',
   standalone: true,
-  imports: [CommonModule, FormsModule, PaginadorComponent, ClearableDirective],
+  imports: [CommonModule, FormsModule, PaginadorComponent, ClearableDirective, AutoHideDirective],
   templateUrl: './inversion.component.html',
   styleUrl: './inversion.component.scss',
 })

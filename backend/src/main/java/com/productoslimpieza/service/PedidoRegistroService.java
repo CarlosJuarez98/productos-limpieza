@@ -182,17 +182,36 @@ public class PedidoRegistroService {
         e.setFecha(hoy);
         e.setProducto(item.getProducto());
         e.setCantidad(delta);
-        BigDecimal precio = item.getProducto().getPrecioCompra();
+        BigDecimal precio =
+            linea.precioProveedor() != null
+                ? linea.precioProveedor()
+                : item.getProducto().getPrecioCompra();
+        if (precio != null && precio.compareTo(BigDecimal.ZERO) < 0) {
+          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El precio del proveedor no puede ser negativo");
+        }
         e.setPrecioProveedor(precio);
         if (precio != null) {
           e.setTotal(delta.multiply(precio).setScale(2, RoundingMode.HALF_UP));
         }
         e.setPedido(p);
         entradaRepo.save(e);
+        actualizarPrecioCompraSiCambio(item.getProducto(), precio);
       }
     }
     recalcularRecibidoDesdeEntradas(pedidoId);
     return obtener(pedidoId);
+  }
+
+  private void actualizarPrecioCompraSiCambio(Producto producto, BigDecimal precioProveedor) {
+    if (precioProveedor == null) {
+      return;
+    }
+    BigDecimal actual = producto.getPrecioCompra();
+    if (actual != null && actual.compareTo(precioProveedor) == 0) {
+      return;
+    }
+    producto.setPrecioCompra(precioProveedor);
+    productoRepo.save(producto);
   }
 
   /** Sincroniza cantidad recibida = suma de entradas ligadas al pedido. */
@@ -316,7 +335,8 @@ public class PedidoRegistroService {
           u.toLabel(),
           i.getCantidadPedida(),
           rec.setScale(2, RoundingMode.HALF_UP),
-          fal);
+          fal,
+          prod.getPrecioCompra());
     }).toList();
     int conFalta = (int) items.stream().filter(i -> i.cantidadFaltante().compareTo(BigDecimal.ZERO) > 0).count();
     return new PedidoDto(

@@ -4,7 +4,7 @@
   <p class="error">{{ error }}</p>
 }
 @if (ok) {
-  <p class="ok-msg">{{ ok }}</p>
+  <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
 }
 
 <div class="caja-flow">
@@ -420,8 +420,15 @@
   </form>
   @if (cortesAnteriores.length) {
     <div class="cortes-hist">
-      <button type="button" class="secondary" (click)="mostrarCortes = !mostrarCortes">
-        {{ mostrarCortes ? 'Ocultar' : 'Ver' }} cortes anteriores
+      <button
+        type="button"
+        class="secondary"
+        (click)="mostrarCortes = !mostrarCortes"
+        [attr.aria-expanded]="mostrarCortes"
+        [attr.aria-label]="mostrarCortes ? 'Ocultar cortes anteriores' : 'Ver cortes anteriores'"
+      >
+        <span class="chev" aria-hidden="true">{{ mostrarCortes ? '▾' : '▸' }}</span>
+        Cortes anteriores
       </button>
       @if (mostrarCortes) {
         <div class="cortes-lista">

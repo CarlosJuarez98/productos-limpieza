@@ -19,6 +19,7 @@ import { ProductoAutocompleteComponent } from '../../producto-autocomplete.compo
 import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
+import { AutoHideDirective } from '../../auto-hide.directive';
 
 interface LineaUso {
   key: number;
@@ -73,6 +74,7 @@ const INICIO_HISTORICO = '2025-10-29';
     FechaDmYPipe,
     ClearableDirective,
     PaginadorComponent,
+    AutoHideDirective,
   ],
   templateUrl: './uso-casa.component.html',
   styleUrl: './uso-casa.component.scss',

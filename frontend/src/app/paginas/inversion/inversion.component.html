@@ -4,7 +4,7 @@
   <p class="error">{{ error }}</p>
 }
 @if (ok) {
-  <p class="ok-msg">{{ ok }}</p>
+  <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
 }
 
 @if (data) {

@@ -6,12 +6,13 @@ import { of } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { Entrada, InventarioItem, PedidoRegistrado, Produccion } from '../../modelos';
+import { Entrada, InventarioItem, Produccion } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
+import { AutoHideDirective } from '../../auto-hide.directive';
 
 interface LineaForm {
   key: number;
@@ -20,10 +21,6 @@ interface LineaForm {
   precioProveedor: number | null;
   /** Cantidad a traspasar de esta línea (opcional, ≤ cantidad de entrada). */
   cantidadTraspaso: number | null;
-  /** Si true, liga al pedido elegido. false = oferta / compra libre. */
-  aplicarAPedido: boolean;
-  /** Pedido concreto al que aplica (obligatorio si aplicarAPedido). */
-  pedidoId: number | null;
 }
 
 type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
@@ -38,6 +35,7 @@ type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
     FechaDmYPipe,
     ClearableDirective,
     PaginadorComponent,
+    AutoHideDirective,
   ],
   templateUrl: './entradas.component.html',
   styleUrl: './entradas.component.scss',
@@ -52,10 +50,6 @@ export class EntradasComponent implements OnInit, OnDestroy {
   pagEntradas = new PaginacionEstado<Entrada>();
   pagPrep = new PaginacionEstado<Produccion>();
   productos: InventarioItem[] = [];
-  /** Pedidos abiertos/parciales para ligar entradas. */
-  pedidosAbiertosList: PedidoRegistrado[] = [];
-  /** Productos con faltante en algún pedido abierto/parcial. */
-  productosConFalta = new Set<number>();
   personasNombres: string[] = [];
   error = '';
   errorPrep = '';
@@ -91,8 +85,6 @@ export class EntradasComponent implements OnInit, OnDestroy {
     productoId: null as number | null,
     cantidad: null as number | null,
     precioProveedor: null as number | null,
-    aplicarAPedido: false,
-    pedidoId: null as number | null,
   };
 
   constructor(
@@ -178,59 +170,11 @@ export class EntradasComponent implements OnInit, OnDestroy {
       cantidad: null,
       precioProveedor: null,
       cantidadTraspaso: null,
-      aplicarAPedido: false,
-      pedidoId: null,
     };
   }
 
-  tieneFaltantePedido(productoId: number | null): boolean {
-    return productoId != null && this.productosConFalta.has(productoId);
-  }
-
-  /** Pedidos abiertos que aún deben ese producto. */
-  pedidosParaLinea(productoId: number | null): PedidoRegistrado[] {
-    if (productoId == null) return this.pedidosAbiertosList;
-    return this.pedidosAbiertosList.filter((p) =>
-      p.items.some((i) => i.productoId === productoId && Number(i.cantidadFaltante) > 0)
-    );
-  }
-
-  /** En edición: pedidos abiertos con ese producto, más el pedido actual si ya no aparece. */
-  pedidosParaEdicion(productoId: number | null, pedidoActual: number | null): PedidoRegistrado[] {
-    if (productoId == null) return this.pedidosAbiertosList;
-    const conProducto = this.pedidosAbiertosList.filter((p) =>
-      p.items.some((i) => i.productoId === productoId)
-    );
-    if (pedidoActual != null && !conProducto.some((p) => p.id === pedidoActual)) {
-      const extra = this.pedidosAbiertosList.find((p) => p.id === pedidoActual);
-      if (extra) return [extra, ...conProducto];
-    }
-    return conProducto;
-  }
-
-  /** True si el pedido actual no aparece en la lista filtrada (mostrar opción “actual”). */
-  pedidoEditAusenteDeLista(): boolean {
-    const id = this.formEdit.pedidoId;
-    if (id == null) return false;
-    return !this.pedidosParaEdicion(this.formEdit.productoId, id).some((p) => p.id === id);
-  }
-
-  onPedidoEditChange(): void {
-    this.formEdit.aplicarAPedido = this.formEdit.pedidoId != null;
-  }
-
-  etiquetaPedido(p: PedidoRegistrado): string {
-    const fecha = formatFechaDmY(p.fecha);
-    return `Surtir #${p.id} · ${fecha} · ${p.itemsConFalta} faltan`;
-  }
-
-  onPedidoChange(l: LineaForm): void {
-    l.aplicarAPedido = l.pedidoId != null;
-  }
-
-  sugerirPedidoId(productoId: number | null): number | null {
-    const opts = this.pedidosParaLinea(productoId);
-    return opts.length ? opts[0].id : null;
+  onProductoChange(l: LineaForm, id: number | null): void {
+    l.productoId = id;
   }
 
   nombreProducto(productoId: number | null): string {
@@ -265,14 +209,6 @@ export class EntradasComponent implements OnInit, OnDestroy {
     const inv = this.productos.find((p) => p.id === productoId);
     const compra = inv != null ? Number(inv.precioCompra) : 0;
     return compra > 0 ? compra : null;
-  }
-
-  onProductoChange(l: LineaForm, id: number | null): void {
-    l.productoId = id;
-    const pedId = this.sugerirPedidoId(id);
-    l.pedidoId = pedId;
-    l.aplicarAPedido = pedId != null && this.tieneFaltantePedido(id);
-    if (!l.aplicarAPedido) l.pedidoId = null;
   }
 
   cambioLinea(l: LineaForm): CambioPrecio {
@@ -406,22 +342,6 @@ export class EntradasComponent implements OnInit, OnDestroy {
       },
     });
     this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
-    this.api.pedidosAbiertos().subscribe({
-      next: (pedidos) => {
-        this.pedidosAbiertosList = pedidos || [];
-        const ids = new Set<number>();
-        for (const ped of this.pedidosAbiertosList) {
-          for (const it of ped.items) {
-            if (Number(it.cantidadFaltante) > 0) ids.add(it.productoId);
-          }
-        }
-        this.productosConFalta = ids;
-      },
-      error: () => {
-        this.pedidosAbiertosList = [];
-        this.productosConFalta = new Set();
-      },
-    });
     this.api.personas().subscribe({
       next: (p) => {
         this.personasNombres = (p || []).map((x) => x.nombre).filter(Boolean);
@@ -472,13 +392,9 @@ export class EntradasComponent implements OnInit, OnDestroy {
         l.precioProveedor != null && String(l.precioProveedor) !== ''
           ? Number(l.precioProveedor)
           : null,
-      aplicarAPedido: !!l.aplicarAPedido && l.pedidoId != null,
-      pedidoId: l.aplicarAPedido && l.pedidoId != null ? l.pedidoId : null,
+      aplicarAPedido: false,
+      pedidoId: null as number | null,
     }));
-    if (lineasForm.some((l) => l.aplicarAPedido && l.pedidoId == null)) {
-      this.error = 'Si aplicas a pedido, elige el número de pedido en cada línea';
-      return;
-    }
     if (!lineas.length) {
       this.error = 'Agrega al menos un producto con cantidad';
       return;
@@ -565,8 +481,6 @@ export class EntradasComponent implements OnInit, OnDestroy {
       productoId: e.productoId,
       cantidad: e.cantidad,
       precioProveedor: e.precioProveedor,
-      aplicarAPedido: !!e.aplicadaAPedido,
-      pedidoId: e.pedidoId,
     };
     this.cdr.detectChanges();
     setTimeout(() => {
@@ -609,8 +523,8 @@ export class EntradasComponent implements OnInit, OnDestroy {
             ? Number(this.formEdit.precioProveedor)
             : null,
         actualizarPrecioCompra: true,
-        aplicarAPedido: this.formEdit.aplicarAPedido && this.formEdit.pedidoId != null,
-        pedidoId: this.formEdit.aplicarAPedido ? this.formEdit.pedidoId : null,
+        aplicarAPedido: null,
+        pedidoId: null,
       })
       .subscribe({
         next: () => {
