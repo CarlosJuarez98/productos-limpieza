@@ -19,6 +19,9 @@ Ver **`BRANCHES.md`**.
 5. URL pública HTTPS: `https://productos.163.192.146.143.sslip.io/`  
    (respaldo HTTP: `http://163.192.146.143:8083/`)
 6. Certificado: **Caddy + Let’s Encrypt** (renueva solo; puertos **80** y **443** en firewall/NSG).
+   - Si el certificado no sale (“Timeout during connect”), abre 80/443 en el NSG de OCI.
+   - En Cloud Shell: `bash scripts/open-80-443-cloudshell.sh`
+   - Tras abrir puertos, reinicia Caddy: `docker restart productos-limpieza-caddy`
 
 ## Arranque (ATP)
 
