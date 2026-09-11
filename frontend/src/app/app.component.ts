@@ -4,6 +4,8 @@ import { filter, Subscription } from 'rxjs';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
 import { PullRefreshService } from './pull-refresh.service';
 import { AuthService } from './auth.service';
+import { OfflineService } from './offline.service';
+import { ApiService } from './api.service';
 
 type NavLink = { path: string; label: string; short?: string };
 
@@ -54,6 +56,11 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   masAbierto = false;
   esLogin = false;
   usuarioActual: string | null = null;
+  enLinea = true;
+  pendientes = 0;
+  sincronizando = false;
+  offlineMsg = '';
+  offlineBanner = false;
 
   /** Pull-to-refresh (móvil). */
   pullDistancia = 0;
@@ -66,6 +73,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private mainEl: HTMLElement | null = null;
   private routerSub?: Subscription;
   private authSub?: Subscription;
+  private offlineSubs: Subscription[] = [];
 
   get pullVisible(): boolean {
     return this.pullDistancia > 8;
@@ -78,17 +86,69 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   constructor(
     private router: Router,
     private pullRefresh: PullRefreshService,
-    private auth: AuthService
+    private auth: AuthService,
+    private offline: OfflineService,
+    private api: ApiService
   ) {
     this.actualizarEsLogin(this.router.url);
     this.usuarioActual = this.auth.usuario;
+    this.enLinea = this.offline.online;
     this.authSub = this.auth.authChanges$.subscribe((m) => {
       this.usuarioActual = m?.authenticated
         ? m.displayName || m.username || null
         : null;
+      if (m?.authenticated) {
+        this.prefetchParaOffline();
+        if (this.offline.online) void this.offline.flush();
+      }
     });
+    this.offlineSubs.push(
+      this.offline.online$.subscribe((v) => {
+        this.enLinea = v;
+        this.offlineBanner = !v;
+        if (v) void this.offline.flush();
+      }),
+      this.offline.pendingCount$.subscribe((n) => (this.pendientes = n)),
+      this.offline.syncing$.subscribe((v) => (this.sincronizando = v)),
+      this.offline.lastMessage$.subscribe((m) => {
+        this.offlineMsg = m;
+        if (m) {
+          window.setTimeout(() => {
+            if (this.offlineMsg === m && this.enLinea && this.pendientes === 0) {
+              this.offlineMsg = '';
+            }
+          }, 6000);
+        }
+      })
+    );
     // Restaura sesión al recargar; los guards deciden si hay que ir a /login.
     this.auth.me().subscribe();
+  }
+
+  sincronizarAhora(): void {
+    void this.offline.flush();
+  }
+
+  /** Cachea datos clave para poder operar sin red (todos los usuarios). */
+  private prefetchParaOffline(): void {
+    if (!this.offline.online) return;
+    const ignore = { error: () => undefined };
+    this.api.inventario().subscribe(ignore);
+    this.api.ventas().subscribe(ignore);
+    this.api.usoCasa().subscribe(ignore);
+    this.api.entradas().subscribe(ignore);
+    this.api.traspasos().subscribe(ignore);
+    this.api.personas().subscribe(ignore);
+    this.api.apartados().subscribe(ignore);
+    this.api.caja().subscribe(ignore);
+    this.api.producciones().subscribe(ignore);
+    this.api.recetas().subscribe(ignore);
+    this.api.ajustesInventario().subscribe(ignore);
+    this.api.pedidos().subscribe(ignore);
+    this.api.pedidosAbiertos().subscribe(ignore);
+    this.api.inversion().subscribe(ignore);
+    this.api.precios().subscribe(ignore);
+    this.api.margenes().subscribe(ignore);
   }
 
   ngAfterViewInit(): void {
@@ -118,6 +178,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     document.removeEventListener('touchcancel', this.onTouchCancel, true);
     this.routerSub?.unsubscribe();
     this.authSub?.unsubscribe();
+    for (const s of this.offlineSubs) s.unsubscribe();
   }
 
   private actualizarEsLogin(url: string): void {

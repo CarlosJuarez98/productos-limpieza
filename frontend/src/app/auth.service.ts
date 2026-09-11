@@ -26,6 +26,8 @@ function displayNameOf(username: string | undefined | null): string {
   return username;
 }
 
+const AUTH_CACHE_KEY = 'pl.auth.snapshot';
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
@@ -69,10 +71,18 @@ export class AuthService {
           ? { ...m, displayName: m.displayName || displayNameOf(m.username) }
           : m
       ),
-      tap((m) => this.estado$.next(m)),
-      catchError(() => {
+      tap((m) => this.persistAuth(m)),
+      catchError((err: unknown) => {
+        const status = (err as { status?: number })?.status;
+        const sinRed =
+          (typeof navigator !== 'undefined' && !navigator.onLine) || status === 0;
+        const snap = this.readAuthSnapshot();
+        if (sinRed && snap?.authenticated) {
+          this.estado$.next(snap);
+          return of(snap);
+        }
         const empty: AuthMe = { authenticated: false };
-        this.estado$.next(empty);
+        this.persistAuth(empty);
         return of(empty);
       }),
       finalize(() => {
@@ -92,7 +102,7 @@ export class AuthService {
       )
       .pipe(
         tap((r) =>
-          this.estado$.next({
+          this.persistAuth({
             authenticated: true,
             username: r.username,
             displayName: r.displayName || displayNameOf(r.username),
@@ -105,16 +115,40 @@ export class AuthService {
 
   logout(): Observable<void> {
     return this.http.post<{ ok: boolean }>(`${this.base}/logout`, {}, { withCredentials: true }).pipe(
-      tap(() => this.estado$.next({ authenticated: false })),
+      tap(() => this.persistAuth({ authenticated: false })),
       map(() => undefined),
       catchError(() => {
-        this.estado$.next({ authenticated: false });
+        this.persistAuth({ authenticated: false });
         return of(undefined);
       })
     );
   }
 
   marcarNoAutenticado(): void {
-    this.estado$.next({ authenticated: false });
+    this.persistAuth({ authenticated: false });
+  }
+
+  private persistAuth(m: AuthMe): void {
+    this.estado$.next(m);
+    try {
+      if (m.authenticated) {
+        localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(m));
+      } else {
+        localStorage.removeItem(AUTH_CACHE_KEY);
+      }
+    } catch {
+      /* ignore quota */
+    }
+  }
+
+  private readAuthSnapshot(): AuthMe | null {
+    try {
+      const raw = localStorage.getItem(AUTH_CACHE_KEY);
+      if (!raw) return null;
+      const m = JSON.parse(raw) as AuthMe;
+      return m?.authenticated ? m : null;
+    } catch {
+      return null;
+    }
   }
 }

@@ -10,7 +10,7 @@ import { InventarioItem, TraspasosResumen } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { PullRefreshService } from '../../pull-refresh.service';
-import { PaginacionEstado } from '../../paginacion.util';
+import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { Traspaso, TraspasoAbono } from '../../modelos';
 
@@ -241,7 +241,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
         next: () => {
           this.form.persona = '';
           this.form.nota = '';
-          this.lineas = [this.nuevaLinea(), this.nuevaLinea(), this.nuevaLinea()];
+          this.lineas = Array.from({ length: capturaLineasVacias() }, () => this.nuevaLinea());
           this.drafts.clear(TraspasosComponent.DRAFT);
           this.cargar();
         },

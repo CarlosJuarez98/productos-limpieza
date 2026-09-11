@@ -20,7 +20,7 @@ import { InventarioItem, MODOS_VENTA, ModoVenta, TipoVenta, Venta } from '../../
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { PullRefreshService } from '../../pull-refresh.service';
-import { PaginacionEstado } from '../../paginacion.util';
+import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { RouterLink } from '@angular/router';
 
@@ -123,7 +123,7 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    if (!this.restaurarBorrador()) this.resetLineas(2);
+    if (!this.restaurarBorrador()) this.resetLineas(capturaLineasVacias());
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
@@ -598,9 +598,10 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   quitarLinea(index: number): void {
-    if (this.lineas.length <= 2) {
+    const min = capturaLineasVacias();
+    if (this.lineas.length <= min) {
       this.lineas[index] = this.nuevaLinea();
-      if (this.lineas.length < 2) this.resetLineas(2);
+      if (this.lineas.length < min) this.resetLineas(min);
       return;
     }
     this.lineas.splice(index, 1);
@@ -674,7 +675,7 @@ export class VentasComponent implements OnInit, OnDestroy {
         next: () => {
           this.guardando = false;
           this.drafts.clear(VentasComponent.DRAFT);
-          this.resetLineas(2);
+          this.resetLineas(capturaLineasVacias());
           this.cargar();
           setTimeout(() => this.focusProducto(0), 50);
         },

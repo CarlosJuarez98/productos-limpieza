@@ -4,15 +4,17 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { routes } from './app.routes';
 import { provideServiceWorker } from '@angular/service-worker';
 import { authInterceptor } from './auth.interceptor';
+import { offlineInterceptor } from './offline.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    // offline antes de auth: las peticiones de sync llevan header y pasan; el resto usa credenciales en auth.
+    provideHttpClient(withInterceptors([offlineInterceptor, authInterceptor])),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
-      registrationStrategy: 'registerWhenStable:30000',
+      registrationStrategy: 'registerWhenStable:5000',
     }),
   ],
 };
