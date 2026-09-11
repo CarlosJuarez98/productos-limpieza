@@ -60,6 +60,17 @@ def parse_val(v):
     return v
 
 
+# Tablas locales (pueden existir más que en el dump, p.ej. PEDIDOS).
+cur.execute("SELECT table_name FROM user_tables")
+local_tables = {r[0] for r in cur.fetchall()}
+delete_names = []
+for t in reversed(names):
+    if t in local_tables and t not in delete_names:
+        delete_names.append(t)
+for t in sorted(local_tables):
+    if t not in delete_names:
+        delete_names.insert(0, t)
+
 for t in names:
     if t not in tables:
         continue
@@ -69,11 +80,35 @@ for t in names:
         pass
 conn.commit()
 
-for t in reversed(names):
-    if t not in tables:
-        continue
-    cur.execute(f'DELETE FROM "{t}"')
-    print(f"deleted {t}: {cur.rowcount}")
+# Desactiva FKs para poder vaciar aunque el dump no traiga todas las tablas hijas.
+cur.execute(
+    """
+    SELECT constraint_name, table_name
+    FROM user_constraints
+    WHERE constraint_type = 'R' AND status = 'ENABLED'
+    """
+)
+fks = [(r[0], r[1]) for r in cur.fetchall()]
+for cname, tname in fks:
+    try:
+        cur.execute(f'ALTER TABLE "{tname}" DISABLE CONSTRAINT "{cname}"')
+    except Exception as e:
+        print(f"warn disable {tname}.{cname}: {e}")
+conn.commit()
+
+for t in delete_names:
+    try:
+        cur.execute(f'DELETE FROM "{t}"')
+        print(f"deleted {t}: {cur.rowcount}")
+    except Exception as e:
+        print(f"warn delete {t}: {e}")
+conn.commit()
+
+for cname, tname in fks:
+    try:
+        cur.execute(f'ALTER TABLE "{tname}" ENABLE CONSTRAINT "{cname}"')
+    except Exception as e:
+        print(f"warn enable {tname}.{cname}: {e}")
 conn.commit()
 
 total = 0
@@ -91,7 +126,12 @@ for t in names:
     sql = f'INSERT INTO "{t}" ({col_list}) VALUES ({placeholders})'
     ok = 0
     for row in rows:
-        vals = [parse_val(row.get(c)) for c in cols]
+        vals = []
+        for c in cols:
+            v = parse_val(row.get(c))
+            if v is None and c.upper() == "TENANT_ID":
+                v = "mama"
+            vals.append(v)
         try:
             cur.execute(sql, vals)
             ok += 1
