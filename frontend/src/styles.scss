@@ -1054,21 +1054,22 @@ button.btn-agregar-linea:hover:not(:disabled) {
 }
 
 @media (max-width: 767px) {
+  /* Sin sticky: en móvil tapaba campos (Persona, etc.) sobre nav inferior */
   .fila-actions,
   .lote-actions,
-  .captura-actions {
+  .captura-actions,
+  .gasto-actions {
     flex-direction: row;
     align-items: center;
-    position: sticky;
-    bottom: calc(3.35rem + var(--safe-bottom, 0px));
-    z-index: 8;
-    margin-left: -0.85rem;
-    margin-right: -0.85rem;
-    margin-bottom: -0.35rem;
-    padding: 0.65rem 0.85rem 0.7rem;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, #f7faf8 40%);
-    border-top: 1px solid var(--line);
-    box-shadow: 0 -6px 18px rgba(22, 53, 40, 0.1);
+    position: static;
+    z-index: auto;
+    margin-left: 0;
+    margin-right: 0;
+    margin-bottom: 0;
+    padding: 0.55rem 0 0;
+    background: transparent;
+    border-top: none;
+    box-shadow: none;
   }
 
   .fila-actions > button.btn-guardar-filas,

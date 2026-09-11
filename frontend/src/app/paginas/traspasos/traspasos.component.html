@@ -80,9 +80,6 @@
 
 <section class="panel" style="margin-top: 1rem">
   <h3 class="panel-titulo">Nuevo traspaso</h3>
-  <p class="hint" style="margin: 0 0 0.65rem">
-    Si es la misma persona y la misma fecha, los productos se agregan a la misma lista.
-  </p>
   <form (ngSubmit)="guardar()">
     <div class="form-grid captura-meta">
       <label>
@@ -348,11 +345,11 @@
         <table>
           <thead>
             <tr>
-              <th>Fecha</th>
-              <th>Persona</th>
-              <th>Productos</th>
-              <th>Total</th>
-              <th></th>
+              <th class="col-fecha">Fecha</th>
+              <th class="col-persona">Persona</th>
+              <th class="col-productos">Productos</th>
+              <th class="money col-total">Total</th>
+              <th class="col-acciones" aria-label="Acciones"></th>
             </tr>
           </thead>
           <tbody>
@@ -373,7 +370,7 @@
                     }
                   </ul>
                 </td>
-                <td class="money">${{ t.total | number: '1.2-2' }}</td>
+                <td class="money col-total">${{ t.total | number: '1.2-2' }}</td>
                 <td class="actions">
                   <button type="button" class="danger" title="Eliminar" (click)="eliminar(t.id)">×</button>
                 </td>
