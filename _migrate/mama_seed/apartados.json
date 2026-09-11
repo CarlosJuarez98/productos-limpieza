@@ -7,9 +7,16 @@
     "motivo": null
   },
   {
-    "fecha": "2026-07-21",
-    "categoria": "SALARIOS",
-    "ingreso": 50,
+    "fecha": "2026-04-26",
+    "categoria": "PRODUCTOS",
+    "ingreso": 361,
+    "tipo": "INGRESO",
+    "motivo": null
+  },
+  {
+    "fecha": "2026-05-03",
+    "categoria": "PRODUCTOS",
+    "ingreso": 108,
     "tipo": "INGRESO",
     "motivo": null
   },
@@ -21,16 +28,9 @@
     "motivo": "Productos"
   },
   {
-    "fecha": "2026-04-26",
+    "fecha": "2026-05-19",
     "categoria": "PRODUCTOS",
-    "ingreso": 361,
-    "tipo": "INGRESO",
-    "motivo": null
-  },
-  {
-    "fecha": "2026-08-25",
-    "categoria": "SALARIOS",
-    "ingreso": 180,
+    "ingreso": 384.5,
     "tipo": "INGRESO",
     "motivo": null
   },
@@ -42,13 +42,6 @@
     "motivo": "Galones"
   },
   {
-    "fecha": "2026-05-03",
-    "categoria": "PRODUCTOS",
-    "ingreso": 108,
-    "tipo": "INGRESO",
-    "motivo": null
-  },
-  {
     "fecha": "2026-06-09",
     "categoria": "PRODUCTOS",
     "ingreso": 797,
@@ -56,9 +49,9 @@
     "motivo": "Productos y jarceria"
   },
   {
-    "fecha": "2026-05-19",
+    "fecha": "2026-06-09",
     "categoria": "PRODUCTOS",
-    "ingreso": 384.5,
+    "ingreso": 580,
     "tipo": "INGRESO",
     "motivo": null
   },
@@ -70,20 +63,6 @@
     "motivo": "Productos"
   },
   {
-    "fecha": "2026-06-09",
-    "categoria": "PRODUCTOS",
-    "ingreso": 580,
-    "tipo": "INGRESO",
-    "motivo": null
-  },
-  {
-    "fecha": "2026-07-21",
-    "categoria": "PRODUCTOS",
-    "ingreso": 388,
-    "tipo": "GASTO",
-    "motivo": "Productos"
-  },
-  {
     "fecha": "2026-07-04",
     "categoria": "PRODUCTOS",
     "ingreso": 645.5,
@@ -91,9 +70,16 @@
     "motivo": null
   },
   {
-    "fecha": "2026-08-25",
+    "fecha": "2026-07-21",
+    "categoria": "SALARIOS",
+    "ingreso": 50,
+    "tipo": "INGRESO",
+    "motivo": null
+  },
+  {
+    "fecha": "2026-07-21",
     "categoria": "PRODUCTOS",
-    "ingreso": 602,
+    "ingreso": 388,
     "tipo": "GASTO",
     "motivo": "Productos"
   },
@@ -106,9 +92,30 @@
   },
   {
     "fecha": "2026-08-25",
+    "categoria": "SALARIOS",
+    "ingreso": 180,
+    "tipo": "INGRESO",
+    "motivo": null
+  },
+  {
+    "fecha": "2026-08-25",
+    "categoria": "PRODUCTOS",
+    "ingreso": 602,
+    "tipo": "GASTO",
+    "motivo": "Productos"
+  },
+  {
+    "fecha": "2026-08-25",
     "categoria": "PRODUCTOS",
     "ingreso": 800,
     "tipo": "INGRESO",
     "motivo": null
+  },
+  {
+    "fecha": "2026-09-11",
+    "categoria": "SALARIOS",
+    "ingreso": 50,
+    "tipo": "GASTO",
+    "motivo": "Doctor"
   }
 ]
