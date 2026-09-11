@@ -1,8 +1,15 @@
 <h2 class="page-title">Uso en casa</h2>
 
-<section class="panel chart-panel">
+<div class="uso-flow">
+<section class="panel chart-panel uso-chart">
+  <button type="button" class="panel-toggle" (click)="toggleChart()" [attr.aria-expanded]="chartAbierto">
+    <h3 class="panel-titulo">Consumo por producto</h3>
+    <span class="chev">{{ chartAbierto ? '▾' : '▸' }}</span>
+  </button>
+
+  @if (chartAbierto) {
+  <div class="panel-toggle-body">
   <div class="chart-toolbar">
-    <h3>Consumo por producto</h3>
     <div class="periodo-activo-bar">
       <span class="periodo-activo-label">{{ etiquetaPeriodoActivo }}</span>
       @if (periodoId !== 'actual') {
@@ -71,9 +78,11 @@
   } @else {
     <p class="muted vacio-mes">Sin consumo en {{ labelPeriodo }}.</p>
   }
+  </div>
+  }
 </section>
 
-<section class="panel captura-panel" style="margin-top: 1rem">
+<section class="panel captura-panel uso-captura" style="margin-top: 1rem">
   <div class="captura-head">
     <label class="fecha-field">
       Fecha
@@ -81,6 +90,7 @@
     </label>
   </div>
 
+  <!-- Escritorio: tabla -->
   <div class="table-wrap lote-wrap">
     <table class="lote">
       <thead>
@@ -97,6 +107,7 @@
             <td class="muted">{{ i + 1 }}</td>
             <td>
               <app-producto-autocomplete
+                #prodLote
                 [productos]="productos"
                 [productoId]="l.productoId"
                 [inputName]="'prod' + l.key"
@@ -110,6 +121,7 @@
                   #cantInput
                   type="text"
                   inputmode="decimal"
+                  appClearable
                   [(ngModel)]="l.cantidad"
                   [name]="'cant' + l.key"
                   placeholder="0"
@@ -125,6 +137,45 @@
         }
       </tbody>
     </table>
+  </div>
+
+  <!-- Móvil: tarjetas -->
+  <div class="lote-cards">
+    @for (l of lineas; track l.key; let i = $index) {
+      <article class="linea-card">
+        <header class="linea-top">
+          <span class="linea-num">{{ i + 1 }}</span>
+          <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
+        </header>
+
+        <label class="campo producto-campo">
+          Producto
+          <app-producto-autocomplete
+            [productos]="productos"
+            [productoId]="l.productoId"
+            [inputName]="'prodM' + l.key"
+            (productoIdChange)="l.productoId = $event"
+            (enterConfirmado)="onProductoEnter(i)"
+          />
+        </label>
+
+        <label class="campo">
+          Cantidad
+          <div class="cant-wrap">
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [(ngModel)]="l.cantidad"
+              [name]="'cantM' + l.key"
+              placeholder="0"
+              (keydown.enter)="onCantidadEnter($event, i)"
+            />
+            <span class="unidad">{{ unidadDe(l.productoId) }}</span>
+          </div>
+        </label>
+      </article>
+    }
   </div>
 
   <div class="captura-actions">
@@ -160,3 +211,215 @@
     <p class="ok-msg">{{ ok }}</p>
   }
 </section>
+
+<section class="panel historial-panel" style="margin-top: 1rem">
+  <h3 class="panel-titulo">Historial</h3>
+
+  <div class="table-wrap hist-tabla">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Importe</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of pagHist.paginaItems; track m.id) {
+          <tr [class.editando-fila]="editandoId === m.id">
+            <td>{{ m.fecha | fechaDmY }}</td>
+            <td>{{ m.productoNombre || '—' }}</td>
+            <td class="money">
+              {{ m.cantidad | number: '1.2-2' }} {{ unidadDe(m.productoId) }}
+            </td>
+            <td class="money">${{ importeDe(m) | number: '1.2-2' }}</td>
+            <td class="actions">
+              @if (editandoId !== m.id) {
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Editar"
+                  aria-label="Editar"
+                  (click)="editar(m)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                    />
+                  </svg>
+                </button>
+              }
+              <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
+            </td>
+          </tr>
+          @if (editandoId === m.id) {
+            <tr class="fila-edicion">
+              <td colspan="5">
+                <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+                  <label>
+                    Fecha
+                    <input
+                      type="date"
+                      [(ngModel)]="formEdit.fecha"
+                      name="editFecha"
+                      [max]="fechaMax"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Producto
+                    <app-producto-autocomplete
+                      [productos]="productos"
+                      [productoId]="formEdit.productoId"
+                      (productoIdChange)="formEdit.productoId = $event"
+                      [required]="true"
+                    />
+                  </label>
+                  <label>
+                    Cantidad
+                    <div class="cant-wrap">
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        appClearable
+                        [(ngModel)]="formEdit.cantidad"
+                        name="editCant"
+                        placeholder="0"
+                        required
+                      />
+                      <span class="unidad">{{ unidadDe(formEdit.productoId) }}</span>
+                    </div>
+                  </label>
+                  <div class="edicion-actions">
+                    <button type="submit" [disabled]="guardandoEdit">
+                      {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
+                    </button>
+                    <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
+                  </div>
+                </form>
+                @if (errorEdit) {
+                  <p class="error">{{ errorEdit }}</p>
+                }
+              </td>
+            </tr>
+          }
+        } @empty {
+          <tr>
+            <td colspan="5" class="muted">Sin movimientos en este periodo.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (editandoId != null) {
+    <div class="hist-edicion-movil">
+      <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+        <label>
+          Fecha
+          <input
+            type="date"
+            [(ngModel)]="formEdit.fecha"
+            name="editFechaMovil"
+            [max]="fechaMax"
+            required
+          />
+        </label>
+        <label>
+          Producto
+          <app-producto-autocomplete
+            [productos]="productos"
+            [productoId]="formEdit.productoId"
+            (productoIdChange)="formEdit.productoId = $event"
+            [required]="true"
+          />
+        </label>
+        <label>
+          Cantidad
+          <div class="cant-wrap">
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [(ngModel)]="formEdit.cantidad"
+              name="editCantMovil"
+              placeholder="0"
+              required
+            />
+            <span class="unidad">{{ unidadDe(formEdit.productoId) }}</span>
+          </div>
+        </label>
+        <div class="edicion-actions">
+          <button type="submit" [disabled]="guardandoEdit">
+            {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
+          </button>
+          <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
+        </div>
+      </form>
+      @if (errorEdit) {
+        <p class="error">{{ errorEdit }}</p>
+      }
+    </div>
+  }
+
+  <ul class="hist-cards">
+    @for (m of pagHist.paginaItems; track m.id) {
+      <li [class.editando-card]="editandoId === m.id">
+        <div class="item-meta">
+          <span>{{ m.fecha | fechaDmY }}</span>
+          <span class="item-tag">{{ m.cantidad | number: '1.2-2' }} {{ unidadDe(m.productoId) }}</span>
+        </div>
+        <p class="item-motivo">{{ m.productoNombre || '—' }}</p>
+        <div class="item-fila">
+          <strong class="money">${{ importeDe(m) | number: '1.2-2' }}</strong>
+          <div class="acciones">
+            <button
+              type="button"
+              class="icono"
+              title="Editar"
+              aria-label="Editar"
+              (click)="editar(m)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="icono peligro"
+              title="Eliminar"
+              aria-label="Eliminar"
+              (click)="eliminar(m.id)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">Sin movimientos en este periodo.</li>
+    }
+  </ul>
+
+  <app-paginador
+    [total]="pagHist.total"
+    [pagina]="pagHist.pagina"
+    [pageSize]="pagHist.pageSize"
+    ariaLabel="Páginas de historial uso en casa"
+    (prev)="pagHist.anterior()"
+    (next)="pagHist.siguiente()"
+  />
+</section>
+</div>

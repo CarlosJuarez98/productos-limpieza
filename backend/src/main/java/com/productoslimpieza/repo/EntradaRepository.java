@@ -1,6 +1,7 @@
 package com.productoslimpieza.repo;
 
 import com.productoslimpieza.domain.Entrada;
+import com.productoslimpieza.domain.Pedido;
 import com.productoslimpieza.domain.Producto;
 import java.math.BigDecimal;
 import java.util.List;
@@ -18,6 +19,13 @@ public interface EntradaRepository extends JpaRepository<Entrada, Long> {
   BigDecimal sumTotal();
 
   long countByProducto(Producto producto);
+
+  @Query(
+      "select coalesce(sum(e.cantidad), 0) from Entrada e where e.pedido = :pedido and e.producto = :producto")
+  BigDecimal sumCantidadByPedidoAndProducto(
+      @Param("pedido") Pedido pedido, @Param("producto") Producto producto);
+
+  List<Entrada> findByPedidoId(Long pedidoId);
 
   java.util.Optional<Entrada> findFirstByProductoIdAndPrecioProveedorIsNotNullOrderByFechaDescIdDesc(
       Long productoId);

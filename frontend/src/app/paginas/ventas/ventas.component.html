@@ -8,26 +8,29 @@
 }
 
 <section class="panel captura-panel">
-  <div class="captura-head">
-    <label class="fecha-field">
-      Fecha
-      <input
-        type="date"
-        [(ngModel)]="fecha"
-        name="fechaLote"
-        [min]="fechaMin || null"
-        [max]="fechaMax"
-        required
-      />
-    </label>
-    <div class="totales-rapidos">
-      <div class="tot-chip">
-        <span>Ticket</span>
-        <strong>${{ totalTicket | number: '1.2-2' }}</strong>
-      </div>
-      <div class="tot-chip dia">
-        <span>Ventas del día</span>
-        <strong>${{ totalVentasDia | number: '1.2-2' }}</strong>
+  <div class="captura-sticky">
+    <div class="captura-head">
+      <label class="fecha-field">
+        Fecha
+        <input
+          type="date"
+          [(ngModel)]="fecha"
+          (ngModelChange)="onFechaChange()"
+          name="fechaLote"
+          [min]="fechaMin || null"
+          [max]="fechaMax"
+          required
+        />
+      </label>
+      <div class="totales-rapidos">
+        <div class="tot-chip">
+          <span>Ticket</span>
+          <strong>${{ totalTicket | number: '1.2-2' }}</strong>
+        </div>
+        <div class="tot-chip dia">
+          <span>Ventas del día</span>
+          <strong>${{ totalVentasDia | number: '1.2-2' }}</strong>
+        </div>
       </div>
     </div>
   </div>
@@ -72,6 +75,7 @@
                 #cantInput
                 type="text"
                 inputmode="decimal"
+                appClearable
                 [(ngModel)]="l.cantidad"
                 [name]="'cant' + l.key"
                 placeholder="0"
@@ -90,6 +94,7 @@
                 <input
                   type="text"
                   inputmode="decimal"
+                  appClearable
                   [(ngModel)]="l.precioManual"
                   [name]="'precio' + l.key"
                   placeholder="unitario"
@@ -119,6 +124,7 @@
                 <input
                   type="text"
                   inputmode="decimal"
+                  appClearable
                   [(ngModel)]="l.total"
                   [name]="'total' + l.key"
                   placeholder="0"
@@ -167,22 +173,31 @@
   }
 </section>
 
-<section class="panel historial-panel" style="margin-top: 1rem">
+<section class="panel historial-panel" style="margin-top: 1rem" #listaHistorial>
   <div class="toolbar historial-toolbar">
-    <h3 class="historial-titulo">Registradas</h3>
+    <h3 class="historial-titulo panel-titulo">Registradas</h3>
     <div class="filtro-chips" role="group" aria-label="Filtro historial">
-      <button type="button" class="modo-chip" [class.activo]="soloHoy" (click)="soloHoy = true">
+      <button type="button" class="modo-chip" [class.activo]="soloHoy" (click)="setSoloHoy(true)">
         Del día
       </button>
-      <button type="button" class="modo-chip" [class.activo]="!soloHoy" (click)="soloHoy = false">
+      <button type="button" class="modo-chip" [class.activo]="!soloHoy" (click)="setSoloHoy(false)">
         Todas
       </button>
     </div>
-    <label class="buscar-hist">
-      Buscar
-      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Nombre del producto..." />
-    </label>
-    <span class="muted">{{ filtradas.length }} registro{{ filtradas.length === 1 ? '' : 's' }}</span>
+    @if (hayVentasParaBuscar) {
+      <label class="buscar-hist">
+        Buscar
+        <input
+          class="search"
+          appClearable
+          [ngModel]="filtroTexto"
+          (ngModelChange)="onFiltroTexto($event)"
+          name="filtro"
+          placeholder="Nombre del producto..."
+          (keydown.enter)="onBuscarEnter($event)"
+        />
+      </label>
+    }
   </div>
 
   <!-- Escritorio: tabla normal -->
@@ -199,7 +214,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (v of filtradas; track v.id) {
+        @for (v of pagHist.paginaItems; track v.id) {
           <tr>
             <td [class.fecha-naranja]="esRegistroCorte(v)">
               {{ v.fecha | fechaDmY }}
@@ -223,7 +238,7 @@
 
   <!-- Móvil: tarjetas estilo Gastos -->
   <ul class="hist-cards">
-    @for (v of filtradas; track v.id) {
+    @for (v of pagHist.paginaItems; track v.id) {
       <li>
         <div class="item-meta">
           <span [class.fecha-naranja]="esRegistroCorte(v)">{{ v.fecha | fechaDmY }}</span>
@@ -257,4 +272,13 @@
       <li class="vacio muted">Sin ventas{{ soloHoy ? ' este día' : '' }}.</li>
     }
   </ul>
+
+  <app-paginador
+    [total]="pagHist.total"
+    [pagina]="pagHist.pagina"
+    [pageSize]="pagHist.pageSize"
+    ariaLabel="Páginas de ventas"
+    (prev)="paginaAnterior()"
+    (next)="paginaSiguiente()"
+  />
 </section>

@@ -2,6 +2,7 @@ package com.productoslimpieza.service;
 
 import com.productoslimpieza.domain.MargenConfig;
 import com.productoslimpieza.repo.MargenConfigRepository;
+import com.productoslimpieza.tenant.TenantContext;
 import com.productoslimpieza.web.dto.MargenConfigDto;
 import com.productoslimpieza.web.dto.MargenConfigRequest;
 import java.math.BigDecimal;
@@ -27,7 +28,7 @@ public class MargenService {
 
   @Transactional
   public MargenConfig getConfig() {
-    MargenConfig c = repo.findById(1L).orElseGet(this::crearDefault);
+    MargenConfig c = repo.findByTenantId(TenantContext.require()).orElseGet(this::crearDefault);
     boolean dirty = false;
     if (c.getMargenMayoreo5() == null) {
       c.setMargenMayoreo5(new BigDecimal("0.4000"));
@@ -89,7 +90,8 @@ public class MargenService {
 
   private MargenConfig crearDefault() {
     MargenConfig c = new MargenConfig();
-    c.setId(1L);
+    c.setId(repo.nextId());
+    c.setTenantId(TenantContext.require());
     return repo.save(c);
   }
 

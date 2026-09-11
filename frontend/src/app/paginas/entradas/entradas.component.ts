@@ -1,17 +1,29 @@
-import { ChangeDetectorRef, Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { switchMap, Subscription } from 'rxjs';
+import { of } from 'rxjs';
 import { ApiService } from '../../api.service';
+import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { Entrada, InventarioItem, Produccion } from '../../modelos';
+import { Entrada, InventarioItem, PedidoRegistrado, Produccion } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
+import { PullRefreshService } from '../../pull-refresh.service';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
 
 interface LineaForm {
   key: number;
   productoId: number | null;
   cantidad: number | null;
   precioProveedor: number | null;
+  /** Cantidad a traspasar de esta línea (opcional, ≤ cantidad de entrada). */
+  cantidadTraspaso: number | null;
+  /** Si true, liga al pedido elegido. false = oferta / compra libre. */
+  aplicarAPedido: boolean;
+  /** Pedido concreto al que aplica (obligatorio si aplicarAPedido). */
+  pedidoId: number | null;
 }
 
 type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
@@ -19,23 +31,47 @@ type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
 @Component({
   selector: 'app-entradas',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProductoAutocompleteComponent, FechaDmYPipe],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ProductoAutocompleteComponent,
+    FechaDmYPipe,
+    ClearableDirective,
+    PaginadorComponent,
+  ],
   templateUrl: './entradas.component.html',
   styleUrl: './entradas.component.scss',
 })
-export class EntradasComponent implements OnInit {
+export class EntradasComponent implements OnInit, OnDestroy {
   @ViewChildren('prodLote') prodAutos!: QueryList<ProductoAutocompleteComponent>;
   @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
   @ViewChildren('precioInput') precioInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   entradas: Entrada[] = [];
   producciones: Produccion[] = [];
+  pagEntradas = new PaginacionEstado<Entrada>();
+  pagPrep = new PaginacionEstado<Produccion>();
   productos: InventarioItem[] = [];
+  /** Pedidos abiertos/parciales para ligar entradas. */
+  pedidosAbiertosList: PedidoRegistrado[] = [];
+  /** Productos con faltante en algún pedido abierto/parcial. */
+  productosConFalta = new Set<number>();
+  personasNombres: string[] = [];
   error = '';
   errorPrep = '';
   okPrep = '';
+  ok = '';
+  errorEdit = '';
   guardando = false;
+  guardandoEdit = false;
+  /** Traspasar parte del lote a una persona en el mismo guardado. */
+  tambienTraspasar = false;
+  traspasoPersona = '';
+  /** Móvil: paneles secundarios colapsados por defecto. */
+  prepAbierta = typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
+  histAbierta = typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
   private nextKey = 1;
+  private pullSub?: Subscription;
   fecha = this.hoyLocal();
   fechaMin: string | null = null;
   fechaUltimoCorte: string | null = null;
@@ -48,15 +84,39 @@ export class EntradasComponent implements OnInit {
     cantidadInsumo: null as number | null,
     insumoNombre: '' as string,
   };
+  editandoPrepId: number | null = null;
+  editandoEntradaId: number | null = null;
+  formEdit = {
+    fecha: this.hoyLocal(),
+    productoId: null as number | null,
+    cantidad: null as number | null,
+    precioProveedor: null as number | null,
+    aplicarAPedido: false,
+    pedidoId: null as number | null,
+  };
 
   constructor(
     private api: ApiService,
     private confirmDlg: ConfirmDialogService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private pullRefresh: PullRefreshService
   ) {}
 
   ngOnInit(): void {
     this.cargar();
+    this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
+  }
+
+  ngOnDestroy(): void {
+    this.pullSub?.unsubscribe();
+  }
+
+  togglePrep(): void {
+    this.prepAbierta = !this.prepAbierta;
+  }
+
+  toggleHist(): void {
+    this.histAbierta = !this.histAbierta;
   }
 
   hoyLocal(): string {
@@ -87,9 +147,10 @@ export class EntradasComponent implements OnInit {
     if (this.fechaMin && this.fecha < this.fechaMin) this.fecha = this.fechaMin;
     if (this.prep.fecha > hoy) this.prep.fecha = hoy;
     if (this.fechaMin && this.prep.fecha < this.fechaMin) this.prep.fecha = this.fechaMin;
+    if (this.formEdit.fecha > hoy) this.formEdit.fecha = hoy;
   }
 
-  private validarFecha(fecha: string, destino: 'error' | 'errorPrep' = 'error'): boolean {
+  private validarFecha(fecha: string, destino: 'error' | 'errorPrep' | 'errorEdit' = 'error'): boolean {
     if (!fecha) {
       this[destino] = 'Indica la fecha';
       return false;
@@ -111,7 +172,87 @@ export class EntradasComponent implements OnInit {
   }
 
   private nuevaLinea(): LineaForm {
-    return { key: this.nextKey++, productoId: null, cantidad: null, precioProveedor: null };
+    return {
+      key: this.nextKey++,
+      productoId: null,
+      cantidad: null,
+      precioProveedor: null,
+      cantidadTraspaso: null,
+      aplicarAPedido: false,
+      pedidoId: null,
+    };
+  }
+
+  tieneFaltantePedido(productoId: number | null): boolean {
+    return productoId != null && this.productosConFalta.has(productoId);
+  }
+
+  /** Pedidos abiertos que aún deben ese producto. */
+  pedidosParaLinea(productoId: number | null): PedidoRegistrado[] {
+    if (productoId == null) return this.pedidosAbiertosList;
+    return this.pedidosAbiertosList.filter((p) =>
+      p.items.some((i) => i.productoId === productoId && Number(i.cantidadFaltante) > 0)
+    );
+  }
+
+  /** En edición: pedidos abiertos con ese producto, más el pedido actual si ya no aparece. */
+  pedidosParaEdicion(productoId: number | null, pedidoActual: number | null): PedidoRegistrado[] {
+    if (productoId == null) return this.pedidosAbiertosList;
+    const conProducto = this.pedidosAbiertosList.filter((p) =>
+      p.items.some((i) => i.productoId === productoId)
+    );
+    if (pedidoActual != null && !conProducto.some((p) => p.id === pedidoActual)) {
+      const extra = this.pedidosAbiertosList.find((p) => p.id === pedidoActual);
+      if (extra) return [extra, ...conProducto];
+    }
+    return conProducto;
+  }
+
+  /** True si el pedido actual no aparece en la lista filtrada (mostrar opción “actual”). */
+  pedidoEditAusenteDeLista(): boolean {
+    const id = this.formEdit.pedidoId;
+    if (id == null) return false;
+    return !this.pedidosParaEdicion(this.formEdit.productoId, id).some((p) => p.id === id);
+  }
+
+  onPedidoEditChange(): void {
+    this.formEdit.aplicarAPedido = this.formEdit.pedidoId != null;
+  }
+
+  etiquetaPedido(p: PedidoRegistrado): string {
+    const fecha = formatFechaDmY(p.fecha);
+    return `Surtir #${p.id} · ${fecha} · ${p.itemsConFalta} faltan`;
+  }
+
+  onPedidoChange(l: LineaForm): void {
+    l.aplicarAPedido = l.pedidoId != null;
+  }
+
+  sugerirPedidoId(productoId: number | null): number | null {
+    const opts = this.pedidosParaLinea(productoId);
+    return opts.length ? opts[0].id : null;
+  }
+
+  nombreProducto(productoId: number | null): string {
+    if (productoId == null) return '—';
+    return this.productos.find((p) => p.id === productoId)?.nombre || '—';
+  }
+
+  toggleTambienTraspasar(): void {
+    this.tambienTraspasar = !this.tambienTraspasar;
+    if (!this.tambienTraspasar) {
+      this.traspasoPersona = '';
+      for (const l of this.lineas) l.cantidadTraspaso = null;
+    }
+  }
+
+  /** True si la cantidad a traspasar supera lo que entra en esa línea. */
+  excedeTraspaso(l: LineaForm): boolean {
+    const cantEnt = Number(l.cantidad);
+    const cantTr = Number(l.cantidadTraspaso);
+    if (!Number.isFinite(cantTr) || cantTr <= 0) return false;
+    if (!Number.isFinite(cantEnt) || cantEnt <= 0) return cantTr > 0;
+    return cantTr > cantEnt;
   }
 
   /** Última compra con precio (historial ya viene fecha desc). */
@@ -128,6 +269,10 @@ export class EntradasComponent implements OnInit {
 
   onProductoChange(l: LineaForm, id: number | null): void {
     l.productoId = id;
+    const pedId = this.sugerirPedidoId(id);
+    l.pedidoId = pedId;
+    l.aplicarAPedido = pedId != null && this.tieneFaltantePedido(id);
+    if (!l.aplicarAPedido) l.pedidoId = null;
   }
 
   cambioLinea(l: LineaForm): CambioPrecio {
@@ -244,14 +389,47 @@ export class EntradasComponent implements OnInit {
 
   cargar(): void {
     this.api.entradas().subscribe({
-      next: (e) => (this.entradas = e),
+      next: (e) => {
+        this.entradas = e;
+        this.pagEntradas.setItems(this.entradas, false);
+      },
       error: (e) => (this.error = e.error?.error || 'No se pudieron cargar entradas'),
     });
     this.api.producciones().subscribe({
-      next: (p) => (this.producciones = p),
-      error: () => (this.producciones = []),
+      next: (p) => {
+        this.producciones = p;
+        this.pagPrep.setItems(this.producciones, false);
+      },
+      error: () => {
+        this.producciones = [];
+        this.pagPrep.setItems([], false);
+      },
     });
     this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
+    this.api.pedidosAbiertos().subscribe({
+      next: (pedidos) => {
+        this.pedidosAbiertosList = pedidos || [];
+        const ids = new Set<number>();
+        for (const ped of this.pedidosAbiertosList) {
+          for (const it of ped.items) {
+            if (Number(it.cantidadFaltante) > 0) ids.add(it.productoId);
+          }
+        }
+        this.productosConFalta = ids;
+      },
+      error: () => {
+        this.pedidosAbiertosList = [];
+        this.productosConFalta = new Set();
+      },
+    });
+    this.api.personas().subscribe({
+      next: (p) => {
+        this.personasNombres = (p || []).map((x) => x.nombre).filter(Boolean);
+      },
+      error: () => {
+        this.personasNombres = [];
+      },
+    });
     this.api.caja().subscribe({
       next: (c) => {
         this.fechaMin = c.fechaInicio || null;
@@ -282,18 +460,25 @@ export class EntradasComponent implements OnInit {
 
   guardar(): void {
     this.error = '';
+    this.ok = '';
     this.asegurarFechaValida();
     if (!this.validarFecha(this.fecha)) return;
-    const lineas = this.lineas
-      .filter((l) => l.productoId != null && Number(l.cantidad) > 0)
-      .map((l) => ({
-        productoId: l.productoId as number,
-        cantidad: Number(l.cantidad),
-        precioProveedor:
-          l.precioProveedor != null && String(l.precioProveedor) !== ''
-            ? Number(l.precioProveedor)
-            : null,
-      }));
+
+    const lineasForm = this.lineas.filter((l) => l.productoId != null && Number(l.cantidad) > 0);
+    const lineas = lineasForm.map((l) => ({
+      productoId: l.productoId as number,
+      cantidad: Number(l.cantidad),
+      precioProveedor:
+        l.precioProveedor != null && String(l.precioProveedor) !== ''
+          ? Number(l.precioProveedor)
+          : null,
+      aplicarAPedido: !!l.aplicarAPedido && l.pedidoId != null,
+      pedidoId: l.aplicarAPedido && l.pedidoId != null ? l.pedidoId : null,
+    }));
+    if (lineasForm.some((l) => l.aplicarAPedido && l.pedidoId == null)) {
+      this.error = 'Si aplicas a pedido, elige el número de pedido en cada línea';
+      return;
+    }
     if (!lineas.length) {
       this.error = 'Agrega al menos un producto con cantidad';
       return;
@@ -306,23 +491,170 @@ export class EntradasComponent implements OnInit {
         `«${prohibido.nombre}» se obtiene por preparación (Hipoclorito / Base Fabuloso), no por entrada de proveedor`;
       return;
     }
+
+    let lineasTraspaso: { productoId: number; cantidad: number }[] = [];
+    if (this.tambienTraspasar) {
+      if (!this.traspasoPersona.trim()) {
+        this.error = 'Selecciona una persona de la lista';
+        return;
+      }
+      for (const l of lineasForm) {
+        const cantEnt = Number(l.cantidad);
+        const cantTr = Number(l.cantidadTraspaso);
+        if (!Number.isFinite(cantTr) || cantTr <= 0) continue;
+        if (cantTr > cantEnt) {
+          this.error = `En «${this.nombreProducto(l.productoId)}» no puedes traspasar más de lo que entra (${cantEnt})`;
+          return;
+        }
+        lineasTraspaso.push({ productoId: l.productoId as number, cantidad: cantTr });
+      }
+      if (!lineasTraspaso.length) {
+        this.error = 'Indica cuánto traspasar en al menos un producto (ej. 5 de 10)';
+        return;
+      }
+    }
+
+    const persona = this.traspasoPersona.trim();
+    const fechaGuardada = this.fecha;
     this.guardando = true;
     this.api
       .crearEntradasLote({
-        fecha: this.fecha,
+        fecha: fechaGuardada,
         lineas,
       })
+      .pipe(
+        switchMap(() => {
+          if (!lineasTraspaso.length) return of(null);
+          return this.api.crearTraspaso({
+            fecha: fechaGuardada,
+            persona,
+            nota: 'Desde entrada de proveedor',
+            lineas: lineasTraspaso,
+          });
+        })
+      )
       .subscribe({
         next: () => {
           this.guardando = false;
+          const nTr = lineasTraspaso.length;
+          this.ok = nTr
+            ? `Entrada registrada y traspaso a ${persona} listo`
+            : 'Entrada registrada';
           this.lineas = [this.nuevaLinea()];
+          this.tambienTraspasar = false;
+          this.traspasoPersona = '';
           this.cargar();
         },
         error: (e) => {
           this.guardando = false;
-          this.error = e.error?.error || 'Error al guardar entradas';
+          this.error =
+            e.error?.error ||
+            (lineasTraspaso.length
+              ? 'La entrada se pudo guardar, pero falló el traspaso. Revísalo en Traspasos.'
+              : 'Error al guardar entradas');
+          this.cargar();
         },
       });
+  }
+
+  editarEntrada(e: Entrada): void {
+    this.errorEdit = '';
+    this.editandoEntradaId = e.id;
+    this.formEdit = {
+      fecha: e.fecha,
+      productoId: e.productoId,
+      cantidad: e.cantidad,
+      precioProveedor: e.precioProveedor,
+      aplicarAPedido: !!e.aplicadaAPedido,
+      pedidoId: e.pedidoId,
+    };
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      const el =
+        document.querySelector('.hist-edicion-movil') || document.querySelector('.fila-edicion');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }
+
+  cancelarEdicionEntrada(): void {
+    this.editandoEntradaId = null;
+    this.errorEdit = '';
+    this.guardandoEdit = false;
+  }
+
+  guardarEdicionEntrada(): void {
+    if (this.editandoEntradaId == null) return;
+    this.errorEdit = '';
+    this.asegurarFechaValida();
+    if (!this.validarFecha(this.formEdit.fecha, 'errorEdit')) return;
+    const cant = Number(this.formEdit.cantidad);
+    if (this.formEdit.productoId == null || !Number.isFinite(cant) || cant <= 0) {
+      this.errorEdit = 'Completa producto y cantidad';
+      return;
+    }
+    const prod = this.productos.find((p) => p.id === this.formEdit.productoId);
+    if (prod && this.esProductoPreparacion(prod.nombre)) {
+      this.errorEdit =
+        `«${prod.nombre}» se obtiene por preparación, no por entrada de proveedor`;
+      return;
+    }
+    this.guardandoEdit = true;
+    this.api
+      .actualizarEntrada(this.editandoEntradaId, {
+        fecha: this.formEdit.fecha,
+        productoId: this.formEdit.productoId,
+        cantidad: cant,
+        precioProveedor:
+          this.formEdit.precioProveedor != null && String(this.formEdit.precioProveedor) !== ''
+            ? Number(this.formEdit.precioProveedor)
+            : null,
+        actualizarPrecioCompra: true,
+        aplicarAPedido: this.formEdit.aplicarAPedido && this.formEdit.pedidoId != null,
+        pedidoId: this.formEdit.aplicarAPedido ? this.formEdit.pedidoId : null,
+      })
+      .subscribe({
+        next: () => {
+          this.guardandoEdit = false;
+          this.cancelarEdicionEntrada();
+          this.cargar();
+        },
+        error: (e) => {
+          this.guardandoEdit = false;
+          this.errorEdit = e.error?.error || 'Error al actualizar entrada';
+        },
+      });
+  }
+
+  editarProduccion(p: Produccion): void {
+    this.errorPrep = '';
+    this.okPrep = '';
+    this.editandoPrepId = p.id;
+    this.prep = {
+      fecha: p.fecha,
+      productoResultadoId: p.productoResultadoId,
+      cantidadResultado: p.cantidadResultado,
+      productoInsumoId: p.productoInsumoId,
+      cantidadInsumo: p.cantidadInsumo,
+      insumoNombre: p.productoInsumoNombre || '',
+    };
+    setTimeout(() => {
+      document.querySelector('.panel-prep')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+
+  cancelarEdicionPrep(): void {
+    this.editandoPrepId = null;
+    this.errorPrep = '';
+    this.okPrep = '';
+    this.prep = {
+      fecha: this.hoyLocal(),
+      productoResultadoId: null,
+      cantidadResultado: null,
+      productoInsumoId: null,
+      cantidadInsumo: null,
+      insumoNombre: '',
+    };
+    this.asegurarFechaValida();
   }
 
   guardarPreparacion(): void {
@@ -343,32 +675,40 @@ export class EntradasComponent implements OnInit {
       this.errorPrep = 'Completa producto, insumo y cantidades';
       return;
     }
+    const body = {
+      fecha: this.prep.fecha,
+      productoResultadoId: this.prep.productoResultadoId,
+      cantidadResultado: cantRes,
+      productoInsumoId: this.prep.productoInsumoId,
+      cantidadInsumo: cantIns,
+    };
     const insumoNombre = this.prep.insumoNombre;
-    this.api
-      .crearProduccion({
-        fecha: this.prep.fecha,
-        productoResultadoId: this.prep.productoResultadoId,
-        cantidadResultado: cantRes,
-        productoInsumoId: this.prep.productoInsumoId,
-        cantidadInsumo: cantIns,
-      })
-      .subscribe({
-        next: () => {
-          this.okPrep = `Listo: +${cantRes} y se descontó ${cantIns} de ${insumoNombre}`;
-          this.prep.cantidadResultado = null;
-          this.prep.cantidadInsumo = null;
-          this.prep.productoResultadoId = null;
-          this.prep.productoInsumoId = null;
-          this.prep.insumoNombre = '';
-          this.cargar();
-        },
-        error: (e) => (this.errorPrep = e.error?.error || 'Error al registrar preparación'),
-      });
+    const editId = this.editandoPrepId;
+    const req$ =
+      editId != null
+        ? this.api.actualizarProduccion(editId, body)
+        : this.api.crearProduccion(body);
+    req$.subscribe({
+      next: () => {
+        const msg =
+          editId != null
+            ? 'Preparación actualizada'
+            : `Listo: +${cantRes} y se descontó ${cantIns} de ${insumoNombre}`;
+        this.cancelarEdicionPrep();
+        this.okPrep = msg;
+        this.cargar();
+      },
+      error: (e) =>
+        (this.errorPrep =
+          e.error?.error ||
+          (editId != null ? 'Error al actualizar preparación' : 'Error al registrar preparación')),
+    });
   }
 
   async eliminar(id: number): Promise<void> {
     const ok = await this.confirmDlg.ask('¿Eliminar esta entrada?', { confirmarTexto: 'Eliminar' });
     if (!ok) return;
+    if (this.editandoEntradaId === id) this.cancelarEdicionEntrada();
     this.api.eliminarEntrada(id).subscribe({
       next: () => this.cargar(),
       error: (e) => (this.error = e.error?.error || 'Error al eliminar'),
@@ -378,6 +718,7 @@ export class EntradasComponent implements OnInit {
   async eliminarProduccion(id: number): Promise<void> {
     const ok = await this.confirmDlg.ask('¿Eliminar esta preparación?', { confirmarTexto: 'Eliminar' });
     if (!ok) return;
+    if (this.editandoPrepId === id) this.cancelarEdicionPrep();
     this.api.eliminarProduccion(id).subscribe({
       next: () => this.cargar(),
       error: (e) => (this.errorPrep = e.error?.error || 'Error al eliminar'),

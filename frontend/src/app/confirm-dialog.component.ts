@@ -73,6 +73,21 @@ import { ConfirmDialogService, ConfirmRequest } from './confirm-dialog.service';
         justify-content: flex-end;
         gap: 0.5rem;
       }
+      @media (max-width: 767px) {
+        .dialog {
+          padding: 1.15rem 1rem 1rem;
+        }
+        .dialog .actions {
+          flex-direction: column-reverse;
+          align-items: stretch;
+        }
+        .dialog .actions button {
+          width: 100%;
+          min-height: 2.85rem;
+          font-size: 1.05rem;
+          font-weight: 700;
+        }
+      }
     `,
   ],
 })

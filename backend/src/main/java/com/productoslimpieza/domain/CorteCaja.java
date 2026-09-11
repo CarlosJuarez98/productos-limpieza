@@ -1,5 +1,7 @@
 package com.productoslimpieza.domain;
 
+import com.productoslimpieza.tenant.TenantEntity;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -8,8 +10,8 @@ import java.time.LocalDate;
 @Entity
 @Table(
     name = "cortes_caja",
-    uniqueConstraints = @UniqueConstraint(name = "uk_corte_fecha", columnNames = "fecha"))
-public class CorteCaja {
+    uniqueConstraints = @UniqueConstraint(name = "uk_corte_fecha", columnNames = {"tenant_id", "fecha"}))
+public class CorteCaja extends TenantEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)

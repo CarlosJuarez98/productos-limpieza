@@ -7,5 +7,7 @@ import java.math.BigDecimal;
 public record EntradaLineaRequest(
     @NotNull Long productoId,
     @NotNull @Positive BigDecimal cantidad,
-    BigDecimal precioProveedor
+    BigDecimal precioProveedor,
+    Boolean aplicarAPedido,
+    Long pedidoId
 ) {}

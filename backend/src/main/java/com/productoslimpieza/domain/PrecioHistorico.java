@@ -1,5 +1,7 @@
 package com.productoslimpieza.domain;
 
+import com.productoslimpieza.tenant.TenantEntity;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -7,7 +9,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "precios_historicos",
     indexes = @Index(name = "idx_precio_prod_fecha", columnList = "producto_id, fechaVigencia"))
-public class PrecioHistorico {
+public class PrecioHistorico extends TenantEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -4,7 +4,15 @@
   <div class="toolbar">
     <label>
       Buscar
-      <input class="search" [(ngModel)]="filtro" name="filtro" placeholder="Producto..." />
+      <input
+        class="search"
+        appClearable
+        [ngModel]="filtroTexto"
+        (ngModelChange)="onFiltroTexto($event)"
+        name="filtro"
+        placeholder="Producto..."
+        (keydown.enter)="onBuscarEnter($event)"
+      />
     </label>
   </div>
 
@@ -19,7 +27,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (p of preciosActuales; track p.productoId) {
+        @for (p of pagActuales.paginaItems; track p.productoId) {
           <tr class="precio-actual">
             <td>
               {{ p.productoNombre }}
@@ -40,7 +48,7 @@
   </div>
 
   <ul class="hist-cards">
-    @for (p of preciosActuales; track p.productoId) {
+    @for (p of pagActuales.paginaItems; track p.productoId) {
       <li>
         <div class="item-meta">
           <span>
@@ -61,6 +69,14 @@
       <li class="vacio muted">Sin precios actuales.</li>
     }
   </ul>
+  <app-paginador
+    [total]="pagActuales.total"
+    [pagina]="pagActuales.pagina"
+    [pageSize]="pagActuales.pageSize"
+    ariaLabel="Páginas de precios actuales"
+    (prev)="pagActuales.anterior()"
+    (next)="pagActuales.siguiente()"
+  />
 </section>
 
 <section class="panel" style="margin-top: 1rem">
@@ -76,7 +92,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (p of preciosAnteriores; track p.id) {
+        @for (p of pagAnteriores.paginaItems; track p.id) {
           <tr>
             <td>{{ p.productoNombre }}</td>
             <td>{{ p.fechaVigencia | fechaDmY }}</td>
@@ -99,7 +115,7 @@
   </div>
 
   <ul class="hist-cards">
-    @for (p of preciosAnteriores; track p.id) {
+    @for (p of pagAnteriores.paginaItems; track p.id) {
       <li>
         <div class="item-meta">
           <span>
@@ -120,4 +136,12 @@
       <li class="vacio muted">No hay precios anteriores{{ filtro ? ' con ese filtro' : '' }}.</li>
     }
   </ul>
+  <app-paginador
+    [total]="pagAnteriores.total"
+    [pagina]="pagAnteriores.pagina"
+    [pageSize]="pagAnteriores.pageSize"
+    ariaLabel="Páginas de historial de precios"
+    (prev)="pagAnteriores.anterior()"
+    (next)="pagAnteriores.siguiente()"
+  />
 </section>

@@ -1,0 +1,11 @@
+[
+  { "fecha": "2026-04-14", "paraApartar": 0, "fondoPeriodo": 0 },
+  { "fecha": "2026-04-19", "paraApartar": 102, "fondoPeriodo": 0 },
+  { "fecha": "2026-04-26", "paraApartar": 361, "fondoPeriodo": 200 },
+  { "fecha": "2026-05-03", "paraApartar": 108, "fondoPeriodo": 200 },
+  { "fecha": "2026-05-19", "paraApartar": 384.5, "fondoPeriodo": 200 },
+  { "fecha": "2026-06-09", "paraApartar": 580, "fondoPeriodo": 200 },
+  { "fecha": "2026-07-04", "paraApartar": 645.5, "fondoPeriodo": 200 },
+  { "fecha": "2026-07-21", "paraApartar": 500, "fondoPeriodo": 200 },
+  { "fecha": "2026-08-22", "paraApartar": 980, "fondoPeriodo": 200 }
+]

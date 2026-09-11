@@ -2,10 +2,12 @@ package com.productoslimpieza.service;
 
 import com.productoslimpieza.domain.CajaConfig;
 import com.productoslimpieza.domain.Entrada;
+import com.productoslimpieza.domain.Pedido;
 import com.productoslimpieza.domain.Producto;
 import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.EntradaRepository;
 import com.productoslimpieza.repo.ProductoRepository;
+import com.productoslimpieza.tenant.TenantContext;
 import com.productoslimpieza.web.dto.EntradaDto;
 import com.productoslimpieza.web.dto.EntradaLineaRequest;
 import com.productoslimpieza.web.dto.EntradaRequest;
@@ -17,8 +19,11 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,14 +37,17 @@ public class EntradaService {
   private final EntradaRepository entradaRepo;
   private final ProductoRepository productoRepo;
   private final CajaConfigRepository cajaConfigRepo;
+  private final PedidoRegistroService pedidoRegistroService;
 
   public EntradaService(
       EntradaRepository entradaRepo,
       ProductoRepository productoRepo,
-      CajaConfigRepository cajaConfigRepo) {
+      CajaConfigRepository cajaConfigRepo,
+      PedidoRegistroService pedidoRegistroService) {
     this.entradaRepo = entradaRepo;
     this.productoRepo = productoRepo;
     this.cajaConfigRepo = cajaConfigRepo;
+    this.pedidoRegistroService = pedidoRegistroService;
   }
 
   @Transactional(readOnly = true)
@@ -58,8 +66,12 @@ public class EntradaService {
     BigDecimal anterior = ultimaCompraProducto(producto.getId());
     Entrada e = new Entrada();
     aplicar(e, req.fecha(), producto, req.cantidad(), req.precioProveedor());
+    ligarPedido(e, producto.getId(), req.aplicarAPedido(), req.pedidoId());
     Entrada saved = entradaRepo.save(e);
     actualizarPrecioCompraSiCambio(producto, req.precioProveedor());
+    if (saved.getPedido() != null) {
+      pedidoRegistroService.recalcularRecibidoDesdeEntradas(saved.getPedido().getId());
+    }
     return toDto(saved, anterior);
   }
 
@@ -70,6 +82,7 @@ public class EntradaService {
     }
     List<EntradaDto> out = new ArrayList<>();
     Map<Long, BigDecimal> ultimaEnLote = new HashMap<>();
+    Set<Long> pedidosTocados = new HashSet<>();
     for (EntradaLineaRequest linea : req.lineas()) {
       Producto producto = productoRepo.findById(linea.productoId())
           .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
@@ -80,12 +93,19 @@ public class EntradaService {
           : ultimaCompraProducto(producto.getId());
       Entrada e = new Entrada();
       aplicar(e, req.fecha(), producto, linea.cantidad(), linea.precioProveedor());
+      ligarPedido(e, producto.getId(), linea.aplicarAPedido(), linea.pedidoId());
       Entrada saved = entradaRepo.save(e);
+      if (saved.getPedido() != null) {
+        pedidosTocados.add(saved.getPedido().getId());
+      }
       actualizarPrecioCompraSiCambio(producto, linea.precioProveedor());
       if (linea.precioProveedor() != null) {
         ultimaEnLote.put(producto.getId(), linea.precioProveedor());
       }
       out.add(toDto(saved, anterior));
+    }
+    for (Long pid : pedidosTocados) {
+      pedidoRegistroService.recalcularRecibidoDesdeEntradas(pid);
     }
     return out;
   }
@@ -94,23 +114,64 @@ public class EntradaService {
   public EntradaDto actualizar(Long id, EntradaRequest req) {
     Entrada e = entradaRepo.findById(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
+    Long pedidoAntes = e.getPedido() != null ? e.getPedido().getId() : null;
     Producto producto = productoRepo.findById(req.productoId())
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
     exigirActivo(producto);
     exigirNoEsPreparacion(producto);
     aplicar(e, req.fecha(), producto, req.cantidad(), req.precioProveedor());
+    ligarPedido(e, producto.getId(), req.aplicarAPedido(), req.pedidoId());
     Entrada saved = entradaRepo.save(e);
     actualizarPrecioCompraSiCambio(producto, req.precioProveedor());
+    Long pedidoDespues = saved.getPedido() != null ? saved.getPedido().getId() : null;
+    if (pedidoAntes != null) {
+      pedidoRegistroService.recalcularRecibidoDesdeEntradas(pedidoAntes);
+    }
+    if (pedidoDespues != null && !pedidoDespues.equals(pedidoAntes)) {
+      pedidoRegistroService.recalcularRecibidoDesdeEntradas(pedidoDespues);
+    }
     BigDecimal anterior = ultimaCompraAntesDe(saved);
     return toDto(saved, anterior);
   }
 
   @Transactional
   public void eliminar(Long id) {
-    if (!entradaRepo.existsById(id)) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada");
+    Entrada e = entradaRepo.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
+    Long pedidoId = e.getPedido() != null ? e.getPedido().getId() : null;
+    entradaRepo.delete(e);
+    if (pedidoId != null) {
+      pedidoRegistroService.recalcularRecibidoDesdeEntradas(pedidoId);
     }
-    entradaRepo.deleteById(id);
+  }
+
+  private void ligarPedido(Entrada e, Long productoId, Boolean aplicarAPedido, Long pedidoId) {
+    if (Boolean.FALSE.equals(aplicarAPedido)) {
+      e.setPedido(null);
+      return;
+    }
+    if (pedidoId != null) {
+      Pedido pedido = pedidoRegistroService.pedidoParaEntrada(productoId, pedidoId)
+          .orElseThrow(() -> new ResponseStatusException(
+              HttpStatus.BAD_REQUEST,
+              "Ese pedido no incluye el producto o ya está cerrado"));
+      e.setPedido(pedido);
+      return;
+    }
+    // Sin pedidoId: conservar vínculo existente si sigue válido
+    if (e.getPedido() != null) {
+      Long existingId = e.getPedido().getId();
+      Optional<Pedido> kept = pedidoRegistroService.pedidoParaEntrada(productoId, existingId);
+      if (kept.isPresent()) {
+        e.setPedido(kept.get());
+        return;
+      }
+    }
+    if (Boolean.TRUE.equals(aplicarAPedido)) {
+      e.setPedido(pedidoRegistroService.resolverPedidoParaProducto(productoId, null).orElse(null));
+      return;
+    }
+    e.setPedido(null);
   }
 
   private void exigirActivo(Producto producto) {
@@ -131,10 +192,6 @@ public class EntradaService {
     }
   }
 
-  /**
-   * Actualiza el precio de compra del inventario solo si el precio de proveedor
-   * viene informado y es distinto al precio de compra actual.
-   */
   private void actualizarPrecioCompraSiCambio(Producto producto, BigDecimal precioProveedor) {
     if (precioProveedor == null) {
       return;
@@ -174,7 +231,7 @@ public class EntradaService {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "No se permiten fechas futuras");
     }
-    LocalDate inicioPeriodo = cajaConfigRepo.findById(1L)
+    LocalDate inicioPeriodo = cajaConfigRepo.findByTenantId(TenantContext.require())
         .map(CajaConfig::getFechaInicio)
         .orElse(null);
     if (inicioPeriodo != null && fecha.isBefore(inicioPeriodo)) {
@@ -186,7 +243,6 @@ public class EntradaService {
     }
   }
 
-  /** Recorre cronológico ascendente y guarda el precio de la compra previa por producto. */
   private Map<Long, BigDecimal> preciosAnterioresPorCompra(List<Entrada> desc) {
     Map<Long, BigDecimal> anteriorPorId = new HashMap<>();
     Map<Long, BigDecimal> ultimoPorProducto = new HashMap<>();
@@ -235,6 +291,7 @@ public class EntradaService {
       mayor = cmp > 0;
       menor = cmp < 0;
     }
+    Long pedidoId = e.getPedido() != null ? e.getPedido().getId() : null;
     return new EntradaDto(
         e.getId(),
         e.getFecha(),
@@ -245,7 +302,9 @@ public class EntradaService {
         e.getTotal(),
         anterior,
         mayor,
-        menor
+        menor,
+        pedidoId,
+        pedidoId != null
     );
   }
 }

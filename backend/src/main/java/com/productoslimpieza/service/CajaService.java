@@ -11,6 +11,7 @@ import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.CorteCajaRepository;
 import com.productoslimpieza.repo.MovimientoCajaRepository;
 import com.productoslimpieza.repo.VentaRepository;
+import com.productoslimpieza.tenant.TenantContext;
 import com.productoslimpieza.web.dto.CajaConfigRequest;
 import com.productoslimpieza.web.dto.CajaResumenDto;
 import com.productoslimpieza.web.dto.CortePeriodoDto;
@@ -55,9 +56,10 @@ public class CajaService {
     this.corteRepo = corteRepo;
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public CajaResumenDto resumen() {
     CajaConfig cfg = getOrCreateConfig();
+    asegurarCorteInicialSiNoHay(cfg);
     LocalDate desde = cfg.getFechaInicio() != null ? cfg.getFechaInicio() : LocalDate.of(2000, 1, 1);
     LocalDate hasta = finPeriodoAbierto(cfg);
     // Tras un corte el fondo ya es el efectivo que quedó en cajón; los ingresos a
@@ -281,7 +283,7 @@ public class CajaService {
     }
 
     BigDecimal fondoNuevo = FONDO_DEFAULT;
-    CajaConfig cfgActual = configRepo.findById(1L).orElse(null);
+    CajaConfig cfgActual = configRepo.findByTenantId(TenantContext.require()).orElse(null);
     if (cfgActual != null && cfgActual.getFondoInicial() != null
         && cfgActual.getFondoInicial().compareTo(BigDecimal.ZERO) > 0) {
       fondoNuevo = cfgActual.getFondoInicial();
@@ -506,13 +508,116 @@ public class CajaService {
   }
 
   private CajaConfig getOrCreateConfig() {
-    return configRepo.findById(1L).orElseGet(() -> {
+    return configRepo.findByTenantId(TenantContext.require()).orElseGet(() -> {
       CajaConfig c = new CajaConfig();
-      c.setId(1L);
+      c.setId(configRepo.nextId());
+      c.setTenantId(TenantContext.require());
       c.setFondoInicial(FONDO_DEFAULT);
       return configRepo.save(c);
     });
   }
+
+  /**
+   * Mama (Excel): si faltan cortes históricos, los crea y alinea el periodo al último
+   * (igual que admin con su historial de chips).
+   * Otros tenants: solo corte semilla del día previo al inicio si no hay ninguno.
+   */
+  private void asegurarCorteInicialSiNoHay(CajaConfig cfg) {
+    if ("mama".equals(TenantContext.get())) {
+      asegurarCortesMamaDesdeExcel(cfg);
+      return;
+    }
+    if (cfg.getFechaInicio() == null) return;
+    if (corteRepo.findMaxFecha().isPresent()) return;
+    LocalDate fechaCorte = cfg.getFechaInicio().minusDays(1);
+    if (corteRepo.findByFecha(fechaCorte).isPresent()) return;
+    CorteCaja c = new CorteCaja();
+    c.setTenantId(TenantContext.require());
+    c.setFecha(fechaCorte);
+    c.setFondoPeriodo(nz(cfg.getFondoInicial()));
+    c.setTotalCaja(BigDecimal.ZERO);
+    c.setTotalNegocio(BigDecimal.ZERO);
+    c.setTotalCalculadora(BigDecimal.ZERO);
+    c.setParaApartar(BigDecimal.ZERO);
+    corteRepo.save(c);
+  }
+
+  /** Fechas de “Apartados Productos” del Excel Mama (= cortes históricos). */
+  private static final List<CorteSemilla> CORTES_MAMA = List.of(
+      new CorteSemilla(LocalDate.of(2026, 4, 14), bd("0"), bd("0")),
+      new CorteSemilla(LocalDate.of(2026, 4, 19), bd("102"), bd("0")),
+      new CorteSemilla(LocalDate.of(2026, 4, 26), bd("361"), bd("200")),
+      new CorteSemilla(LocalDate.of(2026, 5, 3), bd("108"), bd("200")),
+      new CorteSemilla(LocalDate.of(2026, 5, 19), bd("384.5"), bd("200")),
+      new CorteSemilla(LocalDate.of(2026, 6, 9), bd("580"), bd("200")),
+      new CorteSemilla(LocalDate.of(2026, 7, 4), bd("645.5"), bd("200")),
+      new CorteSemilla(LocalDate.of(2026, 7, 21), bd("500"), bd("200")),
+      new CorteSemilla(LocalDate.of(2026, 8, 22), bd("980"), bd("200"))
+  );
+
+  private void asegurarCortesMamaDesdeExcel(CajaConfig cfg) {
+    String tenant = TenantContext.require();
+    // Corrección: el último corte real fue 22/08, no el 25/08 del apartado.
+    corteRepo.findByFecha(LocalDate.of(2026, 8, 25)).ifPresent(erroneo -> {
+      if (corteRepo.findByFecha(LocalDate.of(2026, 8, 22)).isEmpty()) {
+        erroneo.setFecha(LocalDate.of(2026, 8, 22));
+        corteRepo.saveAndFlush(erroneo);
+      } else {
+        corteRepo.delete(erroneo);
+        corteRepo.flush();
+      }
+    });
+    boolean created = false;
+    for (CorteSemilla s : CORTES_MAMA) {
+      if (corteRepo.findByFecha(s.fecha()).isPresent()) continue;
+      try {
+        CorteCaja c = new CorteCaja();
+        c.setTenantId(tenant);
+        c.setFecha(s.fecha());
+        c.setFondoPeriodo(s.fondoPeriodo());
+        c.setParaApartar(s.paraApartar());
+        c.setTotalCaja(s.paraApartar().add(FONDO_DEFAULT).setScale(2, RoundingMode.HALF_UP));
+        c.setTotalCalculadora(c.getTotalCaja());
+        c.setTotalNegocio(c.getTotalCaja());
+        corteRepo.saveAndFlush(c);
+        created = true;
+      } catch (Exception e) {
+        // carrera / unique: ya existe para este tenant
+      }
+    }
+    LocalDate ultimo = CORTES_MAMA.get(CORTES_MAMA.size() - 1).fecha();
+    LocalDate inicioEsperado = ultimo.plusDays(1);
+    LocalDate hoy = LocalDate.now(ZONA);
+    boolean cfgDirty = false;
+    if (cfg.getFechaInicio() == null
+        || !cfg.getFechaInicio().equals(inicioEsperado)
+        || cfg.getFechaInicio().isBefore(inicioEsperado)
+        || cfg.getFechaInicio().isAfter(inicioEsperado)) {
+      cfg.setFechaInicio(inicioEsperado);
+      cfgDirty = true;
+    }
+    if (cfg.getFondoInicial() == null
+        || cfg.getFondoInicial().compareTo(BigDecimal.ZERO) == 0
+        || created
+        || cfgDirty) {
+      cfg.setFondoInicial(FONDO_DEFAULT);
+      cfgDirty = true;
+    }
+    LocalDate fin = hoy.isBefore(inicioEsperado) ? inicioEsperado : hoy;
+    if (cfg.getFechaFin() == null || cfg.getFechaFin().isBefore(inicioEsperado)) {
+      cfg.setFechaFin(fin);
+      cfgDirty = true;
+    }
+    if (cfgDirty) {
+      configRepo.save(cfg);
+    }
+  }
+
+  private static BigDecimal bd(String s) {
+    return new BigDecimal(s);
+  }
+
+  private record CorteSemilla(LocalDate fecha, BigDecimal paraApartar, BigDecimal fondoPeriodo) {}
 
   /**
    * Fin del periodo abierto: al menos hasta hoy, para que retiros/transferencias

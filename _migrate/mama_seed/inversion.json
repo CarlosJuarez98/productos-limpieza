@@ -1,0 +1,98 @@
+{
+  "productos": [
+    {
+      "nombre": "Jabon tipo Mas color",
+      "cantidad": 5,
+      "precioUnidad": 12.5,
+      "total": 62.5
+    },
+    {
+      "nombre": "Axion",
+      "cantidad": 5,
+      "precioUnidad": 19,
+      "total": 95
+    },
+    {
+      "nombre": "Jabon tipo Ariel",
+      "cantidad": 5,
+      "precioUnidad": 13,
+      "total": 65
+    },
+    {
+      "nombre": "Pino",
+      "cantidad": 5,
+      "precioUnidad": 6.5,
+      "total": 32.5
+    },
+    {
+      "nombre": "Suavitel Azul",
+      "cantidad": 5,
+      "precioUnidad": 8,
+      "total": 40
+    },
+    {
+      "nombre": "Brazo",
+      "cantidad": 5,
+      "precioUnidad": 17,
+      "total": 85
+    },
+    {
+      "nombre": "Jabon manos",
+      "cantidad": 5,
+      "precioUnidad": 15,
+      "total": 75
+    },
+    {
+      "nombre": "Shampoo con cera",
+      "cantidad": 5,
+      "precioUnidad": 12,
+      "total": 60
+    },
+    {
+      "nombre": "Hipoclorito",
+      "cantidad": 5,
+      "precioUnidad": 10.2,
+      "total": 51
+    },
+    {
+      "nombre": "Base Fabuloso Brisas",
+      "cantidad": 1,
+      "precioUnidad": 70,
+      "total": 70
+    },
+    {
+      "nombre": "Base Fabuloso Flores",
+      "cantidad": 1,
+      "precioUnidad": 70,
+      "total": 70
+    },
+    {
+      "nombre": "Base Fabuloso Pera Manzana",
+      "cantidad": 1,
+      "precioUnidad": 70,
+      "total": 70
+    }
+  ],
+  "infraestructura": [
+    {
+      "concepto": "Tonel",
+      "monto": 350
+    },
+    {
+      "concepto": "Jarras",
+      "monto": 210
+    },
+    {
+      "concepto": "Lonas",
+      "monto": 200
+    },
+    {
+      "concepto": "Galones",
+      "monto": 390
+    },
+    {
+      "concepto": "Galones 10L",
+      "monto": 50
+    }
+  ]
+}

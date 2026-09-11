@@ -81,10 +81,10 @@ if not exist "%~dp0frontend\node_modules\" (
 )
 
 echo Esperando Angular en 4202 y abriendo navegador...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$url='http://127.0.0.1:4202/'; for($i=1;$i -le 90;$i++){ try { $r=Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2; if($r.StatusCode -eq 200){ Start-Process $url; Write-Host '  Listo.'; exit 0 } } catch {}; Start-Sleep 2 }; Start-Process $url; Write-Host '  Se abrio el navegador (puede seguir compilando).'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$url='http://127.0.0.1:4202/login'; for($i=1;$i -le 90;$i++){ try { $r=Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2; if($r.StatusCode -eq 200){ Start-Process $url; Write-Host '  Listo.'; exit 0 } } catch {}; Start-Sleep 2 }; Start-Process $url; Write-Host '  Se abrio el navegador (puede seguir compilando).'"
 
 echo.
-echo Usa http://127.0.0.1:4202/  ^(no el 8083^).
+echo Usa http://127.0.0.1:4202/login  ^(no el 8083^).
 echo 8083 es solo la API.
 echo.
 pause

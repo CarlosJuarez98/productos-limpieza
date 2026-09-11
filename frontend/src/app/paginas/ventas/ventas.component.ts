@@ -1,12 +1,25 @@
-import { ChangeDetectorRef, Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  QueryList,
+  ViewChild,
+  ViewChildren,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { ClearableDirective } from '../../clearable.directive';
 import { InventarioItem, MODOS_VENTA, ModoVenta, TipoVenta, Venta } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
+import { PullRefreshService } from '../../pull-refresh.service';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
 
 interface LineaVenta {
   key: number;
@@ -21,16 +34,28 @@ interface LineaVenta {
 @Component({
   selector: 'app-ventas',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProductoAutocompleteComponent, FechaDmYPipe],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ProductoAutocompleteComponent,
+    FechaDmYPipe,
+    ClearableDirective,
+    PaginadorComponent,
+  ],
   templateUrl: './ventas.component.html',
   styleUrl: './ventas.component.scss',
 })
-export class VentasComponent implements OnInit {
+export class VentasComponent implements OnInit, OnDestroy {
   ventas: Venta[] = [];
   productos: InventarioItem[] = [];
   modos = MODOS_VENTA;
   error = '';
   filtro = '';
+  /** Texto del buscador; el filtro de lista se aplica con debounce. */
+  filtroTexto = '';
+  /** Resultados filtrados (cache). */
+  filtradas: Venta[] = [];
+  pagHist = new PaginacionEstado<Venta>();
   /** Historial: solo el día de la fecha de captura, o todo. */
   soloHoy = true;
   guardando = false;
@@ -41,14 +66,18 @@ export class VentasComponent implements OnInit {
   private idMarcadoresCorte = new Set<number>();
   lineas: LineaVenta[] = [];
   private nextKey = 1;
+  private pullSub?: Subscription;
+  private filtroTimer: ReturnType<typeof setTimeout> | null = null;
 
+  @ViewChild('listaHistorial') listaHistorial?: ElementRef<HTMLElement>;
   @ViewChildren(ProductoAutocompleteComponent) prodAutos!: QueryList<ProductoAutocompleteComponent>;
   @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   constructor(
     private api: ApiService,
     private confirmDlg: ConfirmDialogService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private pullRefresh: PullRefreshService
   ) {}
 
   hoyLocal(): string {
@@ -82,9 +111,15 @@ export class VentasComponent implements OnInit {
   ngOnInit(): void {
     this.cargar();
     this.resetLineas(1);
+    this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
 
-  get filtradas(): Venta[] {
+  ngOnDestroy(): void {
+    this.pullSub?.unsubscribe();
+    if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
+  }
+
+  private rebuildFiltradas(reset = false): void {
     const q = this.filtro.trim().toLowerCase();
     const sinCasa = this.ventas.filter((v) => v.tipoVenta !== 'CASA');
     let base = sinCasa;
@@ -94,10 +129,73 @@ export class VentasComponent implements OnInit {
     if (q) {
       base = base.filter((v) => (v.productoNombre ?? '').toLowerCase().includes(q));
     }
-    return [...base].sort((a, b) => {
+    this.filtradas = [...base].sort((a, b) => {
       const porFecha = b.fecha.localeCompare(a.fecha);
       return porFecha !== 0 ? porFecha : b.id - a.id;
     });
+    this.pagHist.setItems(this.filtradas, reset);
+  }
+
+  onFiltroTexto(value: string): void {
+    this.filtroTexto = value;
+    if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
+    this.filtroTimer = setTimeout(() => {
+      this.filtroTimer = null;
+      this.filtro = this.filtroTexto;
+      this.rebuildFiltradas(true);
+    }, 200);
+  }
+
+  aplicarBusqueda(): void {
+    if (this.filtroTimer != null) {
+      clearTimeout(this.filtroTimer);
+      this.filtroTimer = null;
+    }
+    this.filtro = this.filtroTexto;
+    this.rebuildFiltradas(true);
+    if (typeof document !== 'undefined') {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
+    setTimeout(() => this.scrollHistorial(), 50);
+  }
+
+  onBuscarEnter(ev: Event): void {
+    ev.preventDefault();
+    this.aplicarBusqueda();
+  }
+
+  setSoloHoy(val: boolean): void {
+    this.soloHoy = val;
+    this.rebuildFiltradas(true);
+  }
+
+  onFechaChange(): void {
+    if (this.soloHoy) this.rebuildFiltradas(true);
+  }
+
+  paginaAnterior(): void {
+    if (!this.pagHist.anterior()) return;
+    this.scrollHistorial();
+  }
+
+  paginaSiguiente(): void {
+    if (!this.pagHist.siguiente()) return;
+    this.scrollHistorial();
+  }
+
+  private scrollHistorial(): void {
+    setTimeout(() => {
+      this.listaHistorial?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 30);
+  }
+
+  /** Hay ventas en el filtro de día/todas (sin buscar). */
+  get hayVentasParaBuscar(): boolean {
+    const sinCasa = this.ventas.filter((v) => v.tipoVenta !== 'CASA');
+    if (this.soloHoy) {
+      return sinCasa.some((v) => v.fecha === this.fecha);
+    }
+    return sinCasa.length > 0;
   }
 
   /** Suma de ventas del día de captura (ya guardadas). */
@@ -239,6 +337,7 @@ export class VentasComponent implements OnInit {
       next: (v) => {
         this.ventas = v;
         this.recalcularMarcadoresCorte();
+        this.rebuildFiltradas();
       },
       error: (e) => (this.error = e.error?.error || 'No se pudieron cargar ventas'),
     });

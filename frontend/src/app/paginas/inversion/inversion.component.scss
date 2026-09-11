@@ -94,7 +94,7 @@
   }
 
   table {
-    min-width: 30rem;
+    min-width: 0;
   }
 
   th,
@@ -107,7 +107,7 @@
 
   td:first-child {
     white-space: normal;
-    min-width: 8rem;
+    min-width: 0;
     max-width: 12rem;
     line-height: 1.3;
   }

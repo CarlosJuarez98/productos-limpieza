@@ -17,6 +17,34 @@ h3 {
   margin-top: 0.75rem;
 }
 
+.captura-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.65rem;
+}
+
+.captura-meta > label {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.total-lote {
+  flex: 1 1 10rem;
+  margin: 0;
+  padding: 0 0.5rem 0.55rem;
+  text-align: center;
+  font-size: 1.05rem;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.total-lote strong {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (min-width: 768px) {
   .lote-wrap {
     overflow: visible;
@@ -25,7 +53,41 @@ h3 {
 
 table.lote td input,
 table.lote td app-producto-autocomplete {
-  min-width: 8rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.col-pedido {
+  width: 9.5rem;
+  min-width: 8.5rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.col-pedido select {
+  width: 100%;
+  max-width: 11rem;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.35rem;
+}
+
+.col-pedido select.hint-falta {
+  border-color: #f4a460;
+  font-weight: 600;
+}
+
+.check-pedido-movil {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.check-pedido-movil.hint-falta .campo-label {
+  color: #7a3e0c;
+  font-weight: 700;
+}
+
+.check-pedido-movil select {
   width: 100%;
 }
 
@@ -45,16 +107,26 @@ table.lote td app-producto-autocomplete {
   width: 100%;
 }
 
-tr.bajo td {
+tr.bajo > td:not(.col-propia) {
   background: rgba(31, 107, 79, 0.08);
+}
+
+.table-wrap.hist-entradas {
+  overflow-x: auto;
+}
+
+.table-wrap.hist-entradas > table {
+  table-layout: auto;
+  min-width: 52rem;
 }
 
 .col-cambio {
   text-align: center;
-  width: 1%;
-  min-width: 4.75rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
   white-space: nowrap;
   word-break: normal;
+  overflow-wrap: normal;
 }
 
 .icono-cambio {
@@ -67,19 +139,273 @@ tr.bajo td {
   font-weight: 700;
   line-height: 1;
   border-radius: 0.35rem;
+  vertical-align: middle;
 }
 
 .icono-cambio.subio {
-  color: var(--warn);
-  background: rgba(154, 75, 31, 0.12);
-}
-
-.icono-cambio.bajo {
-  color: var(--ok);
-  background: rgba(31, 107, 79, 0.12);
+  color: #1a7a4c;
+  background: rgba(26, 122, 76, 0.14);
 }
 
 .icono-cambio.igual {
+  color: #1d5fbf;
+  background: rgba(29, 95, 191, 0.12);
+  font-size: 1.05rem;
+}
+
+.icono-cambio.bajo {
+  color: var(--danger);
+  background: rgba(143, 45, 45, 0.12);
+}
+
+.table-wrap.hist-entradas > table th.col-fecha,
+.table-wrap.hist-entradas > table td.col-fecha {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  min-width: 6.75rem;
+  text-decoration: none;
+}
+
+.col-pedido-hist {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  width: 5.5rem;
+  min-width: 5.5rem;
+  text-align: center;
+}
+
+.lote-cards {
+  display: none;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+
+.traspaso-opcion {
+  margin-top: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px dashed #9fbfab;
+  border-radius: 0.65rem;
+  background: #f7fbf8;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.65rem 1rem;
+}
+
+.btn-traspasar {
+  border: 1px solid var(--accent);
+  background: #fff;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  min-height: 2.35rem;
+}
+
+.btn-traspasar.activo {
+  background: var(--accent);
+  color: #fff;
+}
+
+.persona-traspaso {
+  margin: 0;
+  flex: 1 1 12rem;
+  max-width: 22rem;
+}
+
+.hint-persona {
+  margin: 0;
+  width: 100%;
+  font-size: 0.88rem;
+}
+
+.traspaso-warn {
+  margin: -0.25rem 0 0;
+  font-size: 0.82rem;
+}
+
+input.input-warn {
+  border-color: var(--danger);
+  background: #fff5f4;
+}
+
+.linea-card {
+  border: 1px solid #d5e0d8;
+  border-radius: 0.55rem;
+  background: #fbfcfb;
+  padding: 0.55rem 0.65rem 0.6rem;
+}
+
+.linea-card.warn {
+  border-color: #c5d4cb;
+  background: #f7fbf8;
+}
+
+.linea-card.bajo {
+  border-color: #d4c5c5;
+  background: #fbf7f7;
+}
+
+.linea-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+}
+
+.linea-num {
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: #2f5d3a;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quitar {
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: 0.45rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  font-size: 0.82rem;
   color: var(--muted);
-  background: rgba(91, 113, 102, 0.1);
+}
+
+.campo-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.producto-campo {
+  margin-bottom: 0.65rem;
+}
+
+.producto-campo app-producto-autocomplete,
+.producto-campo ::ng-deep .producto-ac input {
+  font-size: 1.05rem;
+  min-height: 2.55rem;
+}
+
+.linea-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+.dato-fijo {
+  min-height: 2.4rem;
+  display: flex;
+  align-items: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.total-campo .dato-fijo {
+  color: #1f3d2a;
+}
+
+.prep-actions,
+.edicion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: end;
+}
+
+.form-edicion {
+  margin: 0;
+  align-items: end;
+}
+
+tr.editando-fila > td:first-child {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 65%, #fff);
+}
+
+tr.editando-fila:not(.warn):not(.bajo) > td:not(.col-propia) {
+  background: rgba(28, 101, 74, 0.045);
+}
+
+tr.editando-fila.warn > td:not(.col-propia) {
+  background: rgba(154, 75, 31, 0.08);
+}
+
+tr.editando-fila.bajo > td:not(.col-propia) {
+  background: rgba(28, 101, 74, 0.08);
+}
+
+.editando-card {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 55%, #fff);
+}
+
+.editando-card:not(.warn):not(.bajo):not(.danger) {
+  background: rgba(28, 101, 74, 0.04);
+}
+
+@media (max-width: 767px) {
+  .lote-wrap {
+    display: none !important;
+  }
+
+  .lote-cards {
+    display: flex;
+  }
+
+  .linea-card {
+    padding: 0.75rem;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .captura-meta {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+
+  .total-lote {
+    order: -1;
+    padding: 0.15rem 0 0.35rem;
+    font-size: 1.12rem;
+  }
+}
+
+@media (max-width: 1024px) and (orientation: landscape) {
+  .lote-wrap {
+    display: none !important;
+  }
+
+  .lote-cards {
+    display: flex;
+  }
+
+  .linea-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

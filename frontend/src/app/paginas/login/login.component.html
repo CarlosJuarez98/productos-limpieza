@@ -1,0 +1,40 @@
+<div class="login-page">
+  <form class="login-card" (ngSubmit)="enviar()" autocomplete="on">
+    <img class="logo" src="amorcas-logo.png" alt="AMORCAS" width="72" height="72" />
+    <h1>Productos de limpieza</h1>
+    @if (sesionActual) {
+      <p class="sesion-aviso">Ya hay sesión de <strong>{{ sesionActual }}</strong>. Entra de nuevo para cambiar de usuario.</p>
+    }
+
+    <label>
+      Usuario
+      <input
+        type="text"
+        name="username"
+        appClearable
+        [(ngModel)]="username"
+        autocomplete="username"
+        required
+        autofocus
+      />
+    </label>
+    <label>
+      Contraseña
+      <input
+        type="password"
+        name="password"
+        [(ngModel)]="password"
+        autocomplete="current-password"
+        required
+      />
+    </label>
+
+    @if (error) {
+      <p class="error">{{ error }}</p>
+    }
+
+    <button type="submit" [disabled]="cargando">
+      {{ cargando ? 'Entrando…' : 'Entrar' }}
+    </button>
+  </form>
+</div>

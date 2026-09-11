@@ -1,0 +1,408 @@
+<h2 class="page-title">Surtir / Levantar pedido</h2>
+
+<section class="panel">
+  <div class="form-grid toolbar-pedido">
+    <label>
+      Periodo
+      <select [(ngModel)]="modoPeriodo" name="modoPeriodo" (ngModelChange)="onModoPeriodo()">
+        <option value="mes_pasado">Mes pasado (completo)</option>
+        <option value="mes_actual">Mes actual (proyecta al mes)</option>
+        <option value="30">Últimos 30 días</option>
+        <option value="caja" [disabled]="!fechaInicioCaja">Periodo de caja actual</option>
+        <option value="custom">Fechas</option>
+      </select>
+    </label>
+    <label>
+      Desde
+      <input
+        type="date"
+        [(ngModel)]="desde"
+        name="desde"
+        [disabled]="modoPeriodo !== 'custom'"
+        (change)="onFiltrosPedido()"
+      />
+    </label>
+    <label>
+      Hasta
+      <input
+        type="date"
+        [(ngModel)]="hasta"
+        name="hasta"
+        [disabled]="modoPeriodo !== 'custom'"
+        (change)="onFiltrosPedido()"
+      />
+    </label>
+    <label>
+      Días a cubrir
+      <input
+        type="text"
+        inputmode="numeric"
+        appClearable
+        [(ngModel)]="diasCobertura"
+        name="diasCobertura"
+        [disabled]="modoPeriodo !== 'custom'"
+        placeholder="igual al periodo"
+        (change)="onFiltrosPedido()"
+      />
+    </label>
+    <label>
+      Colchón %
+      <input
+        type="text"
+        inputmode="decimal"
+        appClearable
+        [(ngModel)]="porcentajeExtra"
+        name="porcentajeExtra"
+        placeholder="20"
+        (change)="onFiltrosPedido()"
+      />
+    </label>
+    <button type="button" (click)="calcular()" [disabled]="cargando">
+      {{ cargando ? 'Calculando…' : 'Levantar pedido' }}
+    </button>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+  @if (ok) {
+    <p class="ok-msg">{{ ok }}</p>
+  }
+
+  <div class="acciones-pedido">
+    <button type="button" (click)="registrarPedido()" [disabled]="totalLineas === 0 || registrando">
+      {{ registrando ? 'Registrando…' : 'Registrar pedido' }}
+    </button>
+  </div>
+</section>
+
+<section class="panel lista-grupo">
+  <h3 class="panel-titulo">Pedidos registrados</h3>
+  <p class="hint" style="margin-top: 0">
+    Abre un pedido y captura <strong>cuánto sí llegó</strong>. Si falta stock por registrar,
+    se crea la entrada automáticamente (precio de compra). Lo que falte se suma al siguiente
+    “Levantar pedido”. También puedes ligar entradas desde Entradas.
+  </p>
+
+  @if (pedidosAbiertos.length === 0 && pedidosCerrados.length === 0) {
+    <p class="muted">Aún no hay pedidos registrados.</p>
+  }
+
+  <ul class="pedidos-lista">
+    @for (p of pedidosAbiertos; track p.id) {
+      <li class="pedido-card" [class.parcial]="p.estado === 'PARCIAL'">
+        <button type="button" class="pedido-cab" (click)="togglePedido(p.id)">
+          <span>
+            #{{ p.id }} · {{ p.fecha | fechaDmY }}
+            <span class="item-tag">{{ etiquetaEstado(p.estado) }}</span>
+          </span>
+          <span class="muted">
+            {{ p.itemsConFalta }} faltan / {{ p.totalItems }}
+            {{ pedidoExpandidoId === p.id ? '▾' : '▸' }}
+          </span>
+        </button>
+        @if (pedidoExpandidoId === p.id) {
+          <div class="pedido-detalle">
+            <div class="table-wrap hist-tabla">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th class="money">Pedido</th>
+                    <th class="money">Recibido</th>
+                    <th class="money">Falta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of recibosEdit; track r.itemId) {
+                    <tr [class.warn]="faltaDe(r) > 0.001">
+                      <td>
+                        {{ r.productoNombre }}
+                        <span class="muted unidad">{{ r.unidad }}</span>
+                      </td>
+                      <td class="money">{{ r.pedida | number: '1.0-2' }}</td>
+                      <td class="money col-pedir">
+                        <input
+                          type="text"
+                          inputmode="decimal"
+                          appClearable
+                          [(ngModel)]="r.recibida"
+                          [name]="'rec' + r.itemId"
+                        />
+                      </td>
+                      <td class="money">{{ faltaDe(r) | number: '1.0-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <div class="acciones-pedido">
+              <button type="button" (click)="guardarRecepcion()" [disabled]="guardandoRecepcion">
+                {{ guardandoRecepcion ? 'Guardando…' : 'Guardar surtido' }}
+              </button>
+              <button type="button" class="secondary" (click)="marcarTodoRecibido()">
+                Todo llegó
+              </button>
+              <button type="button" class="secondary" (click)="cerrarPedido(p)">Cerrar</button>
+              <button type="button" class="danger" (click)="eliminarPedido(p)">Eliminar</button>
+            </div>
+          </div>
+        }
+      </li>
+    }
+  </ul>
+
+  @if (pedidosCerrados.length) {
+    <details class="pedidos-cerrados">
+      <summary class="muted">Últimos cerrados ({{ pedidosCerrados.length }})</summary>
+      <ul class="pedidos-lista">
+        @for (p of pedidosCerrados; track p.id) {
+          <li class="pedido-card cerrado">
+            <button type="button" class="pedido-cab" (click)="togglePedido(p.id)">
+              <span>#{{ p.id }} · {{ p.fecha | fechaDmY }} · cerrado</span>
+              <span class="muted">{{ pedidoExpandidoId === p.id ? '▾' : '▸' }}</span>
+            </button>
+            @if (pedidoExpandidoId === p.id) {
+              <div class="pedido-detalle">
+                <ul class="hist-cards">
+                  @for (i of p.items; track i.id) {
+                    <li>
+                      <p class="item-motivo">{{ i.productoNombre }}</p>
+                      <div class="item-meta">
+                        <span>Ped {{ i.cantidadPedida | number: '1.0-2' }}</span>
+                        <span>Rec {{ i.cantidadRecibida | number: '1.0-2' }}</span>
+                      </div>
+                    </li>
+                  }
+                </ul>
+                <button type="button" class="danger" (click)="eliminarPedido(p)">Eliminar</button>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    </details>
+  }
+</section>
+
+<section class="panel lista-grupo">
+  <div class="grupo-cab">
+    <h3 class="panel-titulo">Limpieza</h3>
+    <span class="muted">{{ totalLitros }} productos</span>
+  </div>
+
+  <div class="table-wrap hist-tabla">
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th class="money">Stock</th>
+          <th class="money">Vendió</th>
+          <th class="money">Para cubrir</th>
+          <th class="money">Faltó antes</th>
+          <th class="money">Con colchón</th>
+          <th class="money">Pedir</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of pagLitros.paginaItems; track l.productoId) {
+          <tr [class.warn]="l.faltanteAnterior > 0">
+            <td>{{ l.productoNombre }}</td>
+            <td class="money">{{ l.stockActual | number: '1.0-2' }}</td>
+            <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
+            <td class="money">{{ l.consumoBase | number: '1.0-2' }}</td>
+            <td class="money">{{ l.faltanteAnterior | number: '1.0-2' }}</td>
+            <td class="money">{{ l.consumoConColchon | number: '1.0-2' }}</td>
+            <td class="money col-pedir">
+              <input
+                type="text"
+                inputmode="decimal"
+                appClearable
+                [(ngModel)]="l.pedir"
+                [name]="'pedirL' + l.productoId"
+                (change)="onPedirChange(l)"
+              />
+            </td>
+            <td class="actions">
+              <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8" class="muted">
+              {{ cargando ? 'Calculando…' : 'Nada que pedir de limpieza.' }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <ul class="hist-cards">
+    @for (l of pagLitros.paginaItems; track l.productoId) {
+      <li>
+        <p class="item-motivo">{{ l.productoNombre }}</p>
+        <div class="item-meta">
+          <span>Litros</span>
+          <span class="item-tag">Stock {{ l.stockActual | number: '1.0-2' }}</span>
+        </div>
+        <dl class="card-cols">
+          <div>
+            <dt>Vendió</dt>
+            <dd>{{ l.consumoObservado | number: '1.0-2' }}</dd>
+          </div>
+          <div>
+            <dt>Para cubrir</dt>
+            <dd>{{ l.consumoBase | number: '1.0-2' }}</dd>
+          </div>
+          <div>
+            <dt>Faltó antes</dt>
+            <dd>{{ l.faltanteAnterior | number: '1.0-2' }}</dd>
+          </div>
+          <div>
+            <dt>Con colchón</dt>
+            <dd>{{ l.consumoConColchon | number: '1.0-2' }}</dd>
+          </div>
+        </dl>
+        <div class="item-fila pedir-movil">
+          <label>
+            Pedir (L)
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [(ngModel)]="l.pedir"
+              [name]="'pedirLM' + l.productoId"
+              (change)="onPedirChange(l)"
+            />
+          </label>
+          <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">
+        {{ cargando ? 'Calculando…' : 'Nada que pedir de limpieza.' }}
+      </li>
+    }
+  </ul>
+
+  <app-paginador
+    [total]="pagLitros.total"
+    [pagina]="pagLitros.pagina"
+    [pageSize]="pagLitros.pageSize"
+    (prev)="pagLitros.anterior()"
+    (next)="pagLitros.siguiente()"
+  />
+</section>
+
+<section class="panel lista-grupo">
+  <div class="grupo-cab">
+    <h3 class="panel-titulo">Jarcería</h3>
+    <span class="muted">{{ totalPiezas }} productos</span>
+  </div>
+
+  <div class="table-wrap hist-tabla">
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th class="money">Stock</th>
+          <th class="money">Vendió</th>
+          <th class="money">Para cubrir</th>
+          <th class="money">Faltó antes</th>
+          <th class="money">Con colchón</th>
+          <th class="money">Pedir</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of pagPiezas.paginaItems; track l.productoId) {
+          <tr [class.warn]="l.faltanteAnterior > 0">
+            <td>{{ l.productoNombre }}</td>
+            <td class="money">{{ l.stockActual | number: '1.0-2' }}</td>
+            <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
+            <td class="money">{{ l.consumoBase | number: '1.0-2' }}</td>
+            <td class="money">{{ l.faltanteAnterior | number: '1.0-2' }}</td>
+            <td class="money">{{ l.consumoConColchon | number: '1.0-2' }}</td>
+            <td class="money col-pedir">
+              <input
+                type="text"
+                inputmode="decimal"
+                appClearable
+                [(ngModel)]="l.pedir"
+                [name]="'pedirP' + l.productoId"
+                (change)="onPedirChange(l)"
+              />
+            </td>
+            <td class="actions">
+              <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8" class="muted">
+              {{ cargando ? 'Calculando…' : 'Nada que pedir de jarcería.' }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <ul class="hist-cards">
+    @for (l of pagPiezas.paginaItems; track l.productoId) {
+      <li>
+        <p class="item-motivo">{{ l.productoNombre }}</p>
+        <div class="item-meta">
+          <span>Pieza</span>
+          <span class="item-tag">Stock {{ l.stockActual | number: '1.0-2' }}</span>
+        </div>
+        <dl class="card-cols">
+          <div>
+            <dt>Vendió</dt>
+            <dd>{{ l.consumoObservado | number: '1.0-2' }}</dd>
+          </div>
+          <div>
+            <dt>Para cubrir</dt>
+            <dd>{{ l.consumoBase | number: '1.0-2' }}</dd>
+          </div>
+          <div>
+            <dt>Faltó antes</dt>
+            <dd>{{ l.faltanteAnterior | number: '1.0-2' }}</dd>
+          </div>
+          <div>
+            <dt>Con colchón</dt>
+            <dd>{{ l.consumoConColchon | number: '1.0-2' }}</dd>
+          </div>
+        </dl>
+        <div class="item-fila pedir-movil">
+          <label>
+            Pedir (pza)
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [(ngModel)]="l.pedir"
+              [name]="'pedirPM' + l.productoId"
+              (change)="onPedirChange(l)"
+            />
+          </label>
+          <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
+        </div>
+      </li>
+    } @empty {
+      <li class="vacio muted">
+        {{ cargando ? 'Calculando…' : 'Nada que pedir de jarcería.' }}
+      </li>
+    }
+  </ul>
+
+  <app-paginador
+    [total]="pagPiezas.total"
+    [pagina]="pagPiezas.pagina"
+    [pageSize]="pagPiezas.pageSize"
+    (prev)="pagPiezas.anterior()"
+    (next)="pagPiezas.siguiente()"
+  />
+</section>

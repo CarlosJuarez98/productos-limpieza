@@ -9,17 +9,22 @@ import { ListaPreciosComponent } from './paginas/lista-precios/lista-precios.com
 import { UsoCasaComponent } from './paginas/uso-casa/uso-casa.component';
 import { TraspasosComponent } from './paginas/traspasos/traspasos.component';
 import { InversionComponent } from './paginas/inversion/inversion.component';
+import { SurtirComponent } from './paginas/surtir/surtir.component';
+import { LoginComponent } from './paginas/login/login.component';
+import { authGuard, guestGuard } from './auth.guard';
 
 export const routes: Routes = [
+  { path: 'login', component: LoginComponent, canActivate: [guestGuard] },
   { path: '', redirectTo: 'ventas', pathMatch: 'full' },
-  { path: 'ventas', component: VentasComponent },
-  { path: 'entradas', component: EntradasComponent },
-  { path: 'inventario', component: InventarioComponent },
-  { path: 'uso-casa', component: UsoCasaComponent },
-  { path: 'traspasos', component: TraspasosComponent },
-  { path: 'caja', component: CajaComponent },
-  { path: 'apartados', component: ApartadosComponent },
-  { path: 'inversion', component: InversionComponent },
-  { path: 'precios', component: PreciosComponent },
-  { path: 'lista-precios', component: ListaPreciosComponent },
+  { path: 'ventas', component: VentasComponent, canActivate: [authGuard] },
+  { path: 'entradas', component: EntradasComponent, canActivate: [authGuard] },
+  { path: 'surtir', component: SurtirComponent, canActivate: [authGuard] },
+  { path: 'inventario', component: InventarioComponent, canActivate: [authGuard] },
+  { path: 'uso-casa', component: UsoCasaComponent, canActivate: [authGuard] },
+  { path: 'traspasos', component: TraspasosComponent, canActivate: [authGuard] },
+  { path: 'caja', component: CajaComponent, canActivate: [authGuard] },
+  { path: 'apartados', component: ApartadosComponent, canActivate: [authGuard] },
+  { path: 'inversion', component: InversionComponent, canActivate: [authGuard] },
+  { path: 'precios', component: PreciosComponent, canActivate: [authGuard] },
+  { path: 'lista-precios', component: ListaPreciosComponent, canActivate: [authGuard] },
 ];

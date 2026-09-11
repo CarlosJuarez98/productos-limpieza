@@ -1,0 +1,498 @@
+[
+  {
+    "producto": "Abrillantador",
+    "stock": 0
+  },
+  {
+    "producto": "Almorol",
+    "stock": 0
+  },
+  {
+    "producto": "Atomizador 1/2",
+    "stock": 1
+  },
+  {
+    "producto": "Atomizador 1/4",
+    "stock": 2
+  },
+  {
+    "producto": "Atomizador 1L",
+    "stock": 0
+  },
+  {
+    "producto": "Atrapa moscas",
+    "stock": 6
+  },
+  {
+    "producto": "Axion",
+    "stock": 7.5
+  },
+  {
+    "producto": "Bandeja flourecente",
+    "stock": 0
+  },
+  {
+    "producto": "Bandeja normal",
+    "stock": 0
+  },
+  {
+    "producto": "Base Fabuloso Bosques",
+    "stock": 0
+  },
+  {
+    "producto": "Base Fabuloso Brisas",
+    "stock": 2
+  },
+  {
+    "producto": "Base Fabuloso Chicle",
+    "stock": 0
+  },
+  {
+    "producto": "Base Fabuloso Flores",
+    "stock": 0
+  },
+  {
+    "producto": "Base Fabuloso Frutas",
+    "stock": 0
+  },
+  {
+    "producto": "Base Fabuloso Lavanda",
+    "stock": 1
+  },
+  {
+    "producto": "Base Fabuloso Limon",
+    "stock": 0
+  },
+  {
+    "producto": "Base Fabuloso Mandarina",
+    "stock": 0
+  },
+  {
+    "producto": "Base Fabuloso Manzana Canela",
+    "stock": 0
+  },
+  {
+    "producto": "Base Fabuloso Pera Manzana",
+    "stock": 1
+  },
+  {
+    "producto": "Bolsa para basura jumbo con cinta",
+    "stock": 7
+  },
+  {
+    "producto": "Bolsa para basura mediana con cinta",
+    "stock": 9
+  },
+  {
+    "producto": "Bomba WC",
+    "stock": 1
+  },
+  {
+    "producto": "Brazo",
+    "stock": 7.5
+  },
+  {
+    "producto": "Cepillo 20 perico",
+    "stock": 0
+  },
+  {
+    "producto": "Cepillo 30 perico",
+    "stock": 0
+  },
+  {
+    "producto": "Cepillo chico",
+    "stock": 0
+  },
+  {
+    "producto": "Cepillo chico cosmo",
+    "stock": 0
+  },
+  {
+    "producto": "Cepillo grande",
+    "stock": 1
+  },
+  {
+    "producto": "Cloro",
+    "stock": 0
+  },
+  {
+    "producto": "Cloro gel",
+    "stock": 0
+  },
+  {
+    "producto": "Coladera aro #6",
+    "stock": 0
+  },
+  {
+    "producto": "Coladera aro #8",
+    "stock": 0
+  },
+  {
+    "producto": "Coladera vaso",
+    "stock": 0
+  },
+  {
+    "producto": "Creolina",
+    "stock": 0
+  },
+  {
+    "producto": "Cuadritela Mediana",
+    "stock": 2
+  },
+  {
+    "producto": "Cubeta chica",
+    "stock": 0
+  },
+  {
+    "producto": "Cubeta grande",
+    "stock": 0
+  },
+  {
+    "producto": "Cubeta mediana",
+    "stock": 0
+  },
+  {
+    "producto": "Desengrasante de motor",
+    "stock": 0
+  },
+  {
+    "producto": "Desengrasante industrial",
+    "stock": 4.5
+  },
+  {
+    "producto": "Downy Azul",
+    "stock": 0
+  },
+  {
+    "producto": "Downy Rosa",
+    "stock": 1
+  },
+  {
+    "producto": "Embudo grande",
+    "stock": 0
+  },
+  {
+    "producto": "Embudo mediano",
+    "stock": 0
+  },
+  {
+    "producto": "Escoba",
+    "stock": 1
+  },
+  {
+    "producto": "Escoba Alfa",
+    "stock": 1
+  },
+  {
+    "producto": "Escoba economica",
+    "stock": 0
+  },
+  {
+    "producto": "Escoba perico",
+    "stock": 0
+  },
+  {
+    "producto": "Escobillon para mamila",
+    "stock": 0
+  },
+  {
+    "producto": "Escobillon wc c/taza",
+    "stock": 0
+  },
+  {
+    "producto": "Esponja chica",
+    "stock": 0
+  },
+  {
+    "producto": "Fabuloso Brisas",
+    "stock": 0
+  },
+  {
+    "producto": "Fabuloso Chicle",
+    "stock": 0
+  },
+  {
+    "producto": "Fabuloso Flores",
+    "stock": 9
+  },
+  {
+    "producto": "Fabuloso Frutas",
+    "stock": 0
+  },
+  {
+    "producto": "Fabuloso Lavanda",
+    "stock": 0
+  },
+  {
+    "producto": "Fabuloso Mandarina",
+    "stock": 0
+  },
+  {
+    "producto": "Fabuloso Manzana Canela",
+    "stock": 0
+  },
+  {
+    "producto": "Fibra blanca economica",
+    "stock": 1
+  },
+  {
+    "producto": "Fibra con ajax",
+    "stock": 3
+  },
+  {
+    "producto": "Fibra de alambre",
+    "stock": 1
+  },
+  {
+    "producto": "Fibra de alambre chica",
+    "stock": 2
+  },
+  {
+    "producto": "Fibra negra economica",
+    "stock": 0
+  },
+  {
+    "producto": "Fibra negra scotch entera",
+    "stock": 0
+  },
+  {
+    "producto": "Mechudo 1kg",
+    "stock": 0
+  },
+  {
+    "producto": "Fibra negra scotch mitad",
+    "stock": 0
+  },
+  {
+    "producto": "Fibra verde",
+    "stock": 5
+  },
+  {
+    "producto": "Fibra verde con esponja",
+    "stock": 2
+  },
+  {
+    "producto": "Fibra verde con esponja Scotch",
+    "stock": 0
+  },
+  {
+    "producto": "Fibra verde grande",
+    "stock": 0
+  },
+  {
+    "producto": "Guante #8 Silk Han",
+    "stock": 0
+  },
+  {
+    "producto": "Fibra verde mediana",
+    "stock": 0
+  },
+  {
+    "producto": "Franela",
+    "stock": 0
+  },
+  {
+    "producto": "Guante #7 Silk Han",
+    "stock": 0
+  },
+  {
+    "producto": "Guante #7 Vitex",
+    "stock": 0
+  },
+  {
+    "producto": "Guante #8 Vitex",
+    "stock": 0
+  },
+  {
+    "producto": "Hipoclorito",
+    "stock": 54
+  },
+  {
+    "producto": "Jabon manos durazno",
+    "stock": 5.5
+  },
+  {
+    "producto": "Jabon tipo Ariel",
+    "stock": 5.86
+  },
+  {
+    "producto": "Jabon tipo Carisma",
+    "stock": 0
+  },
+  {
+    "producto": "Jabon tipo Detercon",
+    "stock": 4.54
+  },
+  {
+    "producto": "Jabon tipo Mas color",
+    "stock": 5.32
+  },
+  {
+    "producto": "Jabon tipo Persil",
+    "stock": 0
+  },
+  {
+    "producto": "Jabon tipo Vanish",
+    "stock": 0
+  },
+  {
+    "producto": "Jabon tipo Zote Rosa",
+    "stock": 3
+  },
+  {
+    "producto": "Jalador con esponja para vidrios",
+    "stock": 0
+  },
+  {
+    "producto": "Jalador para piso perico",
+    "stock": 0
+  },
+  {
+    "producto": "Jalador para vidrios manual perico",
+    "stock": 0
+  },
+  {
+    "producto": "Jerga",
+    "stock": 0
+  },
+  {
+    "producto": "Limpia vidrios",
+    "stock": 0
+  },
+  {
+    "producto": "Matamoscas",
+    "stock": 0
+  },
+  {
+    "producto": "Mechudo 1/2 kg",
+    "stock": 1
+  },
+  {
+    "producto": "Mechudo respuesto perico",
+    "stock": 0
+  },
+  {
+    "producto": "Micro fibra grande",
+    "stock": 1
+  },
+  {
+    "producto": "Pastilla de baño",
+    "stock": 2
+  },
+  {
+    "producto": "Pastilla de baño Impek",
+    "stock": 0
+  },
+  {
+    "producto": "Pastilla de cloro",
+    "stock": 4
+  },
+  {
+    "producto": "Piedra pomex",
+    "stock": 2
+  },
+  {
+    "producto": "Pino",
+    "stock": 8
+  },
+  {
+    "producto": "Pinzas paquete",
+    "stock": 2
+  },
+  {
+    "producto": "Quita sarro en gel",
+    "stock": 1.75
+  },
+  {
+    "producto": "Recogedor de mano",
+    "stock": 0
+  },
+  {
+    "producto": "Recogedor reforzado",
+    "stock": 0
+  },
+  {
+    "producto": "Shampoo con cera",
+    "stock": 5
+  },
+  {
+    "producto": "Suavitel blanco (bebe)",
+    "stock": 0
+  },
+  {
+    "producto": "Sosa",
+    "stock": 0
+  },
+  {
+    "producto": "Sosa caustica (destapacaño)",
+    "stock": 0
+  },
+  {
+    "producto": "Suavitel Azul",
+    "stock": 3
+  },
+  {
+    "producto": "Suavitel Verde",
+    "stock": 0
+  },
+  {
+    "producto": "Teflon",
+    "stock": 0
+  },
+  {
+    "producto": "Tendedero azul",
+    "stock": 0
+  },
+  {
+    "producto": "Tendedero blanco",
+    "stock": 2
+  },
+  {
+    "producto": "Tendedero de tela",
+    "stock": 0
+  },
+  {
+    "producto": "Tierra de ajax",
+    "stock": 1
+  },
+  {
+    "producto": "Tinas Medianas",
+    "stock": 0
+  },
+  {
+    "producto": "Trapo cocina",
+    "stock": 0
+  },
+  {
+    "producto": "Zacate salux",
+    "stock": 0
+  },
+  {
+    "producto": "Shampoo mascotas",
+    "stock": 1
+  },
+  {
+    "producto": "Fibra verde scotch grande",
+    "stock": 3
+  },
+  {
+    "producto": "Baston de madera",
+    "stock": 2
+  },
+  {
+    "producto": "Escoba suave perico",
+    "stock": 0
+  },
+  {
+    "producto": "Guante #7 plus vitex",
+    "stock": 1
+  },
+  {
+    "producto": "Guante #8 plus vitex",
+    "stock": 0
+  },
+  {
+    "producto": "Fabuloso Pera Manzana",
+    "stock": 3.5
+  }
+]

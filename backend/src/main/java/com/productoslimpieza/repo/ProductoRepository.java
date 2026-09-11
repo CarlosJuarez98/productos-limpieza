@@ -9,6 +9,11 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface ProductoRepository extends JpaRepository<Producto, Long> {
   Optional<Producto> findByNombreIgnoreCase(String nombre);
+
+  Optional<Producto> findByNombreIgnoreCaseAndTenantId(String nombre, String tenantId);
+
+  long countByTenantId(String tenantId);
+
   List<Producto> findAllByOrderByNombreAsc();
   List<Producto> findByActivoTrueOrderByNombreAsc();
   boolean existsByNombreIgnoreCase(String nombre);

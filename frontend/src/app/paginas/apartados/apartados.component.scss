@@ -109,7 +109,7 @@
 
 .gasto-wrap {
   margin-bottom: 0.45rem;
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 .gasto-lote {
@@ -120,26 +120,26 @@
 
 @media (max-width: 767px) {
   .gasto-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
   }
 
   .gasto-lote {
-    width: max-content;
-    min-width: 28rem;
-    table-layout: auto;
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
   }
 
   .gasto-lote th,
   .gasto-lote td {
-    white-space: nowrap;
+    white-space: normal;
     padding: 0.45rem 0.5rem;
     font-size: 0.9rem;
   }
 
   .gasto-lote select,
   .gasto-lote input {
-    min-width: 7.5rem;
+    min-width: 0;
+    max-width: 100%;
   }
 }
 
@@ -182,10 +182,22 @@
   justify-content: center;
   width: 1.85rem;
   height: 1.85rem;
+  min-width: 1.85rem;
+  min-height: 1.85rem;
   padding: 0;
   margin: 0 auto;
   line-height: 1;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: 0.45rem;
+  background: #fff;
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--line));
+}
+
+.gasto-lote td.actions .danger:hover:not(:disabled) {
+  background: #fdeceb;
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
 }
 
 .gasto-lote select,
@@ -390,8 +402,8 @@ h3 {
 
 .registro-col th,
 .registro-col td {
-  padding: 0.25rem 0.3rem;
-  vertical-align: top;
+  padding: 0.3rem 0.3rem;
+  vertical-align: middle;
   color: inherit;
 }
 
@@ -418,17 +430,34 @@ h3 {
 
 .registro-col th:last-child,
 .registro-col td.actions {
-  width: 1.7rem;
-  padding-left: 0.15rem;
-  padding-right: 0.1rem;
+  width: 2.25rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
   text-align: center;
+  vertical-align: middle;
 }
 
 .registro-col .actions .danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.85rem;
+  height: 1.85rem;
+  min-width: 1.85rem;
+  min-height: 1.85rem;
   line-height: 1;
-  font-size: 0.9rem;
-  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: 0.45rem;
+  background: #fff;
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--line));
+  box-shadow: none;
+  vertical-align: middle;
+}
+
+.registro-col .actions .danger:hover:not(:disabled) {
+  background: #fdeceb;
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
 }

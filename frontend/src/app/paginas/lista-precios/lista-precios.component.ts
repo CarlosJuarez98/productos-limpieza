@@ -1,9 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import ExcelJS from 'exceljs';
 import { ApiService } from '../../api.service';
+import { ClearableDirective } from '../../clearable.directive';
 import { InventarioItem } from '../../modelos';
+import { PaginacionEstado } from '../../paginacion.util';
+import { PaginadorComponent } from '../../paginador.component';
 
 const MESES = [
   'Enero',
@@ -23,13 +26,17 @@ const MESES = [
 @Component({
   selector: 'app-lista-precios',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent],
   templateUrl: './lista-precios.component.html',
   styleUrl: './lista-precios.component.scss',
 })
-export class ListaPreciosComponent implements OnInit {
+export class ListaPreciosComponent implements OnInit, OnDestroy {
   items: InventarioItem[] = [];
   filtro = '';
+  filtroTexto = '';
+  filtrados: InventarioItem[] = [];
+  pag = new PaginacionEstado<InventarioItem>();
+  private filtroTimer: ReturnType<typeof setTimeout> | null = null;
   /** Título de pantalla / exportación. */
   readonly marca = 'Productos de limpieza AMORCAS';
   fechaLista = this.fechaListaLarga();
@@ -44,13 +51,49 @@ export class ListaPreciosComponent implements OnInit {
   constructor(private api: ApiService) {}
 
   ngOnInit(): void {
-    this.api.inventario().subscribe({ next: (i) => (this.items = i) });
+    this.api.inventario().subscribe({
+      next: (i) => {
+        this.items = i;
+        this.rebuildFiltrados();
+      },
+    });
   }
 
-  get filtrados(): InventarioItem[] {
+  ngOnDestroy(): void {
+    if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
+  }
+
+  onFiltroTexto(value: string): void {
+    this.filtroTexto = value;
+    if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
+    this.filtroTimer = setTimeout(() => {
+      this.filtroTimer = null;
+      this.filtro = this.filtroTexto;
+      this.rebuildFiltrados(true);
+    }, 200);
+  }
+
+  aplicarBusqueda(): void {
+    if (this.filtroTimer != null) {
+      clearTimeout(this.filtroTimer);
+      this.filtroTimer = null;
+    }
+    this.filtro = this.filtroTexto;
+    this.rebuildFiltrados(true);
+    if (typeof document !== 'undefined') {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
+  }
+
+  onBuscarEnter(ev: Event): void {
+    ev.preventDefault();
+    this.aplicarBusqueda();
+  }
+
+  private rebuildFiltrados(reset = false): void {
     const q = this.filtro.trim().toLowerCase();
-    if (!q) return this.items;
-    return this.items.filter((i) => i.nombre.toLowerCase().includes(q));
+    this.filtrados = !q ? this.items : this.items.filter((i) => i.nombre.toLowerCase().includes(q));
+    this.pag.setItems(this.filtrados, reset);
   }
 
   /** Exporta la lista actual desde la BD (inventario + precios vigentes). */

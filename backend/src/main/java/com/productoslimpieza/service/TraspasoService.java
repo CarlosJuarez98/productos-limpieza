@@ -49,6 +49,7 @@ public class TraspasoService {
   public TraspasosResumenDto resumen() {
     migrarPersonasLegado();
     migrarLineasLegado();
+    consolidarMismaFechaPersona();
 
     List<Traspaso> traspasos = traspasoRepo.findAllWithDetalles();
     List<TraspasoAbono> abonos = abonoRepo.findAllWithPersona();
@@ -127,6 +128,9 @@ public class TraspasoService {
       if (lineaReq.productoId() == null || lineaReq.cantidad() == null) {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cada fila necesita producto y cantidad");
       }
+      if (lineaReq.cantidad().compareTo(BigDecimal.ZERO) <= 0) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La cantidad debe ser mayor a cero");
+      }
       pedidoPorProducto.merge(lineaReq.productoId(), lineaReq.cantidad(), BigDecimal::add);
     }
 
@@ -149,28 +153,35 @@ public class TraspasoService {
     }
 
     Persona persona = obtenerOCrearPersona(req.persona());
-    Traspaso t = new Traspaso();
-    t.setFecha(req.fecha());
-    t.setPersona(persona);
-    t.setPersonaNombre(persona.getNombre());
-    t.setNota(blankToNull(req.nota()));
 
-    BigDecimal total = BigDecimal.ZERO;
+    // Misma persona + misma fecha → una sola lista (agrega líneas al existente).
+    List<Traspaso> mismos = traspasoRepo.findByFechaAndPersonaIdWithDetalles(req.fecha(), persona.getId());
+    Traspaso t;
+    if (!mismos.isEmpty()) {
+      t = mismos.get(0);
+      // Si había duplicados viejos, fusiónalos antes de agregar.
+      for (int i = 1; i < mismos.size(); i++) {
+        fusionarTraspasoEn(t, mismos.get(i));
+      }
+      appendNota(t, blankToNull(req.nota()));
+    } else {
+      t = new Traspaso();
+      t.setFecha(req.fecha());
+      t.setPersona(persona);
+      t.setPersonaNombre(persona.getNombre());
+      t.setNota(blankToNull(req.nota()));
+    }
+
     for (TraspasoLineaRequest lineaReq : req.lineas()) {
       Producto prod = productos.get(lineaReq.productoId());
       BigDecimal precio = nz(prod.getPrecioCompra());
-      BigDecimal lineaTotal = lineaReq.cantidad().multiply(precio).setScale(2, RoundingMode.HALF_UP);
-      TraspasoLinea linea = new TraspasoLinea();
-      linea.setProducto(prod);
-      linea.setCantidad(lineaReq.cantidad());
-      linea.setPrecioCompra(precio);
-      linea.setTotal(lineaTotal);
-      t.addLinea(linea);
-      total = total.add(lineaTotal);
+      if (precio.compareTo(BigDecimal.ZERO) <= 0) {
+        precio = BigDecimal.ZERO;
+      }
+      agregarOSumarLinea(t, prod, lineaReq.cantidad(), precio);
     }
-    t.setTotal(total.setScale(2, RoundingMode.HALF_UP));
+    recalcularTotal(t);
     Traspaso saved = traspasoRepo.save(t);
-    // Asegura datos cargados con open-in-view=false
     saved.getLineas().forEach(l -> l.getProducto().getNombre());
     if (saved.getPersona() != null) {
       saved.getPersona().getNombre();
@@ -272,6 +283,107 @@ public class TraspasoService {
       t.setPrecioCompraLegado(null);
       traspasoRepo.save(t);
     }
+  }
+
+  @Transactional(readOnly = true)
+  public List<PersonaDto> listarPersonas() {
+    return personaRepo.findAllByOrderByNombreAsc().stream()
+        .map(p -> new PersonaDto(p.getId(), p.getNombre()))
+        .toList();
+  }
+
+  @Transactional
+  public PersonaDto crearPersona(String raw) {
+    String nombre = blankToNull(raw);
+    if (nombre == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indica el nombre de la persona");
+    }
+    if (personaRepo.findByNombreIgnoreCase(nombre).isPresent()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Esa persona ya está en la lista");
+    }
+    Persona p = new Persona();
+    p.setNombre(nombre);
+    Persona saved = personaRepo.save(p);
+    return new PersonaDto(saved.getId(), saved.getNombre());
+  }
+
+  /**
+   * Une traspasos duplicados (misma fecha + misma persona) en uno solo.
+   * Se ejecuta al cargar el resumen para limpiar historial viejo.
+   */
+  private void consolidarMismaFechaPersona() {
+    List<Traspaso> todos = traspasoRepo.findAllWithDetalles();
+    Map<String, List<Traspaso>> grupos = new LinkedHashMap<>();
+    for (Traspaso t : todos) {
+      if (t.getPersona() == null || t.getFecha() == null) continue;
+      String key = t.getFecha() + "|" + t.getPersona().getId();
+      grupos.computeIfAbsent(key, k -> new ArrayList<>()).add(t);
+    }
+    for (List<Traspaso> grupo : grupos.values()) {
+      if (grupo.size() < 2) continue;
+      grupo.sort(Comparator.comparing(Traspaso::getId));
+      Traspaso keep = grupo.get(0);
+      for (int i = 1; i < grupo.size(); i++) {
+        fusionarTraspasoEn(keep, grupo.get(i));
+      }
+      recalcularTotal(keep);
+      traspasoRepo.save(keep);
+    }
+  }
+
+  /** Mueve líneas y nota de {@code origen} a {@code destino} y borra origen. */
+  private void fusionarTraspasoEn(Traspaso destino, Traspaso origen) {
+    if (origen.getId() != null && origen.getId().equals(destino.getId())) return;
+    List<TraspasoLinea> copiar = new ArrayList<>(origen.getLineas() != null ? origen.getLineas() : List.of());
+    for (TraspasoLinea l : copiar) {
+      Producto prod = l.getProducto();
+      if (prod == null) continue;
+      BigDecimal precio = nz(l.getPrecioCompra());
+      if (precio.compareTo(BigDecimal.ZERO) <= 0) {
+        precio = nz(prod.getPrecioCompra());
+      }
+      agregarOSumarLinea(destino, prod, nz(l.getCantidad()), precio);
+    }
+    appendNota(destino, blankToNull(origen.getNota()));
+    traspasoRepo.delete(origen);
+  }
+
+  private void agregarOSumarLinea(Traspaso t, Producto prod, BigDecimal cantidad, BigDecimal precio) {
+    for (TraspasoLinea existing : t.getLineas()) {
+      if (existing.getProducto() != null && existing.getProducto().getId().equals(prod.getId())) {
+        BigDecimal nuevaCant = nz(existing.getCantidad()).add(cantidad);
+        BigDecimal p = precio.compareTo(BigDecimal.ZERO) > 0 ? precio : nz(existing.getPrecioCompra());
+        existing.setCantidad(nuevaCant);
+        existing.setPrecioCompra(p);
+        existing.setTotal(nuevaCant.multiply(p).setScale(2, RoundingMode.HALF_UP));
+        return;
+      }
+    }
+    TraspasoLinea linea = new TraspasoLinea();
+    linea.setProducto(prod);
+    linea.setCantidad(cantidad);
+    linea.setPrecioCompra(precio);
+    linea.setTotal(cantidad.multiply(precio).setScale(2, RoundingMode.HALF_UP));
+    t.addLinea(linea);
+  }
+
+  private void recalcularTotal(Traspaso t) {
+    BigDecimal total = BigDecimal.ZERO;
+    for (TraspasoLinea l : t.getLineas()) {
+      total = total.add(nz(l.getTotal()));
+    }
+    t.setTotal(total.setScale(2, RoundingMode.HALF_UP));
+  }
+
+  private static void appendNota(Traspaso t, String notaNueva) {
+    if (notaNueva == null) return;
+    String actual = blankToNull(t.getNota());
+    if (actual == null) {
+      t.setNota(notaNueva);
+      return;
+    }
+    if (actual.contains(notaNueva)) return;
+    t.setNota(actual + " · " + notaNueva);
   }
 
   private Persona obtenerOCrearPersona(String raw) {

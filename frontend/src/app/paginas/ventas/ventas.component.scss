@@ -2,13 +2,23 @@
   padding-bottom: 1rem;
 }
 
+.captura-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: -0.7rem -0.85rem 0.65rem;
+  padding: 0.65rem 0.85rem 0.55rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f7faf8 100%);
+  border-bottom: 1px solid var(--line);
+}
+
 .captura-head {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 0.75rem 1.25rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
 }
 
 .fecha-field {
@@ -25,11 +35,11 @@
 .tot-chip {
   background: #f4f7f5;
   border: 1px solid #c5d4cb;
-  border-radius: 0.65rem;
-  padding: 0.45rem 0.85rem;
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.7rem;
   display: flex;
   flex-direction: column;
-  min-width: 7.5rem;
+  min-width: 6.5rem;
 }
 
 .tot-chip span {
@@ -40,7 +50,7 @@
 }
 
 .tot-chip strong {
-  font-size: 1.25rem;
+  font-size: 1.12rem;
   color: #1f3d2a;
 }
 
@@ -52,14 +62,23 @@
 .ticket {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.55rem;
+}
+
+/* Móvil: el ticket usa el scroll de la página (Guardar sticky abajo) */
+@media (max-width: 767px) {
+  .ticket {
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 0.25rem;
+  }
 }
 
 .linea-card {
   border: 1px solid #d5e0d8;
-  border-radius: 0.75rem;
+  border-radius: 0.6rem;
   background: #fbfcfb;
-  padding: 0.75rem 0.85rem 0.9rem;
+  padding: 0.55rem 0.7rem 0.65rem;
 }
 
 .linea-top {
@@ -119,6 +138,7 @@
   justify-content: center;
   font-size: 1.1rem;
   font-weight: 700;
+  border-radius: 0.45rem;
 }
 
 .campo {
@@ -229,6 +249,13 @@ td.fecha-naranja {
   border-radius: 0.25rem;
 }
 
+/* Fecha naranja = color de columna: no la pisa el hover de fila */
+:host tbody tr:hover td.fecha-naranja,
+:host tbody tr td.fecha-naranja {
+  background: #f4a460;
+  color: #3b2208;
+}
+
 .corte-aviso .fecha-naranja {
   display: inline-block;
   margin-left: 0.35rem;
@@ -253,13 +280,34 @@ td.fecha-naranja {
 }
 
 @media (max-width: 767px) {
-  .captura-head {
+  .captura-panel {
+    display: flex;
+    flex-direction: column;
+    max-height: none;
+  }
+
+  .captura-sticky {
+    margin: -0.75rem -0.75rem 0.75rem;
+    padding: 0.75rem;
+    background: linear-gradient(180deg, #fbfcfb 0%, #f4f7f5 100%);
+  }
+
+  .captura-sticky .captura-head {
     flex-direction: column;
     align-items: stretch;
   }
 
   .totales-rapidos {
     width: 100%;
+  }
+
+  .tot-chip {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tot-chip strong {
+    font-size: 1.35rem;
   }
 
   .linea-grid {
@@ -283,8 +331,17 @@ td.fecha-naranja {
     align-items: stretch;
   }
 
+  .historial-titulo {
+    text-align: center;
+    width: 100%;
+  }
+
+  .filtro-chips {
+    justify-content: center;
+  }
+
   .linea-card {
-    padding: 0.75rem;
+    padding: 0.55rem 0.65rem;
   }
 }
 

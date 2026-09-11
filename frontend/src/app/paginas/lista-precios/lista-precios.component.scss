@@ -62,7 +62,7 @@ td.menudeo {
   }
 
   table {
-    min-width: 28rem;
+    min-width: 0;
   }
 
   th,
@@ -74,7 +74,7 @@ td.menudeo {
 
   td:first-child {
     white-space: normal;
-    min-width: 8rem;
+    min-width: 0;
     max-width: 12rem;
     line-height: 1.3;
   }
@@ -82,13 +82,13 @@ td.menudeo {
   td.menudeo,
   td.money {
     white-space: nowrap;
-    min-width: 5.25rem;
+    min-width: 0;
   }
 }
 
 @media (max-width: 1024px) and (orientation: landscape) {
   table {
-    min-width: 26rem;
+    min-width: 0;
   }
 
   th,

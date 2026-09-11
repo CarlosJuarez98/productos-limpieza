@@ -1,5 +1,7 @@
 package com.productoslimpieza.domain;
 
+import com.productoslimpieza.tenant.TenantEntity;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -8,7 +10,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "traspasos")
-public class Traspaso {
+public class Traspaso extends TenantEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)

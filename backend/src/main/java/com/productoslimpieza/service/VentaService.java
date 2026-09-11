@@ -7,6 +7,7 @@ import com.productoslimpieza.domain.Venta;
 import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.ProductoRepository;
 import com.productoslimpieza.repo.VentaRepository;
+import com.productoslimpieza.tenant.TenantContext;
 import com.productoslimpieza.web.dto.VentaDto;
 import com.productoslimpieza.web.dto.VentaRequest;
 import java.math.BigDecimal;
@@ -161,7 +162,7 @@ public class VentaService {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "No se pueden registrar ventas con fecha futura");
     }
-    LocalDate inicioPeriodo = cajaConfigRepo.findById(1L)
+    LocalDate inicioPeriodo = cajaConfigRepo.findByTenantId(TenantContext.require())
         .map(CajaConfig::getFechaInicio)
         .orElse(null);
     if (inicioPeriodo != null && fecha.isBefore(inicioPeriodo)) {

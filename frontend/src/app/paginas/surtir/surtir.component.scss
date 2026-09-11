@@ -1,0 +1,155 @@
+.hint {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.toolbar-pedido {
+  margin-bottom: 0.55rem;
+}
+
+.resumen {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 0.9rem;
+}
+
+.acciones-pedido {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.25rem;
+}
+
+.lista-grupo {
+  margin-top: 0.85rem;
+}
+
+.grupo-cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.grupo-cab .panel-titulo {
+  margin: 0;
+}
+
+.col-pedir input {
+  width: 100%;
+  max-width: 6.5rem;
+  text-align: right;
+}
+
+.ok-msg {
+  color: var(--ok);
+  margin: 0.35rem 0;
+}
+
+.card-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 0.75rem;
+  margin: 0.35rem 0 0.55rem;
+}
+
+.card-cols dt {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.card-cols dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pedir-movil {
+  align-items: end;
+  gap: 0.55rem;
+}
+
+.pedir-movil label {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pedir-movil input {
+  width: 100%;
+}
+
+.pedir-movil .danger {
+  flex: 0 0 auto;
+}
+
+.unidad {
+  margin-left: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.pedidos-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.pedido-card {
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+.pedido-card.parcial {
+  border-color: #f4a460;
+}
+
+.pedido-card.cerrado {
+  opacity: 0.85;
+}
+
+.pedido-cab {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.pedido-detalle {
+  padding: 0 0.7rem 0.7rem;
+}
+
+.pedidos-cerrados {
+  margin-top: 0.85rem;
+}
+
+.pedidos-cerrados summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .toolbar-pedido {
+    grid-template-columns: 1fr;
+  }
+}

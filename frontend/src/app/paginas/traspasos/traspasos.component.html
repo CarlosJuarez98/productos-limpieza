@@ -79,9 +79,12 @@
 }
 
 <section class="panel" style="margin-top: 1rem">
-  <h3>Nuevo traspaso</h3>
+  <h3 class="panel-titulo">Nuevo traspaso</h3>
+  <p class="hint" style="margin: 0 0 0.65rem">
+    Si es la misma persona y la misma fecha, los productos se agregan a la misma lista.
+  </p>
   <form (ngSubmit)="guardar()">
-    <div class="form-grid">
+    <div class="form-grid captura-meta">
       <label>
         Fecha
         <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
@@ -89,6 +92,7 @@
       <label>
         Persona
         <input
+          appClearable
           [(ngModel)]="form.persona"
           name="persona"
           list="personas-existentes"
@@ -98,9 +102,9 @@
       </label>
       <label>
         Nota
-        <input [(ngModel)]="form.nota" name="nota" />
+        <input appClearable [(ngModel)]="form.nota" name="nota" />
       </label>
-      <label>
+      <label class="total-meta">
         Total
         <input [value]="'$' + (totalEstimado | number: '1.2-2')" disabled />
       </label>
@@ -139,6 +143,7 @@
                   #cantInput
                   type="text"
                   inputmode="decimal"
+                  appClearable
                   [(ngModel)]="l.cantidad"
                   [name]="'cant' + l.key"
                   placeholder="0"
@@ -183,6 +188,75 @@
         </tbody>
       </table>
     </div>
+
+    <div class="lote-cards">
+      @for (l of lineas; track l.key; let i = $index) {
+        <article class="linea-card" [class.stock-warn]="excedeStock(l, i)">
+          <header class="linea-top">
+            <span class="linea-num">{{ i + 1 }}</span>
+            <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
+          </header>
+
+          <label class="campo producto-campo">
+            Producto
+            <app-producto-autocomplete
+              [productos]="productos"
+              [productoId]="l.productoId"
+              [inputName]="'prodM' + l.key"
+              mostrarExtra="compra"
+              (productoIdChange)="l.productoId = $event"
+              (enterConfirmado)="onProductoEnter(i)"
+            />
+          </label>
+
+          <div class="linea-grid">
+            <label class="campo">
+              Cantidad
+              <input
+                type="text"
+                inputmode="decimal"
+                appClearable
+                [(ngModel)]="l.cantidad"
+                [name]="'cantM' + l.key"
+                placeholder="0"
+                [class.input-warn]="excedeStock(l, i)"
+                (keydown.enter)="onCantidadEnter($event, i)"
+              />
+            </label>
+
+            <div class="campo">
+              <span class="campo-label">Disponible</span>
+              @if (l.productoId != null && stockDisponible(l.productoId) != null) {
+                <div class="dato-fijo" [class.disp-warn]="excedeStock(l, i)">
+                  {{ stockDisponible(l.productoId) | number: '1.0-2' }}
+                </div>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </div>
+
+            <div class="campo">
+              <span class="campo-label">Precio compra</span>
+              @if (l.productoId != null && precioCompra(l.productoId) > 0) {
+                <div class="dato-fijo money">${{ precioCompra(l.productoId) | number: '1.2-2' }}</div>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </div>
+
+            <div class="campo total-campo">
+              <span class="campo-label">Total</span>
+              @if (totalLinea(l) > 0) {
+                <div class="dato-fijo money">${{ totalLinea(l) | number: '1.2-2' }}</div>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </div>
+          </div>
+        </article>
+      }
+    </div>
+
     <div class="toolbar lote-actions" style="margin-top: 0.65rem">
       <button
         type="button"
@@ -237,6 +311,7 @@
           inputmode="decimal"
           [(ngModel)]="abono.monto"
           name="abonoMonto"
+          appClearable
           placeholder="0"
           required
         />
@@ -250,7 +325,7 @@
     }
     <label>
       Nota
-      <input [(ngModel)]="abono.nota" name="abonoNota" />
+      <input appClearable [(ngModel)]="abono.nota" name="abonoNota" />
     </label>
     <button type="submit" [disabled]="!personasParaAbono.length">Registrar abono</button>
   </form>
@@ -281,17 +356,19 @@
             </tr>
           </thead>
           <tbody>
-            @for (t of data.traspasos; track t.id) {
+            @for (t of pagTraspasos.paginaItems; track t.id) {
               <tr>
                 <td>{{ t.fecha | fechaDmY }}</td>
                 <td>{{ t.persona || '—' }}</td>
-                <td>
+                <td class="col-productos">
                   <ul class="lineas-list">
                     @for (l of t.lineas; track l.id) {
                       <li>
-                        {{ l.productoNombre }}
-                        · {{ l.cantidad | number: '1.2-2' }}
-                        · ${{ l.total | number: '1.2-2' }}
+                        <span class="ln-producto">{{ l.productoNombre }}</span>
+                        <span class="ln-meta">
+                          <span class="ln-cant">{{ l.cantidad | number: '1.0-2' }}</span>
+                          <span class="ln-total muted">${{ l.total | number: '1.2-2' }}</span>
+                        </span>
                       </li>
                     }
                   </ul>
@@ -309,21 +386,24 @@
       </div>
 
       <ul class="hist-cards">
-        @for (t of data.traspasos; track t.id) {
-          <li>
+        @for (t of pagTraspasos.paginaItems; track t.id) {
+          <li class="traspaso-card">
             <div class="item-meta">
               <span>{{ t.fecha | fechaDmY }}</span>
               <span class="item-tag">{{ t.persona || '—' }}</span>
             </div>
-            <p class="item-motivo">
-              @if (t.lineas.length === 1) {
-                {{ t.lineas[0].productoNombre }}
-              } @else if (t.lineas.length > 1) {
-                {{ t.lineas[0].productoNombre }} · {{ t.lineas.length }} productos
-              } @else {
-                —
+            <ul class="card-lineas-visibles">
+              @for (ln of t.lineas; track ln.id) {
+                <li>
+                  <span class="ln-producto">{{ ln.productoNombre }}</span>
+                  <span class="ln-meta">
+                    <span class="ln-cant">{{ ln.cantidad | number: '1.0-2' }}</span>
+                  </span>
+                </li>
+              } @empty {
+                <li class="muted">Sin productos</li>
               }
-            </p>
+            </ul>
             <div class="item-fila">
               <strong class="money">${{ t.total | number: '1.2-2' }}</strong>
               <div class="acciones">
@@ -351,6 +431,14 @@
           <li class="vacio muted">Sin traspasos.</li>
         }
       </ul>
+      <app-paginador
+        [total]="pagTraspasos.total"
+        [pagina]="pagTraspasos.pagina"
+        [pageSize]="pagTraspasos.pageSize"
+        ariaLabel="Páginas de traspasos"
+        (prev)="pagTraspasos.anterior()"
+        (next)="pagTraspasos.siguiente()"
+      />
     </section>
     <section class="panel">
       <h3>Historial de abonos</h3>
@@ -366,7 +454,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (a of data.abonos; track a.id) {
+            @for (a of pagAbonos.paginaItems; track a.id) {
               <tr>
                 <td>{{ a.fecha | fechaDmY }}</td>
                 <td class="money">${{ a.monto | number: '1.2-2' }}</td>
@@ -384,7 +472,7 @@
       </div>
 
       <ul class="hist-cards">
-        @for (a of data.abonos; track a.id) {
+        @for (a of pagAbonos.paginaItems; track a.id) {
           <li>
             <div class="item-meta">
               <span>{{ a.fecha | fechaDmY }}</span>
@@ -418,6 +506,14 @@
           <li class="vacio muted">Sin abonos.</li>
         }
       </ul>
+      <app-paginador
+        [total]="pagAbonos.total"
+        [pagina]="pagAbonos.pagina"
+        [pageSize]="pagAbonos.pageSize"
+        ariaLabel="Páginas de abonos"
+        (prev)="pagAbonos.anterior()"
+        (next)="pagAbonos.siguiente()"
+      />
     </section>
   </div>
 }

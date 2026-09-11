@@ -1,12 +1,14 @@
 package com.productoslimpieza.domain;
 
+import com.productoslimpieza.tenant.TenantEntity;
+
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "entradas")
-public class Entrada {
+public class Entrada extends TenantEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,6 +30,11 @@ public class Entrada {
   @Column(precision = 14, scale = 4)
   private BigDecimal total;
 
+  /** Si no es null, esta entrada cuenta como recibido de ese pedido. */
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "pedido_id")
+  private Pedido pedido;
+
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
   public LocalDate getFecha() { return fecha; }
@@ -40,4 +47,6 @@ public class Entrada {
   public void setPrecioProveedor(BigDecimal precioProveedor) { this.precioProveedor = precioProveedor; }
   public BigDecimal getTotal() { return total; }
   public void setTotal(BigDecimal total) { this.total = total; }
+  public Pedido getPedido() { return pedido; }
+  public void setPedido(Pedido pedido) { this.pedido = pedido; }
 }
