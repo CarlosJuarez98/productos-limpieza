@@ -1,0 +1,6 @@
+# HTTPS automático (Let's Encrypt) + renovación sola.
+# Dominio sslip.io → la IP pública sin comprar dominio.
+productos.163.192.146.143.sslip.io {
+	encode gzip
+	reverse_proxy backend:8083
+}

@@ -16,7 +16,9 @@ Ver **`BRANCHES.md`**.
 2. La nube **no se toca** hasta que lo pidas.
 3. Cuando indiques **“sube a la nube”**: se redespliega **código** si cambió (**sin** datos).
 4. Datos solo con **“sube datos”** / **“baja datos”** → `SYNC-DATOS.md`.
-5. URL pública: `http://163.192.146.143:8083/`
+5. URL pública HTTPS: `https://productos.163.192.146.143.sslip.io/`  
+   (respaldo HTTP: `http://163.192.146.143:8083/`)
+6. Certificado: **Caddy + Let’s Encrypt** (renueva solo; puertos **80** y **443** en firewall/NSG).
 
 ## Arranque (ATP)
 
@@ -31,12 +33,13 @@ En `.env.cloud`:
 SPRING_DATASOURCE_URL=jdbc:oracle:thin:@cgatodb_tp
 SPRING_DATASOURCE_USERNAME=productos_limpieza
 SPRING_DATASOURCE_PASSWORD=...
-APP_CORS_ALLOWED_ORIGINS=http://163.192.146.143:8083
+APP_CORS_ALLOWED_ORIGINS=https://productos.163.192.146.143.sslip.io,http://163.192.146.143:8083
+SERVER_SERVLET_SESSION_COOKIE_SECURE=true
 ```
 
 Wallet ATP: el mismo de control-gastos en `./wallet` (ruta contenedor `/wallet`).
 
-Puerto host: **8083** (firewall VM + NSG OCI).
+Puertos host: **8083** (API directa), **80/443** (Caddy HTTPS).
 
 ## Sync datos (solo si lo pides)
 
