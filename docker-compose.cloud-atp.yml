@@ -1,5 +1,8 @@
 # Despliegue en Oracle Cloud (Ampere/ARM) + Autonomous DB (ATP).
 # Uso: docker compose -f docker-compose.cloud-atp.yml --env-file .env.cloud up -d --build
+#
+# HTTPS: Caddy en :80/:443 con Let's Encrypt (renueva solo).
+# URL: https://productos.163.192.146.143.sslip.io/
 services:
   backend:
     build:
@@ -16,6 +19,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: oracle.jdbc.OracleDriver
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
+      SERVER_SERVLET_SESSION_COOKIE_SECURE: ${SERVER_SERVLET_SESSION_COOKIE_SECURE:-false}
       APP_IMPORT_ON_STARTUP: "false"
       SERVER_PORT: "8083"
       JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Doracle.net.tns_admin=/wallet"
@@ -24,3 +28,21 @@ services:
       - ./wallet:/wallet:ro
     mem_limit: 768m
     restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: productos-limpieza-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
