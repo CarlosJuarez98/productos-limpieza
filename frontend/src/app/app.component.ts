@@ -59,6 +59,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   pullDistancia = 0;
   pullListo = false;
   private pullInicioY: number | null = null;
+  private pullInicioX: number | null = null;
   private pullActivo = false;
   private readonly pullUmbral = 78;
 
@@ -151,36 +152,47 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     if (this.esLogin) return;
     if (ev.touches.length !== 1) return;
     if (this.masAbierto) return;
-    if (!this.contenidoEnTope(ev.target)) {
-      this.pullInicioY = null;
-      return;
-    }
+    this.resetPull();
+    if (!this.contenidoEnTope(ev.target)) return;
     this.pullInicioY = ev.touches[0].clientY;
-    this.pullActivo = true;
-    this.pullDistancia = 0;
-    this.pullListo = false;
+    this.pullInicioX = ev.touches[0].clientX;
   };
 
   private onTouchMove = (ev: TouchEvent): void => {
-    if (!this.pullActivo || this.pullInicioY == null || ev.touches.length !== 1) return;
+    if (this.pullInicioY == null || ev.touches.length !== 1) return;
+    if (this.masAbierto) {
+      this.resetPull();
+      return;
+    }
     if (!this.contenidoEnTope(ev.target)) {
       this.resetPull();
       return;
     }
-    const dy = ev.touches[0].clientY - this.pullInicioY;
-    if (dy <= 0) {
-      this.resetPull();
+
+    const touch = ev.touches[0];
+    const dy = touch.clientY - this.pullInicioY;
+    const dx = Math.abs(touch.clientX - (this.pullInicioX ?? touch.clientX));
+
+    // Scroll normal hacia abajo (dedo hacia arriba) o gesto horizontal: no interferir.
+    if (dy < 10 || dx > dy) {
+      if (dy < -6) this.resetPull();
       return;
     }
+
+    this.pullActivo = true;
     this.pullDistancia = Math.min(120, dy * 0.55);
     this.pullListo = this.pullDistancia >= this.pullUmbral;
-    if (this.pullDistancia > 20) {
+    // Solo bloquear el scroll nativo cuando ya es claramente un pull-to-refresh.
+    if (this.pullDistancia > 36) {
       ev.preventDefault();
     }
   };
 
   private onTouchEnd = (): void => {
-    if (!this.pullActivo) return;
+    if (!this.pullActivo) {
+      this.resetPull();
+      return;
+    }
     const recargar = this.pullListo;
     this.resetPull();
     if (recargar) {
@@ -196,6 +208,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private resetPull(): void {
     this.pullActivo = false;
     this.pullInicioY = null;
+    this.pullInicioX = null;
     this.pullDistancia = 0;
     this.pullListo = false;
   }

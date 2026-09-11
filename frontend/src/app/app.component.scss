@@ -191,6 +191,7 @@ main {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  touch-action: pan-y;
   padding: 0.7rem 1rem calc(1rem + var(--safe-bottom, 0px));
   max-width: 1360px;
   width: 100%;
@@ -311,6 +312,27 @@ main {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .bn-icon.hamburger {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.28rem;
+    width: 1.15rem;
+    height: 1.05rem;
+  }
+
+  .bn-icon.hamburger span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+  }
+
+  .bn-more.active .bn-icon.hamburger span {
+    background: #fff;
   }
 
   .mas-backdrop {
