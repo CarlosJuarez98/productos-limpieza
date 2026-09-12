@@ -1,6 +1,16 @@
 # HTTPS automático (Let's Encrypt) + renovación sola.
 # Dominio sslip.io → la IP pública sin comprar dominio.
+#
+# En la VM compartida Caddy vive en el compose de productos-limpieza
+# (puertos 80/443). control-gastos se enruta por hostname.
+# Usar nombres de contenedor explícitos (no "backend"): Caddy está
+# en dos redes Docker y "backend" es ambiguo.
 productos.163.192.146.143.sslip.io {
 	encode gzip
-	reverse_proxy backend:8083
+	reverse_proxy productos-limpieza-api:8083
+}
+
+gastos.163.192.146.143.sslip.io {
+	encode gzip
+	reverse_proxy control-gastos-api:8081
 }
