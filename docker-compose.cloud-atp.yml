@@ -42,8 +42,18 @@ services:
       - caddy_config:/config
     depends_on:
       - backend
+    networks:
+      - default
+      # Acceso persistente a control-gastos-api (HTTPS gastos vía mismo Caddy)
+      - control_gastos
     restart: unless-stopped
 
 volumes:
   caddy_data:
   caddy_config:
+
+networks:
+  control_gastos:
+    external: true
+    name: control-gastos_default
+
