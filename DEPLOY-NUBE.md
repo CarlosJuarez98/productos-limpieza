@@ -17,7 +17,7 @@ Ver **`BRANCHES.md`**.
 3. Cuando indiques **“sube a la nube”**: se redespliega **código** si cambió (**sin** datos).
 4. Datos solo con **“sube datos”** / **“baja datos”** → `SYNC-DATOS.md`.
 5. URL pública HTTPS: `https://productos.163.192.146.143.sslip.io/`  
-   (respaldo HTTP: `http://163.192.146.143:8083/`)
+   El puerto **8083** ya no es público (solo `127.0.0.1` en la VM). No uses `http://IP:8083`.
 6. Certificado: **Caddy + Let’s Encrypt** (renueva solo; puertos **80** y **443** en firewall/NSG).
    - Si el certificado no sale (“Timeout during connect”), abre 80/443 en el NSG de OCI.
    - En Cloud Shell: `bash scripts/open-80-443-cloudshell.sh`
@@ -36,13 +36,13 @@ En `.env.cloud`:
 SPRING_DATASOURCE_URL=jdbc:oracle:thin:@cgatodb_tp
 SPRING_DATASOURCE_USERNAME=productos_limpieza
 SPRING_DATASOURCE_PASSWORD=...
-APP_CORS_ALLOWED_ORIGINS=https://productos.163.192.146.143.sslip.io,http://163.192.146.143:8083
+APP_CORS_ALLOWED_ORIGINS=https://productos.163.192.146.143.sslip.io
 SERVER_SERVLET_SESSION_COOKIE_SECURE=true
 ```
 
 Wallet ATP: el mismo de control-gastos en `./wallet` (ruta contenedor `/wallet`).
 
-Puertos host: **8083** (API directa), **80/443** (Caddy HTTPS).
+Puertos host: **80/443** (Caddy HTTPS). API interna en `127.0.0.1:8083` (no pública).
 
 ## Sync datos (solo si lo pides)
 

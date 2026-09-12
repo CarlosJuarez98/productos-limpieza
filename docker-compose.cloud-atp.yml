@@ -10,7 +10,8 @@ services:
       dockerfile: Dockerfile
     container_name: productos-limpieza-api
     ports:
-      - "8083:8083"
+      # Solo localhost en la VM (salud/debug). Público: HTTPS vía Caddy.
+      - "127.0.0.1:8083:8083"
     env_file:
       - .env.cloud
     environment:
