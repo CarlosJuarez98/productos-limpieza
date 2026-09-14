@@ -63,6 +63,8 @@ export class CajaComponent implements OnInit, OnDestroy {
     fechaFin: '',
     fondoInicial: 200,
   };
+  /** Efectivo que queda en el cajón al cerrar; el resto se puede apartar. */
+  fondoQueDejas: number | null = 200;
   guardandoPeriodo = false;
   mov = {
     fecha: this.hoyLocal(),
@@ -236,7 +238,20 @@ export class CajaComponent implements OnInit, OnDestroy {
     return d < 0 ? 'faltante' : 'sobrante';
   }
 
-  /** Se puede cerrar si la fecha fin aún no es un corte y no es futura. */
+  get fondoSiguiente(): number {
+    const n = Number(this.fondoQueDejas);
+    if (Number.isFinite(n) && n >= 0) return Math.round(n * 100) / 100;
+    return 200;
+  }
+
+  /** Igual que el corte: max(contado, total caja) − fondo que dejas. */
+  get paraApartarEstimado(): number {
+    const cajaTot = Number(this.caja?.totalCaja) || 0;
+    const calc = this.totalCalculadora;
+    const contado = Math.max(calc > 0 ? calc : 0, cajaTot);
+    return Math.max(0, Math.round((contado - this.fondoSiguiente) * 100) / 100);
+  }
+
   get puedeGuardarPeriodo(): boolean {
     if (this.guardandoPeriodo || !this.config.fechaFin || !this.config.fechaInicio) return false;
     if (this.config.fechaFin > this.hoyLocal()) return false;
@@ -293,14 +308,18 @@ export class CajaComponent implements OnInit, OnDestroy {
       else difTxt = `sobraron $${dif.toFixed(2)}`;
     }
 
+    const fondoNuevo = this.fondoSiguiente;
+    const aApartar = this.paraApartarEstimado;
     const resumen =
       `¿Guardar y cerrar el periodo hasta ${formatFechaDmY(corte)}?\n\n` +
       `Vendido: $${Number(this.caja.totalVendidoProductos).toFixed(2)}\n` +
       `Ingresos: $${Number(this.caja.totalIngresos).toFixed(2)}\n` +
       `Retiros: $${Number(this.caja.totalRetiros).toFixed(2)}\n` +
       `Total caja: $${esperado.toFixed(2)}\n` +
-      `Contado: $${contado.toFixed(2)} (${difTxt})\n\n` +
-      `Quedará registrado el corte. El periodo nuevo empieza el ${formatFechaDmY(inicioNuevo)} con fondo $200.`;
+      `Contado: $${contado.toFixed(2)} (${difTxt})\n` +
+      `Fondo que dejas: $${fondoNuevo.toFixed(2)}\n` +
+      `A apartar: $${aApartar.toFixed(2)}\n\n` +
+      `El periodo nuevo empieza el ${formatFechaDmY(inicioNuevo)} con fondo $${fondoNuevo.toFixed(2)}.`;
 
     const ok = await this.confirmDlg.ask(resumen, {
       titulo: 'Guardar corte de caja',
@@ -320,7 +339,7 @@ export class CajaComponent implements OnInit, OnDestroy {
     this.api
       .marcarCorte({
         fechaCorte: corte,
-        fondoInicial: 200,
+        fondoInicial: fondoNuevo,
         fondoPeriodo: Number(this.config.fondoInicial),
         totalCalculadora: contado > 0 ? contado : undefined,
       })
@@ -328,8 +347,10 @@ export class CajaComponent implements OnInit, OnDestroy {
         next: () => {
           this.ok =
             `Periodo cerrado el ${formatFechaDmY(corte)}: retiros, ingresos, total caja y ${difTxt} quedaron guardados. ` +
+            `Dejas $${fondoNuevo.toFixed(2)} en caja; a apartar $${aApartar.toFixed(2)}. ` +
             `Nuevo periodo desde ${formatFechaDmY(inicioNuevo)}.`;
           this.denominaciones.forEach((x) => (x.cantidad = null));
+          this.fondoQueDejas = 200;
           this.guardandoPeriodo = false;
           this.limpiarCorteSeleccionado();
           this.cargar();

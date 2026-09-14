@@ -241,6 +241,11 @@ public class ApiController {
     return traspasoService.crear(req);
   }
 
+  @PutMapping("/traspasos/{id}")
+  public TraspasoDto actualizarTraspaso(@PathVariable Long id, @Valid @RequestBody TraspasoRequest req) {
+    return traspasoService.actualizar(id, req);
+  }
+
   @DeleteMapping("/traspasos/{id}")
   public void eliminarTraspaso(@PathVariable Long id) {
     traspasoService.eliminar(id);

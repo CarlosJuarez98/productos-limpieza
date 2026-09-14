@@ -119,38 +119,7 @@ public class TraspasoService {
 
   @Transactional
   public TraspasoDto crear(TraspasoRequest req) {
-    if (req.lineas() == null || req.lineas().isEmpty()) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agrega al menos un producto");
-    }
-
-    Map<Long, BigDecimal> pedidoPorProducto = new HashMap<>();
-    for (TraspasoLineaRequest lineaReq : req.lineas()) {
-      if (lineaReq.productoId() == null || lineaReq.cantidad() == null) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cada fila necesita producto y cantidad");
-      }
-      if (lineaReq.cantidad().compareTo(BigDecimal.ZERO) <= 0) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La cantidad debe ser mayor a cero");
-      }
-      pedidoPorProducto.merge(lineaReq.productoId(), lineaReq.cantidad(), BigDecimal::add);
-    }
-
-    Map<Long, Producto> productos = new HashMap<>();
-    for (Map.Entry<Long, BigDecimal> e : pedidoPorProducto.entrySet()) {
-      Producto prod = productoRepo.findById(e.getKey())
-          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
-      if (!prod.isActivo()) {
-        throw new ResponseStatusException(
-            HttpStatus.BAD_REQUEST, "El producto «" + prod.getNombre() + "» está dado de baja");
-      }
-      BigDecimal stock = inventarioService.stockActual(prod);
-      if (e.getValue().compareTo(stock) > 0) {
-        throw new ResponseStatusException(
-            HttpStatus.BAD_REQUEST,
-            "«" + prod.getNombre() + "»: solo hay " + stock.stripTrailingZeros().toPlainString()
-                + " disponible (pediste " + e.getValue().stripTrailingZeros().toPlainString() + ")");
-      }
-      productos.put(prod.getId(), prod);
-    }
+    Map<Long, Producto> productos = validarLineasYStock(req, Map.of());
 
     Persona persona = obtenerOCrearPersona(req.persona());
 
@@ -179,6 +148,48 @@ public class TraspasoService {
         precio = BigDecimal.ZERO;
       }
       agregarOSumarLinea(t, prod, lineaReq.cantidad(), precio);
+    }
+    recalcularTotal(t);
+    Traspaso saved = traspasoRepo.save(t);
+    saved.getLineas().forEach(l -> l.getProducto().getNombre());
+    if (saved.getPersona() != null) {
+      saved.getPersona().getNombre();
+    }
+    return toDto(saved);
+  }
+
+  @Transactional
+  public TraspasoDto actualizar(Long id, TraspasoRequest req) {
+    Traspaso t = traspasoRepo.findWithDetallesById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Traspaso no encontrado"));
+
+    Map<Long, BigDecimal> credito = new HashMap<>();
+    for (TraspasoLinea l : t.getLineas()) {
+      if (l.getProducto() == null) continue;
+      credito.merge(l.getProducto().getId(), nz(l.getCantidad()), BigDecimal::add);
+    }
+    Map<Long, Producto> productos = validarLineasYStock(req, credito);
+
+    Persona persona = obtenerOCrearPersona(req.persona());
+    t.setFecha(req.fecha());
+    t.setPersona(persona);
+    t.setPersonaNombre(persona.getNombre());
+    t.setNota(blankToNull(req.nota()));
+
+    t.getLineas().clear();
+    for (TraspasoLineaRequest lineaReq : req.lineas()) {
+      Producto prod = productos.get(lineaReq.productoId());
+      BigDecimal precio = nz(prod.getPrecioCompra());
+      agregarOSumarLinea(t, prod, lineaReq.cantidad(), precio);
+    }
+    recalcularTotal(t);
+    traspasoRepo.saveAndFlush(t);
+
+    List<Traspaso> mismos = traspasoRepo.findByFechaAndPersonaIdWithDetalles(req.fecha(), persona.getId());
+    for (Traspaso otro : mismos) {
+      if (otro.getId() != null && !otro.getId().equals(id)) {
+        fusionarTraspasoEn(t, otro);
+      }
     }
     recalcularTotal(t);
     Traspaso saved = traspasoRepo.save(t);
@@ -227,6 +238,40 @@ public class TraspasoService {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Abono no encontrado");
     }
     abonoRepo.deleteById(id);
+  }
+
+  private Map<Long, Producto> validarLineasYStock(TraspasoRequest req, Map<Long, BigDecimal> creditoStock) {
+    if (req.lineas() == null || req.lineas().isEmpty()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agrega al menos un producto");
+    }
+    Map<Long, BigDecimal> pedidoPorProducto = new HashMap<>();
+    for (TraspasoLineaRequest lineaReq : req.lineas()) {
+      if (lineaReq.productoId() == null || lineaReq.cantidad() == null) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cada fila necesita producto y cantidad");
+      }
+      if (lineaReq.cantidad().compareTo(BigDecimal.ZERO) <= 0) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La cantidad debe ser mayor a cero");
+      }
+      pedidoPorProducto.merge(lineaReq.productoId(), lineaReq.cantidad(), BigDecimal::add);
+    }
+    Map<Long, Producto> productos = new HashMap<>();
+    for (Map.Entry<Long, BigDecimal> e : pedidoPorProducto.entrySet()) {
+      Producto prod = productoRepo.findById(e.getKey())
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
+      if (!prod.isActivo()) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST, "El producto «" + prod.getNombre() + "» está dado de baja");
+      }
+      BigDecimal stock = inventarioService.stockActual(prod).add(nz(creditoStock.get(prod.getId())));
+      if (e.getValue().compareTo(stock) > 0) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "«" + prod.getNombre() + "»: solo hay " + stock.stripTrailingZeros().toPlainString()
+                + " disponible (pediste " + e.getValue().stripTrailingZeros().toPlainString() + ")");
+      }
+      productos.put(prod.getId(), prod);
+    }
+    return productos;
   }
 
   private void migrarPersonasLegado() {

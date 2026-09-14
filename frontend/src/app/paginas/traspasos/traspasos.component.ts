@@ -66,6 +66,16 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     personaId: null as number | null,
     nota: '',
   };
+  editandoId: number | null = null;
+  private editandoOriginal: Traspaso | null = null;
+  errorEdit = '';
+  guardandoEdit = false;
+  formEdit = {
+    fecha: '',
+    persona: '',
+    nota: '',
+    lineas: [] as LineaForm[],
+  };
 
   constructor(
     private api: ApiService,
@@ -308,7 +318,105 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   async eliminar(id: number): Promise<void> {
     const ok = await this.confirmDlg.ask('¿Eliminar traspaso completo?', { confirmarTexto: 'Eliminar' });
     if (!ok) return;
+    if (this.editandoId === id) this.cancelarEdicion();
     this.api.eliminarTraspaso(id).subscribe({ next: () => this.cargar() });
+  }
+
+  editar(t: Traspaso): void {
+    this.errorEdit = '';
+    this.editandoId = t.id;
+    this.editandoOriginal = t;
+    this.formEdit = {
+      fecha: t.fecha,
+      persona: t.persona || '',
+      nota: t.nota || '',
+      lineas: (t.lineas || []).map((l) => ({
+        key: this.nextKey++,
+        productoId: l.productoId ?? null,
+        cantidad: l.cantidad ?? null,
+      })),
+    };
+    if (!this.formEdit.lineas.length) this.formEdit.lineas = [this.nuevaLinea()];
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      const el =
+        document.querySelector('.hist-edicion-movil') || document.querySelector('.fila-edicion');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }
+
+  cancelarEdicion(): void {
+    this.editandoId = null;
+    this.editandoOriginal = null;
+    this.errorEdit = '';
+    this.guardandoEdit = false;
+  }
+
+  stockDisponibleEdit(productoId: number | null): number | null {
+    if (productoId == null) return null;
+    const actual = this.stockDisponible(productoId);
+    if (actual == null) return null;
+    const orig = (this.editandoOriginal?.lineas || [])
+      .filter((l) => l.productoId === productoId)
+      .reduce((s, l) => s + (Number(l.cantidad) || 0), 0);
+    return actual + orig;
+  }
+
+  excedeStockEdit(l: LineaForm, index: number): boolean {
+    if (l.productoId == null) return false;
+    const stock = this.stockDisponibleEdit(l.productoId);
+    if (stock == null) return false;
+    const cant = Number(l.cantidad);
+    if (!Number.isFinite(cant) || cant <= 0) return false;
+    const otros = this.formEdit.lineas.reduce((s, x, i) => {
+      if (i === index || x.productoId !== l.productoId) return s;
+      const c = Number(x.cantidad);
+      return s + (Number.isFinite(c) && c > 0 ? c : 0);
+    }, 0);
+    return cant + otros > stock;
+  }
+
+  get hayExcesoStockEdit(): boolean {
+    return this.formEdit.lineas.some((l, i) => this.excedeStockEdit(l, i));
+  }
+
+  guardarEdicion(): void {
+    if (this.editandoId == null) return;
+    this.errorEdit = '';
+    if (!this.formEdit.persona?.trim()) {
+      this.errorEdit = 'Indica la persona';
+      return;
+    }
+    const lineas = this.formEdit.lineas
+      .filter((l) => l.productoId != null && Number(l.cantidad) > 0)
+      .map((l) => ({ productoId: l.productoId as number, cantidad: Number(l.cantidad) }));
+    if (!lineas.length) {
+      this.errorEdit = 'Elige productos y su cantidad';
+      return;
+    }
+    if (this.hayExcesoStockEdit) {
+      this.errorEdit = 'Hay cantidades mayores al stock disponible';
+      return;
+    }
+    this.guardandoEdit = true;
+    this.api
+      .actualizarTraspaso(this.editandoId, {
+        fecha: this.formEdit.fecha,
+        persona: this.formEdit.persona.trim(),
+        nota: this.formEdit.nota || null,
+        lineas,
+      })
+      .subscribe({
+        next: () => {
+          this.guardandoEdit = false;
+          this.cancelarEdicion();
+          this.cargar();
+        },
+        error: (e) => {
+          this.guardandoEdit = false;
+          this.errorEdit = this.msgError(e) || 'Error al actualizar traspaso';
+        },
+      });
   }
 
   async eliminarAbono(id: number): Promise<void> {

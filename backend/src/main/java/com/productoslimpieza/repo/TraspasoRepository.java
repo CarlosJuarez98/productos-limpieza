@@ -4,6 +4,7 @@ import com.productoslimpieza.domain.Traspaso;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,6 +30,15 @@ public interface TraspasoRepository extends JpaRepository<Traspaso, Long> {
       """)
   List<Traspaso> findByFechaAndPersonaIdWithDetalles(
       @Param("fecha") LocalDate fecha, @Param("personaId") Long personaId);
+
+  @Query("""
+      select distinct t from Traspaso t
+      left join fetch t.persona
+      left join fetch t.lineas l
+      left join fetch l.producto
+      where t.id = :id
+      """)
+  Optional<Traspaso> findWithDetallesById(@Param("id") Long id);
 
   List<Traspaso> findAllByOrderByFechaDescIdDesc();
 

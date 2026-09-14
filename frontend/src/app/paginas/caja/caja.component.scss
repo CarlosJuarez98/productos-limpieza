@@ -344,6 +344,11 @@ td.sobrante {
   min-width: 0;
 }
 
+.corte-apartar-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .corte-aviso {
   margin: 0 0 0.85rem;
   padding: 0.65rem 0.85rem;

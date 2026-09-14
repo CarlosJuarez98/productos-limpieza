@@ -181,6 +181,10 @@ export class ApiService {
     return this.http.post<Traspaso>(`${this.base}/traspasos`, body);
   }
 
+  actualizarTraspaso(id: number, body: unknown): Observable<Traspaso> {
+    return this.http.put<Traspaso>(`${this.base}/traspasos/${id}`, body);
+  }
+
   eliminarTraspaso(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/traspasos/${id}`);
   }
