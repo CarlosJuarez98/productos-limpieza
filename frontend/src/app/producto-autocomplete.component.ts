@@ -18,7 +18,12 @@ import { InventarioItem } from './modelos';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="producto-ac" #root (click)="$event.stopPropagation()">
+    <div
+      class="producto-ac"
+      [class.abierto]="abierto && !!texto.trim()"
+      #root
+      (click)="$event.stopPropagation()"
+    >
       <input
         #inputEl
         type="text"
@@ -80,13 +85,14 @@ import { InventarioItem } from './modelos';
       }
       .producto-ac {
         position: relative;
-        z-index: 1;
+        z-index: 0;
         display: block;
         width: 100%;
         min-width: 0;
       }
-      .producto-ac:focus-within {
-        z-index: 40;
+      /* Solo con lista abierta: por encima de la siguiente tarjeta, no del encabezado fijo. */
+      .producto-ac.abierto {
+        z-index: 2;
       }
       .producto-ac input {
         width: 100%;
@@ -183,6 +189,8 @@ export class ProductoAutocompleteComponent implements OnChanges {
   @Input() inputName = 'productoTexto';
   /** Extra en sugerencias: stock (inventario) o precio compra. */
   @Input() mostrarExtra: 'ninguno' | 'stock' | 'compra' = 'ninguno';
+  /** Si es true, Enter siempre avanza (no se va al buscador). */
+  @Input() enterAvanza = false;
   @Output() productoIdChange = new EventEmitter<number | null>();
   /** Enter con producto listo: el padre puede pasar a cantidad / siguiente fila. */
   @Output() enterConfirmado = new EventEmitter<void>();
@@ -253,7 +261,7 @@ export class ProductoAutocompleteComponent implements OnChanges {
       this.enterConfirmado.emit();
       return;
     }
-    if (this.productoId != null || this.texto.trim()) {
+    if (this.enterAvanza || this.productoId != null || this.texto.trim()) {
       ke.preventDefault();
       this.cerrarSeleccion();
       this.enterConfirmado.emit();

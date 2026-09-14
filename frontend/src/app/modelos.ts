@@ -13,6 +13,20 @@ export type ModoVenta = 'MENUDEO' | 'MAYOREO' | 'MUESTRA' | 'PESOS' | 'CASA';
 
 export type UnidadVenta = 'LITROS' | 'PIEZA';
 
+/** Proveedor / área de surtido. Independiente de litros vs pieza. */
+export type DepartamentoProducto = 'LIMPIEZA' | 'JARCERIA';
+
+export function inferirDepartamento(
+  vendePor?: UnidadVenta,
+  nombre?: string,
+  depto?: DepartamentoProducto | string | null
+): DepartamentoProducto {
+  if (depto === 'JARCERIA' || depto === 'LIMPIEZA') return depto;
+  const n = (nombre || '').toLowerCase();
+  if (n.includes('cloro') || n.includes('pastilla') || n.includes('tableta')) return 'LIMPIEZA';
+  return vendePor === 'PIEZA' ? 'JARCERIA' : 'LIMPIEZA';
+}
+
 export type TipoMovimientoCaja =
   | 'RETIRO'
   | 'INGRESO'
@@ -41,6 +55,7 @@ export interface Venta {
   tipoVentaLabel: string;
   cantidad: number;
   total: number;
+  pagoTarjeta?: boolean;
 }
 
 export interface Entrada {
@@ -76,6 +91,8 @@ export interface InventarioItem {
   precioVentaBajoMinimo: boolean;
   vendePor: UnidadVenta;
   vendePorLabel: string;
+  departamento?: DepartamentoProducto;
+  departamentoLabel?: string;
 }
 
 export interface AjusteInventario {
@@ -135,6 +152,8 @@ export interface CajaResumen {
   retirosTransferencia: MovimientoCaja[];
   /** Histórico global de transferencias a banco. */
   transferencias: MovimientoCaja[];
+  /** Ventas cobradas con tarjeta (suman al banco). */
+  totalVendidoTarjeta?: number;
 }
 
 export interface CortePeriodo {
@@ -327,6 +346,9 @@ export interface PedidoLinea {
   /** Faltante de pedidos abiertos anteriores. */
   faltanteAnterior: number;
   sugerido: number;
+  /** Tamaño típico de compra (L o pza). */
+  loteCompra?: number;
+  departamento?: DepartamentoProducto;
 }
 
 export interface InsumoAlerta {

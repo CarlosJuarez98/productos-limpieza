@@ -11,5 +11,6 @@ public record VentaRequest(
     @NotNull TipoVenta tipoVenta,
     @NotNull BigDecimal cantidad,
     /** Obligatorio en mayoreo: total cobrado. En otros tipos se ignora. */
-    BigDecimal total
+    BigDecimal total,
+    Boolean pagoTarjeta
 ) {}

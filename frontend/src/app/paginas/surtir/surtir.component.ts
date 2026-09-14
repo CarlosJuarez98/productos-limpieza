@@ -5,7 +5,7 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { PedidoLinea, PedidoRegistrado, PedidoSugerido } from '../../modelos';
+import { inferirDepartamento, PedidoLinea, PedidoRegistrado, PedidoSugerido } from '../../modelos';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { PullRefreshService } from '../../pull-refresh.service';
@@ -13,8 +13,9 @@ import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { AutoHideDirective } from '../../auto-hide.directive';
 
 type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean };
-type ModoPeriodo = 'mes_pasado' | 'mes_actual' | '30' | 'caja' | 'custom';
-type GrupoPedido = 'LITROS' | 'PIEZA';
+type ModoPeriodo = '4_semanas' | 'mes_pasado' | 'mes_actual' | 'custom';
+type GrupoPedido = 'LIMPIEZA' | 'JARCERIA';
+type FiltroDepto = 'todo' | 'limpieza' | 'jarceria';
 type ReciboEdit = {
   itemId: number;
   productoNombre: string;
@@ -40,11 +41,11 @@ export class SurtirComponent implements OnInit, OnDestroy {
   cargando = false;
   registrando = false;
   porcentajeExtra: number | null = 20;
-  modoPeriodo: ModoPeriodo = 'mes_pasado';
+  modoPeriodo: ModoPeriodo = '4_semanas';
+  filtroDepto: FiltroDepto = 'todo';
   desde = '';
   hasta = '';
   diasCobertura: number | null = null;
-  fechaInicioCaja: string | null = null;
   lineas: LineaEditable[] = [];
   ultimo: PedidoSugerido | null = null;
   pedidos: PedidoRegistrado[] = [];
@@ -64,11 +65,6 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.aplicarModoPeriodo();
-    this.api.caja().subscribe({
-      next: (c) => {
-        this.fechaInicioCaja = c.fechaInicio;
-      },
-    });
     this.cargarPedidos();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => {
       this.cargarPedidos();
@@ -142,7 +138,11 @@ export class SurtirComponent implements OnInit, OnDestroy {
     const m0 = hoy.getMonth();
     const hoyIso = this.hoyLocal();
 
-    if (this.modoPeriodo === 'mes_pasado') {
+    if (this.modoPeriodo === '4_semanas') {
+      this.hasta = hoyIso;
+      this.desde = this.sumarDias(hoyIso, -27);
+      this.diasCobertura = 28;
+    } else if (this.modoPeriodo === 'mes_pasado') {
       const prev = new Date(y, m0 - 1, 1);
       const py = prev.getFullYear();
       const pm = prev.getMonth();
@@ -154,19 +154,6 @@ export class SurtirComponent implements OnInit, OnDestroy {
       const dias = this.diasEnMes(y, m0);
       this.desde = this.iso(y, m0, 1);
       this.hasta = hoyIso;
-      this.diasCobertura = dias;
-    } else if (this.modoPeriodo === '30') {
-      this.hasta = hoyIso;
-      this.desde = this.sumarDias(hoyIso, -29);
-      this.diasCobertura = 30;
-    } else if (this.modoPeriodo === 'caja' && this.fechaInicioCaja) {
-      this.desde = this.fechaInicioCaja;
-      this.hasta = hoyIso;
-      const [ay, am, ad] = this.desde.split('-').map(Number);
-      const [by, bm, bd] = this.hasta.split('-').map(Number);
-      const a = new Date(ay, am - 1, ad);
-      const b = new Date(by, bm - 1, bd);
-      const dias = Math.max(1, Math.round((b.getTime() - a.getTime()) / 86400000) + 1);
       this.diasCobertura = dias;
     } else if (this.modoPeriodo === 'custom') {
       if (!this.desde || !this.hasta) {
@@ -222,18 +209,21 @@ export class SurtirComponent implements OnInit, OnDestroy {
     return !!this.ultimo && this.ultimo.diasObservados !== this.ultimo.diasCobertura;
   }
 
+  private deptoDe(l: PedidoLinea): GrupoPedido {
+    return inferirDepartamento(l.vendePor, l.productoNombre, l.departamento);
+  }
+
   private activas(grupo?: GrupoPedido): LineaEditable[] {
     return this.lineas.filter((l) => {
       if (!l.incluido || !(Number(l.pedir) > 0)) return false;
       if (!grupo) return true;
-      if (grupo === 'PIEZA') return l.vendePor === 'PIEZA';
-      return l.vendePor !== 'PIEZA';
+      return this.deptoDe(l) === grupo;
     });
   }
 
   private syncPag(reset = false): void {
-    this.pagLitros.setItems(this.activas('LITROS'), reset);
-    this.pagPiezas.setItems(this.activas('PIEZA'), reset);
+    this.pagLitros.setItems(this.activas('LIMPIEZA'), reset);
+    this.pagPiezas.setItems(this.activas('JARCERIA'), reset);
   }
 
   onPedirChange(l: LineaEditable): void {
@@ -250,20 +240,45 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.syncPag();
   }
 
+  setFiltroDepto(v: FiltroDepto): void {
+    this.filtroDepto = v;
+  }
+
+  get mostrarLimpieza(): boolean {
+    return this.filtroDepto !== 'jarceria';
+  }
+
+  get mostrarJarceria(): boolean {
+    return this.filtroDepto !== 'limpieza';
+  }
+
+  private lineasARegistrar(): LineaEditable[] {
+    if (this.filtroDepto === 'limpieza') return this.activas('LIMPIEZA');
+    if (this.filtroDepto === 'jarceria') return this.activas('JARCERIA');
+    return this.activas();
+  }
+
   get totalLineas(): number {
-    return this.activas().length;
+    return this.lineasARegistrar().length;
+  }
+
+  get etiquetaRegistrar(): string {
+    if (this.registrando) return 'Registrando…';
+    if (this.filtroDepto === 'limpieza') return 'Registrar pedido de limpieza';
+    if (this.filtroDepto === 'jarceria') return 'Registrar pedido de jarcería';
+    return 'Registrar pedido';
   }
 
   get totalLitros(): number {
-    return this.activas('LITROS').length;
+    return this.activas('LIMPIEZA').length;
   }
 
   get totalPiezas(): number {
-    return this.activas('PIEZA').length;
+    return this.activas('JARCERIA').length;
   }
 
   async registrarPedido(): Promise<void> {
-    const items = this.activas().map((l) => ({
+    const items = this.lineasARegistrar().map((l) => ({
       productoId: l.productoId,
       cantidad: Number(l.pedir),
     }));

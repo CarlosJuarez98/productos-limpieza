@@ -6,6 +6,7 @@ import com.productoslimpieza.domain.CorteCaja;
 import com.productoslimpieza.domain.Producto;
 import com.productoslimpieza.domain.TipoMovimientoApartado;
 import com.productoslimpieza.domain.TipoVenta;
+import com.productoslimpieza.domain.DepartamentoProducto;
 import com.productoslimpieza.domain.UnidadVenta;
 import com.productoslimpieza.domain.Venta;
 import com.productoslimpieza.repo.ApartadoRepository;
@@ -88,6 +89,7 @@ public class DataNormalizeRunner implements ApplicationRunner {
           alinearPeriodoAlUltimoCorte();
           normalizarParaApartarCortes();
           normalizarVendePorProductos();
+          normalizarDepartamentoProductos();
         });
       } finally {
         TenantContext.clear();
@@ -254,6 +256,23 @@ public class DataNormalizeRunner implements ApplicationRunner {
     }
     if (n > 0) {
       log.info("[{}] Asignado vendePor a {} producto(s)", TenantContext.get(), n);
+    }
+  }
+
+  /** Completa departamento (proveedor) sin mezclarlo con litros/pieza. */
+  private void normalizarDepartamentoProductos() {
+    int n = 0;
+    for (Producto p : productoRepo.findAll()) {
+      if (p.getDepartamento() != null) {
+        continue;
+      }
+      UnidadVenta u = p.getVendePor() != null ? p.getVendePor() : UnidadVenta.LITROS;
+      p.setDepartamento(DepartamentoProducto.inferir(u, p.getNombre()));
+      productoRepo.save(p);
+      n++;
+    }
+    if (n > 0) {
+      log.info("[{}] Asignado departamento a {} producto(s)", TenantContext.get(), n);
     }
   }
 }

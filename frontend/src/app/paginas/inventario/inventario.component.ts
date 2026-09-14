@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
-import { AjusteInventario, InventarioItem, MargenConfig } from '../../modelos';
+import { AjusteInventario, inferirDepartamento, InventarioItem, MargenConfig } from '../../modelos';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
@@ -24,6 +24,7 @@ type FormProducto = {
   precioMayoreo5: number | null;
   precioMayoreo10: number | null;
   vendePor: 'LITROS' | 'PIEZA';
+  departamento: 'LIMPIEZA' | 'JARCERIA';
 };
 
 type FormAjuste = {
@@ -37,6 +38,7 @@ type FormAjuste = {
 type ColKey =
   | 'producto'
   | 'vende'
+  | 'depto'
   | 'menudeo'
   | 'm5'
   | 'm10'
@@ -48,7 +50,7 @@ type ColKey =
 
 type ColDef = { key: ColKey; label: string; fijo?: boolean };
 
-const COLS_STORAGE = 'pl.inventario.columnas.v2';
+const COLS_STORAGE = 'pl.inventario.columnas.v3';
 
 @Component({
   selector: 'app-inventario',
@@ -103,6 +105,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
     { key: 'menudeo', label: 'Menudeo', fijo: true },
     { key: 'stock', label: 'Stock', fijo: true },
     { key: 'vende', label: 'Se vende' },
+    { key: 'depto', label: 'Departamento' },
     { key: 'm5', label: '≥ 5 L' },
     { key: 'm10', label: '≥ 10 L' },
     { key: 'compra', label: 'Compra' },
@@ -166,7 +169,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
       producto: true,
       menudeo: true,
       stock: true,
-      vende: false,
+      vende: true,
+      depto: true,
       m5: false,
       m10: false,
       compra: false,
@@ -250,6 +254,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
       precioMayoreo5: null,
       precioMayoreo10: null,
       vendePor: 'LITROS',
+      departamento: 'LIMPIEZA',
     };
   }
 
@@ -345,22 +350,19 @@ export class InventarioComponent implements OnInit, OnDestroy {
       this.editando = null;
       this.form = this.formVacio();
     } else if (this.editando) {
-      this.cancelar();
+      this.cancelar(false);
     }
     this.prepAjusteEnFila(item);
-    setTimeout(() => {
-      document.querySelector('.fila-ajuste, .hist-ajuste-movil')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-      });
-    }, 0);
+    this.scrollAProducto(item.id);
   }
 
-  cancelarAjuste(): void {
+  cancelarAjuste(volverAlProducto = true): void {
+    const id = this.formAjuste.productoId;
     this.editandoAjuste = null;
     this.formAjuste = this.formAjusteVacio();
     this.errorAjuste = '';
     this.ajusteEnFila = false;
+    if (volverAlProducto && id != null) this.scrollAProducto(id);
   }
 
   editarAjuste(a: AjusteInventario): void {
@@ -529,8 +531,13 @@ export class InventarioComponent implements OnInit, OnDestroy {
   }
 
   etiquetaUnidad(i: InventarioItem): string {
-    if (this.esPieza(i)) return 'Pieza';
-    return i.vendePorLabel || 'Litros';
+    return this.esPieza(i) ? 'Pieza' : 'Litros';
+  }
+
+  etiquetaDepartamento(i: InventarioItem): string {
+    return inferirDepartamento(i.vendePor, i.nombre, i.departamento) === 'JARCERIA'
+      ? 'Jarcería'
+      : 'Limpieza';
   }
 
   private sugeridoMin(compra: number | null): number {
@@ -570,7 +577,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
   get altaCompleta(): boolean {
     const f = this.formAlta;
     if (!f.nombre?.trim()) return false;
-    if (!f.vendePor) return false;
+    if (!f.vendePor || !f.departamento) return false;
     const cant = this.cantidadAltaEfectiva;
     if (cant == null || cant <= 0) return false;
     if (f.totalPagado == null || String(f.totalPagado).trim() === '') return false;
@@ -692,9 +699,11 @@ export class InventarioComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Desde Ventas: /inventario?editar=id → abre el producto en edición. */
+  /** Desde Ventas: /inventario?editar=id o ?ajuste=id. */
   private aplicarQueryEditar(): void {
-    const raw = this.route.snapshot.queryParamMap.get('editar');
+    const rawEdit = this.route.snapshot.queryParamMap.get('editar');
+    const rawAjuste = this.route.snapshot.queryParamMap.get('ajuste');
+    const raw = rawAjuste || rawEdit;
     if (!raw) return;
     const id = Number(raw);
     if (!Number.isFinite(id) || id <= 0) return;
@@ -708,7 +717,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
     if (idx >= 0) {
       this.pag.pagina = Math.floor(idx / this.pag.pageSize) + 1;
     }
-    this.editar(item);
+    if (rawAjuste) this.iniciarAjuste(item);
+    else this.editar(item);
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {},
@@ -820,6 +830,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
       precioMayoreo10: f.precioMayoreo10,
       precioVenta: f.precioVenta,
       vendePor: f.vendePor || 'LITROS',
+      departamento: f.departamento || 'LIMPIEZA',
     };
   }
 
@@ -915,20 +926,42 @@ export class InventarioComponent implements OnInit, OnDestroy {
       precioMayoreo5: item.precioMayoreo5,
       precioMayoreo10: item.precioMayoreo10,
       vendePor: item.vendePor === 'PIEZA' ? 'PIEZA' : 'LITROS',
+      departamento: inferirDepartamento(item.vendePor, item.nombre, item.departamento),
     };
     this.error = '';
-    this.prepAjusteEnFila(item);
+    this.cancelarAjuste();
+    this.scrollAProducto(item.id);
+  }
+
+  private scrollAProducto(id: number): void {
     setTimeout(() => {
-      const el =
-        document.querySelector('.hist-edicion-movil') || document.querySelector('.fila-edicion');
-      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const candidatos = [
+        document.getElementById('inv-row-' + id),
+        document.getElementById('inv-card-' + id),
+      ];
+      const el = candidatos.find((n) => n != null && this.estaVisible(n));
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 0);
   }
 
-  cancelar(): void {
+  /** Fila de tabla en PC o tarjeta en móvil (la otra vista está oculta). */
+  private estaVisible(el: HTMLElement): boolean {
+    if (el.getClientRects().length === 0) return false;
+    let n: HTMLElement | null = el;
+    while (n) {
+      const s = getComputedStyle(n);
+      if (s.display === 'none' || s.visibility === 'hidden') return false;
+      n = n.parentElement;
+    }
+    return true;
+  }
+
+  cancelar(volverAlProducto = true): void {
+    const id = this.editando?.id ?? this.formAjuste.productoId;
     this.editando = null;
     this.form = this.formVacio();
-    this.cancelarAjuste();
+    this.cancelarAjuste(false);
+    if (volverAlProducto && id != null) this.scrollAProducto(id);
   }
 
   async eliminar(item: InventarioItem): Promise<void> {

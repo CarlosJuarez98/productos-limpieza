@@ -1,5 +1,6 @@
 package com.productoslimpieza.web.dto;
 
+import com.productoslimpieza.domain.DepartamentoProducto;
 import com.productoslimpieza.domain.UnidadVenta;
 import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
@@ -13,5 +14,6 @@ public record ProductoRequest(
     LocalDate fechaVigenciaPrecio,
     BigDecimal precioMayoreo5,
     BigDecimal precioMayoreo10,
-    UnidadVenta vendePor
+    UnidadVenta vendePor,
+    DepartamentoProducto departamento
 ) {}

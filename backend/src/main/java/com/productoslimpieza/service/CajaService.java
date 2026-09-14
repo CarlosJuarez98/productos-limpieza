@@ -36,6 +36,14 @@ public class CajaService {
   /** Fondo del primer periodo, antes del primer corte. */
   private static final BigDecimal FONDO_HISTORICO = new BigDecimal("790.00");
   private static final LocalDate INICIO_HISTORICO = LocalDate.of(2025, 10, 29);
+  private static final List<TipoVenta> TIPOS_PRODUCTO =
+      List.of(
+          TipoVenta.LITROS,
+          TipoVenta.PIEZA,
+          TipoVenta.PESOS,
+          TipoVenta.MAYOREO,
+          TipoVenta.CASA,
+          TipoVenta.MUESTRA);
 
   private final CajaConfigRepository configRepo;
   private final MovimientoCajaRepository movimientoRepo;
@@ -95,8 +103,11 @@ public class CajaService {
       yaApartado = BigDecimal.ZERO;
     }
 
+    BigDecimal ventasTarjetaGlobal = nz(ventaRepo.sumTotalTarjetaByTipos(TIPOS_PRODUCTO))
+        .setScale(2, RoundingMode.HALF_UP);
     BigDecimal saldoBancoGlobal = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
         .subtract(nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA)))
+        .add(ventasTarjetaGlobal)
         .setScale(2, RoundingMode.HALF_UP);
     BigDecimal transferenciasGlobal = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
         .setScale(2, RoundingMode.HALF_UP);
@@ -129,7 +140,8 @@ public class CajaService {
         mapMovs(TipoMovimientoCaja.RETIRO, desde, hasta),
         mapMovs(TipoMovimientoCaja.INGRESO, desde, hasta),
         mapMovsTodos(TipoMovimientoCaja.RETIRO_TRANSFERENCIA),
-        mapMovsTodos(TipoMovimientoCaja.TRANSFERENCIA)
+        mapMovsTodos(TipoMovimientoCaja.TRANSFERENCIA),
+        ventasTarjetaGlobal
     );
   }
 
@@ -440,9 +452,10 @@ public class CajaService {
 
   private Totales calcularTotales(
       LocalDate desde, LocalDate hasta, BigDecimal fondo, BigDecimal apartadosExentosDelCorte) {
-    BigDecimal productos = nz(ventaRepo.sumTotalByFechaAndTipos(desde, hasta,
-        List.of(TipoVenta.LITROS, TipoVenta.PIEZA, TipoVenta.PESOS, TipoVenta.MAYOREO,
-            TipoVenta.CASA, TipoVenta.MUESTRA)));
+    BigDecimal productosAll = nz(ventaRepo.sumTotalByFechaAndTipos(desde, hasta, TIPOS_PRODUCTO));
+    BigDecimal productosTarjeta =
+        nz(ventaRepo.sumTotalByFechaAndTiposAndPagoTarjeta(desde, hasta, TIPOS_PRODUCTO, true));
+    BigDecimal productosEfectivo = productosAll.subtract(productosTarjeta).max(BigDecimal.ZERO);
     BigDecimal recargas = nz(ventaRepo.sumTotalByFechaAndTipos(desde, hasta, List.of(TipoVenta.RECARGA)));
     BigDecimal servicios = nz(ventaRepo.sumTotalByFechaAndTipos(desde, hasta, List.of(TipoVenta.PAGO_DE_SERVICIOS)));
 
@@ -465,7 +478,7 @@ public class CajaService {
     BigDecimal apartadosServicios = apartadosServiciosBruto.subtract(exentoServ).max(BigDecimal.ZERO);
 
     BigDecimal totalCaja = fondo
-        .add(productos).add(recargas).add(servicios).add(ingresos)
+        .add(productosEfectivo).add(recargas).add(servicios).add(ingresos)
         .add(retirosTx) // retiro del banco → entra efectivo a la caja del periodo
         .subtract(retiros)
         .subtract(transferencias) // transferencia a banco → sale de caja
@@ -479,7 +492,7 @@ public class CajaService {
 
     return new Totales(
         fondo.setScale(2, RoundingMode.HALF_UP),
-        productos.setScale(2, RoundingMode.HALF_UP),
+        productosAll.setScale(2, RoundingMode.HALF_UP),
         recargas.setScale(2, RoundingMode.HALF_UP),
         servicios.setScale(2, RoundingMode.HALF_UP),
         retiros.setScale(2, RoundingMode.HALF_UP),

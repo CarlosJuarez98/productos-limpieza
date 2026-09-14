@@ -58,7 +58,56 @@ public class TenantSchemaBootstrap implements ApplicationRunner {
     dropNombreOnlyUnique("PERSONAS");
     dropFechaOnlyUnique("CORTES_CAJA");
     ensureCorteTenantFechaUnique();
+    ensurePagoTarjetaColumn();
+    ensureDepartamentoColumn();
     log.info("TenantSchemaBootstrap: listo");
+  }
+
+  private void ensurePagoTarjetaColumn() {
+    if (!tableExists("VENTAS") || columnExists("VENTAS", "PAGO_TARJETA")) {
+      return;
+    }
+    try {
+      jdbc.execute("ALTER TABLE VENTAS ADD PAGO_TARJETA NUMBER(1) DEFAULT 0 NOT NULL");
+      log.info("Añadida columna PAGO_TARJETA a VENTAS");
+    } catch (Exception e) {
+      log.warn("No se pudo añadir PAGO_TARJETA a VENTAS: {}", e.getMessage());
+    }
+  }
+
+  private void ensureDepartamentoColumn() {
+    if (!tableExists("PRODUCTOS")) {
+      return;
+    }
+    if (!columnExists("PRODUCTOS", "DEPARTAMENTO")) {
+      try {
+        jdbc.execute("ALTER TABLE PRODUCTOS ADD DEPARTAMENTO VARCHAR2(20)");
+        log.info("Añadida columna DEPARTAMENTO a PRODUCTOS");
+      } catch (Exception e) {
+        log.warn("No se pudo añadir DEPARTAMENTO a PRODUCTOS: {}", e.getMessage());
+        return;
+      }
+    }
+    try {
+      int n = jdbc.update(
+          """
+          UPDATE PRODUCTOS
+             SET DEPARTAMENTO = CASE
+               WHEN UPPER(NOMBRE) LIKE '%CLORO%'
+                 OR UPPER(NOMBRE) LIKE '%PASTILLA%'
+                 OR UPPER(NOMBRE) LIKE '%TABLETA%'
+               THEN 'LIMPIEZA'
+               WHEN UPPER(VENDE_POR) = 'PIEZA' THEN 'JARCERIA'
+               ELSE 'LIMPIEZA'
+             END
+           WHERE DEPARTAMENTO IS NULL
+          """);
+      if (n > 0) {
+        log.info("Rellenado DEPARTAMENTO en {} producto(s)", n);
+      }
+    } catch (Exception e) {
+      log.warn("No se pudo rellenar DEPARTAMENTO: {}", e.getMessage());
+    }
   }
 
   private boolean tableExists(String table) {

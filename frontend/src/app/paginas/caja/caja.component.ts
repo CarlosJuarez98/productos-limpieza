@@ -189,6 +189,10 @@ export class CajaComponent implements OnInit, OnDestroy {
     return Number(this.caja?.totalRetirosTransferencia) || 0;
   }
 
+  get ventasTarjeta(): number {
+    return Number(this.caja?.totalVendidoTarjeta) || 0;
+  }
+
   limpiarCorteSeleccionado(): void {
     this.corteSeleccionado = null;
     this.detalleCorte = null;

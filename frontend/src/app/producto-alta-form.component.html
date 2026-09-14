@@ -9,6 +9,13 @@
     />
   </label>
   <label>
+    Departamento
+    <select [(ngModel)]="form.departamento" [name]="namePrefix + 'Departamento'">
+      <option value="LIMPIEZA">Limpieza</option>
+      <option value="JARCERIA">Jarcería</option>
+    </select>
+  </label>
+  <label>
     Se vende por
     <select [(ngModel)]="form.vendePor" [name]="namePrefix + 'VendePor'">
       <option value="LITROS">Litros</option>

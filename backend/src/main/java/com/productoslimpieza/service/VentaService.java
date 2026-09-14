@@ -122,7 +122,8 @@ public class VentaService {
     aplicarLote(
         v,
         req.fecha(),
-        new VentaLineaLoteRequest(req.productoId(), req.tipoVenta(), req.cantidad(), req.total()),
+        new VentaLineaLoteRequest(
+            req.productoId(), req.tipoVenta(), req.cantidad(), req.total(), req.pagoTarjeta()),
         productos,
         preciosCache);
   }
@@ -158,6 +159,8 @@ public class VentaService {
     v.setTipoVenta(tipo);
     v.setCantidad(req.cantidad());
     v.setTotal(calcularTotal(tipo, req.cantidad(), producto, fecha, req.total(), preciosCache));
+    boolean tarjeta = Boolean.TRUE.equals(req.pagoTarjeta()) && !tipo.totalEsCero();
+    v.setPagoTarjeta(tarjeta);
   }
 
   public BigDecimal calcularTotal(
@@ -263,7 +266,8 @@ public class VentaService {
         v.getTipoVenta(),
         v.getTipoVenta().toLabel(),
         v.getCantidad(),
-        v.getTotal()
+        v.getTotal(),
+        v.isPagoTarjeta()
     );
   }
 }

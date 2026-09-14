@@ -35,6 +35,11 @@ public class Producto extends TenantEntity {
   @Column(name = "vende_por", length = 20)
   private UnidadVenta vendePor = UnidadVenta.LITROS;
 
+  /** Limpieza o jarcería (proveedor), no depende de litros/pieza. */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "departamento", length = 20)
+  private DepartamentoProducto departamento = DepartamentoProducto.LIMPIEZA;
+
   @Column(nullable = false)
   private boolean activo = true;
 
@@ -52,6 +57,8 @@ public class Producto extends TenantEntity {
   public void setPrecioMayoreo10(BigDecimal precioMayoreo10) { this.precioMayoreo10 = precioMayoreo10; }
   public UnidadVenta getVendePor() { return vendePor; }
   public void setVendePor(UnidadVenta vendePor) { this.vendePor = vendePor; }
+  public DepartamentoProducto getDepartamento() { return departamento; }
+  public void setDepartamento(DepartamentoProducto departamento) { this.departamento = departamento; }
   public boolean isActivo() { return activo; }
   public void setActivo(boolean activo) { this.activo = activo; }
 }

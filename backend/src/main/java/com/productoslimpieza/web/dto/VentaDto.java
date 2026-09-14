@@ -12,5 +12,6 @@ public record VentaDto(
     TipoVenta tipoVenta,
     String tipoVentaLabel,
     BigDecimal cantidad,
-    BigDecimal total
+    BigDecimal total,
+    boolean pagoTarjeta
 ) {}

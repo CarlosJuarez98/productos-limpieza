@@ -149,6 +149,9 @@
               @if (col('vende')) {
                 <th class="col-extra">Se vende</th>
               }
+              @if (col('depto')) {
+                <th class="col-extra">Depto</th>
+              }
               @if (col('m5')) {
                 <th class="money col-extra">≥ 5 L</th>
               }
@@ -173,6 +176,7 @@
           <tbody>
             @for (i of pag.paginaItems; track i.id) {
               <tr
+                [attr.id]="'inv-row-' + i.id"
                 [class.danger]="i.precioVentaBajoMinimo"
                 [class.warn]="!i.precioVentaBajoMinimo && i.stockActual <= 0"
                 [class.ganancia-alta]="!i.precioVentaBajoMinimo && i.porcentajeGanancia >= 50"
@@ -191,6 +195,9 @@
                 }
                 @if (col('vende')) {
                   <td class="col-extra">{{ etiquetaUnidad(i) }}</td>
+                }
+                @if (col('depto')) {
+                  <td class="col-extra">{{ etiquetaDepartamento(i) }}</td>
                 }
                 @if (col('m5')) {
                   <td class="money col-extra">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
@@ -257,6 +264,13 @@
                         <input appClearable [(ngModel)]="form.nombre" name="nombreEdit" required />
                       </label>
                       <label>
+                        Departamento
+                        <select [(ngModel)]="form.departamento" name="departamentoEdit">
+                          <option value="LIMPIEZA">Limpieza</option>
+                          <option value="JARCERIA">Jarcería</option>
+                        </select>
+                      </label>
+                      <label>
                         Se vende por
                         <select [(ngModel)]="form.vendePor" name="vendePorEdit">
                           <option value="LITROS">Litros</option>
@@ -309,10 +323,6 @@
                         <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
                       </div>
                     </form>
-                    <div class="ajuste-en-edicion">
-                      <p class="ajuste-en-edicion-titulo">Ajuste de stock</p>
-                      <ng-container *ngTemplateOutlet="ajusteInlineTpl; context: { sufijo: 'Edit' }" />
-                    </div>
                   </td>
                 </tr>
               } @else if (mostrandoAjusteEn(i)) {
@@ -328,81 +338,10 @@
         </table>
       </div>
 
-      @if (editando) {
-        <div class="hist-edicion-movil">
-          <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
-            <label>
-              Producto
-              <input appClearable [(ngModel)]="form.nombre" name="nombreEditMovil" required />
-            </label>
-            <label>
-              Se vende por
-              <select [(ngModel)]="form.vendePor" name="vendePorEditMovil">
-                <option value="LITROS">Litros</option>
-                <option value="PIEZA">Pieza</option>
-              </select>
-            </label>
-            <label>
-              Cantidad inicial
-              <input
-                type="text"
-                inputmode="decimal"
-                appClearable
-                [(ngModel)]="form.cantidadInicial"
-                name="cantidadEditMovil"
-                placeholder="0"
-              />
-            </label>
-            <label>
-              Precio compra
-              <div class="precio-input">
-                <span class="peso">$</span>
-                <input
-                  type="text"
-                  inputmode="decimal"
-                  appClearable
-                  [(ngModel)]="form.precioCompra"
-                  name="compraEditMovil"
-                  placeholder="0"
-                  (ngModelChange)="onCompraChange()"
-                />
-              </div>
-            </label>
-            <label>
-              Precio menudeo
-              <div class="precio-input">
-                <span class="peso">$</span>
-                <input
-                  type="text"
-                  inputmode="decimal"
-                  appClearable
-                  [(ngModel)]="form.precioVenta"
-                  name="menudeoEditMovil"
-                  (ngModelChange)="onMenudeoChange()"
-                  [placeholder]="sugeridoPlaceholder"
-                />
-              </div>
-            </label>
-            <div class="edicion-actions">
-              <button type="submit">Guardar</button>
-              <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
-            </div>
-          </form>
-          <div class="ajuste-en-edicion">
-            <p class="ajuste-en-edicion-titulo">Ajuste de stock</p>
-            <ng-container *ngTemplateOutlet="ajusteInlineTpl; context: { sufijo: 'EditMovil' }" />
-          </div>
-        </div>
-      } @else if (ajusteEnFila && formAjuste.productoId != null) {
-        <div class="hist-edicion-movil hist-ajuste-movil">
-          <p class="ajuste-en-edicion-titulo">Ajuste de stock</p>
-          <ng-container *ngTemplateOutlet="ajusteInlineTpl; context: { sufijo: 'FilaMovil' }" />
-        </div>
-      }
-
       <ul class="hist-cards">
         @for (i of pag.paginaItems; track i.id) {
           <li
+            [attr.id]="'inv-card-' + i.id"
             [class.danger]="i.precioVentaBajoMinimo"
             [class.warn]="!i.precioVentaBajoMinimo && i.stockActual <= 0"
             [class.ganancia-alta]="!i.precioVentaBajoMinimo && i.porcentajeGanancia >= 50"
@@ -471,6 +410,12 @@
                   <dd>{{ etiquetaUnidad(i) }}</dd>
                 </div>
               }
+              @if (col('depto')) {
+                <div>
+                  <dt>Depto</dt>
+                  <dd>{{ etiquetaDepartamento(i) }}</dd>
+                </div>
+              }
               @if (col('compra')) {
                 <div>
                   <dt>Compra</dt>
@@ -508,6 +453,16 @@
                 </div>
               }
             </dl>
+            @if (editando?.id === i.id) {
+              <div class="hist-edicion-movil inv-inline">
+                <ng-container *ngTemplateOutlet="edicionProductoTpl; context: { sufijo: 'Movil' }" />
+              </div>
+            } @else if (mostrandoAjusteEn(i)) {
+              <div class="hist-edicion-movil hist-ajuste-movil inv-inline">
+                <p class="ajuste-en-edicion-titulo">Ajuste de stock</p>
+                <ng-container *ngTemplateOutlet="ajusteInlineTpl; context: { sufijo: 'FilaMovil' }" />
+              </div>
+            }
           </li>
         } @empty {
           <li class="vacio muted">Sin productos{{ filtro ? ' con ese nombre' : '' }}.</li>
@@ -661,6 +616,13 @@
       <input appClearable [(ngModel)]="formAlta.nombre" name="nombreAlta" required />
     </label>
     <label>
+      Departamento
+      <select [(ngModel)]="formAlta.departamento" name="departamentoAlta">
+        <option value="LIMPIEZA">Limpieza</option>
+        <option value="JARCERIA">Jarcería</option>
+      </select>
+    </label>
+    <label>
       Se vende por
       <select [(ngModel)]="formAlta.vendePor" name="vendePorAlta">
         <option value="LITROS">Litros</option>
@@ -727,6 +689,74 @@
   }
 </section>
 </div>
+
+<ng-template #edicionProductoTpl let-sufijo="sufijo">
+  <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+    <label>
+      Producto
+      <input appClearable [(ngModel)]="form.nombre" [name]="'nombreEdit' + sufijo" required />
+    </label>
+    <label>
+      Departamento
+      <select [(ngModel)]="form.departamento" [name]="'departamentoEdit' + sufijo">
+        <option value="LIMPIEZA">Limpieza</option>
+        <option value="JARCERIA">Jarcería</option>
+      </select>
+    </label>
+    <label>
+      Se vende por
+      <select [(ngModel)]="form.vendePor" [name]="'vendePorEdit' + sufijo">
+        <option value="LITROS">Litros</option>
+        <option value="PIEZA">Pieza</option>
+      </select>
+    </label>
+    <label>
+      Cantidad inicial
+      <input
+        type="text"
+        inputmode="decimal"
+        appClearable
+        [(ngModel)]="form.cantidadInicial"
+        [name]="'cantidadEdit' + sufijo"
+        placeholder="0"
+      />
+    </label>
+    <label>
+      Precio compra
+      <div class="precio-input">
+        <span class="peso">$</span>
+        <input
+          type="text"
+          inputmode="decimal"
+          appClearable
+          [(ngModel)]="form.precioCompra"
+          [name]="'compraEdit' + sufijo"
+          placeholder="0"
+          (ngModelChange)="onCompraChange()"
+        />
+      </div>
+    </label>
+    <label>
+      Precio menudeo
+      <div class="precio-input">
+        <span class="peso">$</span>
+        <input
+          type="text"
+          inputmode="decimal"
+          appClearable
+          [(ngModel)]="form.precioVenta"
+          [name]="'menudeoEdit' + sufijo"
+          (ngModelChange)="onMenudeoChange()"
+          [placeholder]="sugeridoPlaceholder"
+        />
+      </div>
+    </label>
+    <div class="edicion-actions">
+      <button type="submit">Guardar</button>
+      <button type="button" class="secondary" (click)="cancelar()">Cancelar</button>
+    </div>
+  </form>
+</ng-template>
 
 <ng-template #ajusteInlineTpl let-sufijo="sufijo">
   <form class="form-grid form-edicion form-ajuste-inline" (ngSubmit)="guardarAjuste()">

@@ -14,6 +14,7 @@ type FormAlta = {
   precioMayoreo5: number | null;
   precioMayoreo10: number | null;
   vendePor: 'LITROS' | 'PIEZA';
+  departamento: 'LIMPIEZA' | 'JARCERIA';
 };
 
 @Component({
@@ -72,7 +73,7 @@ export class ProductoAltaFormComponent implements OnInit {
   get completa(): boolean {
     const f = this.form;
     if (!f.nombre?.trim()) return false;
-    if (!f.vendePor) return false;
+    if (!f.vendePor || !f.departamento) return false;
     const cant = this.cantidadEfectiva;
     if (cant == null || cant <= 0) return false;
     if (f.totalPagado == null || String(f.totalPagado).trim() === '') return false;
@@ -123,6 +124,7 @@ export class ProductoAltaFormComponent implements OnInit {
       precioMayoreo10: this.form.precioMayoreo10,
       precioVenta: this.form.precioVenta,
       vendePor: this.form.vendePor || 'LITROS',
+      departamento: this.form.departamento || 'LIMPIEZA',
     };
     this.guardando = true;
     this.api.crearProducto(body).subscribe({
@@ -162,6 +164,7 @@ export class ProductoAltaFormComponent implements OnInit {
       precioMayoreo5: null,
       precioMayoreo10: null,
       vendePor: 'LITROS',
+      departamento: 'LIMPIEZA',
     };
   }
 }

@@ -15,5 +15,8 @@ public record PedidoLineaDto(
     BigDecimal consumoConColchon,
     /** Faltante arrastrado de pedidos abiertos anteriores. */
     BigDecimal faltanteAnterior,
-    BigDecimal sugerido
+    BigDecimal sugerido,
+    /** Tamaño típico de compra (mediana de entradas recientes). */
+    BigDecimal loteCompra,
+    String departamento
 ) {}

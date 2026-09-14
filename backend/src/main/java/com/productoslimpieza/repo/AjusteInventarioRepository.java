@@ -15,4 +15,15 @@ public interface AjusteInventarioRepository extends JpaRepository<AjusteInventar
   BigDecimal sumCantidadByProducto(@Param("producto") Producto producto);
 
   long countByProducto(Producto producto);
+
+  /** Mermas / correcciones a la baja en el periodo (cantidad negativa). */
+  @Query("""
+      select coalesce(sum(-a.cantidad), 0) from AjusteInventario a
+      where a.producto = :producto and a.cantidad < 0
+      and a.fecha between :desde and :hasta
+      """)
+  BigDecimal sumMermaByProductoAndFecha(
+      @Param("producto") Producto producto,
+      @Param("desde") java.time.LocalDate desde,
+      @Param("hasta") java.time.LocalDate hasta);
 }

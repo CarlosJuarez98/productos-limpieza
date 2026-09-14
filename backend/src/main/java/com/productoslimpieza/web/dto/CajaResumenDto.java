@@ -44,5 +44,7 @@ public record CajaResumenDto(
     /** Todos los retiros del banco (histórico global). */
     List<MovimientoCajaDto> retirosTransferencia,
     /** Todas las transferencias a banco (histórico global). */
-    List<MovimientoCajaDto> transferencias
+    List<MovimientoCajaDto> transferencias,
+    /** Ventas cobradas con tarjeta (van al banco, no al efectivo). */
+    BigDecimal totalVendidoTarjeta
 ) {}

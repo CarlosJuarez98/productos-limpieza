@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Limita la sesión a 20 minutos desde el login (no solo por inactividad).
+ * Cierra la sesión a los 20 minutos sin actividad. Cada petición autenticada la renueva.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 20)
@@ -30,10 +30,14 @@ public class AbsoluteSessionTimeoutFilter extends OncePerRequestFilter {
     if (session != null) {
       Object loginAt = session.getAttribute(LOGIN_AT_ATTR);
       if (loginAt instanceof Long started) {
-        long age = System.currentTimeMillis() - started;
+        long now = System.currentTimeMillis();
+        long age = now - started;
         if (age > MAX_SESSION_MS) {
           session.invalidate();
           SecurityContextHolder.clearContext();
+        } else {
+          session.setAttribute(LOGIN_AT_ATTR, now);
+          session.setMaxInactiveInterval((int) (MAX_SESSION_MS / 1000L));
         }
       }
     }

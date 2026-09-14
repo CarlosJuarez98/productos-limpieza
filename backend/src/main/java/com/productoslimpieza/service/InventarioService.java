@@ -1,5 +1,6 @@
 package com.productoslimpieza.service;
 
+import com.productoslimpieza.domain.DepartamentoProducto;
 import com.productoslimpieza.domain.MargenConfig;
 import com.productoslimpieza.domain.Producto;
 import com.productoslimpieza.domain.TipoVenta;
@@ -110,6 +111,7 @@ public class InventarioService {
       if (req.vendePor() != null) {
         previo.setVendePor(req.vendePor());
       }
+      previo.setDepartamento(resolverDepartamento(req, previo.getVendePor(), nombre));
       aplicarMayoreoDesdeCompra(previo, margen);
       previo = productoRepo.save(previo);
       if (req.precioVenta() != null) {
@@ -123,7 +125,9 @@ public class InventarioService {
     p.setNombre(nombre);
     p.setPrecioCompra(nz(req.precioCompra()));
     p.setCantidadInicial(nz(req.cantidadInicial()));
-    p.setVendePor(req.vendePor() != null ? req.vendePor() : UnidadVenta.LITROS);
+    UnidadVenta vendePor = req.vendePor() != null ? req.vendePor() : UnidadVenta.LITROS;
+    p.setVendePor(vendePor);
+    p.setDepartamento(resolverDepartamento(req, vendePor, nombre));
     p.setActivo(true);
     aplicarMayoreoDesdeCompra(p, margen);
     p = productoRepo.save(p);
@@ -161,6 +165,9 @@ public class InventarioService {
     }
     if (req.vendePor() != null) {
       p.setVendePor(req.vendePor());
+    }
+    if (req.departamento() != null) {
+      p.setDepartamento(req.departamento());
     }
     // Precios mayoreo manuales; si no vienen y cambió compra, recalcular desde márgenes
     if (req.precioMayoreo5() != null || req.precioMayoreo10() != null) {
@@ -250,6 +257,10 @@ public class InventarioService {
 
     boolean bajoMinimo = venta.compareTo(BigDecimal.ZERO) > 0 && venta.compareTo(min) < 0;
     UnidadVenta vendePor = p.getVendePor() != null ? p.getVendePor() : UnidadVenta.LITROS;
+    DepartamentoProducto depto =
+        p.getDepartamento() != null
+            ? p.getDepartamento()
+            : DepartamentoProducto.inferir(vendePor, p.getNombre());
 
     return new InventarioDto(
         p.getId(),
@@ -267,7 +278,9 @@ public class InventarioService {
         ganancia,
         bajoMinimo,
         vendePor,
-        vendePor.toLabel()
+        vendePor.toLabel(),
+        depto,
+        depto.toLabel()
     );
   }
 
@@ -296,6 +309,14 @@ public class InventarioService {
         .subtract(salidasUnidades)
         .subtract(equivPesos)
         .setScale(2, RoundingMode.HALF_UP);
+  }
+
+  private static DepartamentoProducto resolverDepartamento(
+      ProductoRequest req, UnidadVenta vendePor, String nombre) {
+    if (req.departamento() != null) {
+      return req.departamento();
+    }
+    return DepartamentoProducto.inferir(vendePor, nombre);
   }
 
   private static BigDecimal nz(BigDecimal v) {

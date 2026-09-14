@@ -31,6 +31,10 @@ public class Venta extends TenantEntity {
   @Column(nullable = false, precision = 14, scale = 4)
   private BigDecimal total = BigDecimal.ZERO;
 
+  /** Si es true, el cobro entra al banco (no al efectivo de caja). */
+  @Column(nullable = false)
+  private boolean pagoTarjeta = false;
+
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
   public LocalDate getFecha() { return fecha; }
@@ -43,4 +47,6 @@ public class Venta extends TenantEntity {
   public void setCantidad(BigDecimal cantidad) { this.cantidad = cantidad; }
   public BigDecimal getTotal() { return total; }
   public void setTotal(BigDecimal total) { this.total = total; }
+  public boolean isPagoTarjeta() { return pagoTarjeta; }
+  public void setPagoTarjeta(boolean pagoTarjeta) { this.pagoTarjeta = pagoTarjeta; }
 }

@@ -1,8 +1,12 @@
 package com.productoslimpieza.service;
 
+import com.productoslimpieza.domain.DepartamentoProducto;
 import com.productoslimpieza.domain.Producto;
 import com.productoslimpieza.domain.TipoVenta;
 import com.productoslimpieza.domain.UnidadVenta;
+import com.productoslimpieza.domain.Entrada;
+import com.productoslimpieza.repo.AjusteInventarioRepository;
+import com.productoslimpieza.repo.EntradaRepository;
 import com.productoslimpieza.repo.ProductoRepository;
 import com.productoslimpieza.repo.TraspasoLineaRepository;
 import com.productoslimpieza.repo.VentaRepository;
@@ -40,6 +44,8 @@ public class PedidoService {
   private final ProductoRepository productoRepo;
   private final VentaRepository ventaRepo;
   private final TraspasoLineaRepository traspasoLineaRepo;
+  private final EntradaRepository entradaRepo;
+  private final AjusteInventarioRepository ajusteRepo;
   private final InventarioService inventarioService;
   private final PrecioService precioService;
   private final PedidoRegistroService pedidoRegistroService;
@@ -49,6 +55,8 @@ public class PedidoService {
       ProductoRepository productoRepo,
       VentaRepository ventaRepo,
       TraspasoLineaRepository traspasoLineaRepo,
+      EntradaRepository entradaRepo,
+      AjusteInventarioRepository ajusteRepo,
       InventarioService inventarioService,
       PrecioService precioService,
       PedidoRegistroService pedidoRegistroService,
@@ -56,6 +64,8 @@ public class PedidoService {
     this.productoRepo = productoRepo;
     this.ventaRepo = ventaRepo;
     this.traspasoLineaRepo = traspasoLineaRepo;
+    this.entradaRepo = entradaRepo;
+    this.ajusteRepo = ajusteRepo;
     this.inventarioService = inventarioService;
     this.precioService = precioService;
     this.pedidoRegistroService = pedidoRegistroService;
@@ -111,12 +121,13 @@ public class PedidoService {
       BigDecimal faltAnte = nz(faltantes.get(p.getId())).setScale(2, RoundingMode.HALF_UP);
       UnidadVenta unidad = p.getVendePor() != null ? p.getVendePor() : UnidadVenta.LITROS;
 
+      BigDecimal lote = loteCompraTipico(p);
       BigDecimal necesidad = conColchon.subtract(stock).add(faltAnte);
       if (necesidad.compareTo(BigDecimal.ZERO) <= 0) {
         continue;
       }
 
-      BigDecimal sugerido = necesidad.setScale(0, RoundingMode.CEILING);
+      BigDecimal sugerido = redondearALote(necesidad, lote);
       if (sugerido.compareTo(BigDecimal.ZERO) <= 0) {
         continue;
       }
@@ -132,7 +143,9 @@ public class PedidoService {
               base.setScale(2, RoundingMode.HALF_UP),
               conColchon.setScale(2, RoundingMode.HALF_UP),
               faltAnte,
-              sugerido));
+              sugerido,
+              lote,
+              departamentoDe(p).name()));
     }
 
     List<InsumoAlertaDto> alertas =
@@ -169,6 +182,7 @@ public class PedidoService {
       Producto insumo = productos.get(a.productoInsumoId());
       if (insumo == null) continue;
       UnidadVenta unidad = insumo.getVendePor() != null ? insumo.getVendePor() : UnidadVenta.LITROS;
+      BigDecimal lote = loteCompraTipico(insumo);
       lineas.add(
           new PedidoLineaDto(
               insumo.getId(),
@@ -180,7 +194,9 @@ public class PedidoService {
               BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
               a.sugeridoPedir(),
               BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
-              a.sugeridoPedir()));
+              redondearALote(a.sugeridoPedir(), lote),
+              lote,
+              departamentoDe(insumo).name()));
     }
   }
 
@@ -306,7 +322,47 @@ public class PedidoService {
       equivPesos = pesos.divide(precio, 4, RoundingMode.HALF_UP);
     }
     BigDecimal traspasos = nz(traspasoLineaRepo.sumCantidadByProductoAndFecha(p, desde, hasta));
-    return unidades.add(equivPesos).add(traspasos);
+    BigDecimal merma = nz(ajusteRepo.sumMermaByProductoAndFecha(p, desde, hasta));
+    return unidades.add(equivPesos).add(traspasos).add(merma);
+  }
+
+  /** Mediana de las últimas compras; si no hay historial, 5 L o 1 pieza. */
+  private BigDecimal loteCompraTipico(Producto p) {
+    List<Entrada> recientes =
+        entradaRepo.findTop12ByProductoAndCantidadGreaterThanOrderByFechaDescIdDesc(
+            p, BigDecimal.ZERO);
+    if (recientes.isEmpty()) {
+      return p.getVendePor() == UnidadVenta.PIEZA
+          ? BigDecimal.ONE
+          : new BigDecimal("5");
+    }
+    List<BigDecimal> vals =
+        recientes.stream()
+            .map(e -> nz(e.getCantidad()).setScale(2, RoundingMode.HALF_UP))
+            .sorted()
+            .toList();
+    return vals.get(vals.size() / 2);
+  }
+
+  private static BigDecimal redondearALote(BigDecimal necesidad, BigDecimal lote) {
+    BigDecimal n = nz(necesidad);
+    if (n.compareTo(BigDecimal.ZERO) <= 0) {
+      return BigDecimal.ZERO;
+    }
+    BigDecimal pack = nz(lote);
+    if (pack.compareTo(BigDecimal.ZERO) <= 0) {
+      return n.setScale(0, RoundingMode.CEILING);
+    }
+    BigDecimal packs = n.divide(pack, 0, RoundingMode.CEILING);
+    return packs.multiply(pack).setScale(2, RoundingMode.HALF_UP);
+  }
+
+  private static DepartamentoProducto departamentoDe(Producto p) {
+    if (p.getDepartamento() != null) {
+      return p.getDepartamento();
+    }
+    UnidadVenta u = p.getVendePor() != null ? p.getVendePor() : UnidadVenta.LITROS;
+    return DepartamentoProducto.inferir(u, p.getNombre());
   }
 
   private static BigDecimal nz(BigDecimal v) {

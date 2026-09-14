@@ -9,5 +9,6 @@ public record VentaLineaLoteRequest(
     Long productoId,
     @NotNull TipoVenta tipoVenta,
     @NotNull BigDecimal cantidad,
-    BigDecimal total
+    BigDecimal total,
+    Boolean pagoTarjeta
 ) {}
