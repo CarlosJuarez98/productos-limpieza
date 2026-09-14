@@ -412,12 +412,31 @@
       <input type="date" [(ngModel)]="config.fechaFin" name="fechaFin" [max]="hoyLocal()" />
     </label>
     <label>
-      Fondo inicial
+      Fondo de este periodo
       <div class="precio-input">
         <span class="peso">$</span>
         <input type="text" inputmode="decimal" appClearable [(ngModel)]="config.fondoInicial" name="fondoInicial" />
       </div>
     </label>
+    <label>
+      Fondo que dejas
+      <div class="precio-input">
+        <span class="peso">$</span>
+        <input
+          type="text"
+          inputmode="decimal"
+          appClearable
+          [(ngModel)]="fondoQueDejas"
+          name="fondoQueDejas"
+          placeholder="200"
+        />
+      </div>
+    </label>
+    <p class="muted hint corte-apartar-hint">
+      Disponible para apartar:
+      <strong>${{ paraApartarEstimado | number: '1.2-2' }}</strong>
+      · en Apartados escribes cuánto va a cada uno
+    </p>
     <button type="submit" [disabled]="!puedeGuardarPeriodo">
       {{ etiquetaBotonPeriodo }}
     </button>

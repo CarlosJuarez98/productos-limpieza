@@ -348,7 +348,8 @@ public class CajaService {
   }
 
   /**
-   * Registra un corte. Guarda snapshot del periodo cerrado y abre el nuevo con fondo $200.
+   * Registra un corte. Guarda snapshot del periodo cerrado y abre el nuevo
+   * con el fondo indicado (ahí se calcula para apartar = contado − ese fondo).
    */
   @Transactional
   public CajaConfig marcarCorte(MarcarCorteRequest req) {

@@ -386,9 +386,70 @@
                 </td>
                 <td class="money col-total">${{ t.total | number: '1.2-2' }}</td>
                 <td class="actions">
+                  <button type="button" class="icon-btn" title="Editar" (click)="editar(t)">✎</button>
                   <button type="button" class="danger" title="Eliminar" (click)="eliminar(t.id)">×</button>
                 </td>
               </tr>
+              @if (editandoId === t.id) {
+                <tr class="fila-edicion">
+                  <td colspan="5">
+                    <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+                      <label>
+                        Fecha
+                        <input type="date" [(ngModel)]="formEdit.fecha" name="editFecha" required />
+                      </label>
+                      <label>
+                        Persona
+                        <input
+                          appClearable
+                          [(ngModel)]="formEdit.persona"
+                          name="editPersona"
+                          list="personas-existentes"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Nota
+                        <input appClearable [(ngModel)]="formEdit.nota" name="editNota" />
+                      </label>
+                      @for (l of formEdit.lineas; track l.key; let i = $index) {
+                        <label>
+                          Producto
+                          <app-producto-autocomplete
+                            [productos]="productos"
+                            [productoId]="l.productoId"
+                            [inputName]="'editProd' + l.key"
+                            (productoIdChange)="l.productoId = $event"
+                            [required]="true"
+                          />
+                        </label>
+                        <label>
+                          Cantidad
+                          <input
+                            type="text"
+                            inputmode="decimal"
+                            appClearable
+                            [(ngModel)]="l.cantidad"
+                            [name]="'editCant' + l.key"
+                            placeholder="0"
+                            [class.input-warn]="excedeStockEdit(l, i)"
+                            required
+                          />
+                        </label>
+                      }
+                      <div class="edicion-actions">
+                        <button type="submit" [disabled]="guardandoEdit || hayExcesoStockEdit">
+                          {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
+                        </button>
+                        <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
+                      </div>
+                    </form>
+                    @if (errorEdit) {
+                      <p class="error">{{ errorEdit }}</p>
+                    }
+                  </td>
+                </tr>
+              }
             } @empty {
               <tr><td colspan="5" class="muted">Sin traspasos.</td></tr>
             }
@@ -421,6 +482,15 @@
               <div class="acciones">
                 <button
                   type="button"
+                  class="icono"
+                  title="Editar"
+                  aria-label="Editar"
+                  (click)="editar(t)"
+                >
+                  ✎
+                </button>
+                <button
+                  type="button"
                   class="icono peligro"
                   title="Eliminar"
                   aria-label="Eliminar"
@@ -438,6 +508,64 @@
                 </button>
               </div>
             </div>
+            @if (editandoId === t.id) {
+              <div class="hist-edicion-movil">
+                <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+                  <label>
+                    Fecha
+                    <input type="date" [(ngModel)]="formEdit.fecha" name="editFechaM" required />
+                  </label>
+                  <label>
+                    Persona
+                    <input
+                      appClearable
+                      [(ngModel)]="formEdit.persona"
+                      name="editPersonaM"
+                      list="personas-existentes"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Nota
+                    <input appClearable [(ngModel)]="formEdit.nota" name="editNotaM" />
+                  </label>
+                  @for (l of formEdit.lineas; track l.key; let i = $index) {
+                    <label>
+                      Producto
+                      <app-producto-autocomplete
+                        [productos]="productos"
+                        [productoId]="l.productoId"
+                        [inputName]="'editProdM' + l.key"
+                        (productoIdChange)="l.productoId = $event"
+                        [required]="true"
+                      />
+                    </label>
+                    <label>
+                      Cantidad
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        appClearable
+                        [(ngModel)]="l.cantidad"
+                        [name]="'editCantM' + l.key"
+                        placeholder="0"
+                        [class.input-warn]="excedeStockEdit(l, i)"
+                        required
+                      />
+                    </label>
+                  }
+                  <div class="edicion-actions">
+                    <button type="submit" [disabled]="guardandoEdit || hayExcesoStockEdit">
+                      {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
+                    </button>
+                    <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
+                  </div>
+                </form>
+                @if (errorEdit) {
+                  <p class="error">{{ errorEdit }}</p>
+                }
+              </div>
+            }
           </li>
         } @empty {
           <li class="vacio muted">Sin traspasos.</li>
