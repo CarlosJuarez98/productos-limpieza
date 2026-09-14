@@ -210,7 +210,7 @@ export class CajaComponent implements OnInit, OnDestroy {
     ev.preventDefault();
     const siguiente = this.denInputs?.get(index + 1)?.nativeElement;
     if (!siguiente) return;
-    siguiente.focus();
+    siguiente.focus({ preventScroll: true });
     siguiente.select();
   }
 

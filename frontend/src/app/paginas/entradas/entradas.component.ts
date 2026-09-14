@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -16,6 +16,7 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { AutoHideDirective } from '../../auto-hide.directive';
+import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
 
 interface LineaForm {
   key: number;
@@ -67,8 +68,6 @@ export class EntradasComponent implements OnInit, OnDestroy {
   private static readonly DRAFT = 'entradas';
 
   @ViewChildren('prodLote') prodAutos!: QueryList<ProductoAutocompleteComponent>;
-  @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
-  @ViewChildren('precioInput') precioInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   entradas: Entrada[] = [];
   producciones: Produccion[] = [];
@@ -99,6 +98,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
   altaProductoPara: 'resultado' | 'insumo' | null = null;
   private nextKey = 1;
   private pullSub?: Subscription;
+  private draftTimer: ReturnType<typeof setTimeout> | null = null;
   fecha = this.hoyLocal();
   fechaMin: string | null = null;
   fechaUltimoCorte: string | null = null;
@@ -139,10 +139,12 @@ export class EntradasComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.persistirBorrador();
     this.pullSub?.unsubscribe();
+    if (this.draftTimer != null) clearTimeout(this.draftTimer);
   }
 
   @HostListener('window:pagehide')
-  onPageHide(): void {
+  @HostListener('document:visibilitychange')
+  onGuardarBorrador(): void {
     this.persistirBorrador();
   }
 
@@ -318,6 +320,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
 
   onProductoChange(l: LineaForm, id: number | null): void {
     l.productoId = id;
+    this.programarBorrador();
   }
 
   nombreProducto(productoId: number | null): string {
@@ -337,6 +340,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     if (!this.hayTraspasoActivo) {
       this.traspasoPersona = '';
     }
+    this.programarBorrador();
   }
 
   /** True si la cantidad a traspasar supera lo que entra en esa línea. */
@@ -429,48 +433,57 @@ export class EntradasComponent implements OnInit, OnDestroy {
 
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
-    this.cdr.detectChanges();
-    setTimeout(() => this.focusProducto(this.lineas.length - 1), 0);
+    this.programarBorrador();
+    this.enfocarCaptura(this.lineas.length - 1, 'producto');
+  }
+
+  onFechaEnter(ev: Event): void {
+    ev.preventDefault();
+    this.enfocarCaptura(0, 'producto');
   }
 
   /** Enter en producto → cantidad. */
   onProductoEnter(index: number): void {
-    setTimeout(() => this.focusCantidad(index), 0);
+    this.enfocarCaptura(index, 'cantidad');
   }
 
   /** Enter en cantidad → precio proveedor. */
   onCantidadEnter(ev: Event, index: number): void {
     ev.preventDefault();
-    setTimeout(() => this.focusPrecio(index), 0);
+    this.programarBorrador();
+    this.enfocarCaptura(index, 'precio');
   }
 
   /** Enter en precio → siguiente fila (crea una si hace falta), como en ventas. */
   onPrecioEnter(ev: Event, index: number): void {
     ev.preventDefault();
+    this.programarBorrador();
     const irA = index + 1;
     if (irA >= this.lineas.length) {
       this.agregarLinea();
       return;
     }
-    setTimeout(() => this.focusProducto(irA), 0);
+    this.enfocarCaptura(irA, 'producto');
   }
 
-  private focusProducto(index: number): void {
-    this.prodAutos?.get(index)?.focus();
+  private autosVisibles(): ProductoAutocompleteComponent[] {
+    return (this.prodAutos?.toArray() || []).filter((a) => a.estaVisible());
   }
 
-  private focusCantidad(index: number): void {
-    const el = this.cantInputs?.get(index)?.nativeElement;
-    if (!el) return;
-    el.focus();
-    el.select();
-  }
-
-  private focusPrecio(index: number): void {
-    const el = this.precioInputs?.get(index)?.nativeElement;
-    if (!el) return;
-    el.focus();
-    el.select();
+  private enfocarCaptura(index: number, campo: 'producto' | 'cantidad' | 'precio'): void {
+    const go = () => {
+      const key = this.lineas[index]?.key;
+      if (campo === 'cantidad') {
+        enfocarPorAttr('data-cant-key', key ?? '');
+      } else if (campo === 'precio') {
+        enfocarPorAttr('data-precio-key', key ?? '');
+      } else {
+        this.autosVisibles()[index]?.focus();
+      }
+      if (key != null) scrollLineaPorAttr('data-linea-key', key);
+    };
+    this.cdr.detectChanges();
+    programarEnfoque(go);
   }
 
   quitarLinea(index: number): void {
@@ -478,9 +491,11 @@ export class EntradasComponent implements OnInit, OnDestroy {
     if (this.lineas.length <= min) {
       this.lineas[index] = this.nuevaLinea();
       if (this.lineas.length < min) this.lineas = this.crearLineasVacias();
+      this.programarBorrador();
       return;
     }
     this.lineas.splice(index, 1);
+    this.programarBorrador();
   }
 
   cargar(): void {
@@ -533,6 +548,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
   }
 
   onResultadoChange(id: number | null): void {
+    this.programarBorrador();
     this.prep.productoResultadoId = id;
     this.prep.productoInsumoId = null;
     this.prep.insumoNombre = '';
@@ -545,6 +561,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
           this.prep.productoInsumoId = r.productoInsumoId;
           this.prep.insumoNombre = r.productoInsumoNombre ?? '';
           this.recalcularInsumoPrep();
+          this.programarBorrador();
         } else {
           this.errorPrep =
             'No hay fórmula para ese producto. Créala en «Editar fórmulas».';
@@ -555,6 +572,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
 
   onCantidadPrepChange(): void {
     this.recalcularInsumoPrep();
+    this.programarBorrador();
   }
 
   recalcularInsumoPrep(): void {
@@ -938,6 +956,11 @@ export class EntradasComponent implements OnInit, OnDestroy {
       !!this.traspasoPersona.trim() ||
       this.prepConDatos()
     );
+  }
+
+  programarBorrador(): void {
+    if (this.draftTimer != null) clearTimeout(this.draftTimer);
+    this.draftTimer = setTimeout(() => this.persistirBorrador(), 200);
   }
 
   private persistirBorrador(): void {

@@ -14,6 +14,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
+import { elementoVisible } from '../../captura-focus.util';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { InventarioItem, MODOS_VENTA, ModoVenta, TipoVenta, Venta } from '../../modelos';
@@ -92,6 +93,8 @@ export class VentasComponent implements OnInit, OnDestroy {
   private nextKey = 1;
   private pullSub?: Subscription;
   private filtroTimer: ReturnType<typeof setTimeout> | null = null;
+  private draftTimer: ReturnType<typeof setTimeout> | null = null;
+  private focusTimer: ReturnType<typeof setTimeout> | null = null;
   private idsPreparables = new Set<number>();
 
   @ViewChild('capturaPanel') capturaPanel?: ElementRef<HTMLElement>;
@@ -149,10 +152,13 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.persistirBorrador();
     this.pullSub?.unsubscribe();
     if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
+    if (this.draftTimer != null) clearTimeout(this.draftTimer);
+    if (this.focusTimer != null) clearTimeout(this.focusTimer);
   }
 
   @HostListener('window:pagehide')
-  onPageHide(): void {
+  @HostListener('document:visibilitychange')
+  onGuardarBorrador(): void {
     this.persistirBorrador();
   }
 
@@ -208,6 +214,7 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   onFechaChange(): void {
     if (this.soloHoy) this.rebuildFiltradas(true);
+    this.programarBorrador();
   }
 
   paginaAnterior(): void {
@@ -533,6 +540,7 @@ export class VentasComponent implements OnInit, OnDestroy {
     } else {
       this.sugerirTotalMayoreo(l);
     }
+    this.programarBorrador();
     if (!enEstaLinea) return;
     this.cdr.detectChanges();
     setTimeout(() => {
@@ -614,22 +622,24 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
+    this.programarBorrador();
     this.cdr.detectChanges();
-    setTimeout(() => this.focusProducto(this.lineas.length - 1), 0);
+    this.enfocarCaptura(this.lineas.length - 1, 'producto');
   }
 
   onFechaEnter(ev: Event): void {
     ev.preventDefault();
-    setTimeout(() => this.focusProducto(0), 0);
+    this.enfocarCaptura(0, 'producto');
   }
 
   onProductoEnter(index: number): void {
-    setTimeout(() => this.avanzarDesde(index, 'producto'), 0);
+    this.avanzarDesde(index, 'producto');
   }
 
   onCampoEnter(ev: Event, index: number, campo: 'cantidad' | 'precio' | 'total'): void {
     ev.preventDefault();
-    setTimeout(() => this.avanzarDesde(index, campo), 0);
+    this.programarBorrador();
+    this.avanzarDesde(index, campo);
   }
 
   private avanzarDesde(index: number, desde: 'producto' | 'cantidad' | 'precio' | 'total'): void {
@@ -639,7 +649,7 @@ export class VentasComponent implements OnInit, OnDestroy {
       return;
     }
     if (desde === 'producto') {
-      this.focusCantidad(index);
+      this.enfocarCaptura(index, 'cantidad');
       return;
     }
     if (desde === 'cantidad' && this.permitePrecioManual(l)) {
@@ -653,26 +663,42 @@ export class VentasComponent implements OnInit, OnDestroy {
       this.agregarLinea();
       return;
     }
-    this.focusProducto(irA);
+    this.enfocarCaptura(irA, 'producto');
   }
 
-  private focusProducto(index: number): void {
-    const autos = this.prodAutos?.toArray() || [];
-    const captura = autos.filter((a) => a.inputName?.startsWith('prod'));
-    (captura[index] || autos[index])?.focus();
+  private autosCaptura(): ProductoAutocompleteComponent[] {
+    return (this.prodAutos?.toArray() || []).filter(
+      (a) => !!a.inputName?.startsWith('prod') && !a.inputName.startsWith('edit')
+    );
   }
 
-  private focusCantidad(index: number): void {
+  private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
+    const go = () => {
+      if (campo === 'cantidad') {
+        if (!this.focusById('cant-' + (this.lineas[index]?.key ?? ''))) {
+          this.autosCaptura()[index]?.focus();
+        }
+      } else {
+        this.autosCaptura()[index]?.focus();
+      }
+      this.scrollLineaVisible(index);
+    };
+    if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    this.cdr.detectChanges();
+    this.focusTimer = setTimeout(go, 60);
+    setTimeout(go, 220);
+  }
+
+  private scrollLineaVisible(index: number): void {
     const l = this.lineas[index];
-    if (!l || !this.focusById('cant-' + l.key)) {
-      this.focusProducto(index);
-    }
+    if (!l) return;
+    document.getElementById('linea-' + l.key)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
   private focusById(id: string): boolean {
     const el = document.getElementById(id) as HTMLInputElement | null;
-    if (!el) return false;
-    el.focus();
+    if (!el || !elementoVisible(el)) return false;
+    el.focus({ preventScroll: true });
     el.select();
     return true;
   }
@@ -680,6 +706,7 @@ export class VentasComponent implements OnInit, OnDestroy {
   toggleTarjeta(l: LineaVenta): void {
     if (this.esSinCobro(l)) return;
     l.pagoTarjeta = !l.pagoTarjeta;
+    this.programarBorrador();
   }
 
   private formEditVacio(): FormEditVenta {
@@ -830,7 +857,7 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.resetLineas(capturaLineasVacias());
     setTimeout(() => {
       this.capturaPanel?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      this.focusProducto(0);
+      this.enfocarCaptura(0, 'producto');
     }, 50);
   }
 
@@ -917,7 +944,7 @@ export class VentasComponent implements OnInit, OnDestroy {
           this.cargar();
           setTimeout(() => {
             this.capturaPanel?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            this.focusProducto(0);
+            this.enfocarCaptura(0, 'producto');
           }, 50);
         },
         error: (e) => {
@@ -968,6 +995,16 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   private hayBorradorUtil(): boolean {
     return this.lineas.some((l) => this.tieneDatos(l));
+  }
+
+  onLineaCambio(l: LineaVenta): void {
+    this.sugerirTotalMayoreo(l);
+    this.programarBorrador();
+  }
+
+  private programarBorrador(): void {
+    if (this.draftTimer != null) clearTimeout(this.draftTimer);
+    this.draftTimer = setTimeout(() => this.persistirBorrador(), 200);
   }
 
   private persistirBorrador(): void {

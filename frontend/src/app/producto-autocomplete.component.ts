@@ -205,7 +205,14 @@ export class ProductoAutocompleteComponent implements OnChanges {
   indiceActivo = -1;
 
   focus(): void {
-    this.inputEl?.nativeElement?.focus();
+    this.inputEl?.nativeElement?.focus({ preventScroll: true });
+  }
+
+  estaVisible(): boolean {
+    const el = this.inputEl?.nativeElement;
+    if (!el || !el.isConnected) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 2 && r.height > 2;
   }
 
   blur(): void {
