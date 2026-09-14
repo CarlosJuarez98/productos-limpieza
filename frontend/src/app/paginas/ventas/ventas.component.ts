@@ -9,7 +9,7 @@ import {
   ViewChild,
   ViewChildren,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
@@ -32,7 +32,18 @@ interface LineaVenta {
   cantidad: number | null;
   precioManual: number | null;
   total: number | null;
+  pagoTarjeta: boolean;
 }
+
+type FormEditVenta = {
+  fecha: string;
+  productoId: number | null;
+  modo: ModoVenta;
+  cantidad: number | null;
+  precioManual: number | null;
+  total: number | null;
+  pagoTarjeta: boolean;
+};
 
 type DraftVentas = {
   fecha: string;
@@ -45,6 +56,7 @@ type DraftVentas = {
   standalone: true,
   imports: [
     CommonModule,
+    NgTemplateOutlet,
     FormsModule,
     RouterLink,
     ProductoAutocompleteComponent,
@@ -82,9 +94,14 @@ export class VentasComponent implements OnInit, OnDestroy {
   private filtroTimer: ReturnType<typeof setTimeout> | null = null;
   private idsPreparables = new Set<number>();
 
+  @ViewChild('capturaPanel') capturaPanel?: ElementRef<HTMLElement>;
   @ViewChild('listaHistorial') listaHistorial?: ElementRef<HTMLElement>;
   @ViewChildren(ProductoAutocompleteComponent) prodAutos!: QueryList<ProductoAutocompleteComponent>;
-  @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
+
+  editandoId: number | null = null;
+  formEdit: FormEditVenta = this.formEditVacio();
+  guardandoEdit = false;
+  errorEdit = '';
 
   constructor(
     private api: ApiService,
@@ -360,6 +377,10 @@ export class VentasComponent implements OnInit, OnDestroy {
     return l.modo === 'MUESTRA' || l.modo === 'CASA';
   }
 
+  esVentaSinCobro(v: Venta): boolean {
+    return v.tipoVenta === 'MUESTRA' || v.tipoVenta === 'CASA';
+  }
+
   permitePrecioManual(l: LineaVenta): boolean {
     return l.modo === 'MAYOREO';
   }
@@ -499,13 +520,38 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   setModo(l: LineaVenta, modo: ModoVenta): void {
+    const activeId = (document.activeElement as HTMLElement | null)?.id || '';
+    const enEstaLinea =
+      activeId === `cant-${l.key}` ||
+      activeId === `precio-${l.key}` ||
+      activeId === `total-${l.key}`;
     l.modo = modo;
+    if (this.esSinCobro(l)) l.pagoTarjeta = false;
     if (modo !== 'MAYOREO') {
       l.precioManual = null;
       l.total = null;
     } else {
       this.sugerirTotalMayoreo(l);
     }
+    if (!enEstaLinea) return;
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      if (activeId.startsWith('precio-') && this.focusById(`precio-${l.key}`)) return;
+      if (activeId.startsWith('total-') && this.focusById(`total-${l.key}`)) return;
+      this.focusById(`cant-${l.key}`);
+    }, 0);
+  }
+
+  get lineaEdit(): LineaVenta {
+    return {
+      key: 0,
+      modo: this.formEdit.modo,
+      productoId: this.formEdit.productoId,
+      cantidad: this.formEdit.cantidad,
+      precioManual: this.formEdit.precioManual,
+      total: this.formEdit.total,
+      pagoTarjeta: this.formEdit.pagoTarjeta,
+    };
   }
 
   totalParaGuardar(l: LineaVenta): number | null {
@@ -572,29 +618,220 @@ export class VentasComponent implements OnInit, OnDestroy {
     setTimeout(() => this.focusProducto(this.lineas.length - 1), 0);
   }
 
-  onProductoEnter(index: number): void {
-    setTimeout(() => this.focusCantidad(index), 0);
+  onFechaEnter(ev: Event): void {
+    ev.preventDefault();
+    setTimeout(() => this.focusProducto(0), 0);
   }
 
-  onCantidadEnter(ev: Event, index: number): void {
+  onProductoEnter(index: number): void {
+    setTimeout(() => this.avanzarDesde(index, 'producto'), 0);
+  }
+
+  onCampoEnter(ev: Event, index: number, campo: 'cantidad' | 'precio' | 'total'): void {
     ev.preventDefault();
+    setTimeout(() => this.avanzarDesde(index, campo), 0);
+  }
+
+  private avanzarDesde(index: number, desde: 'producto' | 'cantidad' | 'precio' | 'total'): void {
+    const l = this.lineas[index];
+    if (!l) {
+      this.agregarLinea();
+      return;
+    }
+    if (desde === 'producto') {
+      this.focusCantidad(index);
+      return;
+    }
+    if (desde === 'cantidad' && this.permitePrecioManual(l)) {
+      if (this.focusById('precio-' + l.key)) return;
+    }
+    if ((desde === 'cantidad' || desde === 'precio') && this.esMayoreo(l) && !this.tienePrecioManual(l)) {
+      if (this.focusById('total-' + l.key)) return;
+    }
     const irA = index + 1;
     if (irA >= this.lineas.length) {
       this.agregarLinea();
       return;
     }
-    setTimeout(() => this.focusProducto(irA), 0);
+    this.focusProducto(irA);
   }
 
   private focusProducto(index: number): void {
-    this.prodAutos?.get(index)?.focus();
+    const autos = this.prodAutos?.toArray() || [];
+    const captura = autos.filter((a) => a.inputName?.startsWith('prod'));
+    (captura[index] || autos[index])?.focus();
   }
 
   private focusCantidad(index: number): void {
-    const el = this.cantInputs?.get(index)?.nativeElement;
-    if (!el) return;
+    const l = this.lineas[index];
+    if (!l || !this.focusById('cant-' + l.key)) {
+      this.focusProducto(index);
+    }
+  }
+
+  private focusById(id: string): boolean {
+    const el = document.getElementById(id) as HTMLInputElement | null;
+    if (!el) return false;
     el.focus();
     el.select();
+    return true;
+  }
+
+  toggleTarjeta(l: LineaVenta): void {
+    if (this.esSinCobro(l)) return;
+    l.pagoTarjeta = !l.pagoTarjeta;
+  }
+
+  private formEditVacio(): FormEditVenta {
+    return {
+      fecha: this.hoyLocal(),
+      productoId: null,
+      modo: 'MENUDEO',
+      cantidad: null,
+      precioManual: null,
+      total: null,
+      pagoTarjeta: false,
+    };
+  }
+
+  modoDeVenta(v: Venta): ModoVenta {
+    if (v.tipoVenta === 'LITROS' || v.tipoVenta === 'PIEZA') return 'MENUDEO';
+    return v.tipoVenta as ModoVenta;
+  }
+
+  editarVenta(v: Venta): void {
+    if (this.esRegistroCorte(v)) return;
+    this.editandoId = v.id;
+    this.errorEdit = '';
+    const modo = this.modoDeVenta(v);
+    const cant = Number(v.cantidad);
+    const total = Number(v.total);
+    const precioManual =
+      modo === 'MAYOREO' && cant > 0 && total > 0 ? Math.round((total / cant) * 100) / 100 : null;
+    this.formEdit = {
+      fecha: v.fecha,
+      productoId: v.productoId,
+      modo,
+      cantidad: cant,
+      precioManual,
+      total: modo === 'MAYOREO' ? total : null,
+      pagoTarjeta: !!v.pagoTarjeta,
+    };
+    this.scrollAEdicion(v.id);
+  }
+
+  cancelarEdicion(): void {
+    const id = this.editandoId;
+    this.editandoId = null;
+    this.formEdit = this.formEditVacio();
+    this.errorEdit = '';
+    this.guardandoEdit = false;
+    if (id != null) this.scrollAEdicion(id);
+  }
+
+  private scrollAEdicion(id: number): void {
+    setTimeout(() => {
+      const candidatos = [
+        document.getElementById('edit-venta-desk-' + id),
+        document.getElementById('edit-venta-movil-' + id),
+        document.getElementById('venta-row-' + id),
+        document.getElementById('venta-card-' + id),
+      ];
+      const el = candidatos.find((n) => n != null && this.estaVisible(n));
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 0);
+  }
+
+  private estaVisible(el: HTMLElement): boolean {
+    if (el.getClientRects().length === 0) return false;
+    let n: HTMLElement | null = el;
+    while (n) {
+      const s = getComputedStyle(n);
+      if (s.display === 'none' || s.visibility === 'hidden') return false;
+      n = n.parentElement;
+    }
+    return true;
+  }
+
+  setModoEdit(modo: ModoVenta): void {
+    this.formEdit.modo = modo;
+    if (modo === 'CASA' || modo === 'MUESTRA') this.formEdit.pagoTarjeta = false;
+  }
+
+  guardarEdicion(): void {
+    if (this.editandoId == null) return;
+    this.errorEdit = '';
+    if (!this.formEdit.fecha) {
+      this.errorEdit = 'Indica la fecha';
+      return;
+    }
+    if (this.formEdit.fecha > this.hoyLocal()) {
+      this.errorEdit = 'No se pueden registrar ventas con fecha futura';
+      return;
+    }
+    if (this.fechaMin && this.formEdit.fecha < this.fechaMin) {
+      this.errorEdit = `La fecha debe ser desde ${formatFechaDmY(this.fechaMin)}`;
+      return;
+    }
+    if (this.formEdit.productoId == null) {
+      this.errorEdit = 'Elige un producto';
+      return;
+    }
+    const cant = Number(this.formEdit.cantidad);
+    if (!Number.isFinite(cant) || cant <= 0) {
+      this.errorEdit = 'La cantidad debe ser mayor a 0';
+      return;
+    }
+    const linea: LineaVenta = {
+      key: 0,
+      modo: this.formEdit.modo,
+      productoId: this.formEdit.productoId,
+      cantidad: cant,
+      precioManual: this.formEdit.precioManual,
+      total: this.formEdit.total,
+      pagoTarjeta: this.formEdit.pagoTarjeta,
+    };
+    this.guardandoEdit = true;
+    this.api
+      .actualizarVenta(this.editandoId, {
+        fecha: this.formEdit.fecha,
+        productoId: this.formEdit.productoId,
+        tipoVenta: this.tipoVentaEfectivo(linea),
+        cantidad: cant,
+        total: this.totalParaGuardar(linea),
+        pagoTarjeta: this.formEdit.pagoTarjeta && !this.esSinCobro(linea),
+      })
+      .subscribe({
+        next: () => {
+          this.guardandoEdit = false;
+          this.cancelarEdicion();
+          this.cargar();
+        },
+        error: (e) => {
+          this.guardandoEdit = false;
+          this.errorEdit = e.error?.error || 'No se pudo guardar la venta';
+        },
+      });
+  }
+
+  get ticketEnCurso(): boolean {
+    return this.hayBorradorUtil();
+  }
+
+  async cancelarTicket(): Promise<void> {
+    if (!this.hayBorradorUtil()) return;
+    const ok = await this.confirmDlg.ask(
+      'Se borra todo el ticket. Las ventas ya registradas no se tocan.',
+      { titulo: '¿Cancelar esta venta?', confirmarTexto: 'Sí, borrar ticket' }
+    );
+    if (!ok) return;
+    this.error = '';
+    this.drafts.clear(VentasComponent.DRAFT);
+    this.resetLineas(capturaLineasVacias());
+    setTimeout(() => {
+      this.capturaPanel?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      this.focusProducto(0);
+    }, 50);
   }
 
   quitarLinea(index: number): void {
@@ -669,6 +906,7 @@ export class VentasComponent implements OnInit, OnDestroy {
           tipoVenta: this.tipoVentaEfectivo(l),
           cantidad: Number(l.cantidad),
           total: this.totalParaGuardar(l),
+          pagoTarjeta: l.pagoTarjeta && !this.esSinCobro(l),
         })),
       })
       .subscribe({
@@ -677,7 +915,10 @@ export class VentasComponent implements OnInit, OnDestroy {
           this.drafts.clear(VentasComponent.DRAFT);
           this.resetLineas(capturaLineasVacias());
           this.cargar();
-          setTimeout(() => this.focusProducto(0), 50);
+          setTimeout(() => {
+            this.capturaPanel?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            this.focusProducto(0);
+          }, 50);
         },
         error: (e) => {
           this.guardando = false;
@@ -692,7 +933,10 @@ export class VentasComponent implements OnInit, OnDestroy {
     const ok = await this.confirmDlg.ask('¿Eliminar esta venta?', { confirmarTexto: 'Eliminar' });
     if (!ok) return;
     this.api.eliminarVenta(id).subscribe({
-      next: () => this.cargar(),
+      next: () => {
+        if (this.editandoId === id) this.cancelarEdicion();
+        this.cargar();
+      },
       error: (e) => (this.error = e.error?.error || 'Error al eliminar'),
     });
   }
@@ -718,6 +962,7 @@ export class VentasComponent implements OnInit, OnDestroy {
       cantidad: null,
       precioManual: null,
       total: null,
+      pagoTarjeta: false,
     };
   }
 
@@ -733,12 +978,13 @@ export class VentasComponent implements OnInit, OnDestroy {
     const draft: DraftVentas = {
       fecha: this.fecha,
       nextKey: this.nextKey,
-      lineas: this.lineas.map(({ modo, productoId, cantidad, precioManual, total }) => ({
+      lineas: this.lineas.map(({ modo, productoId, cantidad, precioManual, total, pagoTarjeta }) => ({
         modo,
         productoId,
         cantidad,
         precioManual,
         total,
+        pagoTarjeta,
       })),
     };
     this.drafts.save(VentasComponent.DRAFT, draft);
@@ -756,6 +1002,7 @@ export class VentasComponent implements OnInit, OnDestroy {
       cantidad: l.cantidad ?? null,
       precioManual: l.precioManual ?? null,
       total: l.total ?? null,
+      pagoTarjeta: !!l.pagoTarjeta,
     }));
     return this.hayBorradorUtil();
   }

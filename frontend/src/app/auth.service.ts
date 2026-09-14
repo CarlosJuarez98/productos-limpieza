@@ -128,6 +128,25 @@ export class AuthService {
     this.persistAuth({ authenticated: false });
   }
 
+  /** Llama a /me para renovar la sesión si el usuario sigue activo. */
+  renovarSesion(): void {
+    if (!this.autenticado) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    this.http.get<AuthMe>(`${this.base}/me`, { withCredentials: true }).subscribe({
+      next: (m) => {
+        if (m?.authenticated) {
+          this.persistAuth({
+            ...m,
+            displayName: m.displayName || displayNameOf(m.username),
+          });
+        } else {
+          this.persistAuth({ authenticated: false });
+        }
+      },
+      error: () => undefined,
+    });
+  }
+
   private persistAuth(m: AuthMe): void {
     this.estado$.next(m);
     try {

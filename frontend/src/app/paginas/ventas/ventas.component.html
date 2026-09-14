@@ -1,14 +1,14 @@
-<h2 class="page-title">Ventas</h2>
+<div class="ventas-fijo" #capturaPanel>
+  <h2 class="page-title">Ventas</h2>
 
-@if (fechaUltimoCorte) {
-  <p class="corte-aviso">
-    Última fecha de corte:
-    <strong class="fecha-naranja">{{ fechaUltimoCorte | fechaDmY }}</strong>
-  </p>
-}
+  @if (fechaUltimoCorte) {
+    <p class="corte-aviso">
+      Última fecha de corte:
+      <strong class="fecha-naranja">{{ fechaUltimoCorte | fechaDmY }}</strong>
+    </p>
+  }
 
-<section class="panel captura-panel">
-  <div class="captura-sticky">
+  <div class="panel captura-resumen">
     <div class="captura-head">
       <label class="fecha-field">
         Fecha
@@ -16,6 +16,7 @@
           type="date"
           [(ngModel)]="fecha"
           (ngModelChange)="onFechaChange()"
+          (keydown.enter)="onFechaEnter($event)"
           name="fechaLote"
           [min]="fechaMin || null"
           [max]="fechaMax"
@@ -40,7 +41,9 @@
       </div>
     </div>
   </div>
+</div>
 
+<section class="panel captura-panel">
   <div class="ticket">
     @for (l of lineas; track l.key; let i = $index) {
       <article class="linea-card" [class.stock-warn]="excedeStock(l, i)">
@@ -52,12 +55,27 @@
                 type="button"
                 class="modo-chip"
                 [class.activo]="l.modo === t.value"
+                (mousedown)="$event.preventDefault()"
                 (click)="setModo(l, t.value)"
               >
                 {{ t.label }}
               </button>
             }
           </div>
+          @if (!esSinCobro(l)) {
+            <button
+              type="button"
+              class="tarjeta-btn"
+              [class.activo]="l.pagoTarjeta"
+              (mousedown)="$event.preventDefault()"
+              (click)="toggleTarjeta(l)"
+              [title]="l.pagoTarjeta ? 'Pago con tarjeta (va al banco)' : 'Marcar pago con tarjeta'"
+              [attr.aria-label]="l.pagoTarjeta ? 'Quitar pago con tarjeta' : 'Pago con tarjeta'"
+              [attr.aria-pressed]="l.pagoTarjeta"
+            >
+              💳
+            </button>
+          }
           <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
         </header>
 
@@ -67,6 +85,7 @@
             [productos]="productos"
             [productoId]="l.productoId"
             [inputName]="'prod' + l.key"
+            [enterAvanza]="true"
             placeholder="Escribe para buscar…"
             (productoIdChange)="l.productoId = $event; sugerirTotalMayoreo(l)"
             (enterConfirmado)="onProductoEnter(i)"
@@ -85,7 +104,7 @@
             </div>
             <div class="cant-wrap">
               <input
-                #cantInput
+                [id]="'cant-' + l.key"
                 type="text"
                 inputmode="decimal"
                 appClearable
@@ -94,7 +113,7 @@
                 placeholder="0"
                 [class.input-warn]="excedeStock(l, i)"
                 (ngModelChange)="sugerirTotalMayoreo(l)"
-                (keydown.enter)="onCantidadEnter($event, i)"
+                (keydown.enter)="onCampoEnter($event, i, 'cantidad')"
               />
               <span class="unidad">{{ unidadDe(l) }}</span>
             </div>
@@ -114,6 +133,7 @@
               <div class="precio-input">
                 <span class="peso">$</span>
                 <input
+                  [id]="'precio-' + l.key"
                   type="text"
                   inputmode="decimal"
                   appClearable
@@ -122,7 +142,7 @@
                   [placeholder]="pistaPrecioMayoreo(l)"
                   [title]="tituloPistaMayoreo(l)"
                   (ngModelChange)="sugerirTotalMayoreo(l)"
-                  (keydown.enter)="onCantidadEnter($event, i)"
+                  (keydown.enter)="onCampoEnter($event, i, 'precio')"
                 />
               </div>
             } @else if (muestraPrecioLista(l)) {
@@ -150,6 +170,7 @@
               <div class="precio-input">
                 <span class="peso">$</span>
                 <input
+                  [id]="'total-' + l.key"
                   type="text"
                   inputmode="decimal"
                   appClearable
@@ -157,7 +178,7 @@
                   [name]="'total' + l.key"
                   [placeholder]="pistaTotalMayoreo(l)"
                   [title]="tituloPistaMayoreo(l)"
-                  (keydown.enter)="onCantidadEnter($event, i)"
+                  (keydown.enter)="onCampoEnter($event, i, 'total')"
                 />
               </div>
             } @else if (totalEstimado(l) != null) {
@@ -176,7 +197,7 @@
           <p class="aviso-stock">
             {{ aviso }}
             @if (l.productoId != null) {
-              <a [routerLink]="['/inventario']" [queryParams]="{ editar: l.productoId }">Inventario</a>
+              <a [routerLink]="['/inventario']" [queryParams]="{ ajuste: l.productoId }">Inventario</a>
               ·
               <a routerLink="/surtir">Surtir</a>
               @if (esPreparable(l)) {
@@ -208,6 +229,14 @@
     >
       {{ etiquetaGuardar }}
     </button>
+    <button
+      type="button"
+      class="danger btn-cancelar-ticket"
+      (click)="cancelarTicket()"
+      [disabled]="guardando || !ticketEnCurso"
+    >
+      Cancelar venta
+    </button>
   </div>
 
   @if (error) {
@@ -236,6 +265,7 @@
           (ngModelChange)="onFiltroTexto($event)"
           name="filtro"
           placeholder="Nombre del producto..."
+          tabindex="-1"
           (keydown.enter)="onBuscarEnter($event)"
         />
       </label>
@@ -245,26 +275,39 @@
   <!-- Escritorio: tabla normal -->
   <div class="table-wrap hist-tabla">
     <table>
+      <colgroup>
+        <col class="c-fecha" />
+        <col class="c-prod" />
+        <col class="c-tipo" />
+        <col class="c-pago" />
+        <col class="c-cant" />
+        <col class="c-total" />
+        <col class="c-acc" />
+      </colgroup>
       <thead>
         <tr>
-          <th>Fecha</th>
-          <th>Producto</th>
-          <th>Tipo</th>
-          <th>Cantidad</th>
-          <th>Total</th>
-          <th></th>
+          <th class="col-fecha">Fecha</th>
+          <th class="col-producto">Producto</th>
+          <th class="col-tipo">Tipo</th>
+          <th class="col-pago">Pago</th>
+          <th class="col-cant money">Cantidad</th>
+          <th class="col-total money">Total</th>
+          <th class="col-acciones"></th>
         </tr>
       </thead>
       <tbody>
         @for (v of pagHist.paginaItems; track v.id) {
-          <tr>
-            <td [class.fecha-naranja]="esRegistroCorte(v)">
+          <tr [id]="'venta-row-' + v.id">
+            <td class="col-fecha" [class.fecha-naranja]="esRegistroCorte(v)">
               {{ v.fecha | fechaDmY }}
             </td>
-            <td>{{ v.productoNombre || '—' }}</td>
-            <td>{{ v.tipoVentaLabel }}</td>
-            <td class="money">{{ v.cantidad | number: '1.2-2' }}</td>
-            <td class="money">
+            <td class="col-producto" [title]="v.productoNombre || ''">{{ v.productoNombre || '—' }}</td>
+            <td class="col-tipo" [title]="v.tipoVentaLabel">{{ v.tipoVentaLabel }}</td>
+            <td class="col-pago">
+              <ng-container *ngTemplateOutlet="pagoMarcaTpl; context: { $implicit: v }" />
+            </td>
+            <td class="col-cant money">{{ v.cantidad | number: '1.2-2' }}</td>
+            <td class="col-total money">
               @if ((v.tipoVenta === 'MUESTRA' || v.tipoVenta === 'CASA') && costoVenta(v) != null) {
                 <span class="costo-hist" title="No se cobró; costo de mercancía">
                   −${{ costoVenta(v) | number: '1.2-2' }}
@@ -273,13 +316,21 @@
                 ${{ v.total | number: '1.2-2' }}
               }
             </td>
-            <td class="actions">
+            <td class="col-acciones actions">
+              <button type="button" class="icon-btn" title="Editar" (click)="editarVenta(v)">✎</button>
               <button type="button" class="danger" (click)="eliminar(v.id)" title="Eliminar">×</button>
             </td>
           </tr>
+          @if (editandoId === v.id) {
+            <tr class="fila-edicion" [id]="'edit-venta-desk-' + v.id">
+              <td colspan="7">
+                <ng-container *ngTemplateOutlet="editVentaTpl; context: { sufijo: 'Desk' }" />
+              </td>
+            </tr>
+          }
         } @empty {
           <tr>
-            <td colspan="6" class="muted">Sin ventas{{ soloHoy ? ' este día' : '' }}.</td>
+            <td colspan="7" class="muted">Sin ventas{{ soloHoy ? ' este día' : '' }}.</td>
           </tr>
         }
       </tbody>
@@ -289,10 +340,15 @@
   <!-- Móvil: tarjetas estilo Gastos -->
   <ul class="hist-cards">
     @for (v of pagHist.paginaItems; track v.id) {
-      <li>
+      <li [id]="'venta-card-' + v.id">
         <div class="item-meta">
           <span [class.fecha-naranja]="esRegistroCorte(v)">{{ v.fecha | fechaDmY }}</span>
-          <span class="item-tag">{{ v.tipoVentaLabel }} · {{ v.cantidad | number: '1.2-2' }}</span>
+          <span class="item-meta-der">
+            <span class="item-tag">
+              {{ v.tipoVentaLabel }} · {{ v.cantidad | number: '1.2-2' }}
+            </span>
+            <ng-container *ngTemplateOutlet="pagoMarcaTpl; context: { $implicit: v }" />
+          </span>
         </div>
         <p class="item-motivo">{{ v.productoNombre || '—' }}</p>
         <div class="item-fila">
@@ -304,6 +360,15 @@
             }
           </strong>
           <div class="acciones">
+            <button
+              type="button"
+              class="icono"
+              title="Editar"
+              aria-label="Editar"
+              (click)="editarVenta(v)"
+            >
+              ✎
+            </button>
             <button
               type="button"
               class="icono peligro"
@@ -323,6 +388,11 @@
             </button>
           </div>
         </div>
+        @if (editandoId === v.id) {
+          <div class="hist-edicion-movil" [id]="'edit-venta-movil-' + v.id">
+            <ng-container *ngTemplateOutlet="editVentaTpl; context: { sufijo: 'Movil' }" />
+          </div>
+        }
       </li>
     } @empty {
       <li class="vacio muted">Sin ventas{{ soloHoy ? ' este día' : '' }}.</li>
@@ -338,3 +408,103 @@
     (next)="paginaSiguiente()"
   />
 </section>
+
+<ng-template #editVentaTpl let-sufijo="sufijo">
+  <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+    <label>
+      Fecha
+      <input
+        type="date"
+        [(ngModel)]="formEdit.fecha"
+        [name]="'editFecha' + sufijo"
+        [min]="fechaMin || null"
+        [max]="fechaMax"
+        required
+      />
+    </label>
+    <label>
+      Tipo
+      <div class="modo-chips">
+        @for (t of modos; track t.value) {
+          <button
+            type="button"
+            class="modo-chip"
+            [class.activo]="formEdit.modo === t.value"
+            (click)="setModoEdit(t.value)"
+          >
+            {{ t.label }}
+          </button>
+        }
+      </div>
+    </label>
+    <label>
+      Producto
+      <app-producto-autocomplete
+        [productos]="productos"
+        [productoId]="formEdit.productoId"
+        [inputName]="'editProd' + sufijo"
+        (productoIdChange)="formEdit.productoId = $event"
+      />
+    </label>
+    <label>
+      Cantidad
+      <input
+        type="text"
+        inputmode="decimal"
+        appClearable
+        [(ngModel)]="formEdit.cantidad"
+        [name]="'editCant' + sufijo"
+        placeholder="0"
+        required
+      />
+    </label>
+    @if (permitePrecioManual(lineaEdit)) {
+      <label>
+        Precio
+        <div class="precio-input">
+          <span class="peso">$</span>
+          <input
+            type="text"
+            inputmode="decimal"
+            appClearable
+            [(ngModel)]="formEdit.precioManual"
+            [name]="'editPrecio' + sufijo"
+            placeholder="0"
+          />
+        </div>
+      </label>
+    }
+    @if (!esSinCobro(lineaEdit)) {
+      <label class="campo-tarjeta">
+        Pago
+        <button
+          type="button"
+          class="tarjeta-btn form"
+          [class.activo]="formEdit.pagoTarjeta"
+          (click)="formEdit.pagoTarjeta = !formEdit.pagoTarjeta"
+        >
+          {{ formEdit.pagoTarjeta ? '💳 Tarjeta (banco)' : 'Efectivo (caja)' }}
+        </button>
+      </label>
+    }
+    <div class="edicion-actions">
+      <button type="submit" [disabled]="guardandoEdit">
+        {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
+      </button>
+      <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
+    </div>
+  </form>
+  @if (errorEdit) {
+    <p class="error">{{ errorEdit }}</p>
+  }
+</ng-template>
+
+<ng-template #pagoMarcaTpl let-v>
+  @if (esVentaSinCobro(v)) {
+    <span class="pago-marca sin-cobro" title="Sin cobro">—</span>
+  } @else if (v.pagoTarjeta) {
+    <span class="pago-marca tarjeta" title="Tarjeta (banco)">💳</span>
+  } @else {
+    <span class="pago-marca efectivo" title="Efectivo (caja)">$</span>
+  }
+</ng-template>

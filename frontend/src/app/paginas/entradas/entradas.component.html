@@ -84,6 +84,7 @@
             [productoId]="l.productoId"
             [inputName]="'prod' + l.key"
             (productoIdChange)="onProductoChange(l, $event)"
+            [enterAvanza]="true"
             (enterConfirmado)="onProductoEnter(i)"
           />
         </label>

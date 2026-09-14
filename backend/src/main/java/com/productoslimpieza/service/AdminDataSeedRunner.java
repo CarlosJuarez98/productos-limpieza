@@ -185,6 +185,11 @@ public class AdminDataSeedRunner implements ApplicationRunner {
       p.setPrecioMayoreo5(dec(row.get("PRECIO_MAYOREO5")));
       p.setPrecioMayoreo10(dec(row.get("PRECIO_MAYOREO10")));
       p.setVendePor(UnidadVenta.fromRaw(str(row.get("VENDE_POR"))));
+      String deptoRaw = str(row.get("DEPARTAMENTO"));
+      p.setDepartamento(
+          deptoRaw != null && !deptoRaw.isBlank()
+              ? DepartamentoProducto.fromRaw(deptoRaw)
+              : DepartamentoProducto.inferir(p.getVendePor(), p.getNombre()));
       p = productoRepo.save(p);
       productos.put(longId(row.get("ID")), p);
     }

@@ -74,6 +74,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private routerSub?: Subscription;
   private authSub?: Subscription;
   private offlineSubs: Subscription[] = [];
+  private lastRenew = 0;
+  private readonly renewMs = 90_000;
+  private onActividad = (): void => this.renovarSiHayActividad();
 
   get pullVisible(): boolean {
     return this.pullDistancia > 8;
@@ -158,6 +161,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     document.addEventListener('touchmove', this.onTouchMove, { passive: false, capture: true });
     document.addEventListener('touchend', this.onTouchEnd, { passive: true, capture: true });
     document.addEventListener('touchcancel', this.onTouchCancel, { passive: true, capture: true });
+    document.addEventListener('pointerdown', this.onActividad, { capture: true, passive: true });
+    document.addEventListener('keydown', this.onActividad, { capture: true, passive: true });
+    this.mainEl?.addEventListener('scroll', this.onMainScroll, { passive: true });
 
     this.actualizarEsLogin(this.router.url);
     this.routerSub = this.router.events
@@ -176,9 +182,37 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     document.removeEventListener('touchmove', this.onTouchMove, true);
     document.removeEventListener('touchend', this.onTouchEnd, true);
     document.removeEventListener('touchcancel', this.onTouchCancel, true);
+    document.removeEventListener('pointerdown', this.onActividad, true);
+    document.removeEventListener('keydown', this.onActividad, true);
+    this.mainEl?.removeEventListener('scroll', this.onMainScroll);
     this.routerSub?.unsubscribe();
     this.authSub?.unsubscribe();
     for (const s of this.offlineSubs) s.unsubscribe();
+  }
+
+  private onMainScroll = (): void => {
+    this.onActividad();
+    this.soltarFocoAlHacerScroll();
+  };
+
+  /** En móvil el input con foco se pinta encima del encabezado/tablas; al scrollear se suelta. */
+  private soltarFocoAlHacerScroll(): void {
+    if (typeof window === 'undefined') return;
+    if (!window.matchMedia('(max-width: 1024px)').matches) return;
+    const el = document.activeElement;
+    if (!(el instanceof HTMLElement)) return;
+    const tag = el.tagName;
+    if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') return;
+    if (el.closest('.ventas-fijo, .top, .offline-banner, .sugerencias')) return;
+    el.blur();
+  }
+
+  private renovarSiHayActividad(): void {
+    if (this.esLogin || !this.auth.autenticado || !this.enLinea) return;
+    const now = Date.now();
+    if (now - this.lastRenew < this.renewMs) return;
+    this.lastRenew = now;
+    this.auth.renovarSesion();
   }
 
   private actualizarEsLogin(url: string): void {

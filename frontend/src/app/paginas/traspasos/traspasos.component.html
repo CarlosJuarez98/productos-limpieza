@@ -131,6 +131,7 @@
                   [productoId]="l.productoId"
                   [inputName]="'prod' + l.key"
                   mostrarExtra="compra"
+                  [enterAvanza]="true"
                   (productoIdChange)="l.productoId = $event"
                   (enterConfirmado)="onProductoEnter(i)"
                 />
@@ -201,6 +202,7 @@
               [productoId]="l.productoId"
               [inputName]="'prodM' + l.key"
               mostrarExtra="compra"
+              [enterAvanza]="true"
               (productoIdChange)="l.productoId = $event"
               (enterConfirmado)="onProductoEnter(i)"
             />

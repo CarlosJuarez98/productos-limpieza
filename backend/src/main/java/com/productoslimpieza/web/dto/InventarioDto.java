@@ -1,5 +1,6 @@
 package com.productoslimpieza.web.dto;
 
+import com.productoslimpieza.domain.DepartamentoProducto;
 import com.productoslimpieza.domain.UnidadVenta;
 import java.math.BigDecimal;
 
@@ -19,5 +20,7 @@ public record InventarioDto(
     BigDecimal porcentajeGanancia,
     boolean precioVentaBajoMinimo,
     UnidadVenta vendePor,
-    String vendePorLabel
+    String vendePorLabel,
+    DepartamentoProducto departamento,
+    String departamentoLabel
 ) {}

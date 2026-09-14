@@ -5,12 +5,10 @@
   "lang": "es",
   "display": "standalone",
   "orientation": "any",
-  "scope": "/",
-  "start_url": "/?source=pwa",
-  "id": "/",
+  "scope": "./",
+  "start_url": "./",
   "background_color": "#eef3f0",
   "theme_color": "#1c654a",
-  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icons/icon-72x72.png",

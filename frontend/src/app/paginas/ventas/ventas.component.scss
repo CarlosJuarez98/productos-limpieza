@@ -1,15 +1,28 @@
-.captura-panel {
-  padding-bottom: 1rem;
+/* PC: título y totales en flujo normal. */
+.ventas-fijo {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  background: transparent;
 }
 
-.captura-sticky {
-  position: sticky;
-  top: 0;
-  z-index: 6;
-  margin: -0.7rem -0.85rem 0.65rem;
-  padding: 0.65rem 0.85rem 0.55rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f7faf8 100%);
-  border-bottom: 1px solid var(--line);
+.ventas-fijo::before {
+  display: none;
+}
+
+.ventas-fijo .page-title {
+  margin-bottom: 0.45rem;
+}
+
+.ventas-fijo .corte-aviso {
+  margin-top: 0;
+}
+
+.captura-resumen {
+  margin: 0;
+}
+
+.captura-panel {
+  padding-bottom: 1rem;
 }
 
 .captura-head {
@@ -284,6 +297,136 @@
   border-radius: 0.45rem;
 }
 
+:host button.tarjeta-btn {
+  flex-shrink: 0;
+  width: 2.1rem;
+  min-width: 2.1rem;
+  height: 2.1rem;
+  min-height: 2.1rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #b9c9be;
+  border-radius: 0.45rem;
+  background: #fff;
+  color: #1c4e7a;
+  font-size: 1.05rem;
+  line-height: 1;
+  box-shadow: none;
+}
+
+:host button.tarjeta-btn.activo {
+  background: #1c4e7a;
+  border-color: #1c4e7a;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px #fff, 0 0 0 1px #1c4e7a;
+}
+
+:host button.tarjeta-btn.form {
+  width: auto;
+  min-width: 0;
+  min-height: 2.15rem;
+  height: auto;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+:host .hist-tabla > table {
+  table-layout: fixed;
+}
+
+:host .hist-tabla col.c-fecha {
+  width: 7.4rem;
+}
+
+:host .hist-tabla col.c-prod {
+  width: auto;
+}
+
+:host .hist-tabla col.c-tipo {
+  width: 6.6rem;
+}
+
+:host .hist-tabla col.c-pago {
+  width: 4.6rem;
+}
+
+:host .hist-tabla col.c-cant {
+  width: 6.4rem;
+}
+
+:host .hist-tabla col.c-total {
+  width: 6.8rem;
+}
+
+:host .hist-tabla col.c-acc {
+  width: 5.2rem;
+}
+
+:host .hist-tabla th,
+:host .hist-tabla td {
+  vertical-align: middle;
+}
+
+:host .hist-tabla .col-fecha {
+  white-space: nowrap;
+}
+
+:host .hist-tabla .col-producto {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host .hist-tabla .col-tipo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host .hist-tabla .col-pago {
+  text-align: center;
+}
+
+:host .hist-tabla .col-acciones,
+:host .hist-tabla td.actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pago-marca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  height: 1.7rem;
+  padding: 0 0.3rem;
+  border-radius: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pago-marca.efectivo {
+  color: #1b7a38;
+  background: #e6f6ea;
+}
+
+.pago-marca.tarjeta {
+  color: #1c4e7a;
+  background: #e8f0f7;
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.pago-marca.sin-cobro {
+  color: #8a958d;
+  background: #eef1ef;
+  font-weight: 600;
+}
+
 .campo {
   display: flex;
   flex-direction: column;
@@ -418,7 +561,13 @@ td.fecha-naranja {
 
 .historial-toolbar {
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.75rem 1.15rem;
+}
+
+.item-meta-der {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .historial-titulo {
@@ -433,19 +582,35 @@ td.fecha-naranja {
 }
 
 @media (max-width: 767px) {
+  .ventas-fijo {
+    position: sticky;
+    top: 0;
+    z-index: 16;
+    margin: -0.7rem -1rem 0.75rem;
+    padding: 0.7rem 1rem 0.65rem;
+    background: var(--bg);
+    isolation: isolate;
+  }
+
+  .ventas-fijo::before {
+    display: block;
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 50vh;
+    background: var(--bg);
+    pointer-events: none;
+  }
+
   .captura-panel {
     display: flex;
     flex-direction: column;
     max-height: none;
   }
 
-  .captura-sticky {
-    margin: -0.75rem -0.75rem 0.75rem;
-    padding: 0.75rem;
-    background: linear-gradient(180deg, #fbfcfb 0%, #f4f7f5 100%);
-  }
-
-  .captura-sticky .captura-head {
+  .ventas-fijo .captura-head {
     flex-direction: column;
     align-items: stretch;
   }
@@ -499,6 +664,28 @@ td.fecha-naranja {
 }
 
 @media (max-width: 1024px) and (orientation: landscape) {
+  .ventas-fijo {
+    position: sticky;
+    top: 0;
+    z-index: 16;
+    margin: -0.7rem -1rem 0.75rem;
+    padding: 0.7rem 1rem 0.65rem;
+    background: var(--bg);
+    isolation: isolate;
+  }
+
+  .ventas-fijo::before {
+    display: block;
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 50vh;
+    background: var(--bg);
+    pointer-events: none;
+  }
+
   .linea-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -507,5 +694,30 @@ td.fecha-naranja {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: flex-end;
+  }
+}
+
+:host .captura-actions .btn-guardar-filas,
+:host .captura-actions .btn-cancelar-ticket {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 2.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+:host .btn-cancelar-ticket {
+  background: #b42318;
+  color: #fff;
+}
+
+:host .btn-cancelar-ticket:hover:not(:disabled) {
+  background: #912018;
+}
+
+@media (max-width: 767px) {
+  :host .captura-actions .btn-guardar-filas,
+  :host .captura-actions .btn-cancelar-ticket {
+    min-height: 2.85rem;
   }
 }

@@ -25,6 +25,9 @@ public interface EntradaRepository extends JpaRepository<Entrada, Long> {
   BigDecimal sumCantidadByPedidoAndProducto(
       @Param("pedido") Pedido pedido, @Param("producto") Producto producto);
 
+  List<Entrada> findTop12ByProductoAndCantidadGreaterThanOrderByFechaDescIdDesc(
+      Producto producto, BigDecimal cantidad);
+
   List<Entrada> findByPedidoId(Long pedidoId);
 
   java.util.Optional<Entrada> findFirstByProductoIdAndPrecioProveedorIsNotNullOrderByFechaDescIdDesc(

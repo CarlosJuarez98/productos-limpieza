@@ -65,6 +65,23 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
       @Param("desde") LocalDate desde,
       @Param("hasta") LocalDate hasta);
 
+  @Query("""
+      select coalesce(sum(v.total), 0) from Venta v
+      where v.fecha between :desde and :hasta and v.tipoVenta in :tipos
+      and v.pagoTarjeta = :tarjeta
+      """)
+  BigDecimal sumTotalByFechaAndTiposAndPagoTarjeta(
+      @Param("desde") LocalDate desde,
+      @Param("hasta") LocalDate hasta,
+      @Param("tipos") List<TipoVenta> tipos,
+      @Param("tarjeta") boolean tarjeta);
+
+  @Query("""
+      select coalesce(sum(v.total), 0) from Venta v
+      where v.tipoVenta in :tipos and v.pagoTarjeta = true
+      """)
+  BigDecimal sumTotalTarjetaByTipos(@Param("tipos") List<TipoVenta> tipos);
+
   long countByProducto(Producto producto);
 
   @Query("""
