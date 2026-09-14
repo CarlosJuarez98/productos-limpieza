@@ -1002,7 +1002,7 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.programarBorrador();
   }
 
-  private programarBorrador(): void {
+  programarBorrador(): void {
     if (this.draftTimer != null) clearTimeout(this.draftTimer);
     this.draftTimer = setTimeout(() => this.persistirBorrador(), 200);
   }
