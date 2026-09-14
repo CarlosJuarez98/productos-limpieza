@@ -84,7 +84,14 @@
     <div class="form-grid captura-meta">
       <label>
         Fecha
-        <input type="date" [(ngModel)]="form.fecha" name="fecha" required />
+        <input
+          type="date"
+          [(ngModel)]="form.fecha"
+          name="fecha"
+          required
+          (ngModelChange)="programarBorrador()"
+          (keydown.enter)="onFechaEnter($event)"
+        />
       </label>
       <label>
         Persona
@@ -95,11 +102,12 @@
           list="personas-existentes"
           required
           placeholder="Nombre"
+          (ngModelChange)="programarBorrador()"
         />
       </label>
       <label>
         Nota
-        <input appClearable [(ngModel)]="form.nota" name="nota" />
+        <input appClearable [(ngModel)]="form.nota" name="nota" (ngModelChange)="programarBorrador()" />
       </label>
       <label class="total-meta">
         Total
@@ -122,7 +130,7 @@
         </thead>
         <tbody>
           @for (l of lineas; track l.key; let i = $index) {
-            <tr [class.stock-warn]="excedeStock(l, i)">
+            <tr [attr.data-linea-key]="l.key" [class.stock-warn]="excedeStock(l, i)">
               <td class="muted">{{ i + 1 }}</td>
               <td>
                 <app-producto-autocomplete
@@ -132,20 +140,21 @@
                   [inputName]="'prod' + l.key"
                   mostrarExtra="compra"
                   [enterAvanza]="true"
-                  (productoIdChange)="l.productoId = $event"
+                  (productoIdChange)="onProductoChange(l, $event)"
                   (enterConfirmado)="onProductoEnter(i)"
                 />
               </td>
               <td>
                 <input
-                  #cantInput
                   type="text"
                   inputmode="decimal"
                   appClearable
                   [(ngModel)]="l.cantidad"
                   [name]="'cant' + l.key"
+                  [attr.data-cant-key]="l.key"
                   placeholder="0"
                   [class.input-warn]="excedeStock(l, i)"
+                  (ngModelChange)="programarBorrador()"
                   (keydown.enter)="onCantidadEnter($event, i)"
                 />
               </td>
@@ -189,7 +198,7 @@
 
     <div class="lote-cards">
       @for (l of lineas; track l.key; let i = $index) {
-        <article class="linea-card" [class.stock-warn]="excedeStock(l, i)">
+        <article class="linea-card" [attr.data-linea-key]="l.key" [class.stock-warn]="excedeStock(l, i)">
           <header class="linea-top">
             <span class="linea-num">{{ i + 1 }}</span>
             <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
@@ -198,12 +207,13 @@
           <label class="campo producto-campo">
             Producto
             <app-producto-autocomplete
+              #prodLote
               [productos]="productos"
               [productoId]="l.productoId"
               [inputName]="'prodM' + l.key"
               mostrarExtra="compra"
               [enterAvanza]="true"
-              (productoIdChange)="l.productoId = $event"
+              (productoIdChange)="onProductoChange(l, $event)"
               (enterConfirmado)="onProductoEnter(i)"
             />
           </label>
@@ -217,8 +227,10 @@
                 appClearable
                 [(ngModel)]="l.cantidad"
                 [name]="'cantM' + l.key"
+                [attr.data-cant-key]="l.key"
                 placeholder="0"
                 [class.input-warn]="excedeStock(l, i)"
+                (ngModelChange)="programarBorrador()"
                 (keydown.enter)="onCantidadEnter($event, i)"
               />
             </label>

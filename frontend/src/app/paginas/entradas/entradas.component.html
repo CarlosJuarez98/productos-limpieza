@@ -18,6 +18,8 @@
         [min]="fechaMin || null"
         [max]="fechaMax"
         required
+        (ngModelChange)="programarBorrador()"
+        (keydown.enter)="onFechaEnter($event)"
       />
     </label>
     <p class="total-lote">
@@ -29,6 +31,7 @@
     @for (l of lineas; track l.key; let i = $index) {
       <article
         class="linea-card"
+        [attr.data-linea-key]="l.key"
         [class.warn]="cambioLinea(l) === 'SUBIO'"
         [class.bajo]="cambioLinea(l) === 'BAJO'"
         [class.con-traspaso]="l.tambienTraspasar"
@@ -93,13 +96,14 @@
           <label class="campo">
             Cantidad
             <input
-              #cantInput
               type="text"
               inputmode="decimal"
               appClearable
               [(ngModel)]="l.cantidad"
               [name]="'cant' + l.key"
+              [attr.data-cant-key]="l.key"
               placeholder="0"
+              (ngModelChange)="programarBorrador()"
               (keydown.enter)="onCantidadEnter($event, i)"
             />
           </label>
@@ -109,13 +113,14 @@
             <div class="precio-input">
               <span class="peso">$</span>
               <input
-                #precioInput
                 type="text"
                 inputmode="decimal"
                 appClearable
                 [(ngModel)]="l.precioProveedor"
                 [name]="'precio' + l.key"
+                [attr.data-precio-key]="l.key"
                 [placeholder]="ultimaCompra(l.productoId) != null ? (ultimaCompra(l.productoId) | number: '1.2-2') : '0'"
+                (ngModelChange)="programarBorrador()"
                 (keydown.enter)="onPrecioEnter($event, i)"
               />
             </div>
@@ -179,6 +184,7 @@
                 placeholder="0"
                 [class.input-warn]="excedeTraspaso(l)"
                 title="Cantidad a traspasar (no más de lo que entra)"
+                (ngModelChange)="programarBorrador()"
               />
             </label>
           }
@@ -194,7 +200,7 @@
     <div class="traspaso-opcion">
       <label class="persona-traspaso">
         Persona
-        <select [(ngModel)]="traspasoPersona" name="traspasoPersona" required>
+        <select [(ngModel)]="traspasoPersona" name="traspasoPersona" required (ngModelChange)="programarBorrador()">
           <option value="">Selecciona…</option>
           @for (n of personasNombres; track n) {
             <option [value]="n">{{ n }}</option>
@@ -375,6 +381,7 @@
         [min]="fechaMin || null"
         [max]="fechaMax"
         required
+        (ngModelChange)="programarBorrador()"
       />
     </label>
     <label>

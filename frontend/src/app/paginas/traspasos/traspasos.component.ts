@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -13,6 +13,7 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { Traspaso, TraspasoAbono } from '../../modelos';
+import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
 
 interface LineaForm {
   key: number;
@@ -44,7 +45,6 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   private static readonly DRAFT = 'traspasos';
 
   @ViewChildren('prodLote') prodAutos!: QueryList<ProductoAutocompleteComponent>;
-  @ViewChildren('cantInput') cantInputs!: QueryList<ElementRef<HTMLInputElement>>;
 
   data: TraspasosResumen | null = null;
   pagTraspasos = new PaginacionEstado<Traspaso>();
@@ -53,6 +53,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   error = '';
   private nextKey = 1;
   private pullSub?: Subscription;
+  private draftTimer: ReturnType<typeof setTimeout> | null = null;
   form = {
     fecha: new Date().toISOString().slice(0, 10),
     persona: '',
@@ -83,10 +84,12 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.persistirBorrador();
     this.pullSub?.unsubscribe();
+    if (this.draftTimer != null) clearTimeout(this.draftTimer);
   }
 
   @HostListener('window:pagehide')
-  onPageHide(): void {
+  @HostListener('document:visibilitychange')
+  onGuardarBorrador(): void {
     this.persistirBorrador();
   }
 
@@ -162,39 +165,61 @@ export class TraspasosComponent implements OnInit, OnDestroy {
 
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
+    this.programarBorrador();
+    this.enfocarCaptura(this.lineas.length - 1, 'producto');
+  }
+
+  onFechaEnter(ev: Event): void {
+    ev.preventDefault();
+    this.enfocarCaptura(0, 'producto');
   }
 
   onProductoEnter(index: number): void {
-    setTimeout(() => this.focusCantidad(index), 0);
+    this.enfocarCaptura(index, 'cantidad');
   }
 
   onCantidadEnter(ev: Event, index: number): void {
     ev.preventDefault();
+    this.programarBorrador();
     const irA = index + 1;
     if (irA >= this.lineas.length) {
       this.agregarLinea();
-      this.cdr.detectChanges();
+      return;
     }
-    setTimeout(() => this.focusProducto(irA), 0);
+    this.enfocarCaptura(irA, 'producto');
   }
 
-  private focusProducto(index: number): void {
-    this.prodAutos?.get(index)?.focus();
+  onProductoChange(l: LineaForm, id: number | null): void {
+    l.productoId = id;
+    this.programarBorrador();
   }
 
-  private focusCantidad(index: number): void {
-    const el = this.cantInputs?.get(index)?.nativeElement;
-    if (!el) return;
-    el.focus();
-    el.select();
+  private autosVisibles(): ProductoAutocompleteComponent[] {
+    return (this.prodAutos?.toArray() || []).filter((a) => a.estaVisible());
+  }
+
+  private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
+    const go = () => {
+      const key = this.lineas[index]?.key;
+      if (campo === 'cantidad') {
+        enfocarPorAttr('data-cant-key', key ?? '');
+      } else {
+        this.autosVisibles()[index]?.focus();
+      }
+      if (key != null) scrollLineaPorAttr('data-linea-key', key);
+    };
+    this.cdr.detectChanges();
+    programarEnfoque(go);
   }
 
   quitarLinea(index: number): void {
     if (this.lineas.length <= 1) {
       this.lineas = [this.nuevaLinea()];
+      this.programarBorrador();
       return;
     }
     this.lineas.splice(index, 1);
+    this.programarBorrador();
   }
 
   private syncPaginadores(reset = false): void {
@@ -301,6 +326,11 @@ export class TraspasosComponent implements OnInit, OnDestroy {
           l.productoId != null || (l.cantidad != null && Number(l.cantidad) !== 0)
       )
     );
+  }
+
+  programarBorrador(): void {
+    if (this.draftTimer != null) clearTimeout(this.draftTimer);
+    this.draftTimer = setTimeout(() => this.persistirBorrador(), 200);
   }
 
   private persistirBorrador(): void {

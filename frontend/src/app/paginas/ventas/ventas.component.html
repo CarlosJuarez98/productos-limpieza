@@ -46,7 +46,7 @@
 <section class="panel captura-panel">
   <div class="ticket">
     @for (l of lineas; track l.key; let i = $index) {
-      <article class="linea-card" [class.stock-warn]="excedeStock(l, i)">
+      <article class="linea-card" [attr.id]="'linea-' + l.key" [class.stock-warn]="excedeStock(l, i)">
         <header class="linea-top">
           <span class="linea-num">{{ i + 1 }}</span>
           <div class="modo-chips" role="group" [attr.aria-label]="'Modo venta ' + (i + 1)">
@@ -87,7 +87,7 @@
             [inputName]="'prod' + l.key"
             [enterAvanza]="true"
             placeholder="Escribe para buscar…"
-            (productoIdChange)="l.productoId = $event; sugerirTotalMayoreo(l)"
+            (productoIdChange)="l.productoId = $event; onLineaCambio(l)"
             (enterConfirmado)="onProductoEnter(i)"
           />
         </label>
@@ -112,7 +112,7 @@
                 [name]="'cant' + l.key"
                 placeholder="0"
                 [class.input-warn]="excedeStock(l, i)"
-                (ngModelChange)="sugerirTotalMayoreo(l)"
+                (ngModelChange)="onLineaCambio(l)"
                 (keydown.enter)="onCampoEnter($event, i, 'cantidad')"
               />
               <span class="unidad">{{ unidadDe(l) }}</span>
@@ -141,7 +141,7 @@
                   [name]="'precio' + l.key"
                   [placeholder]="pistaPrecioMayoreo(l)"
                   [title]="tituloPistaMayoreo(l)"
-                  (ngModelChange)="sugerirTotalMayoreo(l)"
+                  (ngModelChange)="onLineaCambio(l)"
                   (keydown.enter)="onCampoEnter($event, i, 'precio')"
                 />
               </div>
@@ -178,6 +178,7 @@
                   [name]="'total' + l.key"
                   [placeholder]="pistaTotalMayoreo(l)"
                   [title]="tituloPistaMayoreo(l)"
+                  (ngModelChange)="programarBorrador()"
                   (keydown.enter)="onCampoEnter($event, i, 'total')"
                 />
               </div>
