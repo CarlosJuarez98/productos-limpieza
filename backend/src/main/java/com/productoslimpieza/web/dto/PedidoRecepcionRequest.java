@@ -4,10 +4,14 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public record PedidoRecepcionRequest(
-    @NotEmpty @Valid List<Linea> lineas
+    @NotEmpty @Valid List<Linea> lineas,
+    /** Efectivo o transferencia que se le da al proveedor en este surtido (el resto queda a crédito). */
+    BigDecimal pagadoAhora,
+    LocalDate fechaLimitePago
 ) {
   public record Linea(
       @NotNull Long itemId,

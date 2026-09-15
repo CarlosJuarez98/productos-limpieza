@@ -930,6 +930,7 @@ export class VentasComponent implements OnInit, OnDestroy {
         fecha: this.fecha,
         lineas: pendientes.map((l) => ({
           productoId: l.productoId,
+          productoNombre: this.productoPorId(l.productoId)?.nombre || undefined,
           tipoVenta: this.tipoVentaEfectivo(l),
           cantidad: Number(l.cantidad),
           total: this.totalParaGuardar(l),

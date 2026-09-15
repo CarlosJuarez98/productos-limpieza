@@ -13,6 +13,7 @@ import { PaginadorComponent } from '../../paginador.component';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { compararNombreNatural } from '../../nombre-natural.util';
 import { AutoHideDirective } from '../../auto-hide.directive';
+import { OfflineService } from '../../offline.service';
 
 type FormProducto = {
   nombre: string;
@@ -72,6 +73,10 @@ export class InventarioComponent implements OnInit, OnDestroy {
   items: InventarioItem[] = [];
   /** Resultados filtrados (cache; no recalcular en cada CD). */
   filtrados: InventarioItem[] = [];
+  /** True mientras llega el listado fresco del servidor. */
+  cargando = false;
+  /** Hubo pintado desde cache local (UI inmediata). */
+  desdeCache = false;
   filtro = '';
   /** Texto del buscador; el filtro de lista se aplica con debounce. */
   filtroTexto = '';
@@ -144,11 +149,13 @@ export class InventarioComponent implements OnInit, OnDestroy {
     private confirmDlg: ConfirmDialogService,
     private pullRefresh: PullRefreshService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private offline: OfflineService
   ) {}
 
   ngOnInit(): void {
     this.cargarVisibles();
+    void this.pintarDesdeCache();
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
@@ -672,13 +679,21 @@ export class InventarioComponent implements OnInit, OnDestroy {
   }
 
   cargar(): void {
+    this.cargando = true;
     this.api.inventario().subscribe({
       next: (i) => {
         this.items = [...i].sort((a, b) => compararNombreNatural(a.nombre, b.nombre));
+        this.desdeCache = false;
+        this.cargando = false;
         this.rebuildFiltrados();
         this.aplicarQueryEditar();
       },
-      error: (e) => (this.error = e.error?.error || 'No se pudo cargar inventario'),
+      error: (e) => {
+        this.cargando = false;
+        if (this.items.length === 0) {
+          this.error = e.error?.error || 'No se pudo cargar inventario';
+        }
+      },
     });
     this.api.ajustesInventario().subscribe({
       next: (a) => {
@@ -697,6 +712,20 @@ export class InventarioComponent implements OnInit, OnDestroy {
         };
       },
     });
+  }
+
+  /** Pinta al instante lo cacheado (prefetch / visita previa) mientras llega la red. */
+  private async pintarDesdeCache(): Promise<void> {
+    try {
+      const cached = await this.offline.getCached<InventarioItem[]>('GET', '/api/inventario');
+      if (!Array.isArray(cached) || cached.length === 0 || this.items.length > 0) return;
+      this.items = [...cached].sort((a, b) => compararNombreNatural(a.nombre, b.nombre));
+      this.desdeCache = true;
+      this.cargando = false;
+      this.rebuildFiltrados();
+    } catch {
+      /* ignore */
+    }
   }
 
   /** Desde Ventas: /inventario?editar=id o ?ajuste=id. */

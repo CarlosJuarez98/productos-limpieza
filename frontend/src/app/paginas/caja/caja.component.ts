@@ -11,6 +11,7 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { AutoHideDirective } from '../../auto-hide.directive';
+import { inputsVisiblesDe, navegarCampos } from '../../captura-focus.util';
 
 interface Denominacion {
   valor: number;
@@ -207,13 +208,9 @@ export class CajaComponent implements OnInit, OnDestroy {
     return Math.round(d.valor * c * 100) / 100;
   }
 
-  /** Enter en una denominación → siguiente campo. */
-  onDenEnter(ev: Event, index: number): void {
-    ev.preventDefault();
-    const siguiente = this.denInputs?.get(index + 1)?.nativeElement;
-    if (!siguiente) return;
-    siguiente.focus({ preventScroll: true });
-    siguiente.select();
+  /** Enter y flechas entre denominaciones (grilla de la calculadora). */
+  onDenNav(ev: KeyboardEvent): void {
+    navegarCampos(ev, inputsVisiblesDe(this.denInputs), { grilla: true });
   }
 
   vaciarCalculadora(): void {
@@ -317,7 +314,7 @@ export class CajaComponent implements OnInit, OnDestroy {
       `Retiros: $${Number(this.caja.totalRetiros).toFixed(2)}\n` +
       `Total caja: $${esperado.toFixed(2)}\n` +
       `Contado: $${contado.toFixed(2)} (${difTxt})\n` +
-      `Fondo que dejas: $${fondoNuevo.toFixed(2)}\n` +
+      `Dejas en caja: $${fondoNuevo.toFixed(2)}\n` +
       `A apartar: $${aApartar.toFixed(2)}\n\n` +
       `El periodo nuevo empieza el ${formatFechaDmY(inicioNuevo)} con fondo $${fondoNuevo.toFixed(2)}.`;
 
@@ -340,7 +337,7 @@ export class CajaComponent implements OnInit, OnDestroy {
       .marcarCorte({
         fechaCorte: corte,
         fondoInicial: fondoNuevo,
-        fondoPeriodo: Number(this.config.fondoInicial),
+        fondoPeriodo: Number(this.caja.fondoInicial),
         totalCalculadora: contado > 0 ? contado : undefined,
       })
       .subscribe({

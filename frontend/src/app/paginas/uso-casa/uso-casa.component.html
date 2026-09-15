@@ -41,11 +41,11 @@
   </div>
 
   @if (mostrarCortes && cortesDisponibles.length) {
-    <div class="periodos-bar" role="group" aria-label="Cortes">
+    <div class="periodos-bar rail-x" role="group" aria-label="Cortes">
       @for (p of cortesDisponibles; track p.id) {
         <button
           type="button"
-          class="periodo-chip"
+          class="periodo-chip chip ghost"
           [class.activo]="periodoId === p.id"
           (click)="seleccionarPeriodo(p.id)"
           [attr.aria-pressed]="periodoId === p.id"
@@ -253,8 +253,8 @@
   }
 
   <ul class="hist-cards">
-    @for (m of pagHist.paginaItems; track m.id) {
-      <li [class.editando-card]="editandoId === m.id">
+    @for (m of pagHist.paginaItems; track m.id; let idx = $index) {
+      <li [style.--i]="idx" [class.editando-card]="editandoId === m.id">
         <div class="item-meta">
           <span>{{ m.fecha | fechaDmY }}</span>
           <span class="item-tag">{{ m.cantidad | number: '1.2-2' }} {{ unidadDe(m.productoId) }}</span>

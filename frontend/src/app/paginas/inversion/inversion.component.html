@@ -108,8 +108,8 @@
   </div>
 
   <ul class="hist-cards">
-    @for (i of pagProductos.paginaItems; track i.id) {
-      <li>
+    @for (i of pagProductos.paginaItems; track i.id; let idx = $index) {
+      <li [style.--i]="idx">
         <div class="item-meta">
           <span>
             {{ i.cantidad != null ? (i.cantidad | number: '1.2-2') : '—' }} ·
@@ -209,8 +209,8 @@
   </div>
 
   <ul class="hist-cards">
-    @for (i of pagInfra.paginaItems; track i.id) {
-      <li>
+    @for (i of pagInfra.paginaItems; track i.id; let idx = $index) {
+      <li [style.--i]="idx">
         <div class="item-meta">
           <span>Infra</span>
         </div>

@@ -327,6 +327,11 @@ public class ApiController {
     return apartadoService.crearLote(req);
   }
 
+  @PutMapping("/apartados/{id}")
+  public ApartadoDto actualizarApartado(@PathVariable Long id, @Valid @RequestBody ApartadoRequest req) {
+    return apartadoService.actualizar(id, req);
+  }
+
   @DeleteMapping("/apartados/{id}")
   public void eliminarApartado(@PathVariable Long id) {
     apartadoService.eliminar(id);
@@ -398,9 +403,56 @@ public class ApiController {
     return pedidoRegistroService.registrarRecepcion(id, req);
   }
 
+  @PutMapping("/pedidos/{id}/credito")
+  public PedidoDto actualizarCreditoPedido(
+      @PathVariable Long id, @RequestBody PedidoCreditoRequest req) {
+    return pedidoRegistroService.actualizarCredito(id, req);
+  }
+
+  @PostMapping("/pedidos/{id}/items")
+  public PedidoDto agregarItemPedido(
+      @PathVariable Long id, @Valid @RequestBody PedidoItemRequest req) {
+    return pedidoRegistroService.agregarItem(id, req);
+  }
+
+  @PutMapping("/pedidos/{id}/items/{itemId}")
+  public PedidoDto actualizarItemPedido(
+      @PathVariable Long id,
+      @PathVariable Long itemId,
+      @Valid @RequestBody PedidoItemRequest req) {
+    return pedidoRegistroService.actualizarItem(id, itemId, req);
+  }
+
+  @DeleteMapping("/pedidos/{id}/items/{itemId}")
+  public PedidoDto eliminarItemPedido(@PathVariable Long id, @PathVariable Long itemId) {
+    return pedidoRegistroService.eliminarItem(id, itemId);
+  }
+
+  @PostMapping("/pedidos/{id}/abonos")
+  public PedidoDto crearAbonoPedido(
+      @PathVariable Long id, @Valid @RequestBody PedidoAbonoRequest req) {
+    return pedidoRegistroService.crearAbono(id, req);
+  }
+
+  @PutMapping("/pedidos/abonos/{abonoId}")
+  public PedidoDto actualizarAbonoPedido(
+      @PathVariable Long abonoId, @Valid @RequestBody PedidoAbonoRequest req) {
+    return pedidoRegistroService.actualizarAbono(abonoId, req);
+  }
+
+  @DeleteMapping("/pedidos/abonos/{abonoId}")
+  public PedidoDto eliminarAbonoPedido(@PathVariable Long abonoId) {
+    return pedidoRegistroService.eliminarAbono(abonoId);
+  }
+
   @DeleteMapping("/pedidos/{id}")
   public void eliminarPedido(@PathVariable Long id) {
     pedidoRegistroService.eliminar(id);
+  }
+
+  @PostMapping("/pedidos/{id}/cancelar")
+  public void cancelarPedido(@PathVariable Long id) {
+    pedidoRegistroService.cancelar(id);
   }
 
   @PostMapping("/inversion")

@@ -2,6 +2,7 @@ package com.productoslimpieza.web.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public record ProduccionDto(
     Long id,
@@ -11,5 +12,5 @@ public record ProduccionDto(
     BigDecimal cantidadResultado,
     Long productoInsumoId,
     String productoInsumoNombre,
-    BigDecimal cantidadInsumo
-) {}
+    BigDecimal cantidadInsumo,
+    List<ProduccionInsumoDto> insumos) {}

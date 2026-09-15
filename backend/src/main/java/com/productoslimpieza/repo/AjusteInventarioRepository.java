@@ -14,6 +14,9 @@ public interface AjusteInventarioRepository extends JpaRepository<AjusteInventar
   @Query("select coalesce(sum(a.cantidad), 0) from AjusteInventario a where a.producto = :producto")
   BigDecimal sumCantidadByProducto(@Param("producto") Producto producto);
 
+  @Query("select a.producto.id, coalesce(sum(a.cantidad), 0) from AjusteInventario a group by a.producto.id")
+  List<Object[]> sumCantidadGroupByProducto();
+
   long countByProducto(Producto producto);
 
   /** Mermas / correcciones a la baja en el periodo (cantidad negativa). */

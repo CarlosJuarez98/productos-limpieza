@@ -134,11 +134,13 @@
           <div class="precio-input">
             <span class="peso">$</span>
             <input
+              #montoApartar
               type="text"
               inputmode="decimal"
               appClearable
               [ngModel]="montos[r.codigo]"
               (input)="onMontoInput(r.codigo, $event)"
+              (keydown)="onApartarNav($event)"
               [name]="'monto_' + r.codigo"
               placeholder="0"
             />
@@ -194,21 +196,25 @@
                 <div class="precio-input">
                   <span class="peso">$</span>
                   <input
+                    #gastoCampo
                     type="text"
                     inputmode="decimal"
                     appClearable
                     [(ngModel)]="g.ingreso"
                     [name]="'montoGasto' + g.key"
                     placeholder="0"
+                    (keydown)="onGastoNav($event)"
                   />
                 </div>
               </td>
               <td>
                 <input
+                  #gastoCampo
                   appClearable
                   [(ngModel)]="g.motivo"
                   [name]="'motivoGasto' + g.key"
                   placeholder="Agua, Doctor..."
+                  (keydown)="onGastoNav($event)"
                 />
               </td>
               <td class="actions">
@@ -219,7 +225,7 @@
         </tbody>
       </table>
     </div>
-    <div class="reparto-actions gasto-actions fila-actions">
+    <div class="reparto-actions gasto-actions fila-actions cta-bar-mobile">
       <button
         type="button"
         class="btn-agregar-linea"
@@ -304,16 +310,76 @@
                   </thead>
                   <tbody>
                     @for (a of pagMov(cat.codigo, bloque.tipo).paginaItems; track a.id) {
-                      <tr>
+                      <tr [class.editando-fila]="editandoId === a.id">
                         <td>{{ a.fecha | fechaDmY }}</td>
                         <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
                         @if (bloque.tipo === 'GASTO') {
                           <td class="motivo">{{ a.motivo }}</td>
                         }
                         <td class="actions">
+                          <button type="button" class="icon-btn" title="Editar" (click)="editar(a)">✎</button>
                           <button type="button" class="danger" (click)="eliminar(a.id)" title="Eliminar">×</button>
                         </td>
                       </tr>
+                      @if (editandoId === a.id) {
+                        <tr class="fila-edicion">
+                          <td [attr.colspan]="bloque.tipo === 'GASTO' ? 4 : 3">
+                            <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+                              <label>
+                                Fecha
+                                <input
+                                  type="date"
+                                  [(ngModel)]="formEdit.fecha"
+                                  [name]="'editFecha' + a.id"
+                                  [max]="hoyLocal()"
+                                  required
+                                />
+                              </label>
+                              <label>
+                                Apartado
+                                <select [(ngModel)]="formEdit.categoria" [name]="'editCat' + a.id" required>
+                                  @for (r of rubros; track r.id) {
+                                    <option [value]="r.codigo">{{ r.nombre }}</option>
+                                  }
+                                </select>
+                              </label>
+                              <label>
+                                Monto
+                                <div class="precio-input">
+                                  <span class="peso">$</span>
+                                  <input
+                                    type="text"
+                                    inputmode="decimal"
+                                    appClearable
+                                    [(ngModel)]="formEdit.ingreso"
+                                    [name]="'editMonto' + a.id"
+                                    required
+                                  />
+                                </div>
+                              </label>
+                              @if (formEdit.tipo === 'GASTO') {
+                                <label>
+                                  Motivo
+                                  <input
+                                    appClearable
+                                    [(ngModel)]="formEdit.motivo"
+                                    [name]="'editMotivo' + a.id"
+                                  />
+                                </label>
+                              }
+                              <div class="reparto-actions">
+                                <button type="submit" [disabled]="guardandoEdit">Guardar</button>
+                                <button type="button" class="btn-mini ghost" (click)="cancelarEdicion()">
+                                  Cancelar
+                                </button>
+                              </div>
+                            </form>
+                            @if (errorEdit) {
+                              <p class="error">{{ errorEdit }}</p>
+                            }
+                          </td>
+                        </tr>
+                      }
                     } @empty {
                       <tr>
                         <td [attr.colspan]="bloque.tipo === 'GASTO' ? 4 : 3" class="muted">

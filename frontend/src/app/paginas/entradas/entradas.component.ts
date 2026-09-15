@@ -8,7 +8,7 @@ import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { Entrada, InventarioItem, Produccion, Receta } from '../../modelos';
+import { Entrada, InventarioItem, Produccion, Receta, RecetaInsumo } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { ProductoAltaFormComponent } from '../../producto-alta-form.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
@@ -45,6 +45,7 @@ type DraftEntradas = {
     productoInsumoId: number | null;
     cantidadInsumo: number | null;
     insumoNombre: string;
+    insumos: { productoInsumoId: number; nombre: string; cantidad: number }[];
   };
 };
 
@@ -88,6 +89,8 @@ export class EntradasComponent implements OnInit, OnDestroy {
   prepAbierta = typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
   histAbierta = typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
   recetasAbierta = false;
+  /** Móvil: pestaña Preparar vs Fórmulas. */
+  prepVista: 'preparar' | 'formulas' = 'preparar';
   recetas: Receta[] = [];
   formReceta = this.formRecetaVacio();
   editandoRecetaId: number | null = null;
@@ -96,6 +99,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
   okRecetas = '';
   /** Alta de producto embebida al armar una fórmula. */
   altaProductoPara: 'resultado' | 'insumo' | null = null;
+  altaInsumoIndex: number | null = null;
   private nextKey = 1;
   private pullSub?: Subscription;
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
@@ -110,6 +114,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     productoInsumoId: null as number | null,
     cantidadInsumo: null as number | null,
     insumoNombre: '' as string,
+    insumos: [] as { productoInsumoId: number; nombre: string; cantidad: number }[],
   };
   editandoPrepId: number | null = null;
   editandoEntradaId: number | null = null;
@@ -154,14 +159,52 @@ export class EntradasComponent implements OnInit, OnDestroy {
 
   toggleRecetas(): void {
     this.recetasAbierta = !this.recetasAbierta;
+    this.prepVista = this.recetasAbierta ? 'formulas' : 'preparar';
     if (this.recetasAbierta) {
       this.cancelarFormReceta();
+      this.errorRecetas = '';
+      this.okRecetas = '';
+    }
+  }
+
+  setPrepVista(v: 'preparar' | 'formulas'): void {
+    this.prepVista = v;
+    this.recetasAbierta = v === 'formulas';
+    if (v === 'formulas') {
       this.errorRecetas = '';
     }
   }
 
+  elegirPreparable(id: number): void {
+    this.onResultadoChange(id);
+  }
+
+  ajustarCantPrep(delta: number): void {
+    const actual = Number(this.prep.cantidadResultado);
+    const base = Number.isFinite(actual) && actual > 0 ? actual : 0;
+    const next = Math.max(0, Math.round((base + delta) * 100) / 100);
+    this.prep.cantidadResultado = next > 0 ? next : null;
+    this.onCantidadPrepChange();
+  }
+
+  pctAguaFormula(): number {
+    const agua = this.num(this.formReceta.cantidadAgua);
+    const ins = this.totalInsumosFormula();
+    const t = agua + ins;
+    if (t <= 0) return 0;
+    return Math.round((agua / t) * 100);
+  }
+
+  formulaCuadra(): boolean {
+    const prod = this.num(this.formReceta.cantidadProducto);
+    if (prod <= 0) return false;
+    const suma = this.num(this.formReceta.cantidadAgua) + this.totalInsumosFormula();
+    return Math.abs(suma - prod) < 0.00015;
+  }
+
   cancelarEdicionRecetas(): void {
     this.recetasAbierta = false;
+    this.prepVista = 'preparar';
     this.cancelarFormReceta();
     this.errorRecetas = '';
   }
@@ -169,10 +212,9 @@ export class EntradasComponent implements OnInit, OnDestroy {
   private formRecetaVacio() {
     return {
       productoResultadoId: null as number | null,
-      productoInsumoId: null as number | null,
       cantidadProducto: null as number | null,
       cantidadAgua: null as number | null,
-      cantidadInsumo: null as number | null,
+      insumos: [{ productoInsumoId: null as number | null, cantidad: null as number | null }],
     };
   }
 
@@ -180,31 +222,50 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.editandoRecetaId = null;
     this.formReceta = this.formRecetaVacio();
     this.altaProductoPara = null;
+    this.altaInsumoIndex = null;
   }
 
   nuevaFormula(): void {
     this.editandoRecetaId = null;
     this.formReceta = this.formRecetaVacio();
     this.altaProductoPara = null;
+    this.altaInsumoIndex = null;
     this.errorRecetas = '';
     this.okRecetas = '';
   }
 
   editarFormula(r: Receta): void {
     this.editandoRecetaId = r.id;
+    const insumos =
+      r.insumos?.length
+        ? r.insumos.map((i) => ({
+            productoInsumoId: i.productoInsumoId as number | null,
+            cantidad: i.cantidad as number | null,
+          }))
+        : [{ productoInsumoId: r.productoInsumoId as number | null, cantidad: r.cantidadInsumo as number | null }];
     this.formReceta = {
       productoResultadoId: r.productoResultadoId,
-      productoInsumoId: r.productoInsumoId,
       cantidadProducto: r.cantidadProducto,
       cantidadAgua: r.cantidadAgua,
-      cantidadInsumo: r.cantidadInsumo,
+      insumos,
     };
     this.altaProductoPara = null;
+    this.altaInsumoIndex = null;
     this.errorRecetas = '';
   }
 
-  abrirAltaProducto(para: 'resultado' | 'insumo'): void {
+  agregarInsumoFormula(): void {
+    this.formReceta.insumos.push({ productoInsumoId: null, cantidad: null });
+  }
+
+  quitarInsumoFormula(i: number): void {
+    if (this.formReceta.insumos.length <= 1) return;
+    this.formReceta.insumos.splice(i, 1);
+  }
+
+  abrirAltaProducto(para: 'resultado' | 'insumo', index?: number): void {
     this.altaProductoPara = para;
+    this.altaInsumoIndex = para === 'insumo' ? (index ?? 0) : null;
   }
 
   onProductoCreadoFormula(item: InventarioItem): void {
@@ -213,10 +274,68 @@ export class EntradasComponent implements OnInit, OnDestroy {
     if (para === 'resultado') {
       this.formReceta.productoResultadoId = item.id;
     } else if (para === 'insumo') {
-      this.formReceta.productoInsumoId = item.id;
+      const idx = this.altaInsumoIndex ?? 0;
+      if (this.formReceta.insumos[idx]) {
+        this.formReceta.insumos[idx].productoInsumoId = item.id;
+      }
     }
     this.altaProductoPara = null;
+    this.altaInsumoIndex = null;
     this.okRecetas = `Producto «${item.nombre}» agregado`;
+  }
+
+  textoInsumosReceta(r: Receta): string {
+    const list = this.insumosDeReceta(r);
+    return list.map((i) => `${this.fmtNum(i.cantidad)} L ${i.productoInsumoNombre}`).join(' + ');
+  }
+
+  insumosDeReceta(r: Receta): RecetaInsumo[] {
+    if (r.insumos?.length) return r.insumos;
+    return [
+      {
+        productoInsumoId: r.productoInsumoId,
+        productoInsumoNombre: r.productoInsumoNombre,
+        cantidad: r.cantidadInsumo,
+      },
+    ];
+  }
+
+  textoInsumosProduccion(p: Produccion): string {
+    return this.insumosDeProduccion(p)
+      .map((i) => `${this.fmtNum(i.cantidad)} L ${i.productoInsumoNombre}`)
+      .join(' · ');
+  }
+
+  insumosDeProduccion(p: Produccion): RecetaInsumo[] {
+    if (p.insumos?.length) {
+      return p.insumos.map((i) => ({
+        productoInsumoId: i.productoInsumoId,
+        productoInsumoNombre: i.productoInsumoNombre,
+        cantidad: i.cantidad,
+      }));
+    }
+    return [
+      {
+        productoInsumoId: p.productoInsumoId,
+        productoInsumoNombre: p.productoInsumoNombre,
+        cantidad: p.cantidadInsumo,
+      },
+    ];
+  }
+
+  num(v: unknown): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  private fmtNum(n: number): string {
+    const x = Number(n);
+    if (!Number.isFinite(x)) return '0';
+    return String(Math.round(x * 10000) / 10000);
+  }
+
+  totalInsumosFormula(): number {
+    return this.formReceta.insumos.reduce((s, i) => s + (Number(i.cantidad) || 0), 0);
   }
 
   /** Desde Ventas: /entradas?preparar=id → abre Preparación. */
@@ -422,13 +541,135 @@ export class EntradasComponent implements OnInit, OnDestroy {
     return this.recetas.some((r) => r.productoResultadoId === productoId);
   }
 
-  private ratioInsumoPorProducto(productoId: number | null | undefined): number | null {
-    if (productoId == null) return null;
+  private ratiosInsumoPorProducto(
+    productoId: number | null | undefined
+  ): { productoInsumoId: number; nombre: string; ratio: number }[] {
+    if (productoId == null) return [];
     const r = this.recetas.find((x) => x.productoResultadoId === productoId);
-    if (!r) return null;
+    if (!r) return [];
     const p = Number(r.cantidadProducto);
-    const i = Number(r.cantidadInsumo);
-    return p > 0 ? i / p : null;
+    if (!(p > 0)) return [];
+    return this.insumosDeReceta(r).map((i) => ({
+      productoInsumoId: i.productoInsumoId,
+      nombre: i.productoInsumoNombre,
+      ratio: Number(i.cantidad) / p,
+    }));
+  }
+
+  onResultadoChange(id: number | null): void {
+    this.programarBorrador();
+    this.prep.productoResultadoId = id;
+    this.prep.productoInsumoId = null;
+    this.prep.insumoNombre = '';
+    this.prep.cantidadInsumo = null;
+    this.prep.insumos = [];
+    this.errorPrep = '';
+    if (id == null) return;
+    this.api.recetaProduccion(id).subscribe({
+      next: (r) => {
+        if (r.encontrada && (r.insumos?.length || r.productoInsumoId != null)) {
+          const insumos =
+            r.insumos?.length
+              ? r.insumos
+              : [
+                  {
+                    productoInsumoId: r.productoInsumoId!,
+                    productoInsumoNombre: r.productoInsumoNombre || '',
+                    cantidad: Number(r.cantidadInsumo) || 0,
+                  },
+                ];
+          this.prep.productoInsumoId = insumos[0]?.productoInsumoId ?? null;
+          this.prep.insumoNombre = insumos.map((i) => i.productoInsumoNombre).join(' + ');
+          this.recalcularInsumoPrep();
+          this.programarBorrador();
+        } else {
+          this.errorPrep = 'No hay fórmula para ese producto. Créala en «Editar fórmulas».';
+        }
+      },
+    });
+  }
+
+  onCantidadPrepChange(): void {
+    this.recalcularInsumoPrep();
+    this.programarBorrador();
+  }
+
+  recalcularInsumoPrep(): void {
+    const ratios = this.ratiosInsumoPorProducto(this.prep.productoResultadoId);
+    const cant = Number(this.prep.cantidadResultado);
+    if (!ratios.length || !Number.isFinite(cant) || cant <= 0) {
+      if (this.editandoPrepId == null) {
+        this.prep.cantidadInsumo = null;
+        this.prep.insumos = [];
+      }
+      return;
+    }
+    this.prep.insumos = ratios.map((x) => ({
+      productoInsumoId: x.productoInsumoId,
+      nombre: x.nombre,
+      cantidad: Math.round(cant * x.ratio * 100) / 100,
+    }));
+    this.prep.cantidadInsumo =
+      Math.round(this.prep.insumos.reduce((s, i) => s + i.cantidad, 0) * 100) / 100;
+    this.prep.productoInsumoId = this.prep.insumos[0]?.productoInsumoId ?? null;
+    this.prep.insumoNombre = this.prep.insumos.map((i) => i.nombre).join(' + ');
+  }
+
+  guardarFormula(): void {
+    this.errorRecetas = '';
+    this.okRecetas = '';
+    const f = this.formReceta;
+    if (f.productoResultadoId == null) {
+      this.errorRecetas = 'Elige el producto preparado';
+      return;
+    }
+    const insumos = f.insumos
+      .filter((i) => i.productoInsumoId != null && Number(i.cantidad) > 0)
+      .map((i) => ({
+        productoInsumoId: i.productoInsumoId as number,
+        cantidad: Number(i.cantidad),
+      }));
+    if (!insumos.length) {
+      this.errorRecetas = 'Agrega al menos un insumo con cantidad';
+      return;
+    }
+    const body = {
+      productoResultadoId: f.productoResultadoId,
+      cantidadProducto: Number(f.cantidadProducto),
+      cantidadAgua: Number(f.cantidadAgua),
+      insumos,
+    };
+    if (
+      !Number.isFinite(body.cantidadProducto) ||
+      body.cantidadProducto <= 0 ||
+      !Number.isFinite(body.cantidadAgua) ||
+      body.cantidadAgua < 0
+    ) {
+      this.errorRecetas = 'Revisa las cantidades de la fórmula';
+      return;
+    }
+    this.guardandoRecetas = true;
+    const req$ =
+      this.editandoRecetaId != null
+        ? this.api.actualizarReceta(this.editandoRecetaId, body)
+        : this.api.crearReceta(body);
+    req$.subscribe({
+      next: () => {
+        this.guardandoRecetas = false;
+        this.okRecetas = this.editandoRecetaId != null ? 'Fórmula actualizada' : 'Fórmula creada';
+        this.cancelarFormReceta();
+        this.api.recetas().subscribe({
+          next: (lista) => {
+            this.recetas = lista || [];
+            this.recalcularInsumoPrep();
+          },
+        });
+      },
+      error: (e) => {
+        this.guardandoRecetas = false;
+        this.errorRecetas = e.error?.error || 'No se pudo guardar la fórmula';
+      },
+    });
   }
 
   agregarLinea(): void {
@@ -547,94 +788,6 @@ export class EntradasComponent implements OnInit, OnDestroy {
     });
   }
 
-  onResultadoChange(id: number | null): void {
-    this.programarBorrador();
-    this.prep.productoResultadoId = id;
-    this.prep.productoInsumoId = null;
-    this.prep.insumoNombre = '';
-    this.prep.cantidadInsumo = null;
-    this.errorPrep = '';
-    if (id == null) return;
-    this.api.recetaProduccion(id).subscribe({
-      next: (r) => {
-        if (r.encontrada && r.productoInsumoId != null) {
-          this.prep.productoInsumoId = r.productoInsumoId;
-          this.prep.insumoNombre = r.productoInsumoNombre ?? '';
-          this.recalcularInsumoPrep();
-          this.programarBorrador();
-        } else {
-          this.errorPrep =
-            'No hay fórmula para ese producto. Créala en «Editar fórmulas».';
-        }
-      },
-    });
-  }
-
-  onCantidadPrepChange(): void {
-    this.recalcularInsumoPrep();
-    this.programarBorrador();
-  }
-
-  recalcularInsumoPrep(): void {
-    const ratio = this.ratioInsumoPorProducto(this.prep.productoResultadoId);
-    const cant = Number(this.prep.cantidadResultado);
-    if (ratio == null || !Number.isFinite(cant) || cant <= 0) {
-      if (this.editandoPrepId == null) this.prep.cantidadInsumo = null;
-      return;
-    }
-    this.prep.cantidadInsumo = Math.round(cant * ratio * 100) / 100;
-  }
-
-  guardarFormula(): void {
-    this.errorRecetas = '';
-    this.okRecetas = '';
-    const f = this.formReceta;
-    if (f.productoResultadoId == null || f.productoInsumoId == null) {
-      this.errorRecetas = 'Elige producto e insumo (o créalos abajo)';
-      return;
-    }
-    const body = {
-      productoResultadoId: f.productoResultadoId,
-      productoInsumoId: f.productoInsumoId,
-      cantidadProducto: Number(f.cantidadProducto),
-      cantidadAgua: Number(f.cantidadAgua),
-      cantidadInsumo: Number(f.cantidadInsumo),
-    };
-    if (
-      !Number.isFinite(body.cantidadProducto) ||
-      body.cantidadProducto <= 0 ||
-      !Number.isFinite(body.cantidadAgua) ||
-      body.cantidadAgua < 0 ||
-      !Number.isFinite(body.cantidadInsumo) ||
-      body.cantidadInsumo <= 0
-    ) {
-      this.errorRecetas = 'Revisa las cantidades de la fórmula';
-      return;
-    }
-    this.guardandoRecetas = true;
-    const req$ =
-      this.editandoRecetaId != null
-        ? this.api.actualizarReceta(this.editandoRecetaId, body)
-        : this.api.crearReceta(body);
-    req$.subscribe({
-      next: () => {
-        this.guardandoRecetas = false;
-        this.okRecetas = this.editandoRecetaId != null ? 'Fórmula actualizada' : 'Fórmula creada';
-        this.cancelarFormReceta();
-        this.api.recetas().subscribe({
-          next: (lista) => {
-            this.recetas = lista || [];
-            this.recalcularInsumoPrep();
-          },
-        });
-      },
-      error: (e) => {
-        this.guardandoRecetas = false;
-        this.errorRecetas = e.error?.error || 'No se pudo guardar la fórmula';
-      },
-    });
-  }
-
   async eliminarFormula(r: Receta): Promise<void> {
     const ok = await this.confirmDlg.ask(`¿Eliminar fórmula de ${r.productoResultadoNombre}?`, {
       confirmarTexto: 'Eliminar',
@@ -650,16 +803,33 @@ export class EntradasComponent implements OnInit, OnDestroy {
     });
   }
 
-  get stockInsumoPrep(): number {
-    if (this.prep.productoInsumoId == null) return 0;
-    const p = this.productos.find((x) => x.id === this.prep.productoInsumoId);
+  stockDe(productoId: number): number {
+    const p = this.productos.find((x) => x.id === productoId);
     return p ? Number(p.stockActual) || 0 : 0;
   }
 
+  get stockInsumoPrep(): number {
+    if (!this.prep.insumos.length && this.prep.productoInsumoId != null) {
+      return this.stockDe(this.prep.productoInsumoId);
+    }
+    if (!this.prep.insumos.length) return 0;
+    return Math.min(...this.prep.insumos.map((i) => this.stockDe(i.productoInsumoId)));
+  }
+
   get excedeStockInsumoPrep(): boolean {
-    const need = Number(this.prep.cantidadInsumo);
-    if (!Number.isFinite(need) || need <= 0 || this.prep.productoInsumoId == null) return false;
-    return need > this.stockInsumoPrep + 1e-9;
+    if (!this.prep.insumos.length) {
+      const need = Number(this.prep.cantidadInsumo);
+      if (!Number.isFinite(need) || need <= 0 || this.prep.productoInsumoId == null) return false;
+      return need > this.stockDe(this.prep.productoInsumoId) + 1e-9;
+    }
+    return this.prep.insumos.some((i) => i.cantidad > this.stockDe(i.productoInsumoId) + 1e-9);
+  }
+
+  insumosFaltantesPrep(): string {
+    return this.prep.insumos
+      .filter((i) => i.cantidad > this.stockDe(i.productoInsumoId) + 1e-9)
+      .map((i) => `${i.nombre} (necesitas ${i.cantidad}, hay ${this.stockDe(i.productoInsumoId)})`)
+      .join('; ');
   }
 
   guardar(): void {
@@ -671,6 +841,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     const lineasForm = this.lineas.filter((l) => l.productoId != null && Number(l.cantidad) > 0);
     const lineas = lineasForm.map((l) => ({
       productoId: l.productoId as number,
+      productoNombre: this.nombreProducto(l.productoId),
       cantidad: Number(l.cantidad),
       precioProveedor:
         l.precioProveedor != null && String(l.precioProveedor) !== ''
@@ -692,7 +863,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
       return;
     }
 
-    let lineasTraspaso: { productoId: number; cantidad: number }[] = [];
+    let lineasTraspaso: { productoId: number; productoNombre?: string; cantidad: number }[] = [];
     const lineasConTraspaso = lineasForm.filter((l) => l.tambienTraspasar);
     if (lineasConTraspaso.length) {
       if (!this.traspasoPersona.trim()) {
@@ -710,7 +881,11 @@ export class EntradasComponent implements OnInit, OnDestroy {
           this.error = `En «${this.nombreProducto(l.productoId)}» no puedes traspasar más de lo que entra (${cantEnt})`;
           return;
         }
-        lineasTraspaso.push({ productoId: l.productoId as number, cantidad: cantTr });
+        lineasTraspaso.push({
+          productoId: l.productoId as number,
+          productoNombre: this.nombreProducto(l.productoId),
+          cantidad: cantTr,
+        });
       }
     }
 
@@ -828,13 +1003,27 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.errorPrep = '';
     this.okPrep = '';
     this.editandoPrepId = p.id;
+    const insumos = p.insumos?.length
+      ? p.insumos.map((i) => ({
+          productoInsumoId: i.productoInsumoId,
+          nombre: i.productoInsumoNombre,
+          cantidad: i.cantidad,
+        }))
+      : [
+          {
+            productoInsumoId: p.productoInsumoId,
+            nombre: p.productoInsumoNombre || '',
+            cantidad: p.cantidadInsumo,
+          },
+        ];
     this.prep = {
       fecha: p.fecha,
       productoResultadoId: p.productoResultadoId,
       cantidadResultado: p.cantidadResultado,
-      productoInsumoId: p.productoInsumoId,
-      cantidadInsumo: p.cantidadInsumo,
-      insumoNombre: p.productoInsumoNombre || '',
+      productoInsumoId: insumos[0]?.productoInsumoId ?? null,
+      cantidadInsumo: insumos.reduce((s, i) => s + i.cantidad, 0),
+      insumoNombre: insumos.map((i) => i.nombre).join(' + '),
+      insumos,
     };
     setTimeout(() => {
       document.querySelector('.panel-prep')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -852,6 +1041,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
       productoInsumoId: null,
       cantidadInsumo: null,
       insumoNombre: '',
+      insumos: [],
     };
     this.asegurarFechaValida();
   }
@@ -863,30 +1053,29 @@ export class EntradasComponent implements OnInit, OnDestroy {
     if (!this.validarFecha(this.prep.fecha, 'errorPrep')) return;
     this.recalcularInsumoPrep();
     const cantRes = Number(this.prep.cantidadResultado);
-    const cantIns = Number(this.prep.cantidadInsumo);
     if (
       this.prep.productoResultadoId == null ||
-      this.prep.productoInsumoId == null ||
+      !this.prep.insumos.length ||
       !Number.isFinite(cantRes) ||
-      !Number.isFinite(cantIns) ||
-      cantRes <= 0 ||
-      cantIns <= 0
+      cantRes <= 0
     ) {
       this.errorPrep = 'Completa producto y cantidad preparada';
       return;
     }
     if (this.excedeStockInsumoPrep) {
-      this.errorPrep = `No hay suficiente ${this.prep.insumoNombre || 'insumo'} (necesitas ${cantIns} L, hay ${this.stockInsumoPrep} L)`;
+      this.errorPrep = `No hay suficiente insumo: ${this.insumosFaltantesPrep()}`;
       return;
     }
     const body = {
       fecha: this.prep.fecha,
       productoResultadoId: this.prep.productoResultadoId,
       cantidadResultado: cantRes,
-      productoInsumoId: this.prep.productoInsumoId,
-      cantidadInsumo: cantIns,
+      insumos: this.prep.insumos.map((i) => ({
+        productoInsumoId: i.productoInsumoId,
+        cantidad: i.cantidad,
+      })),
     };
-    const insumoNombre = this.prep.insumoNombre;
+    const resumen = this.prep.insumos.map((i) => `${i.cantidad} L ${i.nombre}`).join(' + ');
     const editId = this.editandoPrepId;
     const req$ =
       editId != null
@@ -897,7 +1086,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
         const msg =
           editId != null
             ? 'Preparación actualizada'
-            : `Listo: +${cantRes} y se descontó ${cantIns} de ${insumoNombre}`;
+            : `Listo: +${cantRes} L y se descontó ${resumen}`;
         this.cancelarEdicionPrep();
         this.okPrep = msg;
         this.persistirBorrador();
@@ -1018,6 +1207,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
         productoInsumoId: draft.prep.productoInsumoId ?? null,
         cantidadInsumo: draft.prep.cantidadInsumo ?? null,
         insumoNombre: draft.prep.insumoNombre || '',
+        insumos: draft.prep.insumos || [],
       };
       this.prepAbierta = true;
     }

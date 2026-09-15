@@ -38,9 +38,17 @@ public class Pedido extends TenantEntity {
   @Column(length = 255)
   private String nota;
 
+  /** Día en que hay que pagarle al proveedor (cuando fía). */
+  @Column(name = "fecha_limite_pago")
+  private LocalDate fechaLimitePago;
+
   @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
   @OrderBy("id ASC")
   private List<PedidoItem> items = new ArrayList<>();
+
+  @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
+  @OrderBy("fecha DESC, id DESC")
+  private List<PedidoAbono> abonos = new ArrayList<>();
 
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
@@ -58,11 +66,20 @@ public class Pedido extends TenantEntity {
   public void setPorcentajeExtra(BigDecimal porcentajeExtra) { this.porcentajeExtra = porcentajeExtra; }
   public String getNota() { return nota; }
   public void setNota(String nota) { this.nota = nota; }
+  public LocalDate getFechaLimitePago() { return fechaLimitePago; }
+  public void setFechaLimitePago(LocalDate fechaLimitePago) { this.fechaLimitePago = fechaLimitePago; }
   public List<PedidoItem> getItems() { return items; }
   public void setItems(List<PedidoItem> items) { this.items = items; }
+  public List<PedidoAbono> getAbonos() { return abonos; }
+  public void setAbonos(List<PedidoAbono> abonos) { this.abonos = abonos; }
 
   public void addItem(PedidoItem item) {
     items.add(item);
     item.setPedido(this);
+  }
+
+  public void addAbono(PedidoAbono abono) {
+    abonos.add(abono);
+    abono.setPedido(this);
   }
 }

@@ -1,6 +1,6 @@
 <h2 class="page-title">Surtir / Levantar pedido</h2>
 
-<section class="panel">
+<section class="panel panel-anim">
   <div class="form-grid toolbar-pedido">
     <label>
       Periodo
@@ -57,16 +57,47 @@
     </button>
   </div>
 
-  <div class="filtro-chips" role="group" aria-label="Qué surtir">
-    <button type="button" class="modo-chip" [class.activo]="filtroDepto === 'todo'" (click)="setFiltroDepto('todo')">
+  <div class="filtro-chips seg-control" role="group" aria-label="Qué surtir">
+    <button type="button" class="modo-chip seg-btn" [class.activo]="filtroDepto === 'todo'" (click)="setFiltroDepto('todo')">
       Todo
     </button>
-    <button type="button" class="modo-chip" [class.activo]="filtroDepto === 'limpieza'" (click)="setFiltroDepto('limpieza')">
+    <button type="button" class="modo-chip seg-btn" [class.activo]="filtroDepto === 'limpieza'" (click)="setFiltroDepto('limpieza')">
       Limpieza
     </button>
-    <button type="button" class="modo-chip" [class.activo]="filtroDepto === 'jarceria'" (click)="setFiltroDepto('jarceria')">
+    <button type="button" class="modo-chip seg-btn" [class.activo]="filtroDepto === 'jarceria'" (click)="setFiltroDepto('jarceria')">
       Jarcería
     </button>
+  </div>
+
+  <div class="alta-manual">
+    <p class="alta-manual-tit">Agregar producto a mano</p>
+    <p class="muted hint-inline">Para ofertas o algo que no salió en el cálculo. Se coloca solo en Limpieza o Jarcería según el producto.</p>
+    <div class="alta-manual-fila">
+      <label class="campo producto-campo">
+        Producto
+        <app-producto-autocomplete
+          [productos]="productos"
+          [productoId]="altaProductoId"
+          inputName="altaSurtirProd"
+          placeholder="Busca en inventario…"
+          mostrarExtra="stock"
+          [enterAvanza]="true"
+          (productoIdChange)="altaProductoId = $event"
+        />
+      </label>
+      <label class="campo">
+        Pedir
+        <input
+          type="text"
+          inputmode="numeric"
+          appClearable
+          [(ngModel)]="altaCantidad"
+          name="altaSurtirCant"
+          placeholder="0"
+        />
+      </label>
+      <button type="button" (click)="agregarManual()">Agregar</button>
+    </div>
   </div>
 
   @if (error) {
@@ -76,207 +107,11 @@
     <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
   }
 
-  <div class="acciones-pedido">
+  <div class="acciones-pedido cta-bar-mobile">
     <button type="button" (click)="registrarPedido()" [disabled]="totalLineas === 0 || registrando">
       {{ etiquetaRegistrar }}
     </button>
   </div>
-</section>
-
-<section class="panel lista-grupo">
-  <h3 class="panel-titulo">Pedidos registrados</h3>
-
-  @if (pedidosAbiertos.length === 0 && pedidosCerrados.length === 0) {
-    <p class="muted">Aún no hay pedidos registrados.</p>
-  }
-
-  <ul class="pedidos-lista">
-    @for (p of pedidosAbiertos; track p.id) {
-      <li class="pedido-card" [class.parcial]="p.estado === 'PARCIAL'">
-        <button type="button" class="pedido-cab" (click)="togglePedido(p.id)">
-          <span>
-            #{{ p.id }} · {{ p.fecha | fechaDmY }}
-            <span class="item-tag">{{ etiquetaEstado(p.estado) }}</span>
-          </span>
-          <span class="muted">
-            {{ p.itemsConFalta }} faltan / {{ p.totalItems }}
-            {{ pedidoExpandidoId === p.id ? '▾' : '▸' }}
-          </span>
-        </button>
-        @if (pedidoExpandidoId === p.id) {
-          <div class="pedido-detalle">
-            <div class="table-wrap hist-tabla">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Producto</th>
-                    <th class="money">Pedido</th>
-                    <th class="money">Recibido</th>
-                    <th class="money">Total pagado</th>
-                    <th class="money">Unitario</th>
-                    <th class="money">Falta</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (r of recibosEdit; track r.itemId) {
-                    <tr [class.warn]="faltaDe(r) > 0.001">
-                      <td>
-                        {{ r.productoNombre }}
-                        <span class="muted unidad">{{ r.unidad }}</span>
-                      </td>
-                      <td class="money">{{ r.pedida | number: '1.0-2' }}</td>
-                      <td class="money col-pedir">
-                        <input
-                          type="text"
-                          inputmode="decimal"
-                          appClearable
-                          [(ngModel)]="r.recibida"
-                          [name]="'rec' + r.itemId"
-                        />
-                      </td>
-                      <td class="money col-pedir">
-                        <input
-                          type="text"
-                          inputmode="decimal"
-                          appClearable
-                          [(ngModel)]="r.totalPagado"
-                          [name]="'tot' + r.itemId"
-                          placeholder="$"
-                        />
-                      </td>
-                      <td class="money">
-                        @if (unitarioRecibo(r) != null) {
-                          ${{ unitarioRecibo(r) | number: '1.2-2' }}
-                        } @else {
-                          <span class="muted">—</span>
-                        }
-                      </td>
-                      <td class="money">{{ faltaDe(r) | number: '1.0-2' }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-            <ul class="hist-cards pedido-recibos">
-              @for (r of recibosEdit; track r.itemId) {
-                <li [class.warn]="faltaDe(r) > 0.001">
-                  <p class="item-motivo">
-                    {{ r.productoNombre }}
-                    <span class="muted unidad">{{ r.unidad }}</span>
-                  </p>
-                  <dl class="card-cols">
-                    <div>
-                      <dt>Pedido</dt>
-                      <dd>{{ r.pedida | number: '1.0-2' }}</dd>
-                    </div>
-                    <div>
-                      <dt>Falta</dt>
-                      <dd>{{ faltaDe(r) | number: '1.0-2' }}</dd>
-                    </div>
-                    <div>
-                      <dt>Unitario</dt>
-                      <dd>
-                        @if (unitarioRecibo(r) != null) {
-                          ${{ unitarioRecibo(r) | number: '1.2-2' }}
-                        } @else {
-                          —
-                        }
-                      </dd>
-                    </div>
-                  </dl>
-                  <div class="item-fila pedir-movil">
-                    <label>
-                      Recibido
-                      <input
-                        type="text"
-                        inputmode="decimal"
-                        appClearable
-                        [(ngModel)]="r.recibida"
-                        [name]="'recM' + r.itemId"
-                      />
-                    </label>
-                    <label>
-                      Total pagado
-                      <input
-                        type="text"
-                        inputmode="decimal"
-                        appClearable
-                        [(ngModel)]="r.totalPagado"
-                        [name]="'totM' + r.itemId"
-                        placeholder="$"
-                      />
-                    </label>
-                  </div>
-                </li>
-              }
-            </ul>
-            <div class="acciones-pedido">
-              <button type="button" (click)="guardarRecepcion()" [disabled]="guardandoRecepcion">
-                {{ guardandoRecepcion ? 'Guardando…' : 'Guardar surtido' }}
-              </button>
-              <button type="button" class="secondary" (click)="marcarTodoRecibido()">
-                Todo llegó
-              </button>
-              <button type="button" class="secondary" (click)="cerrarPedido(p)">Cerrar</button>
-              <button type="button" class="danger" (click)="eliminarPedido(p)">Eliminar</button>
-            </div>
-          </div>
-        }
-      </li>
-    }
-  </ul>
-
-  @if (pedidosCerrados.length) {
-    <details class="pedidos-cerrados">
-      <summary class="muted">Últimos cerrados ({{ pedidosCerrados.length }})</summary>
-      <ul class="pedidos-lista">
-        @for (p of pedidosCerrados; track p.id) {
-          <li class="pedido-card cerrado">
-            <button type="button" class="pedido-cab" (click)="togglePedido(p.id)">
-              <span>#{{ p.id }} · {{ p.fecha | fechaDmY }} · cerrado</span>
-              <span class="muted">{{ pedidoExpandidoId === p.id ? '▾' : '▸' }}</span>
-            </button>
-            @if (pedidoExpandidoId === p.id) {
-              <div class="pedido-detalle">
-                <div class="table-wrap hist-tabla">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Producto</th>
-                        <th class="money">Pedido</th>
-                        <th class="money">Recibido</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (i of p.items; track i.id) {
-                        <tr>
-                          <td>{{ i.productoNombre }}</td>
-                          <td class="money">{{ i.cantidadPedida | number: '1.0-2' }}</td>
-                          <td class="money">{{ i.cantidadRecibida | number: '1.0-2' }}</td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-                <ul class="hist-cards">
-                  @for (i of p.items; track i.id) {
-                    <li>
-                      <p class="item-motivo">{{ i.productoNombre }}</p>
-                      <div class="item-meta">
-                        <span>Ped {{ i.cantidadPedida | number: '1.0-2' }}</span>
-                        <span>Rec {{ i.cantidadRecibida | number: '1.0-2' }}</span>
-                      </div>
-                    </li>
-                  }
-                </ul>
-                <button type="button" class="danger" (click)="eliminarPedido(p)">Eliminar</button>
-              </div>
-            }
-          </li>
-        }
-      </ul>
-    </details>
-  }
 </section>
 
 @if (mostrarLimpieza) {
@@ -303,7 +138,12 @@
       <tbody>
         @for (l of pagLitros.paginaItems; track l.productoId) {
           <tr [class.warn]="l.faltanteAnterior > 0">
-            <td>{{ l.productoNombre }}</td>
+            <td>
+              {{ l.productoNombre }}
+              @if (l.extra) {
+                <span class="item-tag">extra</span>
+              }
+            </td>
             <td class="money">{{ l.stockActual | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoBase | number: '1.0-2' }}</td>
@@ -335,9 +175,14 @@
   </div>
 
   <ul class="hist-cards">
-    @for (l of pagLitros.paginaItems; track l.productoId) {
-      <li>
-        <p class="item-motivo">{{ l.productoNombre }}</p>
+    @for (l of pagLitros.paginaItems; track l.productoId; let idx = $index) {
+      <li [style.--i]="idx">
+        <p class="item-motivo">
+          {{ l.productoNombre }}
+          @if (l.extra) {
+            <span class="item-tag">extra</span>
+          }
+        </p>
         <div class="item-meta">
           <span>Litros</span>
           <span class="item-tag">Stock {{ l.stockActual | number: '1.0-2' }}</span>
@@ -416,7 +261,12 @@
       <tbody>
         @for (l of pagPiezas.paginaItems; track l.productoId) {
           <tr [class.warn]="l.faltanteAnterior > 0">
-            <td>{{ l.productoNombre }}</td>
+            <td>
+              {{ l.productoNombre }}
+              @if (l.extra) {
+                <span class="item-tag">extra</span>
+              }
+            </td>
             <td class="money">{{ l.stockActual | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoBase | number: '1.0-2' }}</td>
@@ -448,9 +298,14 @@
   </div>
 
   <ul class="hist-cards">
-    @for (l of pagPiezas.paginaItems; track l.productoId) {
-      <li>
-        <p class="item-motivo">{{ l.productoNombre }}</p>
+    @for (l of pagPiezas.paginaItems; track l.productoId; let idx = $index) {
+      <li [style.--i]="idx">
+        <p class="item-motivo">
+          {{ l.productoNombre }}
+          @if (l.extra) {
+            <span class="item-tag">extra</span>
+          }
+        </p>
         <div class="item-meta">
           <span>Pieza</span>
           <span class="item-tag">Stock {{ l.stockActual | number: '1.0-2' }}</span>
@@ -504,3 +359,419 @@
   />
 </section>
 }
+
+<section class="panel lista-grupo">
+  <h3 class="panel-titulo">Pedidos registrados</h3>
+
+  @if (deudaTotal > 0.009) {
+    <p class="deuda-banner" role="status">
+      <strong>Le debemos al proveedor ${{ deudaTotal | number: '1.2-2' }}</strong>
+      @if (proximoPago) {
+        <span class="muted"> · pagar antes del {{ proximoPago | fechaDmY }}</span>
+      }
+    </p>
+  }
+
+  @if (pedidosAbiertos.length === 0 && pedidosCerrados.length === 0) {
+    <p class="muted">Aún no hay pedidos registrados.</p>
+  }
+
+  <ul class="pedidos-lista">
+    @for (p of pedidosAbiertos; track p.id) {
+      <li class="pedido-card" [class.parcial]="p.estado === 'PARCIAL'">
+        <button type="button" class="pedido-cab" (click)="togglePedido(p.id)">
+          <span>
+            #{{ p.id }} · {{ p.fecha | fechaDmY }}
+            <span class="item-tag">{{ etiquetaEstado(p.estado) }}</span>
+          </span>
+          <span class="muted cab-estado">
+            <span [class.warn-txt]="p.itemsConFalta > 0">
+              @if (p.itemsConFalta > 0) {
+                {{ p.itemsConFalta }} por llegar
+              } @else {
+                Llegó todo
+              }
+            </span>
+            <span> · </span>
+            @if (saldoDe(p) > 0.009) {
+              <span class="deuda-tag">debe ${{ saldoDe(p) | number: '1.2-2' }}</span>
+            } @else if (num(p.totalProveedor) > 0.009) {
+              <span>pagado</span>
+            } @else if (tieneEntradas(p)) {
+              <span>sin importe</span>
+            } @else {
+              <span>sin surtir</span>
+            }
+            {{ pedidoExpandidoId === p.id ? ' ▾' : ' ▸' }}
+          </span>
+        </button>
+        @if (pedidoExpandidoId === p.id) {
+          <div class="pedido-detalle">
+            @if (p.estado !== 'CERRADO') {
+            <div class="alta-manual alta-en-pedido">
+              <p class="alta-manual-tit">Agregar producto a este pedido</p>
+              <div class="alta-manual-fila">
+                <label class="campo producto-campo">
+                  Producto
+                  <app-producto-autocomplete
+                    [productos]="productos"
+                    [productoId]="altaPedidoProductoId"
+                    [inputName]="'altaPed' + p.id"
+                    placeholder="Oferta o extra…"
+                    mostrarExtra="stock"
+                    [enterAvanza]="true"
+                    (productoIdChange)="altaPedidoProductoId = $event"
+                  />
+                </label>
+                <label class="campo">
+                  Pedir
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    appClearable
+                    [(ngModel)]="altaPedidoCantidad"
+                    [name]="'altaPedCant' + p.id"
+                    placeholder="0"
+                  />
+                </label>
+                <button type="button" class="secondary" (click)="agregarItemAPedido()">Agregar</button>
+              </div>
+            </div>
+            }
+
+            <div class="paso-bloque">
+              <p class="alta-manual-tit">1. ¿Llegó la mercancía?</p>
+            <div class="table-wrap hist-tabla">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th class="money">Pedido</th>
+                    <th class="money">Recibido</th>
+                    <th class="money">Importe $</th>
+                    <th class="money">Unitario</th>
+                    <th class="money">Falta</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (g of recibosPorDepto; track g.titulo) {
+                    <tr class="depto-sep">
+                      <td colspan="7">{{ g.titulo }}</td>
+                    </tr>
+                    @for (r of g.items; track r.itemId) {
+                    <tr [class.warn]="faltaDe(r) > 0.001">
+                      <td>
+                        {{ r.productoNombre }}
+                        <span class="muted unidad">{{ r.unidad }}</span>
+                      </td>
+                      <td class="money">{{ r.pedida | number: '1.0-2' }}</td>
+                      <td class="money col-pedir">
+                        @if (p.estado !== 'CERRADO') {
+                          <input
+                            type="text"
+                            inputmode="decimal"
+                            appClearable
+                            [(ngModel)]="r.recibida"
+                            [name]="'rec' + r.itemId"
+                          />
+                        } @else {
+                          {{ r.recibida | number: '1.0-2' }}
+                        }
+                      </td>
+                      <td class="money col-pedir">
+                        @if (p.estado !== 'CERRADO') {
+                          <input
+                            type="text"
+                            inputmode="decimal"
+                            appClearable
+                            [(ngModel)]="r.totalPagado"
+                            [name]="'tot' + r.itemId"
+                            placeholder="$"
+                          />
+                        } @else {
+                          @if (r.totalPagado != null) {
+                            ${{ r.totalPagado | number: '1.2-2' }}
+                          } @else {
+                            —
+                          }
+                        }
+                      </td>
+                      <td class="money">
+                        @if (unitarioRecibo(r) != null) {
+                          ${{ unitarioRecibo(r) | number: '1.2-2' }}
+                        } @else {
+                          <span class="muted">—</span>
+                        }
+                      </td>
+                      <td class="money">{{ faltaDe(r) | number: '1.0-2' }}</td>
+                      <td class="actions">
+                        @if (p.estado !== 'CERRADO' && r.recibidaInicial <= 0) {
+                          <button type="button" class="danger" title="Quitar" (click)="quitarItemPedido(r)">×</button>
+                        }
+                      </td>
+                    </tr>
+                    }
+                  }
+                </tbody>
+              </table>
+            </div>
+            <ul class="hist-cards pedido-recibos">
+              @for (g of recibosPorDepto; track g.titulo) {
+                <li class="depto-sep-card">{{ g.titulo }}</li>
+                @for (r of g.items; track r.itemId) {
+                <li [class.warn]="faltaDe(r) > 0.001">
+                  <p class="item-motivo">
+                    {{ r.productoNombre }}
+                    <span class="muted unidad">{{ r.unidad }}</span>
+                  </p>
+                  <dl class="card-cols">
+                    <div>
+                      <dt>Pedido</dt>
+                      <dd>{{ r.pedida | number: '1.0-2' }}</dd>
+                    </div>
+                    <div>
+                      <dt>Falta</dt>
+                      <dd>{{ faltaDe(r) | number: '1.0-2' }}</dd>
+                    </div>
+                    <div>
+                      <dt>Unitario</dt>
+                      <dd>
+                        @if (unitarioRecibo(r) != null) {
+                          ${{ unitarioRecibo(r) | number: '1.2-2' }}
+                        } @else {
+                          —
+                        }
+                      </dd>
+                    </div>
+                  </dl>
+                  @if (p.estado !== 'CERRADO') {
+                  <div class="item-fila pedir-movil">
+                    <label>
+                      Recibido
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        appClearable
+                        [(ngModel)]="r.recibida"
+                        [name]="'recM' + r.itemId"
+                      />
+                    </label>
+                    <label>
+                      Importe $
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        appClearable
+                        [(ngModel)]="r.totalPagado"
+                        [name]="'totM' + r.itemId"
+                        placeholder="$"
+                      />
+                    </label>
+                    @if (r.recibidaInicial <= 0) {
+                      <button type="button" class="danger" title="Quitar" (click)="quitarItemPedido(r)">×</button>
+                    }
+                  </div>
+                  }
+                </li>
+                }
+              }
+            </ul>
+
+            @if (p.estado !== 'CERRADO') {
+            <div class="acciones-pedido acciones-mercancia">
+              <button type="button" (click)="guardarRecepcion()" [disabled]="guardandoRecepcion">
+                {{ guardandoRecepcion ? 'Guardando…' : 'Guardar lo recibido' }}
+              </button>
+              <button type="button" class="secondary" (click)="marcarTodoRecibido()">
+                Todo llegó
+              </button>
+            </div>
+            }
+            </div>
+
+            @if (mostrarPago(p)) {
+            <div class="paso-bloque pago-proveedor abonos-box">
+              <p class="alta-manual-tit">2. ¿Ya le pagaste al proveedor?</p>
+              <p class="muted hint-inline">
+                @if (saldoDe(p) > 0.009) {
+                  Todavía debe <strong>${{ saldoDe(p) | number: '1.2-2' }}</strong>
+                  @if (p.fechaLimitePago) {
+                    (pagar antes del {{ p.fechaLimitePago | fechaDmY }})
+                  } @else {
+                    — aún sin pago ni fecha de crédito
+                  }.
+                } @else if (num(p.totalProveedor) > 0) {
+                  Este pedido ya está saldado.
+                } @else {
+                  Primero guarda lo recibido (paso 1) para ver el importe.
+                }
+                Disponible en <strong>Productos</strong>:
+                ${{ saldoProductos | number: '1.2-2' }}.
+                @if (num(abonoNuevo.monto) > 0) {
+                  @if (alcanzaAbonoNuevo()) {
+                    <span class="ok-inline">Te alcanza.</span>
+                  } @else {
+                    <span class="warn-inline">No te alcanza.</span>
+                  }
+                }
+              </p>
+              <dl class="card-cols pago-resumen">
+                <div>
+                  <dt>Importe mercancía</dt>
+                  <dd>${{ p.totalProveedor | number: '1.2-2' }}</dd>
+                </div>
+                <div>
+                  <dt>Ya pagado</dt>
+                  <dd>${{ p.totalPagado | number: '1.2-2' }}</dd>
+                </div>
+                <div>
+                  <dt>Falta pagar</dt>
+                  <dd [class.deuda-num]="saldoDe(p) > 0.009">${{ saldoDe(p) | number: '1.2-2' }}</dd>
+                </div>
+              </dl>
+              @if ((p.abonos || []).length === 0) {
+                <p class="muted">Aún no hay pagos registrados.</p>
+              }
+              <ul class="abonos-lista">
+                @for (a of p.abonos || []; track a.id) {
+                  <li>
+                    @if (editandoAbonoId === a.id) {
+                      <div class="alta-manual-fila">
+                        <label class="campo">
+                          Fecha
+                          <input type="date" [(ngModel)]="editAbono.fecha" [name]="'abF' + a.id" />
+                        </label>
+                        <label class="campo">
+                          Monto
+                          <input type="text" inputmode="decimal" appClearable [(ngModel)]="editAbono.monto" [name]="'abM' + a.id" />
+                        </label>
+                        <label class="campo">
+                          Nota
+                          <input type="text" [(ngModel)]="editAbono.nota" [name]="'abN' + a.id" />
+                        </label>
+                        <button type="button" (click)="guardarAbonoEditado()" [disabled]="guardandoAbono">Guardar</button>
+                        <button type="button" class="secondary" (click)="cancelarEditarAbono()">Cancelar</button>
+                      </div>
+                    } @else {
+                      <span>{{ a.fecha | fechaDmY }} · ${{ a.monto | number: '1.2-2' }}</span>
+                      @if (a.nota) {
+                        <span class="muted"> {{ a.nota }}</span>
+                      }
+                      <span class="abono-acc">
+                        <button type="button" class="icon-btn" title="Editar" (click)="empezarEditarAbono(a)">✎</button>
+                        <button type="button" class="danger" title="Eliminar" (click)="eliminarAbono(a)">×</button>
+                      </span>
+                    }
+                  </li>
+                }
+              </ul>
+              <div class="alta-manual-fila">
+                <label class="campo">
+                  Fecha
+                  <input type="date" [(ngModel)]="abonoNuevo.fecha" [name]="'abonoF' + p.id" />
+                </label>
+                <label class="campo">
+                  Pagas
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    appClearable
+                    [(ngModel)]="abonoNuevo.monto"
+                    [name]="'abonoM' + p.id"
+                    placeholder="$"
+                    [class.input-warn]="!alcanzaAbonoNuevo() && num(abonoNuevo.monto) > 0"
+                  />
+                </label>
+                <label class="campo">
+                  Pagar antes del
+                  <input type="date" [(ngModel)]="fechaLimitePago" [name]="'limite' + p.id" (change)="guardarFechaLimite(p)" />
+                </label>
+                <label class="campo">
+                  Nota
+                  <input type="text" [(ngModel)]="abonoNuevo.nota" [name]="'abonoN' + p.id" placeholder="opcional" />
+                </label>
+                <button type="button" (click)="registrarAbono()" [disabled]="guardandoAbono || saldoDe(p) <= 0.009">
+                  Registrar pago
+                </button>
+                @if (saldoDe(p) > 0.009) {
+                  <button type="button" class="secondary" (click)="pagarTodoLoQueFalta(p)">Pagar todo</button>
+                }
+              </div>
+            </div>
+            }
+
+            <div class="acciones-pedido">
+              @if (!tieneEntradas(p)) {
+                <button type="button" class="danger" (click)="cancelarPedido(p)">Cancelar pedido</button>
+              } @else if (puedeEliminarPedido(p)) {
+                <button type="button" class="danger" (click)="eliminarPedido(p)">Eliminar pedido</button>
+              } @else {
+                <p class="muted hint-inline">
+                  Mientras deba, el pedido se queda (así no pierdes los $ pendiente).
+                </p>
+              }
+              @if (p.estado !== 'CERRADO') {
+                <button type="button" class="secondary" (click)="cerrarPedido(p)">Cerrar pedido</button>
+              }
+            </div>
+          </div>
+        }
+      </li>
+    }
+  </ul>
+
+  @if (pedidosCerrados.length) {
+    <details class="pedidos-cerrados">
+      <summary class="muted">Últimos cerrados ({{ pedidosCerrados.length }})</summary>
+      <ul class="pedidos-lista">
+        @for (p of pedidosCerrados; track p.id) {
+          <li class="pedido-card cerrado">
+            <button type="button" class="pedido-cab" (click)="togglePedido(p.id)">
+              <span>#{{ p.id }} · {{ p.fecha | fechaDmY }} · cerrado</span>
+              <span class="muted">{{ pedidoExpandidoId === p.id ? '▾' : '▸' }}</span>
+            </button>
+            @if (pedidoExpandidoId === p.id) {
+              <div class="pedido-detalle">
+                <div class="table-wrap hist-tabla">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th class="money">Pedido</th>
+                        <th class="money">Recibido</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (i of p.items; track i.id) {
+                        <tr>
+                          <td>{{ i.productoNombre }}</td>
+                          <td class="money">{{ i.cantidadPedida | number: '1.0-2' }}</td>
+                          <td class="money">{{ i.cantidadRecibida | number: '1.0-2' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <ul class="hist-cards">
+                  @for (i of p.items; track i.id) {
+                    <li>
+                      <p class="item-motivo">{{ i.productoNombre }}</p>
+                      <div class="item-meta">
+                        <span>Ped {{ i.cantidadPedida | number: '1.0-2' }}</span>
+                        <span>Rec {{ i.cantidadRecibida | number: '1.0-2' }}</span>
+                      </div>
+                    </li>
+                  }
+                </ul>
+                @if (puedeEliminarPedido(p)) {
+                  <button type="button" class="danger" (click)="eliminarPedido(p)">Eliminar pedido</button>
+                }
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    </details>
+  }
+</section>

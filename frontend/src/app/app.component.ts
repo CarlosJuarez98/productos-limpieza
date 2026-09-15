@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, Subscription } from 'rxjs';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
@@ -7,12 +8,26 @@ import { AuthService } from './auth.service';
 import { OfflineService } from './offline.service';
 import { ApiService } from './api.service';
 
-type NavLink = { path: string; label: string; short?: string };
+type NavIcon =
+  | 'ventas'
+  | 'inventario'
+  | 'entradas'
+  | 'surtir'
+  | 'traspasos'
+  | 'caja'
+  | 'apartados'
+  | 'inversion'
+  | 'precios'
+  | 'uso-casa'
+  | 'lista'
+  | 'menu';
+
+type NavLink = { path: string; label: string; short?: string; icon: NavIcon };
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ConfirmDialogComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ConfirmDialogComponent, NgTemplateOutlet],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -22,35 +37,35 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   /** Escritorio: todas las secciones. */
   readonly links: NavLink[] = [
-    { path: '/ventas', label: 'Ventas' },
-    { path: '/inventario', label: 'Inventario' },
-    { path: '/entradas', label: 'Entrada de proveedor', short: 'Entradas' },
-    { path: '/surtir', label: 'Surtir' },
-    { path: '/traspasos', label: 'Traspasos' },
-    { path: '/caja', label: 'Caja' },
-    { path: '/apartados', label: 'Apartados' },
-    { path: '/inversion', label: 'Inversión' },
-    { path: '/precios', label: 'Histórico precios', short: 'Precios' },
-    { path: '/uso-casa', label: 'Uso en casa', short: 'Uso casa' },
-    { path: '/lista-precios', label: 'Lista precios', short: 'Lista' },
+    { path: '/ventas', label: 'Ventas', icon: 'ventas' },
+    { path: '/inventario', label: 'Inventario', icon: 'inventario' },
+    { path: '/entradas', label: 'Entrada de proveedor', short: 'Entradas', icon: 'entradas' },
+    { path: '/surtir', label: 'Surtir', icon: 'surtir' },
+    { path: '/traspasos', label: 'Traspasos', icon: 'traspasos' },
+    { path: '/caja', label: 'Caja', icon: 'caja' },
+    { path: '/apartados', label: 'Apartados', icon: 'apartados' },
+    { path: '/inversion', label: 'Inversión', icon: 'inversion' },
+    { path: '/precios', label: 'Histórico precios', short: 'Precios', icon: 'precios' },
+    { path: '/uso-casa', label: 'Uso en casa', short: 'Uso casa', icon: 'uso-casa' },
+    { path: '/lista-precios', label: 'Lista precios', short: 'Lista', icon: 'lista' },
   ];
 
   /** Móvil: barra inferior (operación diaria). */
   readonly bottomLinks: NavLink[] = [
-    { path: '/ventas', label: 'Ventas' },
-    { path: '/inventario', label: 'Inventario' },
-    { path: '/entradas', label: 'Entradas' },
-    { path: '/caja', label: 'Caja' },
+    { path: '/ventas', label: 'Ventas', icon: 'ventas' },
+    { path: '/inventario', label: 'Inventario', icon: 'inventario' },
+    { path: '/entradas', label: 'Entradas', icon: 'entradas' },
+    { path: '/caja', label: 'Caja', icon: 'caja' },
   ];
 
   readonly moreLinks: NavLink[] = [
-    { path: '/surtir', label: 'Surtir / Pedido' },
-    { path: '/traspasos', label: 'Traspasos' },
-    { path: '/apartados', label: 'Apartados' },
-    { path: '/inversion', label: 'Inversión' },
-    { path: '/precios', label: 'Histórico precios' },
-    { path: '/uso-casa', label: 'Uso en casa' },
-    { path: '/lista-precios', label: 'Lista precios' },
+    { path: '/surtir', label: 'Surtir / Pedido', icon: 'surtir' },
+    { path: '/traspasos', label: 'Traspasos', icon: 'traspasos' },
+    { path: '/apartados', label: 'Apartados', icon: 'apartados' },
+    { path: '/inversion', label: 'Inversión', icon: 'inversion' },
+    { path: '/precios', label: 'Histórico precios', icon: 'precios' },
+    { path: '/uso-casa', label: 'Uso en casa', icon: 'uso-casa' },
+    { path: '/lista-precios', label: 'Lista precios', icon: 'lista' },
   ];
 
   masAbierto = false;
@@ -75,8 +90,19 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private authSub?: Subscription;
   private offlineSubs: Subscription[] = [];
   private lastRenew = 0;
-  private readonly renewMs = 90_000;
+  /** Renueva en servidor como máximo cada 25 s si hay movimiento. */
+  private readonly renewMs = 25_000;
   private onActividad = (): void => this.renovarSiHayActividad();
+  private onVisibility = (): void => {
+    if (document.visibilityState === 'visible') {
+      this.lastRenew = 0;
+      this.renovarSiHayActividad();
+    }
+  };
+
+  get sesionActiva(): boolean {
+    return !!this.usuarioActual;
+  }
 
   get pullVisible(): boolean {
     return this.pullDistancia > 8;
@@ -84,6 +110,13 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   get masActivo(): boolean {
     return this.moreLinks.some((l) => this.router.url.startsWith(l.path));
+  }
+
+  private irALogin(): void {
+    this.esLogin = true;
+    const path = (this.router.url || '').split('?')[0];
+    if (path === '/login' || path.startsWith('/login/')) return;
+    void this.router.navigateByUrl('/login');
   }
 
   constructor(
@@ -96,13 +129,31 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.actualizarEsLogin(this.router.url);
     this.usuarioActual = this.auth.usuario;
     this.enLinea = this.offline.online;
+    // Suscribir ya en constructor: si /me responde antes de AfterViewInit, no perdemos el evento.
+    this.routerSub = this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => {
+        this.masAbierto = false;
+        this.actualizarEsLogin(e.urlAfterRedirects || e.url);
+        this.scrollActiveNavIntoView();
+      });
     this.authSub = this.auth.authChanges$.subscribe((m) => {
       this.usuarioActual = m?.authenticated
         ? m.displayName || m.username || null
         : null;
       if (m?.authenticated) {
+        this.esLogin = false;
         this.prefetchParaOffline();
         if (this.offline.online) void this.offline.flush();
+      } else if (m && !m.authenticated) {
+        this.masAbierto = false;
+        this.esLogin = true;
+        // Los guards redirigen; aquí solo evitamos el blank “Cargando…” 
+        // y no lanzamos otra navegación que cancele /login.
+        const path = (this.router.url || '').split('?')[0];
+        if (path !== '/login' && !path.startsWith('/login/')) {
+          void this.router.navigateByUrl('/login');
+        }
       }
     });
     this.offlineSubs.push(
@@ -124,8 +175,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         }
       })
     );
-    // Restaura sesión al recargar; los guards deciden si hay que ir a /login.
-    this.auth.me().subscribe();
+    // Valida sesión al cargar; los guards hacen el redirect.
+    this.auth.me({ force: true }).subscribe();
   }
 
   sincronizarAhora(): void {
@@ -163,16 +214,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     document.addEventListener('touchcancel', this.onTouchCancel, { passive: true, capture: true });
     document.addEventListener('pointerdown', this.onActividad, { capture: true, passive: true });
     document.addEventListener('keydown', this.onActividad, { capture: true, passive: true });
+    document.addEventListener('visibilitychange', this.onVisibility);
     this.mainEl?.addEventListener('scroll', this.onMainScroll, { passive: true });
 
     this.actualizarEsLogin(this.router.url);
-    this.routerSub = this.router.events
-      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe((e) => {
-        this.masAbierto = false;
-        this.actualizarEsLogin(e.urlAfterRedirects || e.url);
-        this.scrollActiveNavIntoView();
-      });
     queueMicrotask(() => this.scrollActiveNavIntoView());
   }
 
@@ -184,6 +229,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     document.removeEventListener('touchcancel', this.onTouchCancel, true);
     document.removeEventListener('pointerdown', this.onActividad, true);
     document.removeEventListener('keydown', this.onActividad, true);
+    document.removeEventListener('visibilitychange', this.onVisibility);
     this.mainEl?.removeEventListener('scroll', this.onMainScroll);
     this.routerSub?.unsubscribe();
     this.authSub?.unsubscribe();
@@ -320,7 +366,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     if (window.matchMedia('(pointer: coarse)').matches) return;
     if (!window.matchMedia('(hover: hover)').matches) return;
 
-    const main = this.mainEl;
+    const main = this.mainRef?.nativeElement ?? this.mainEl;
     if (!main || e.ctrlKey) return;
 
     const target = e.target;
@@ -337,23 +383,26 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       const scrollsY = oy === 'auto' || oy === 'scroll' || oy === 'overlay';
       const canY = scrollsY && nested.scrollHeight > nested.clientHeight + 1;
       if (!canY) {
-        e.preventDefault();
+        const prev = main.scrollTop;
         main.scrollTop += e.deltaY;
+        if (main.scrollTop !== prev) e.preventDefault();
         return;
       }
 
       const atTop = nested.scrollTop <= 0;
       const atBottom = nested.scrollTop + nested.clientHeight >= nested.scrollHeight - 1;
       if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
-        e.preventDefault();
+        const prev = main.scrollTop;
         main.scrollTop += e.deltaY;
+        if (main.scrollTop !== prev) e.preventDefault();
       }
       return;
     }
 
     if (!main.contains(target)) {
-      e.preventDefault();
+      const prev = main.scrollTop;
       main.scrollTop += e.deltaY;
+      if (main.scrollTop !== prev) e.preventDefault();
     }
   };
 }

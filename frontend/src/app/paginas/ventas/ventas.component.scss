@@ -264,6 +264,8 @@
   flex-wrap: wrap;
   gap: 0.35rem;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .modo-chip {
@@ -314,6 +316,12 @@
   font-size: 1.05rem;
   line-height: 1;
   box-shadow: none;
+}
+
+:host button.tarjeta-btn svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: block;
 }
 
 :host button.tarjeta-btn.activo {
@@ -416,9 +424,13 @@
 
 .pago-marca.tarjeta {
   color: #1c4e7a;
-  background: #e8f0f7;
-  font-size: 0.95rem;
-  font-weight: 400;
+  background: #e8f0fa;
+}
+
+.pago-marca.tarjeta svg {
+  width: 1rem;
+  height: 1rem;
+  display: block;
 }
 
 .pago-marca.sin-cobro {
@@ -583,49 +595,51 @@ td.fecha-naranja {
 
 @media (max-width: 767px) {
   .ventas-fijo {
-    position: sticky;
-    top: 0;
-    z-index: 16;
-    margin: -0.7rem -1rem 0.75rem;
-    padding: 0.7rem 1rem 0.65rem;
-    background: var(--bg);
-    isolation: isolate;
+    position: static;
+    z-index: auto;
+    margin: 0 0 0.45rem;
+    padding: 0;
+    background: transparent;
+    isolation: auto;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .ventas-fijo::before {
-    display: block;
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 100%;
-    height: 50vh;
-    background: var(--bg);
-    pointer-events: none;
+    display: none;
+  }
+
+  .ventas-fijo .page-title {
+    margin-bottom: 0.3rem;
   }
 
   .captura-panel {
     display: flex;
     flex-direction: column;
     max-height: none;
+    padding-bottom: 0.35rem;
   }
 
   .ventas-fijo .captura-head {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.45rem;
   }
 
   .totales-rapidos {
     width: 100%;
+    gap: 0.4rem;
   }
 
   .tot-chip {
     flex: 1;
     min-width: 0;
+    padding: 0.35rem 0.55rem;
   }
 
   .tot-chip strong {
-    font-size: 1.35rem;
+    font-size: 1.15rem;
   }
 
   .linea-grid {
@@ -641,7 +655,7 @@ td.fecha-naranja {
   }
 
   .modo-chip {
-    padding: 0.4rem 0.65rem;
+    padding: 0.35rem 0.55rem;
   }
 
   .historial-toolbar {
@@ -659,19 +673,27 @@ td.fecha-naranja {
   }
 
   .linea-card {
-    padding: 0.55rem 0.65rem;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .corte-aviso {
+    padding: 0.4rem 0.55rem;
+    margin-bottom: 0.45rem;
   }
 }
 
 @media (max-width: 1024px) and (orientation: landscape) {
   .ventas-fijo {
-    position: sticky;
-    top: 0;
-    z-index: 16;
-    margin: -0.7rem -1rem 0.75rem;
-    padding: 0.7rem 1rem 0.65rem;
-    background: var(--bg);
-    isolation: isolate;
+    position: static;
+    z-index: auto;
+    margin: 0 0 0.65rem;
+    padding: 0;
+    background: transparent;
+    isolation: auto;
+  }
+
+  .ventas-fijo::before {
+    display: none;
   }
 
   .ventas-fijo::before {
@@ -718,6 +740,102 @@ td.fecha-naranja {
 @media (max-width: 767px) {
   :host .captura-actions .btn-guardar-filas,
   :host .captura-actions .btn-cancelar-ticket {
-    min-height: 2.85rem;
+    min-height: 3rem;
+    width: 100%;
+    flex: none;
+  }
+
+  :host .captura-actions.cta-bar-mobile {
+    display: grid;
+  }
+}
+
+/* Mobile polish — soft cards, segmented hist filter, staggered lines */
+@media (max-width: 767px) {
+  .captura-resumen {
+    border-radius: 1.05rem;
+    padding: 0.55rem 0.7rem;
+  }
+
+  .totales-rapidos {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .tot-chip {
+    border-radius: 0.9rem;
+    padding: 0.35rem 0.55rem;
+    box-shadow: 0 6px 14px rgba(22, 40, 33, 0.04);
+  }
+
+  .tot-chip strong {
+    font-family: Fraunces, Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+
+  .ticket {
+    gap: 0.7rem;
+  }
+
+  .linea-card.ui-card,
+  .linea-card {
+    border-radius: 1.05rem;
+    border: 1px solid color-mix(in srgb, var(--line) 75%, #fff);
+    background:
+      linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 40%, #fff) 100%);
+    box-shadow: 0 8px 20px rgba(22, 40, 33, 0.045);
+    animation: fade-up 0.38s ease both;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+
+  .historial-toolbar .filtro-chips.seg-control {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .historial-toolbar .filtro-chips.seg-control .modo-chip {
+    width: 100%;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .historial-toolbar .filtro-chips.seg-control .modo-chip.activo {
+    background: #fff;
+    color: var(--accent);
+    box-shadow: 0 4px 12px rgba(22, 40, 33, 0.08);
+  }
+
+  .captura-actions.cta-bar-mobile {
+    display: grid;
+  }
+
+  .modo-chips {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 0.3rem;
+  }
+
+  .modo-chips .modo-chip {
+    flex: 0 1 auto;
+    padding: 0.32rem 0.55rem;
+    font-size: 0.78rem;
+    min-height: 2rem;
+  }
+
+  .linea-top {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .linea-card {
+    animation: none !important;
   }
 }

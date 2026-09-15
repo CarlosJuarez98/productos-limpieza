@@ -5,33 +5,37 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { inferirDepartamento, PedidoLinea, PedidoRegistrado, PedidoSugerido } from '../../modelos';
+import { inferirDepartamento, InventarioItem, PedidoAbono, PedidoLinea, PedidoRegistrado, PedidoSugerido } from '../../modelos';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { AutoHideDirective } from '../../auto-hide.directive';
+import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 
-type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean };
+type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean; extra?: boolean };
 type ModoPeriodo = '4_semanas' | 'mes_pasado' | 'mes_actual' | 'custom';
 type GrupoPedido = 'LIMPIEZA' | 'JARCERIA';
 type FiltroDepto = 'todo' | 'limpieza' | 'jarceria';
 type ReciboEdit = {
   itemId: number;
+  productoId: number;
   productoNombre: string;
   pedida: number;
+  recibidaInicial: number;
   recibida: number | null;
-  /** Total que cobró el proveedor por lo recibido (unitario = total ÷ recibido). */
+  /** Importe que cobra el proveedor por lo recibido (unitario = importe ÷ recibido). */
   totalPagado: number | null;
   /** Precio compra de catálogo (para sugerir total). */
   precioCompra: number | null;
   unidad: string;
+  departamento: GrupoPedido;
 };
 
 @Component({
   selector: 'app-surtir',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective],
+  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective, ProductoAutocompleteComponent],
   templateUrl: './surtir.component.html',
   styleUrl: './surtir.component.scss',
 })
@@ -53,6 +57,18 @@ export class SurtirComponent implements OnInit, OnDestroy {
   /** Edición de cantidades recibidas del pedido expandido. */
   recibosEdit: ReciboEdit[] = [];
   guardandoRecepcion = false;
+  productos: InventarioItem[] = [];
+  saldoProductos = 0;
+  altaProductoId: number | null = null;
+  altaCantidad: number | null = null;
+  altaPedidoProductoId: number | null = null;
+  altaPedidoCantidad: number | null = null;
+  pagadoAhora: number | null = null;
+  fechaLimitePago = '';
+  abonoNuevo = { fecha: '', monto: null as number | null, nota: '' };
+  editandoAbonoId: number | null = null;
+  editAbono = { fecha: '', monto: null as number | null, nota: '' };
+  guardandoAbono = false;
   pagLitros = new PaginacionEstado<LineaEditable>(12);
   pagPiezas = new PaginacionEstado<LineaEditable>(12);
   private pullSub?: Subscription;
@@ -66,8 +82,12 @@ export class SurtirComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.aplicarModoPeriodo();
     this.cargarPedidos();
+    this.cargarSaldoProductos();
+    this.api.inventario().subscribe({ next: (p) => (this.productos = p), error: () => (this.productos = []) });
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => {
       this.cargarPedidos();
+      this.cargarSaldoProductos();
+      this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
     });
   }
 
@@ -82,12 +102,38 @@ export class SurtirComponent implements OnInit, OnDestroy {
     });
   }
 
+  cargarSaldoProductos(): void {
+    this.api.apartados().subscribe({
+      next: (r) => {
+        const t = r.totales || {};
+        this.saldoProductos = Number(t['PRODUCTOS'] ?? t['productos'] ?? 0) || 0;
+      },
+      error: () => (this.saldoProductos = 0),
+    });
+  }
+
   get pedidosAbiertos(): PedidoRegistrado[] {
-    return this.pedidos.filter((p) => p.estado !== 'CERRADO');
+    return this.pedidos.filter((p) => p.estado !== 'CERRADO' || this.saldoDe(p) > 0.009);
   }
 
   get pedidosCerrados(): PedidoRegistrado[] {
-    return this.pedidos.filter((p) => p.estado === 'CERRADO').slice(0, 5);
+    return this.pedidos.filter((p) => p.estado === 'CERRADO' && this.saldoDe(p) <= 0.009).slice(0, 5);
+  }
+
+  saldoDe(p: PedidoRegistrado): number {
+    return Number(p.saldoProveedor) || 0;
+  }
+
+  get deudaTotal(): number {
+    return this.pedidos.reduce((s, p) => s + this.saldoDe(p), 0);
+  }
+
+  get proximoPago(): string | null {
+    const fechas = this.pedidos
+      .filter((p) => this.saldoDe(p) > 0.009 && p.fechaLimitePago)
+      .map((p) => p.fechaLimitePago as string)
+      .sort();
+    return fechas[0] || null;
   }
 
   hoyLocal(): string {
@@ -128,7 +174,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   textoVacioGrupo(grupo: 'limpieza' | 'jarceria'): string {
     if (this.cargando) return 'Calculando…';
-    if (!this.ultimo) return 'Pulsa «Levantar pedido» para ver qué pedir.';
+    const hayManual = this.lineas.some((l) => l.incluido && Number(l.pedir) > 0);
+    if (!this.ultimo && !hayManual) return 'Pulsa «Levantar pedido» o agrega un producto a mano.';
     return grupo === 'limpieza' ? 'Nada que pedir de limpieza.' : 'Nada que pedir de jarcería.';
   }
 
@@ -240,6 +287,64 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.syncPag();
   }
 
+  productoPorId(id: number | null | undefined): InventarioItem | undefined {
+    if (id == null) return undefined;
+    return this.productos.find((x) => x.id === id);
+  }
+
+  agregarManual(): void {
+    this.error = '';
+    const p = this.productoPorId(this.altaProductoId);
+    const cant = Math.ceil(Number(this.altaCantidad) || 0);
+    if (!p) {
+      this.error = 'Elige un producto del inventario';
+      return;
+    }
+    if (cant <= 0) {
+      this.error = 'Indica cuánto pedir';
+      return;
+    }
+    const depto = inferirDepartamento(p.vendePor, p.nombre, p.departamento);
+    const ya = this.lineas.find((l) => l.productoId === p.id);
+    if (ya) {
+      ya.incluido = true;
+      ya.pedir = Math.ceil(Number(ya.pedir) || 0) + cant;
+      ya.extra = true;
+      ya.departamento = depto;
+      ya.vendePor = p.vendePor;
+      ya.vendePorLabel = p.vendePorLabel;
+      ya.productoNombre = p.nombre;
+    } else {
+      this.lineas = [
+        ...this.lineas,
+        {
+          productoId: p.id,
+          productoNombre: p.nombre,
+          vendePor: p.vendePor,
+          vendePorLabel: p.vendePorLabel,
+          stockActual: Number(p.stockActual) || 0,
+          consumoObservado: 0,
+          consumoBase: 0,
+          consumoConColchon: 0,
+          faltanteAnterior: 0,
+          sugerido: cant,
+          departamento: depto,
+          pedir: cant,
+          incluido: true,
+          extra: true,
+        },
+      ];
+    }
+    this.altaProductoId = null;
+    this.altaCantidad = null;
+    // Mostrar la lista del departamento del producto agregado.
+    if (this.filtroDepto === 'limpieza' && depto === 'JARCERIA') this.filtroDepto = 'jarceria';
+    else if (this.filtroDepto === 'jarceria' && depto === 'LIMPIEZA') this.filtroDepto = 'limpieza';
+    this.syncPag(true);
+    const donde = depto === 'JARCERIA' ? 'Jarcería' : 'Limpieza';
+    this.ok = `Agregado en ${donde}: ${p.nombre}`;
+  }
+
   setFiltroDepto(v: FiltroDepto): void {
     this.filtroDepto = v;
   }
@@ -324,7 +429,16 @@ export class SurtirComponent implements OnInit, OnDestroy {
       return;
     }
     this.pedidoExpandidoId = id;
-    const p = this.pedidos.find((x) => x.id === id);
+    this.armarDetalle(this.pedidos.find((x) => x.id === id));
+  }
+
+  private armarDetalle(p: PedidoRegistrado | undefined): void {
+    this.fechaLimitePago = p?.fechaLimitePago || '';
+    this.pagadoAhora = null;
+    this.altaPedidoProductoId = null;
+    this.altaPedidoCantidad = null;
+    this.abonoNuevo = { fecha: this.hoyLocal(), monto: null, nota: '' };
+    this.editandoAbonoId = null;
     this.recibosEdit = (p?.items || []).map((i) => {
       const recibida = Number(i.cantidadRecibida);
       const compra =
@@ -332,16 +446,39 @@ export class SurtirComponent implements OnInit, OnDestroy {
           ? Number(i.precioCompra)
           : null;
       const cantParaTotal = recibida > 0 ? recibida : 1;
+      const prod = this.productoPorId(i.productoId);
       return {
         itemId: i.id,
+        productoId: i.productoId,
         productoNombre: i.productoNombre,
         pedida: Number(i.cantidadPedida),
+        recibidaInicial: recibida,
         recibida,
         precioCompra: compra,
         totalPagado: compra != null ? Math.round(compra * cantParaTotal * 100) / 100 : null,
         unidad: i.vendePor === 'PIEZA' ? 'pza' : 'L',
+        departamento: inferirDepartamento(
+          i.vendePor || prod?.vendePor,
+          i.productoNombre,
+          prod?.departamento
+        ),
       };
     });
+  }
+
+  get recibosLimpieza(): ReciboEdit[] {
+    return this.recibosEdit.filter((r) => r.departamento === 'LIMPIEZA');
+  }
+
+  get recibosJarceria(): ReciboEdit[] {
+    return this.recibosEdit.filter((r) => r.departamento === 'JARCERIA');
+  }
+
+  get recibosPorDepto(): { titulo: string; items: ReciboEdit[] }[] {
+    return [
+      { titulo: 'Limpieza', items: this.recibosLimpieza },
+      { titulo: 'Jarcería', items: this.recibosJarceria },
+    ].filter((g) => g.items.length > 0);
   }
 
   marcarTodoRecibido(): void {
@@ -370,7 +507,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
       if (rec <= 0) continue;
       const u = this.unitarioRecibo(r);
       if (u == null || u < 0) {
-        this.error = `Indica el total pagado al proveedor para «${r.productoNombre}».`;
+        this.error = `Indica el importe del proveedor para «${r.productoNombre}».`;
         return;
       }
     }
@@ -384,20 +521,22 @@ export class SurtirComponent implements OnInit, OnDestroy {
     });
     this.guardandoRecepcion = true;
     this.error = '';
-    this.api.registrarRecepcionPedido(this.pedidoExpandidoId, lineas).subscribe({
-      next: () => {
-        this.guardandoRecepcion = false;
-        this.ok = 'Surtido registrado. Lo que faltó se tomará en el siguiente pedido.';
-        this.pedidoExpandidoId = null;
-        this.recibosEdit = [];
-        this.cargarPedidos();
-        this.vaciarSugerido();
-      },
-      error: (e) => {
-        this.guardandoRecepcion = false;
-        this.error = e.error?.error || 'No se pudo guardar el surtido';
-      },
-    });
+    this.api
+      .registrarRecepcionPedido(this.pedidoExpandidoId, { lineas })
+      .subscribe({
+        next: (act) => {
+          this.guardandoRecepcion = false;
+          this.ok = 'Mercancía guardada. Ahora revisa el pago abajo.';
+          this.reemplazarPedido(act, true);
+          this.cargarPedidos();
+          this.cargarSaldoProductos();
+          this.vaciarSugerido();
+        },
+        error: (e) => {
+          this.guardandoRecepcion = false;
+          this.error = e.error?.error || 'No se pudo guardar el surtido';
+        },
+      });
   }
 
   faltaDe(r: ReciboEdit): number {
@@ -418,7 +557,30 @@ export class SurtirComponent implements OnInit, OnDestroy {
     });
   }
 
+  async cancelarPedido(p: PedidoRegistrado): Promise<void> {
+    const ok = await this.confirmDlg.ask(
+      `¿Cancelar pedido #${p.id}?\nNo se registra mercancía ni stock. Se borra el pedido.`,
+      { confirmarTexto: 'Cancelar pedido' }
+    );
+    if (!ok) return;
+    this.api.cancelarPedido(p.id).subscribe({
+      next: () => {
+        this.ok = 'Pedido cancelado';
+        this.pedidoExpandidoId = null;
+        this.recibosEdit = [];
+        this.cargarPedidos();
+        this.cargarSaldoProductos();
+      },
+      error: (e) => (this.error = e.error?.error || 'No se pudo cancelar'),
+    });
+  }
+
   async eliminarPedido(p: PedidoRegistrado): Promise<void> {
+    if (!this.puedeEliminarPedido(p)) {
+      this.error =
+        'Todavía hay saldo en este pedido. Sáldalo primero; si lo borras pierdes el control de lo que debes.';
+      return;
+    }
     const ok = await this.confirmDlg.ask(
       `¿Eliminar pedido #${p.id}?\nLas entradas y el stock se quedan; solo se borra el pedido.`,
       { confirmarTexto: 'Eliminar' }
@@ -426,16 +588,267 @@ export class SurtirComponent implements OnInit, OnDestroy {
     if (!ok) return;
     this.api.eliminarPedido(p.id).subscribe({
       next: () => {
-        this.ok = 'Pedido eliminado';
+        this.ok = 'Pedido eliminado (el stock se queda)';
+        this.pedidoExpandidoId = null;
+        this.recibosEdit = [];
         this.cargarPedidos();
+        this.cargarSaldoProductos();
       },
       error: (e) => (this.error = e.error?.error || 'No se pudo eliminar'),
     });
+  }
+
+  /** Con mercancía: solo si ya no debes nada (el pedido ya no guarda deuda). */
+  puedeEliminarPedido(p: PedidoRegistrado): boolean {
+    if (!this.tieneEntradas(p)) return false;
+    return this.saldoDe(p) <= 0.009;
+  }
+
+  tieneEntradas(p: PedidoRegistrado): boolean {
+    if (p.tieneEntradas === true) return true;
+    if (this.num(p.totalProveedor) > 0.009) return true;
+    return (p.items || []).some((i) => this.num(i.cantidadRecibida) > 0);
+  }
+
+  /** Para plantillas (Number() no existe en el template de Angular). */
+  num(v: unknown): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  mostrarPago(p: PedidoRegistrado): boolean {
+    return this.tieneEntradas(p) || this.saldoDe(p) > 0.009 || this.num(p.totalProveedor) > 0.009;
   }
 
   etiquetaEstado(estado: string): string {
     if (estado === 'PARCIAL') return 'Parcial';
     if (estado === 'CERRADO') return 'Cerrado';
     return 'Abierto';
+  }
+
+  pedidoExpandido(): PedidoRegistrado | undefined {
+    if (this.pedidoExpandidoId == null) return undefined;
+    return this.pedidos.find((x) => x.id === this.pedidoExpandidoId);
+  }
+
+  totalNuevoSurtido(): number {
+    let s = 0;
+    for (const r of this.recibosEdit) {
+      const rec = Math.max(0, Number(r.recibida) || 0);
+      const delta = rec - (Number(r.recibidaInicial) || 0);
+      if (delta <= 0) continue;
+      const u = this.unitarioRecibo(r);
+      if (u == null) continue;
+      s += u * delta;
+    }
+    return Math.round(s * 100) / 100;
+  }
+
+  pagadoAhoraEfectivo(): number {
+    if (this.pagadoAhora == null || String(this.pagadoAhora).trim() === '') {
+      return this.totalNuevoSurtido();
+    }
+    return Math.max(0, Number(this.pagadoAhora) || 0);
+  }
+
+  quedaDebiendo(): number {
+    const p = this.pedidoExpandido();
+    const ya = Number(p?.totalProveedor) || 0;
+    const pagado = Number(p?.totalPagado) || 0;
+    const nuevo = this.totalNuevoSurtido();
+    const ahora = this.pagadoAhoraEfectivo();
+    return Math.max(0, Math.round((ya + nuevo - pagado - ahora) * 100) / 100);
+  }
+
+  usarPagoCompleto(): void {
+    this.pagadoAhora = this.totalNuevoSurtido();
+  }
+
+  usarFiado(): void {
+    this.pagadoAhora = 0;
+  }
+
+  guardarFechaLimite(p: PedidoRegistrado): void {
+    this.api.actualizarCreditoPedido(p.id, this.fechaLimitePago || null).subscribe({
+      next: (act) => {
+        this.reemplazarPedido(act);
+        this.ok = this.fechaLimitePago ? 'Fecha de pago guardada' : 'Sin fecha límite';
+      },
+      error: (e) => (this.error = e.error?.error || 'No se pudo guardar la fecha'),
+    });
+  }
+
+  alcanzaPagoAhora(): boolean {
+    const pago = this.pagadoAhoraEfectivo();
+    if (pago <= 0.009) return true;
+    return pago <= this.saldoProductos + 0.009;
+  }
+
+  alcanzaAbonoNuevo(): boolean {
+    const monto = Number(this.abonoNuevo.monto) || 0;
+    if (monto <= 0) return true;
+    return monto <= this.saldoProductos + 0.009;
+  }
+
+  agregarItemAPedido(): void {
+    const p = this.pedidoExpandido();
+    if (!p || p.estado === 'CERRADO') return;
+    const prod = this.productoPorId(this.altaPedidoProductoId);
+    const cant = Math.ceil(Number(this.altaPedidoCantidad) || 0);
+    if (!prod) {
+      this.error = 'Elige un producto';
+      return;
+    }
+    if (cant <= 0) {
+      this.error = 'Indica la cantidad';
+      return;
+    }
+    this.error = '';
+    this.api.agregarItemPedido(p.id, prod.id, cant).subscribe({
+        next: (act) => {
+          this.altaPedidoProductoId = null;
+          this.altaPedidoCantidad = null;
+          const depto = inferirDepartamento(prod.vendePor, prod.nombre, prod.departamento);
+          const donde = depto === 'JARCERIA' ? 'Jarcería' : 'Limpieza';
+          this.ok = `Agregado en ${donde}: ${prod.nombre}`;
+          this.reemplazarPedido(act, true);
+        },
+      error: (e) => (this.error = e.error?.error || 'No se pudo agregar'),
+    });
+  }
+
+  async quitarItemPedido(r: ReciboEdit): Promise<void> {
+    const p = this.pedidoExpandido();
+    if (!p) return;
+    if ((Number(r.recibidaInicial) || 0) > 0) {
+      this.error = 'Ya hay mercancía recibida; no se puede quitar.';
+      return;
+    }
+    const ok = await this.confirmDlg.ask(`¿Quitar «${r.productoNombre}» de este pedido?`, {
+      confirmarTexto: 'Quitar',
+    });
+    if (!ok) return;
+    this.api.eliminarItemPedido(p.id, r.itemId).subscribe({
+      next: (act) => {
+        this.ok = 'Producto quitado del pedido';
+        this.reemplazarPedido(act, true);
+      },
+      error: (e) => (this.error = e.error?.error || 'No se pudo quitar'),
+    });
+  }
+
+  registrarAbono(): void {
+    const p = this.pedidoExpandido();
+    if (!p) return;
+    const monto = Number(this.abonoNuevo.monto);
+    if (!this.abonoNuevo.fecha || !Number.isFinite(monto) || monto <= 0) {
+      this.error = 'Indica fecha y cuánto pagas';
+      return;
+    }
+    if (monto > this.saldoProductos + 0.009) {
+      this.error = `En Productos solo hay $${this.saldoProductos.toFixed(2)}. Baja el abono o aparta más.`;
+      return;
+    }
+    this.guardandoAbono = true;
+    this.error = '';
+    this.api
+      .crearAbonoPedido(p.id, {
+        fecha: this.abonoNuevo.fecha,
+        monto,
+        nota: this.abonoNuevo.nota || null,
+        fechaLimitePago: this.fechaLimitePago || null,
+      })
+      .subscribe({
+        next: (act) => {
+          this.guardandoAbono = false;
+          this.abonoNuevo = { fecha: this.hoyLocal(), monto: null, nota: '' };
+          this.ok = 'Pago al proveedor registrado (gasto en Productos)';
+          this.reemplazarPedido(act, true);
+          this.cargarSaldoProductos();
+        },
+        error: (e) => {
+          this.guardandoAbono = false;
+          this.error = e.error?.error || 'No se pudo registrar el pago';
+        },
+      });
+  }
+
+  pagarTodoLoQueFalta(p: PedidoRegistrado): void {
+    this.abonoNuevo.fecha = this.abonoNuevo.fecha || this.hoyLocal();
+    this.abonoNuevo.monto = Math.round(this.saldoDe(p) * 100) / 100;
+  }
+
+  empezarEditarAbono(a: PedidoAbono): void {
+    this.editandoAbonoId = a.id;
+    this.editAbono = { fecha: a.fecha, monto: Number(a.monto), nota: a.nota || '' };
+  }
+
+  cancelarEditarAbono(): void {
+    this.editandoAbonoId = null;
+  }
+
+  guardarAbonoEditado(): void {
+    if (this.editandoAbonoId == null) return;
+    const monto = Number(this.editAbono.monto);
+    if (!this.editAbono.fecha || !Number.isFinite(monto) || monto <= 0) {
+      this.error = 'Indica fecha y monto';
+      return;
+    }
+    const actual = this.pedidoExpandido()?.abonos?.find((x) => x.id === this.editandoAbonoId);
+    const anterior = Number(actual?.monto) || 0;
+    const extra = monto - anterior;
+    if (extra > 0.009 && extra > this.saldoProductos + 0.009) {
+      this.error = `En Productos solo hay $${this.saldoProductos.toFixed(2)} para subir este pago.`;
+      return;
+    }
+    this.guardandoAbono = true;
+    this.api
+      .actualizarAbonoPedido(this.editandoAbonoId, {
+        fecha: this.editAbono.fecha,
+        monto,
+        nota: this.editAbono.nota || null,
+      })
+      .subscribe({
+        next: (act) => {
+          this.guardandoAbono = false;
+          this.editandoAbonoId = null;
+          this.ok = 'Pago actualizado (gasto en Productos)';
+          this.reemplazarPedido(act);
+          this.cargarSaldoProductos();
+        },
+        error: (e) => {
+          this.guardandoAbono = false;
+          this.error = e.error?.error || 'No se pudo actualizar el pago';
+        },
+      });
+  }
+
+  async eliminarAbono(a: PedidoAbono): Promise<void> {
+    const ok = await this.confirmDlg.ask(`¿Eliminar el pago de $${Number(a.monto).toFixed(2)}?`, {
+      confirmarTexto: 'Eliminar',
+    });
+    if (!ok) return;
+    this.api.eliminarAbonoPedido(a.id).subscribe({
+      next: (act) => {
+        this.ok = 'Pago eliminado (se revirtió el gasto en Productos)';
+        this.reemplazarPedido(act);
+        this.cargarSaldoProductos();
+      },
+      error: (e) => (this.error = e.error?.error || 'No se pudo eliminar el pago'),
+    });
+  }
+
+  private reemplazarPedido(act: PedidoRegistrado, rearmarDetalle = false): void {
+    this.pedidos = this.pedidos.map((x) => (x.id === act.id ? act : x));
+    if (!this.pedidos.some((x) => x.id === act.id)) {
+      this.pedidos = [act, ...this.pedidos];
+    }
+    if (this.pedidoExpandidoId !== act.id) return;
+    this.fechaLimitePago = act.fechaLimitePago || this.fechaLimitePago;
+    if (rearmarDetalle) {
+      const keepPago = this.pagadoAhora;
+      this.armarDetalle(act);
+      this.pagadoAhora = keepPago;
+    }
   }
 }

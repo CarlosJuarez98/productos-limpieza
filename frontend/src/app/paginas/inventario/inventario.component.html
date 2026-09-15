@@ -9,6 +9,11 @@
 
   @if (listaAbierta) {
     <div class="lista-cuerpo" #listaResultados>
+      @if (cargando && items.length === 0) {
+        <p class="muted inv-loading">Cargando inventario…</p>
+      } @else if (cargando && items.length > 0) {
+        <p class="muted inv-loading-soft">Actualizando…</p>
+      }
       <div class="toolbar toolbar-lista">
         <label class="buscar">
           Buscar
@@ -339,8 +344,9 @@
       </div>
 
       <ul class="hist-cards">
-        @for (i of pag.paginaItems; track i.id) {
+        @for (i of pag.paginaItems; track i.id; let idx = $index) {
           <li
+            [style.--i]="idx"
             [attr.id]="'inv-card-' + i.id"
             [class.danger]="i.precioVentaBajoMinimo"
             [class.warn]="!i.precioVentaBajoMinimo && i.stockActual <= 0"
@@ -574,8 +580,8 @@
     </table>
   </div>
   <ul class="hist-cards">
-    @for (a of pagAjustes.paginaItems; track a.id) {
-      <li>
+    @for (a of pagAjustes.paginaItems; track a.id; let idx = $index) {
+      <li [style.--i]="idx">
         <p class="item-motivo">{{ a.productoNombre }}</p>
         <div class="item-meta">
           <span>{{ a.fecha | fechaDmY }}</span>

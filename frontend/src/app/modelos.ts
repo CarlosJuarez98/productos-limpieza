@@ -201,6 +201,12 @@ export interface ApartadosResumen {
   movimientos: Apartado[];
 }
 
+export interface ProduccionInsumo {
+  productoInsumoId: number;
+  productoInsumoNombre: string;
+  cantidad: number;
+}
+
 export interface Produccion {
   id: number;
   fecha: string;
@@ -210,6 +216,13 @@ export interface Produccion {
   productoInsumoId: number;
   productoInsumoNombre: string;
   cantidadInsumo: number;
+  insumos?: ProduccionInsumo[];
+}
+
+export interface RecetaInsumo {
+  productoInsumoId: number;
+  productoInsumoNombre: string;
+  cantidad: number;
 }
 
 export interface RecetaSugerida {
@@ -222,6 +235,7 @@ export interface RecetaSugerida {
   cantidadAgua?: number | null;
   cantidadInsumo?: number | null;
   ratioInsumo?: number | null;
+  insumos?: RecetaInsumo[];
 }
 
 /** Fórmula de preparación asociada a un producto. */
@@ -234,6 +248,7 @@ export interface Receta {
   cantidadProducto: number;
   cantidadAgua: number;
   cantidadInsumo: number;
+  insumos?: RecetaInsumo[];
 }
 
 export interface MargenConfig {
@@ -385,6 +400,14 @@ export interface PedidoItemRegistrado {
   precioCompra: number | null;
 }
 
+export interface PedidoAbono {
+  id: number;
+  pedidoId: number;
+  fecha: string;
+  monto: number;
+  nota: string | null;
+}
+
 export interface PedidoRegistrado {
   id: number;
   fecha: string;
@@ -394,9 +417,16 @@ export interface PedidoRegistrado {
   diasCobertura: number | null;
   porcentajeExtra: number | null;
   nota: string | null;
+  fechaLimitePago: string | null;
+  totalProveedor: number;
+  totalPagado: number;
+  saldoProveedor: number;
   totalItems: number;
   itemsConFalta: number;
+  /** Ya hay mercancía/entradas; no se cancela, se elimina (stock queda). */
+  tieneEntradas?: boolean;
   items: PedidoItemRegistrado[];
+  abonos: PedidoAbono[];
 }
 
 export const MODOS_VENTA: { value: ModoVenta; label: string }[] = [

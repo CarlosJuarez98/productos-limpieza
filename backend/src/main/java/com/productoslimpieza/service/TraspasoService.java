@@ -12,6 +12,8 @@ import com.productoslimpieza.repo.TraspasoRepository;
 import com.productoslimpieza.web.dto.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -25,6 +27,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class TraspasoService {
+
+  private static final ZoneId ZONA = ZoneId.of("America/Mexico_City");
 
   private final TraspasoRepository traspasoRepo;
   private final TraspasoAbonoRepository abonoRepo;
@@ -119,6 +123,7 @@ public class TraspasoService {
 
   @Transactional
   public TraspasoDto crear(TraspasoRequest req) {
+    validarFechaNoFutura(req.fecha());
     Map<Long, Producto> productos = validarLineasYStock(req, Map.of());
 
     Persona persona = obtenerOCrearPersona(req.persona());
@@ -160,6 +165,7 @@ public class TraspasoService {
 
   @Transactional
   public TraspasoDto actualizar(Long id, TraspasoRequest req) {
+    validarFechaNoFutura(req.fecha());
     Traspaso t = traspasoRepo.findWithDetallesById(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Traspaso no encontrado"));
 
@@ -210,6 +216,7 @@ public class TraspasoService {
 
   @Transactional
   public TraspasoAbonoDto crearAbono(TraspasoAbonoRequest req) {
+    validarFechaNoFutura(req.fecha());
     if (req.monto() == null || req.monto().compareTo(BigDecimal.ZERO) <= 0) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indica un monto mayor a cero");
     }
@@ -479,6 +486,16 @@ public class TraspasoService {
         per != null ? per.getNombre() : a.getPersonaNombre(),
         a.getNota()
     );
+  }
+
+  private void validarFechaNoFutura(LocalDate fecha) {
+    if (fecha == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fecha requerida");
+    }
+    if (fecha.isAfter(LocalDate.now(ZONA))) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "No se pueden registrar traspasos con fecha futura");
+    }
   }
 
   private static BigDecimal nz(BigDecimal v) {

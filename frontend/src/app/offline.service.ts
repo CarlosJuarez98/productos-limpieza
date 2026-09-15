@@ -112,7 +112,7 @@ export class OfflineService {
     await this.idbPut(db, STORE_QUEUE, item.id, item);
     await this.applyOptimisticCache(item);
     await this.refreshPendingCount();
-    this.lastMessage$.next(`Guardado sin conexión: ${item.label}`);
+    this.lastMessage$.next(`Guardado: ${item.label}`);
     return item;
   }
 
@@ -251,18 +251,26 @@ export class OfflineService {
   /** Refleja el cambio en el cache GET para que el historial se vea sin red. */
   private async applyOptimisticCache(item: OfflineQueueItem): Promise<void> {
     try {
+      await this.ensureInvNombres();
       const path = item.url.split('?')[0];
       if (item.method === 'POST' && path.endsWith('/ventas/lote')) {
-        await this.appendToListCache('/api/ventas', this.expandVentaLote(item.body));
-        const lineas = (item.body as { lineas?: Array<{ modo?: string }> })?.lineas || [];
-        if (lineas.some((l) => String(l.modo || '').toUpperCase() === 'CASA')) {
-          await this.appendToListCache('/api/casa', this.expandVentaLote(item.body).filter((v) => v['modo'] === 'CASA'));
-        }
+        const filas = this.expandVentaLote(item.body);
+        await this.appendToListCache('/api/ventas', filas);
+        const casa = filas.filter((v) => String(v['tipoVenta'] || '').toUpperCase() === 'CASA');
+        if (casa.length) await this.appendToListCache('/api/casa', casa);
         await this.adjustInventarioFromVentas(item.body);
         return;
       }
       if (item.method === 'POST' && path.endsWith('/ventas')) {
-        await this.appendToListCache('/api/ventas', [this.asOfflineRow(item.body)]);
+        const fila = this.filaVentaOffline(
+          typeof item.body === 'object' && item.body ? (item.body as Record<string, unknown>) : {},
+          (item.body as { fecha?: string })?.fecha,
+          0
+        );
+        await this.appendToListCache('/api/ventas', [fila]);
+        if (String(fila['tipoVenta'] || '').toUpperCase() === 'CASA') {
+          await this.appendToListCache('/api/casa', [fila]);
+        }
         await this.adjustInventarioFromVentas({ lineas: [item.body] });
         return;
       }
@@ -271,7 +279,10 @@ export class OfflineService {
         return;
       }
       if (item.method === 'POST' && path.endsWith('/entradas')) {
-        await this.appendToListCache('/api/entradas', [this.asOfflineRow(item.body)]);
+        await this.appendToListCache('/api/entradas', this.expandEntradaLote({
+          fecha: (item.body as { fecha?: string })?.fecha,
+          lineas: [item.body as Record<string, unknown>],
+        }));
         return;
       }
       if (item.method === 'POST' && path.endsWith('/apartados/lote')) {
@@ -287,7 +298,13 @@ export class OfflineService {
         return;
       }
       if (item.method === 'POST' && path.endsWith('/ajustes-inventario')) {
-        await this.appendToListCache('/api/ajustes-inventario', [this.asOfflineRow(item.body)]);
+        const b = item.body as Record<string, unknown>;
+        await this.appendToListCache('/api/ajustes-inventario', [
+          {
+            ...this.asOfflineRow(b),
+            productoNombre: b['productoNombre'] || this.nombreProductoSync(b['productoId']),
+          },
+        ]);
         return;
       }
       if (item.method === 'POST' && path.endsWith('/caja/movimientos')) {
@@ -295,7 +312,11 @@ export class OfflineService {
         return;
       }
       if (item.method === 'POST' && path.endsWith('/traspasos')) {
-        // resumen complejo; al sync se refresca
+        await this.patchTraspasosCache(item.body);
+        return;
+      }
+      if (item.method === 'POST' && path.endsWith('/traspasos/abonos')) {
+        await this.patchTraspasoAbonoCache(item.body);
         return;
       }
       if (item.method === 'POST' && path.endsWith('/pedidos')) {
@@ -316,13 +337,28 @@ export class OfflineService {
   private expandVentaLote(body: unknown): Array<Record<string, unknown>> {
     const b = body as { fecha?: string; lineas?: Array<Record<string, unknown>> };
     const fecha = b?.fecha;
-    return (b?.lineas || []).map((l, i) => ({
+    return (b?.lineas || []).map((l, i) => this.filaVentaOffline(l, fecha, i));
+  }
+
+  private filaVentaOffline(
+    l: Record<string, unknown>,
+    fecha: string | undefined,
+    i: number
+  ): Record<string, unknown> {
+    const tipo = String(l['tipoVenta'] || l['modo'] || 'LITROS').toUpperCase();
+    return {
       ...l,
       id: -(Date.now() + i),
       fecha,
+      tipoVenta: tipo,
+      tipoVentaLabel: this.etiquetaTipoVenta(tipo),
+      cantidad: Number(l['cantidad']) || 0,
+      total: Number(l['total']) || 0,
+      pagoTarjeta: !!l['pagoTarjeta'],
+      productoId: l['productoId'] ?? null,
+      productoNombre: l['productoNombre'] || this.nombreProductoSync(l['productoId']),
       offline: true,
-      productoNombre: l['productoNombre'] || 'Pendiente sync',
-    }));
+    };
   }
 
   private expandEntradaLote(body: unknown): Array<Record<string, unknown>> {
@@ -331,8 +367,181 @@ export class OfflineService {
       ...l,
       id: -(Date.now() + i),
       fecha: b?.fecha,
+      productoId: l['productoId'],
+      productoNombre: l['productoNombre'] || this.nombreProductoSync(l['productoId']),
+      cantidad: Number(l['cantidad']) || 0,
+      precioProveedor: l['precioProveedor'] ?? null,
+      total: l['total'] ?? null,
       offline: true,
     }));
+  }
+
+  private invNombres = new Map<number, { nombre: string; precioCompra: number }>();
+
+  private async ensureInvNombres(): Promise<void> {
+    const inv = await this.getCached<Array<Record<string, unknown>>>('GET', '/api/inventario');
+    this.invNombres = new Map();
+    if (!Array.isArray(inv)) return;
+    for (const p of inv) {
+      const id = Number(p['id']);
+      if (!Number.isFinite(id)) continue;
+      this.invNombres.set(id, {
+        nombre: String(p['nombre'] || '').trim() || 'Producto',
+        precioCompra: Number(p['precioCompra']) || 0,
+      });
+    }
+  }
+
+  private nombreProductoSync(productoId: unknown): string {
+    const id = Number(productoId);
+    return this.invNombres.get(id)?.nombre || 'Producto';
+  }
+
+  private precioCompraSync(productoId: unknown): number {
+    const id = Number(productoId);
+    return this.invNombres.get(id)?.precioCompra || 0;
+  }
+
+  private etiquetaTipoVenta(tipo: string): string {
+    switch (tipo) {
+      case 'LITROS':
+        return 'Litros';
+      case 'PIEZA':
+        return 'Pieza';
+      case 'MUESTRA':
+        return 'Muestra';
+      case 'CASA':
+        return 'Casa';
+      case 'PESOS':
+        return 'Pesos';
+      case 'MAYOREO':
+        return 'Mayoreo';
+      case 'RECARGA':
+        return 'Recarga';
+      case 'PAGO_DE_SERVICIOS':
+        return 'Pago de servicios';
+      default:
+        return tipo || 'Venta';
+    }
+  }
+
+  private async patchTraspasosCache(body: unknown): Promise<void> {
+    const b = body as {
+      fecha?: string;
+      persona?: string;
+      nota?: string | null;
+      lineas?: Array<{ productoId?: number; cantidad?: number }>;
+    };
+    const lineas = (b.lineas || []).map((l, i) => {
+      const cantidad = Number(l.cantidad) || 0;
+      const precioCompra = this.precioCompraSync(l.productoId);
+      const total = Math.round(cantidad * precioCompra * 100) / 100;
+      return {
+        id: -(Date.now() + i),
+        productoId: l.productoId,
+        productoNombre: this.nombreProductoSync(l.productoId),
+        cantidad,
+        precioCompra,
+        total,
+      };
+    });
+    const total = Math.round(lineas.reduce((s, l) => s + l.total, 0) * 100) / 100;
+    const row = {
+      id: -Date.now(),
+      fecha: b.fecha,
+      personaId: null as number | null,
+      persona: b.persona || '—',
+      nota: b.nota || null,
+      total,
+      lineas,
+      offline: true,
+    };
+    const cached = await this.getCached<Record<string, unknown>>('GET', '/api/traspasos');
+    const prev = cached && typeof cached === 'object' ? cached : {};
+    const traspasos = Array.isArray(prev['traspasos']) ? (prev['traspasos'] as unknown[]) : [];
+    const saldos = Array.isArray(prev['saldosPorPersona'])
+      ? [...(prev['saldosPorPersona'] as Array<Record<string, unknown>>)]
+      : [];
+    const personaNom = String(b.persona || '').trim();
+    if (personaNom) {
+      const idx = saldos.findIndex(
+        (s) => String(s['persona'] || '').toLowerCase() === personaNom.toLowerCase()
+      );
+      if (idx >= 0) {
+        const s = { ...saldos[idx] };
+        const traspasado = Number(s['totalTraspasado'] || 0) + total;
+        const abonado = Number(s['totalAbonado'] || 0);
+        const saldo = Math.round((traspasado - abonado) * 100) / 100;
+        s['totalTraspasado'] = traspasado;
+        s['saldo'] = saldo;
+        s['estado'] = saldo > 0.001 ? 'DEBE' : saldo < -0.001 ? 'A_FAVOR' : 'AL_CORRIENTE';
+        saldos[idx] = s;
+      } else {
+        saldos.push({
+          personaId: -(saldos.length + 1),
+          persona: personaNom,
+          totalTraspasado: total,
+          totalAbonado: 0,
+          saldo: total,
+          estado: 'DEBE',
+        });
+      }
+    }
+    const totalTraspasado = Number(prev['totalTraspasado'] || 0) + total;
+    const totalAbonado = Number(prev['totalAbonado'] || 0);
+    await this.putCache('GET', '/api/traspasos', 200, {
+      ...prev,
+      totalTraspasado,
+      totalAbonado,
+      saldoPendiente: Math.round((totalTraspasado - totalAbonado) * 100) / 100,
+      saldosPorPersona: saldos,
+      traspasos: [row, ...traspasos],
+      abonos: Array.isArray(prev['abonos']) ? prev['abonos'] : [],
+      personas: Array.isArray(prev['personas']) ? prev['personas'] : [],
+    });
+  }
+
+  private async patchTraspasoAbonoCache(body: unknown): Promise<void> {
+    const b = body as { fecha?: string; monto?: number; personaId?: number; nota?: string | null };
+    const cached = await this.getCached<Record<string, unknown>>('GET', '/api/traspasos');
+    if (!cached || typeof cached !== 'object') return;
+    const saldos = Array.isArray(cached['saldosPorPersona'])
+      ? (cached['saldosPorPersona'] as Array<Record<string, unknown>>)
+      : [];
+    const persona =
+      saldos.find((s) => Number(s['personaId']) === Number(b.personaId))?.['persona'] || '—';
+    const row = {
+      id: -Date.now(),
+      fecha: b.fecha,
+      monto: Number(b.monto) || 0,
+      personaId: b.personaId ?? null,
+      persona,
+      nota: b.nota || null,
+      offline: true,
+    };
+    const abonos = Array.isArray(cached['abonos']) ? (cached['abonos'] as unknown[]) : [];
+    const monto = Number(b.monto) || 0;
+    const nextSaldos = saldos.map((s) => {
+      if (Number(s['personaId']) !== Number(b.personaId)) return s;
+      const abonado = Number(s['totalAbonado'] || 0) + monto;
+      const traspasado = Number(s['totalTraspasado'] || 0);
+      const saldo = Math.round((traspasado - abonado) * 100) / 100;
+      return {
+        ...s,
+        totalAbonado: abonado,
+        saldo,
+        estado: saldo > 0.001 ? 'DEBE' : saldo < -0.001 ? 'A_FAVOR' : 'AL_CORRIENTE',
+      };
+    });
+    const totalAbonado = Number(cached['totalAbonado'] || 0) + monto;
+    const totalTraspasado = Number(cached['totalTraspasado'] || 0);
+    await this.putCache('GET', '/api/traspasos', 200, {
+      ...cached,
+      totalAbonado,
+      saldoPendiente: Math.round((totalTraspasado - totalAbonado) * 100) / 100,
+      saldosPorPersona: nextSaldos,
+      abonos: [row, ...abonos],
+    });
   }
 
   private asOfflineRow(body: unknown): Record<string, unknown> {
@@ -378,8 +587,8 @@ export class OfflineService {
         .filter((l) => Number(l.productoId) === id)
         .reduce((s, l) => s + (Number(l.cantidad) || 0), 0);
       if (!used) return p;
-      const stock = Number(p['stock']) || 0;
-      return { ...p, stock: Math.round((stock - used) * 1000) / 1000 };
+      const stock = Number(p['stockActual'] ?? p['stock']) || 0;
+      return { ...p, stockActual: Math.round((stock - used) * 1000) / 1000 };
     });
     await this.putCache('GET', '/api/inventario', 200, next);
   }

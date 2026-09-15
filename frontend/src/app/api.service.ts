@@ -262,6 +262,10 @@ export class ApiService {
     return this.http.delete<void>(`${this.base}/apartados/${id}`);
   }
 
+  actualizarApartado(id: number, body: unknown): Observable<Apartado> {
+    return this.http.put<Apartado>(`${this.base}/apartados/${id}`, body);
+  }
+
   crearApartadoRubro(nombre: string): Observable<ApartadoRubro> {
     return this.http.post<ApartadoRubro>(`${this.base}/apartados/rubros`, { nombre });
   }
@@ -314,13 +318,55 @@ export class ApiService {
 
   registrarRecepcionPedido(
     id: number,
-    lineas: { itemId: number; cantidadRecibida: number }[]
+    body: {
+      lineas: { itemId: number; cantidadRecibida: number; precioProveedor?: number | null }[];
+      pagadoAhora?: number | null;
+      fechaLimitePago?: string | null;
+    }
   ): Observable<PedidoRegistrado> {
-    return this.http.post<PedidoRegistrado>(`${this.base}/pedidos/${id}/recepcion`, { lineas });
+    return this.http.post<PedidoRegistrado>(`${this.base}/pedidos/${id}/recepcion`, body);
+  }
+
+  actualizarCreditoPedido(id: number, fechaLimitePago: string | null): Observable<PedidoRegistrado> {
+    return this.http.put<PedidoRegistrado>(`${this.base}/pedidos/${id}/credito`, { fechaLimitePago });
+  }
+
+  agregarItemPedido(id: number, productoId: number, cantidad: number): Observable<PedidoRegistrado> {
+    return this.http.post<PedidoRegistrado>(`${this.base}/pedidos/${id}/items`, { productoId, cantidad });
+  }
+
+  actualizarItemPedido(id: number, itemId: number, productoId: number, cantidad: number): Observable<PedidoRegistrado> {
+    return this.http.put<PedidoRegistrado>(`${this.base}/pedidos/${id}/items/${itemId}`, { productoId, cantidad });
+  }
+
+  eliminarItemPedido(id: number, itemId: number): Observable<PedidoRegistrado> {
+    return this.http.delete<PedidoRegistrado>(`${this.base}/pedidos/${id}/items/${itemId}`);
+  }
+
+  crearAbonoPedido(
+    id: number,
+    body: { fecha: string; monto: number; nota?: string | null; fechaLimitePago?: string | null }
+  ): Observable<PedidoRegistrado> {
+    return this.http.post<PedidoRegistrado>(`${this.base}/pedidos/${id}/abonos`, body);
+  }
+
+  actualizarAbonoPedido(
+    abonoId: number,
+    body: { fecha: string; monto: number; nota?: string | null }
+  ): Observable<PedidoRegistrado> {
+    return this.http.put<PedidoRegistrado>(`${this.base}/pedidos/abonos/${abonoId}`, body);
+  }
+
+  eliminarAbonoPedido(abonoId: number): Observable<PedidoRegistrado> {
+    return this.http.delete<PedidoRegistrado>(`${this.base}/pedidos/abonos/${abonoId}`);
   }
 
   eliminarPedido(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/pedidos/${id}`);
+  }
+
+  cancelarPedido(id: number): Observable<void> {
+    return this.http.post<void>(`${this.base}/pedidos/${id}/cancelar`, {});
   }
 
   crearInversion(body: unknown): Observable<InversionItem> {

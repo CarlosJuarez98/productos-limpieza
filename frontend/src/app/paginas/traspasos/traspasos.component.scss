@@ -9,8 +9,10 @@
 
 .dos-cols {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 1rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 tr.debe td {
@@ -438,5 +440,36 @@ tr.stock-warn td {
 
   .linea-grid {
     grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 767px) {
+  .linea-card {
+    border-radius: 1.05rem;
+    border: 1px solid color-mix(in srgb, var(--line) 75%, #fff);
+    background: linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 40%, #fff) 100%);
+    box-shadow: 0 8px 20px rgba(22, 40, 33, 0.045);
+    padding: 0.85rem 0.9rem;
+  }
+
+  .lote-actions.cta-bar-mobile {
+    display: grid;
+  }
+
+  .badge {
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+  }
+
+  .traspaso-card .item-motivo {
+    font-family: Fraunces, Georgia, serif;
+  }
+
+  .dos-cols {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  .panel {
+    border-radius: 1.05rem;
   }
 }

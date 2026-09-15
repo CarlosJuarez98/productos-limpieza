@@ -556,7 +556,7 @@ public class CajaService {
     corteRepo.save(c);
   }
 
-  /** Fechas de “Apartados Productos” del Excel Mama (= cortes históricos). */
+  /** Cortes históricos Mama. El periodo abierto es el día siguiente al último corte en BD. */
   private static final List<CorteSemilla> CORTES_MAMA = List.of(
       new CorteSemilla(LocalDate.of(2026, 4, 14), bd("0"), bd("0")),
       new CorteSemilla(LocalDate.of(2026, 4, 19), bd("102"), bd("0")),
@@ -566,12 +566,13 @@ public class CajaService {
       new CorteSemilla(LocalDate.of(2026, 6, 9), bd("580"), bd("200")),
       new CorteSemilla(LocalDate.of(2026, 7, 4), bd("645.5"), bd("200")),
       new CorteSemilla(LocalDate.of(2026, 7, 21), bd("500"), bd("200")),
-      new CorteSemilla(LocalDate.of(2026, 8, 22), bd("980"), bd("200"))
+      new CorteSemilla(LocalDate.of(2026, 8, 22), bd("980"), bd("200")),
+      new CorteSemilla(LocalDate.of(2026, 9, 13), bd("0"), bd("200"))
   );
 
   private void asegurarCortesMamaDesdeExcel(CajaConfig cfg) {
     String tenant = TenantContext.require();
-    // Corrección: el último corte real fue 22/08, no el 25/08 del apartado.
+    // El apartado del 25/08 no es corte; el corte de ese periodo fue el 22/08.
     corteRepo.findByFecha(LocalDate.of(2026, 8, 25)).ifPresent(erroneo -> {
       if (corteRepo.findByFecha(LocalDate.of(2026, 8, 22)).isEmpty()) {
         erroneo.setFecha(LocalDate.of(2026, 8, 22));
@@ -581,7 +582,6 @@ public class CajaService {
         corteRepo.flush();
       }
     });
-    boolean created = false;
     for (CorteSemilla s : CORTES_MAMA) {
       if (corteRepo.findByFecha(s.fecha()).isPresent()) continue;
       try {
@@ -594,26 +594,23 @@ public class CajaService {
         c.setTotalCalculadora(c.getTotalCaja());
         c.setTotalNegocio(c.getTotalCaja());
         corteRepo.saveAndFlush(c);
-        created = true;
       } catch (Exception e) {
         // carrera / unique: ya existe para este tenant
       }
     }
-    LocalDate ultimo = CORTES_MAMA.get(CORTES_MAMA.size() - 1).fecha();
+    LocalDate ultimoSemilla = CORTES_MAMA.get(CORTES_MAMA.size() - 1).fecha();
+    LocalDate ultimo = corteRepo.findMaxFecha().orElse(ultimoSemilla);
+    if (ultimo.isBefore(ultimoSemilla)) {
+      ultimo = ultimoSemilla;
+    }
     LocalDate inicioEsperado = ultimo.plusDays(1);
     LocalDate hoy = LocalDate.now(ZONA);
     boolean cfgDirty = false;
-    if (cfg.getFechaInicio() == null
-        || !cfg.getFechaInicio().equals(inicioEsperado)
-        || cfg.getFechaInicio().isBefore(inicioEsperado)
-        || cfg.getFechaInicio().isAfter(inicioEsperado)) {
+    if (cfg.getFechaInicio() == null || !cfg.getFechaInicio().equals(inicioEsperado)) {
       cfg.setFechaInicio(inicioEsperado);
       cfgDirty = true;
     }
-    if (cfg.getFondoInicial() == null
-        || cfg.getFondoInicial().compareTo(BigDecimal.ZERO) == 0
-        || created
-        || cfgDirty) {
+    if (cfg.getFondoInicial() == null || cfg.getFondoInicial().compareTo(BigDecimal.ZERO) == 0) {
       cfg.setFondoInicial(FONDO_DEFAULT);
       cfgDirty = true;
     }

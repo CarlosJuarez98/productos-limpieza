@@ -13,7 +13,14 @@ public record PedidoDto(
     Integer diasCobertura,
     BigDecimal porcentajeExtra,
     String nota,
+    LocalDate fechaLimitePago,
+    BigDecimal totalProveedor,
+    BigDecimal totalPagado,
+    BigDecimal saldoProveedor,
     int totalItems,
     int itemsConFalta,
-    List<PedidoItemDto> items
+    /** true si ya hay entradas (mercancía) ligadas; entonces no se puede “cancelar”, solo eliminar. */
+    boolean tieneEntradas,
+    List<PedidoItemDto> items,
+    List<PedidoAbonoDto> abonos
 ) {}

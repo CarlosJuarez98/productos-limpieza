@@ -17,21 +17,27 @@
 }
 
 .filtro-chips .modo-chip {
-  border: 1px solid #b9c9be;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
   background: #fff;
-  color: #334155;
+  color: var(--text);
   border-radius: 999px;
-  padding: 0.4rem 0.85rem;
+  padding: 0.42rem 0.95rem;
   font-size: 0.88rem;
-  font-weight: 600;
+  font-weight: 650;
   cursor: pointer;
-  min-height: 2.1rem;
+  min-height: 2.35rem;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .filtro-chips .modo-chip.activo {
-  background: #2f5d3a;
-  border-color: #2f5d3a;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
+  box-shadow: 0 6px 14px rgba(28, 101, 74, 0.2);
+}
+
+.filtro-chips .modo-chip:not(.activo):hover {
+  background: var(--accent-soft);
 }
 
 .resumen {
@@ -131,10 +137,17 @@
 }
 
 .pedido-card {
-  border: 1px solid var(--line);
-  border-radius: 0.45rem;
-  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--line) 75%, #fff);
+  border-radius: 1rem;
+  background:
+    linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 30%, #fff) 100%);
+  box-shadow: 0 8px 20px rgba(22, 40, 33, 0.045);
   overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pedido-card:hover {
+  box-shadow: 0 12px 26px rgba(22, 40, 33, 0.07);
 }
 
 .pedido-card.parcial {
@@ -153,11 +166,32 @@
   align-items: center;
   padding: 0.55rem 0.7rem;
   border: 0;
+  border-radius: 0.75rem;
   background: transparent;
   cursor: pointer;
   text-align: left;
   color: var(--text);
   font-weight: 600;
+  box-shadow: none;
+  transform: none;
+}
+
+.pedido-cab:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: none;
+  transform: none;
+}
+
+.pedido-cab:hover .muted,
+.pedido-cab:hover .cab-estado {
+  color: var(--muted);
+}
+
+.pedido-cab:hover .deuda-tag {
+  /* mantener badge legible sobre fondo suave */
+  background: #fff7ed;
+  color: #9a3412;
 }
 
 .pedido-detalle {
@@ -184,8 +218,254 @@
   font-weight: 600;
 }
 
+.alta-manual {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px dashed #b9c9be;
+  border-radius: 0.45rem;
+  background: #f7fbf8;
+}
+
+.alta-manual-tit {
+  margin: 0 0 0.2rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.hint-inline {
+  margin: 0 0 0.55rem;
+  font-size: 0.82rem;
+}
+
+.alta-manual-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.alta-manual-fila .campo {
+  flex: 1 1 10rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.alta-manual-fila .producto-campo {
+  flex: 2 1 14rem;
+}
+
+.alta-en-pedido {
+  margin-top: 0.35rem;
+}
+
+.deuda-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.4rem;
+  background: #fff7ed;
+  border: 1px solid #f4a460;
+}
+
+.deuda-tag {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.deuda-num {
+  color: #9a3412;
+}
+
+.ok-inline {
+  color: var(--ok, #2f5d3a);
+  font-weight: 700;
+}
+
+.warn-inline {
+  color: #9a3412;
+  font-weight: 700;
+}
+
+.input-warn {
+  border-color: #f4a460 !important;
+  background: #fff7ed;
+}
+
+.acciones-mercancia {
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.4rem;
+  background: #eef5f1;
+  border: 1px solid #b9c9be;
+}
+
+.paso-bloque {
+  margin: 0.65rem 0 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, #fff);
+  background: color-mix(in srgb, var(--accent-soft) 35%, #fff);
+}
+
+.warn-txt {
+  color: #9a3412;
+  font-weight: 700;
+}
+
+.cab-estado {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  justify-content: flex-end;
+}
+
+.depto-sep td {
+  background: #eef5f1;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #2f5d3a;
+  padding: 0.4rem 0.55rem;
+}
+
+.depto-sep-card {
+  list-style: none;
+  margin: 0.55rem 0 0.25rem;
+  padding: 0.25rem 0;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #2f5d3a;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.pago-proveedor,
+.abonos-box {
+  margin: 0.75rem 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+}
+
+.pago-resumen {
+  margin-bottom: 0.55rem;
+}
+
+.abonos-lista {
+  list-style: none;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.abonos-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #eef2ef;
+  font-size: 0.9rem;
+}
+
+.abono-acc {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
 @media (max-width: 767px) {
   .toolbar-pedido {
     grid-template-columns: 1fr;
+    gap: 0.45rem;
+    margin-bottom: 0.55rem;
+  }
+
+  .alta-manual-fila {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+
+  /* En columna, flex-basis en rem era ALTURA (huecos enormes) */
+  .alta-manual-fila .campo,
+  .alta-manual-fila .producto-campo {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .alta-manual-fila > button {
+    width: 100%;
+    margin-top: 0.1rem;
+  }
+
+  .hint-inline {
+    margin-bottom: 0.4rem;
+  }
+}
+@media (max-width: 767px) {
+  .filtro-chips.seg-control {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.28rem;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .filtro-chips.seg-control .modo-chip {
+    width: 100%;
+    border: none;
+    background: transparent;
+    min-height: 2.55rem;
+    border-radius: 999px;
+  }
+
+  .filtro-chips.seg-control .modo-chip.activo {
+    background: #fff;
+    color: var(--accent);
+    box-shadow: 0 4px 12px rgba(22, 40, 33, 0.08);
+  }
+
+  .acciones-pedido.cta-bar-mobile {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .acciones-pedido.cta-bar-mobile > button {
+    width: 100%;
+    min-height: 3rem;
+    border-radius: 999px;
+  }
+
+  .lista-grupo,
+  .panel {
+    border-radius: 1.05rem;
+  }
+
+  .alta-manual {
+    margin-top: 0.55rem;
+    margin-bottom: 0.55rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--line) 75%, #fff);
+    background: color-mix(in srgb, var(--accent-soft) 35%, #fff);
+  }
+
+  .grupo-cab .panel-titulo {
+    font-family: Fraunces, Georgia, serif;
+    letter-spacing: -0.02em;
   }
 }
