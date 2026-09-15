@@ -228,9 +228,25 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   private scrollHistorial(): void {
-    setTimeout(() => {
-      this.listaHistorial?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 30);
+    const irArriba = () => {
+      const ancla =
+        this.listaHistorial?.nativeElement || document.getElementById('ventas-hist-top');
+      if (!ancla) return;
+      ancla.querySelectorAll('.table-wrap, .hist-cards').forEach((el) => {
+        if (el instanceof HTMLElement) el.scrollTop = 0;
+      });
+      const main = document.querySelector('main') as HTMLElement | null;
+      if (main) {
+        const y =
+          ancla.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - 8;
+        main.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+      } else {
+        ancla.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }
+    };
+    setTimeout(irArriba, 0);
+    setTimeout(irArriba, 80);
+    setTimeout(irArriba, 200);
   }
 
   /** Hay ventas en el filtro de día/todas (sin buscar). */

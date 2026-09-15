@@ -362,7 +362,7 @@
 
 @if (data) {
   <div class="dos-cols" style="margin-top: 1rem">
-    <section class="panel">
+    <section class="panel" id="traspasos-hist-top" data-pag-top>
       <h3>Historial de traspasos</h3>
       <div class="table-wrap hist-tabla">
         <table>
@@ -613,11 +613,12 @@
         [pagina]="pagTraspasos.pagina"
         [pageSize]="pagTraspasos.pageSize"
         ariaLabel="Páginas de traspasos"
+        scrollAncla="#traspasos-hist-top"
         (prev)="pagTraspasos.anterior()"
         (next)="pagTraspasos.siguiente()"
       />
     </section>
-    <section class="panel">
+    <section class="panel" id="traspasos-abonos-top" data-pag-top>
       <h3>Historial de abonos</h3>
       <div class="table-wrap hist-tabla">
         <table>
@@ -688,6 +689,7 @@
         [pagina]="pagAbonos.pagina"
         [pageSize]="pagAbonos.pageSize"
         ariaLabel="Páginas de abonos"
+        scrollAncla="#traspasos-abonos-top"
         (prev)="pagAbonos.anterior()"
         (next)="pagAbonos.siguiente()"
       />

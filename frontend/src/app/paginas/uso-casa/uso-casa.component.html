@@ -100,7 +100,7 @@
   }
 </section>
 
-<section class="panel historial-panel" style="margin-top: 1rem">
+<section class="panel historial-panel" style="margin-top: 1rem" id="uso-casa-hist-top" data-pag-top>
   <h3 class="panel-titulo">Historial</h3>
 
   <div class="table-wrap hist-tabla">
@@ -306,6 +306,7 @@
     [pagina]="pagHist.pagina"
     [pageSize]="pagHist.pageSize"
     ariaLabel="Páginas de historial uso en casa"
+    scrollAncla="#uso-casa-hist-top"
     (prev)="pagHist.anterior()"
     (next)="pagHist.siguiente()"
   />

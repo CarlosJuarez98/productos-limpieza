@@ -243,7 +243,7 @@
   }
 </section>
 
-<section class="panel panel-prep" id="panel-prep" style="margin-top: 1rem">
+<section class="panel panel-prep" id="entradas-prep-top" data-pag-top style="margin-top: 1rem">
   <button type="button" class="panel-toggle" (click)="togglePrep()" [attr.aria-expanded]="prepAbierta">
     <h3 class="panel-titulo">Preparación</h3>
     <span class="chev">{{ prepAbierta ? '▾' : '▸' }}</span>
@@ -365,12 +365,6 @@
             <button type="button" class="linkish" (click)="abrirAltaProducto('insumo', i)">+ Nuevo</button>
           </div>
         }
-        <p class="muted ayuda-suma">
-          Agua + insumos = {{ (num(formReceta.cantidadAgua) + totalInsumosFormula()) | number: '1.0-4' }} L
-          @if (num(formReceta.cantidadProducto) > 0) {
-            (producto {{ formReceta.cantidadProducto | number: '1.0-4' }} L)
-          }
-        </p>
       </div>
 
       @if (altaProductoPara) {
@@ -564,6 +558,7 @@
     [pagina]="pagPrep.pagina"
     [pageSize]="pagPrep.pageSize"
     ariaLabel="Páginas de preparaciones"
+    scrollAncla="#entradas-prep-top"
     (prev)="pagPrep.anterior()"
     (next)="pagPrep.siguiente()"
   />
@@ -572,7 +567,7 @@
   }
 </section>
 
-<section class="panel" style="margin-top: 1rem">
+<section class="panel" id="entradas-hist-top" data-pag-top style="margin-top: 1rem">
   <button type="button" class="panel-toggle" (click)="toggleHist()" [attr.aria-expanded]="histAbierta">
     <h3 class="panel-titulo">Historial de entradas</h3>
     <span class="chev">{{ histAbierta ? '▾' : '▸' }}</span>
@@ -870,6 +865,7 @@
     [pagina]="pagEntradas.pagina"
     [pageSize]="pagEntradas.pageSize"
     ariaLabel="Páginas de entradas"
+    scrollAncla="#entradas-hist-top"
     (prev)="pagEntradas.anterior()"
     (next)="pagEntradas.siguiente()"
   />

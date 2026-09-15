@@ -7,6 +7,124 @@
 
 .toolbar-pedido {
   margin-bottom: 0.55rem;
+  grid-template-columns: minmax(12.5rem, 1.15fr) minmax(16.5rem, 1.6fr) minmax(7.5rem, 0.7fr) minmax(9.5rem, 0.85fr);
+  align-items: end;
+}
+
+.toolbar-pedido .campo-periodo,
+.toolbar-pedido .campo-rango,
+.toolbar-pedido .campo-dias {
+  min-width: 0;
+}
+
+.toolbar-pedido .campo-periodo select {
+  text-overflow: ellipsis;
+}
+
+.bloque-titulo {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.panel-calcular .colchon-chips {
+  margin: 0;
+  align-items: center;
+}
+
+.colchon-etiqueta {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-right: 0.15rem;
+}
+
+.toolbar-pedido .btn-levantar {
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) and (min-width: 768px) {
+  .toolbar-pedido {
+    grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 1.4fr);
+  }
+
+  .toolbar-pedido .campo-dias,
+  .toolbar-pedido .btn-levantar {
+    max-width: 14rem;
+  }
+}
+
+.panel-resultados {
+  padding-bottom: 0.85rem;
+}
+
+.resultados-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.resultados-toolbar .bloque-titulo {
+  margin-bottom: 0.45rem;
+}
+
+.resultados-toolbar .filtro-chips {
+  margin: 0;
+}
+
+.resultados-toolbar .acciones-pedido {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.alta-manual-details {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.85rem 0.65rem;
+  border: 1px dashed color-mix(in srgb, var(--line) 80%, #fff);
+  background: color-mix(in srgb, var(--accent-soft) 22%, #fff);
+}
+
+.alta-manual-details > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  padding: 0.2rem 0;
+  user-select: none;
+}
+
+.alta-manual-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.alta-manual-details > summary::before {
+  content: '▸';
+  color: var(--accent);
+  font-weight: 700;
+  width: 0.9rem;
+}
+
+.alta-manual-details[open] > summary::before {
+  content: '▾';
+}
+
+.alta-manual-details > summary .alta-manual-tit {
+  margin: 0;
+}
+
+.alta-manual-details > summary .hint-inline {
+  margin: 0;
+}
+
+.alta-manual-details[open] > summary {
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, #fff);
 }
 
 .filtro-chips {
@@ -68,10 +186,100 @@
   margin: 0;
 }
 
+.col-pedir {
+  width: 11.5rem;
+  min-width: 11.5rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+th.col-pedir {
+  text-align: center;
+  padding-right: 0.55rem;
+  padding-left: 0.55rem;
+}
+
 .col-pedir input {
+  text-align: center;
+}
+
+.pedir-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   width: 100%;
-  max-width: 6.5rem;
-  text-align: right;
+  max-width: 14rem;
+}
+
+.pedir-stepper-core {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.pedir-stepper input,
+.pedir-stepper-core input {
+  flex: 0 0 auto;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 0.2rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.pedir-stepper .stepper-btn,
+.pedir-stepper-core .stepper-btn {
+  width: 2.65rem;
+  height: 2.65rem;
+  min-width: 2.65rem;
+  min-height: 2.65rem;
+  font-size: 1.35rem;
+}
+
+.pedir-stepper-tabla {
+  display: inline-flex;
+  max-width: none;
+  width: auto;
+  margin: 0 auto;
+  justify-content: center;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pedir-stepper-tabla .pedir-stepper-core .stepper-btn {
+  width: 2.15rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  min-height: 2.15rem;
+  font-size: 1.15rem;
+}
+
+.pedir-stepper-tabla .pedir-stepper-core input {
+  width: 2.5rem;
+  min-width: 2.5rem;
+  height: 2.15rem;
+  line-height: 2.15rem;
+  padding: 0;
+}
+
+.pedir-stepper-tabla .pedir-quitar {
+  width: 2.15rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  min-height: 2.15rem;
+  padding: 0;
+  margin: 0;
+  border-radius: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex: 0 0 auto;
 }
 
 .ok-msg {
@@ -88,14 +296,14 @@
 
 .card-cols dt {
   margin: 0;
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--text);
+  font-weight: 700;
 }
 
 .card-cols dd {
   margin: 0;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -116,6 +324,31 @@
 
 .pedir-movil input {
   width: 100%;
+}
+
+.pedir-movil .pedir-stepper {
+  max-width: none;
+  justify-content: flex-start;
+}
+
+.pedir-movil .pedir-stepper-core {
+  width: 100%;
+  max-width: 14rem;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.pedir-movil .pedir-stepper-core .stepper-btn {
+  width: 2.85rem;
+  height: 2.85rem;
+  min-width: 2.85rem;
+  min-height: 2.85rem;
+}
+
+.pedir-movil .pedir-stepper-core input {
+  width: 3.25rem;
+  min-width: 3.25rem;
+  height: 2.85rem;
 }
 
 .pedir-movil .danger {
@@ -218,7 +451,8 @@
   font-weight: 600;
 }
 
-.alta-manual {
+.alta-manual,
+.alta-en-pedido {
   margin: 0 0 0.85rem;
   padding: 0.65rem 0.75rem;
   border: 1px dashed #b9c9be;
@@ -393,6 +627,15 @@
     margin-bottom: 0.55rem;
   }
 
+  .resultados-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .resultados-toolbar .acciones-pedido {
+    width: 100%;
+  }
+
   .alta-manual-fila {
     flex-direction: column;
     align-items: stretch;
@@ -455,7 +698,9 @@
     border-radius: 1.05rem;
   }
 
-  .alta-manual {
+  .alta-manual,
+  .alta-manual-details,
+  .alta-en-pedido {
     margin-top: 0.55rem;
     margin-bottom: 0.55rem;
     padding: 0.65rem 0.75rem;

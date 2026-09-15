@@ -19,6 +19,7 @@ public record InventarioDto(
     BigDecimal utilizadoEnCasaMonto,
     BigDecimal porcentajeGanancia,
     boolean precioVentaBajoMinimo,
+    boolean precioVentaEnMinimo,
     UnidadVenta vendePor,
     String vendePorLabel,
     DepartamentoProducto departamento,

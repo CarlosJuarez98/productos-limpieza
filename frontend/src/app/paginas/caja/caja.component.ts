@@ -12,6 +12,7 @@ import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { inputsVisiblesDe, navegarCampos } from '../../captura-focus.util';
+import { RangoFechasComponent } from '../../rango-fechas.component';
 
 interface Denominacion {
   valor: number;
@@ -21,7 +22,7 @@ interface Denominacion {
 @Component({
   selector: 'app-caja',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, PaginadorComponent, AutoHideDirective],
+  imports: [CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, PaginadorComponent, AutoHideDirective, RangoFechasComponent],
   templateUrl: './caja.component.html',
   styleUrl: './caja.component.scss',
 })

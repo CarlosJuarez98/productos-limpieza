@@ -217,12 +217,17 @@ public class VentaService {
       Producto producto, BigDecimal cantidad, Map<Long, BigDecimal> preciosCache) {
     BigDecimal cant = cantidad != null ? cantidad : BigDecimal.ZERO;
     if (cant.compareTo(new BigDecimal("10")) >= 0 && producto.getPrecioMayoreo10() != null) {
-      return producto.getPrecioMayoreo10();
+      return pesoEntero(producto.getPrecioMayoreo10());
     }
     if (cant.compareTo(new BigDecimal("5")) >= 0 && producto.getPrecioMayoreo5() != null) {
-      return producto.getPrecioMayoreo5();
+      return pesoEntero(producto.getPrecioMayoreo5());
     }
     return precioVigenteCache(producto, LocalDate.now(ZONA), preciosCache);
+  }
+
+  private static BigDecimal pesoEntero(BigDecimal valor) {
+    if (valor == null) return null;
+    return valor.setScale(0, RoundingMode.HALF_UP);
   }
 
   private BigDecimal precioVigenteCache(

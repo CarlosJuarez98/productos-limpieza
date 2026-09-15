@@ -249,7 +249,7 @@
   }
 </section>
 
-<section class="panel historial-panel" style="margin-top: 1rem" #listaHistorial>
+<section class="panel historial-panel" style="margin-top: 1rem" #listaHistorial id="ventas-hist-top" data-pag-top>
   <div class="toolbar historial-toolbar">
     <h3 class="historial-titulo panel-titulo">Registradas</h3>
     <div class="filtro-chips seg-control" role="group" aria-label="Filtro historial">
@@ -409,6 +409,7 @@
     [pagina]="pagHist.pagina"
     [pageSize]="pagHist.pageSize"
     ariaLabel="Páginas de ventas"
+    scrollAncla="#ventas-hist-top"
     (prev)="paginaAnterior()"
     (next)="paginaSiguiente()"
   />

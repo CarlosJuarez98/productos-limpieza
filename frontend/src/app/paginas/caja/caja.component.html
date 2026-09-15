@@ -43,7 +43,7 @@
         </div>
         <div class="banco-grid">
           <div class="banco-col">
-            <h4>Transferencias</h4>
+            <h4 id="caja-tx-top" data-pag-top>Transferencias</h4>
             <div class="table-wrap mov-table hist-tabla">
               <table>
                 <thead>
@@ -114,12 +114,13 @@
               [pagina]="pagTransferencias.pagina"
               [pageSize]="pagTransferencias.pageSize"
               ariaLabel="Páginas de transferencias"
+              scrollAncla="#caja-tx-top"
               (prev)="pagTransferencias.anterior()"
               (next)="pagTransferencias.siguiente()"
             />
           </div>
           <div class="banco-col">
-            <h4>Retiros transferencia</h4>
+            <h4 id="caja-retiros-tx-top" data-pag-top>Retiros transferencia</h4>
             <div class="table-wrap mov-table hist-tabla">
               <table>
                 <thead>
@@ -190,6 +191,7 @@
               [pagina]="pagRetirosTx.pagina"
               [pageSize]="pagRetirosTx.pageSize"
               ariaLabel="Páginas de retiros transferencia"
+              scrollAncla="#caja-retiros-tx-top"
               (prev)="pagRetirosTx.anterior()"
               (next)="pagRetirosTx.siguiente()"
             />
@@ -312,7 +314,7 @@
         </button>
       </p>
     }
-    <h3>Retiros e ingresos</h3>
+    <h3 id="caja-efectivo-top" data-pag-top>Retiros e ingresos</h3>
     <div class="table-wrap mov-table hist-tabla">
       <table>
         <thead>
@@ -388,6 +390,7 @@
       [pagina]="pagEfectivo.pagina"
       [pageSize]="pagEfectivo.pageSize"
       ariaLabel="Páginas de retiros e ingresos"
+      scrollAncla="#caja-efectivo-top"
       (prev)="pagEfectivo.anterior()"
       (next)="pagEfectivo.siguiente()"
     />
@@ -403,13 +406,15 @@
     </p>
   }
   <form class="form-grid" (ngSubmit)="guardarConfig()">
-    <label>
-      Fecha inicio
-      <input type="date" [(ngModel)]="config.fechaInicio" name="fechaInicio" readonly />
-    </label>
-    <label>
-      Fecha fin
-      <input type="date" [(ngModel)]="config.fechaFin" name="fechaFin" [max]="hoyLocal()" />
+    <label class="campo-rango-caja">
+      Periodo (inicio → fin)
+      <app-rango-fechas
+        [(desde)]="config.fechaInicio"
+        [(hasta)]="config.fechaFin"
+        [bloquearDesde]="true"
+        [max]="hoyLocal()"
+        ariaLabel="Periodo de caja"
+      />
     </label>
     <label>
       Dejas en caja

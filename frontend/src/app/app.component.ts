@@ -47,7 +47,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     { path: '/inversion', label: 'Inversión', icon: 'inversion' },
     { path: '/precios', label: 'Histórico precios', short: 'Precios', icon: 'precios' },
     { path: '/uso-casa', label: 'Uso en casa', short: 'Uso casa', icon: 'uso-casa' },
-    { path: '/lista-precios', label: 'Lista precios', short: 'Lista', icon: 'lista' },
+    { path: '/lista-precios', label: 'Lista precios', short: 'Más', icon: 'lista' },
   ];
 
   /** Móvil: barra inferior (operación diaria). */

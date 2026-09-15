@@ -89,6 +89,8 @@ export interface InventarioItem {
   utilizadoEnCasaMonto: number;
   porcentajeGanancia: number;
   precioVentaBajoMinimo: boolean;
+  /** Menudeo exactamente en el mínimo sugerido (advertencia). */
+  precioVentaEnMinimo?: boolean;
   vendePor: UnidadVenta;
   vendePorLabel: string;
   departamento?: DepartamentoProducto;

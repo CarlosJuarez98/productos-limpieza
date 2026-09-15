@@ -1,7 +1,7 @@
 <h2 class="page-title">{{ marca }}</h2>
 <p class="muted lista-subtitulo">Lista de precios · {{ fechaLista }}</p>
 
-<section class="panel">
+<section class="panel" id="lista-precios-top" data-pag-top>
   <div class="toolbar">
     <label>
       Buscar
@@ -15,28 +15,50 @@
         (keydown.enter)="onBuscarEnter($event)"
       />
     </label>
-    <fieldset class="export-cols">
-      <label class="chk">
-        <input type="checkbox" [(ngModel)]="cols.mayoreo5" name="colMay5" />
+    <div class="export-cols" role="group" aria-label="Columnas al exportar">
+      <button
+        type="button"
+        class="col-chip"
+        [class.activo]="cols.mayoreo5"
+        (click)="toggleCol('mayoreo5')"
+      >
         Mayoreo ≥ 5
-      </label>
-      <label class="chk">
-        <input type="checkbox" [(ngModel)]="cols.mayoreo10" name="colMay10" />
+      </button>
+      <button
+        type="button"
+        class="col-chip"
+        [class.activo]="cols.mayoreo10"
+        (click)="toggleCol('mayoreo10')"
+      >
         Mayoreo ≥ 10
-      </label>
-    </fieldset>
+      </button>
+    </div>
     <button type="button" class="secondary" (click)="exportarLista()" [disabled]="exportando">
       {{ exportando ? 'Exportando…' : 'Exportar lista (.xlsx)' }}
     </button>
   </div>
   <div class="table-wrap hist-tabla">
-    <table>
+    <table class="lista-tabla">
+      <colgroup>
+        <col class="col-nombre" />
+        <col class="col-precio" />
+        @if (cols.mayoreo5) {
+          <col class="col-precio" />
+        }
+        @if (cols.mayoreo10) {
+          <col class="col-precio" />
+        }
+      </colgroup>
       <thead>
         <tr>
           <th>Producto</th>
-          <th>Menudeo</th>
-          <th>≥ 5 L</th>
-          <th>≥ 10 L</th>
+          <th class="money">Menudeo</th>
+          @if (cols.mayoreo5) {
+            <th class="money">≥ 5 L</th>
+          }
+          @if (cols.mayoreo10) {
+            <th class="money">≥ 10 L</th>
+          }
         </tr>
       </thead>
       <tbody>
@@ -44,8 +66,12 @@
           <tr>
             <td>{{ i.nombre }}</td>
             <td class="money menudeo">${{ i.precioVentaHoy | number: '1.2-2' }}</td>
-            <td class="money">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
-            <td class="money">${{ i.precioMayoreo10 | number: '1.2-2' }}</td>
+            @if (cols.mayoreo5) {
+              <td class="money">${{ i.precioMayoreo5 | number: '1.2-2' }}</td>
+            }
+            @if (cols.mayoreo10) {
+              <td class="money">${{ i.precioMayoreo10 | number: '1.2-2' }}</td>
+            }
           </tr>
         }
       </tbody>
@@ -56,7 +82,19 @@
     @for (i of pag.paginaItems; track i.id) {
       <li>
         <div class="item-meta">
-          <span>≥5 ${{ i.precioMayoreo5 | number: '1.2-2' }} · ≥10 ${{ i.precioMayoreo10 | number: '1.2-2' }}</span>
+          @if (cols.mayoreo5 || cols.mayoreo10) {
+            <span>
+              @if (cols.mayoreo5) {
+                ≥5 ${{ i.precioMayoreo5 | number: '1.2-2' }}
+              }
+              @if (cols.mayoreo5 && cols.mayoreo10) {
+                <span aria-hidden="true"> · </span>
+              }
+              @if (cols.mayoreo10) {
+                ≥10 ${{ i.precioMayoreo10 | number: '1.2-2' }}
+              }
+            </span>
+          }
         </div>
         <p class="item-motivo">{{ i.nombre }}</p>
         <div class="item-fila">
@@ -72,6 +110,7 @@
     [pagina]="pag.pagina"
     [pageSize]="pag.pageSize"
     ariaLabel="Páginas de lista de precios"
+    scrollAncla="#lista-precios-top"
     (prev)="pag.anterior()"
     (next)="pag.siguiente()"
   />

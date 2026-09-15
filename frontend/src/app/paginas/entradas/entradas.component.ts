@@ -357,7 +357,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.onResultadoChange(id);
     this.cdr.detectChanges();
     setTimeout(() => {
-      document.getElementById('panel-prep')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('entradas-prep-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
     void this.router.navigate([], {
       relativeTo: this.route,

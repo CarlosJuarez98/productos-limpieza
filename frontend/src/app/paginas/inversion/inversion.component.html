@@ -68,7 +68,7 @@
   </div>
 }
 
-<section class="panel" style="margin-top: 1rem">
+<section class="panel" style="margin-top: 1rem" id="inv-inicial-top" data-pag-top>
   <h3>Productos de la inversión inicial</h3>
   <div class="table-wrap hist-tabla">
     <table>
@@ -153,12 +153,13 @@
     [pagina]="pagProductos.pagina"
     [pageSize]="pagProductos.pageSize"
     ariaLabel="Páginas de productos iniciales"
+    scrollAncla="#inv-inicial-top"
     (prev)="pagProductos.anterior()"
     (next)="pagProductos.siguiente()"
   />
 </section>
 
-<section class="panel" style="margin-top: 1rem">
+<section class="panel" style="margin-top: 1rem" id="inv-infra-top" data-pag-top>
   <h3>Inversión en infraestructura</h3>
   <form class="form-grid form-infra" (ngSubmit)="guardarInfra()">
     <label>
@@ -247,6 +248,7 @@
     [pagina]="pagInfra.pagina"
     [pageSize]="pagInfra.pageSize"
     ariaLabel="Páginas de infraestructura"
+    scrollAncla="#inv-infra-top"
     (prev)="pagInfra.anterior()"
     (next)="pagInfra.siguiente()"
   />
