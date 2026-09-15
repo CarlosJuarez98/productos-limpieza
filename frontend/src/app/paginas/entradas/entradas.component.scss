@@ -13,12 +13,48 @@ h3 {
   margin: 0.4rem 0 0;
 }
 
+.entradas-fijo {
+  position: sticky;
+  top: 0;
+  z-index: 16;
+  margin: -0.7rem -1rem 0.55rem;
+  padding: 0.55rem 1rem 0.5rem;
+  background: var(--bg);
+  isolation: isolate;
+  box-sizing: border-box;
+}
+
+.entradas-fijo::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 50vh;
+  transform: translateY(-100%);
+  background: var(--bg);
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  .entradas-fijo {
+    margin-left: calc(-1 * clamp(1.25rem, 3vw, 2.25rem));
+    margin-right: calc(-1 * clamp(1.25rem, 3vw, 2.25rem));
+    padding-left: clamp(1.25rem, 3vw, 2.25rem);
+    padding-right: clamp(1.25rem, 3vw, 2.25rem);
+  }
+}
+
 .captura-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.75rem 1rem;
-  margin-bottom: 0.65rem;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  box-sizing: border-box;
 }
 
 .captura-meta > label {
@@ -829,10 +865,16 @@ tr.editando-fila.bajo > td:not(.col-propia) {
     align-items: stretch;
   }
 
+  .entradas-fijo {
+    margin: -0.5rem -0.6rem 0.45rem;
+    padding: 0.45rem 0.6rem 0.4rem;
+  }
+
   .captura-meta {
     flex-direction: column;
     align-items: stretch;
     gap: 0.45rem;
+    padding: 0;
   }
 
   .total-lote {
@@ -1634,16 +1676,11 @@ tr.editando-fila.bajo > td:not(.col-propia) {
   }
 
   .prep-actions.prep-cta {
-    position: sticky;
-    /* sticky is relative to main (already above bottom-nav) */
-    bottom: 0.35rem;
-    z-index: 5;
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
-    margin: 0.35rem -0.15rem 0;
-    padding: 0.55rem 0.15rem 0.35rem;
-    background: linear-gradient(180deg, transparent, #fff 28%);
+    margin: 0.35rem 0 0;
+    padding: 0.35rem 0 0.15rem;
   }
 
   .prep-actions.prep-cta > button {
