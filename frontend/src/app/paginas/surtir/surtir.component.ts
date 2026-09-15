@@ -12,6 +12,7 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
+import { RangoFechasComponent } from '../../rango-fechas.component';
 
 type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean; extra?: boolean };
 type ModoPeriodo = '4_semanas' | 'mes_pasado' | 'mes_actual' | 'custom';
@@ -35,7 +36,7 @@ type ReciboEdit = {
 @Component({
   selector: 'app-surtir',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective, ProductoAutocompleteComponent],
+  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective, ProductoAutocompleteComponent, RangoFechasComponent],
   templateUrl: './surtir.component.html',
   styleUrl: './surtir.component.scss',
 })
@@ -44,7 +45,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
   ok = '';
   cargando = false;
   registrando = false;
-  porcentajeExtra: number | null = 20;
+  porcentajeExtra = 20;
+  readonly colchones = [0, 10, 20, 30, 40, 50] as const;
   modoPeriodo: ModoPeriodo = '4_semanas';
   filtroDepto: FiltroDepto = 'todo';
   desde = '';
@@ -218,7 +220,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
     if (this.modoPeriodo !== 'custom') {
       this.aplicarModoPeriodo();
     }
-    const pct = Number(this.porcentajeExtra);
+    const pct = this.ajustarColchon(this.porcentajeExtra);
+    this.porcentajeExtra = pct;
     const cob =
       this.diasCobertura != null && Number.isFinite(Number(this.diasCobertura))
         ? Number(this.diasCobertura)
@@ -228,7 +231,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
         desde: this.desde || undefined,
         hasta: this.hasta || undefined,
         diasCobertura: cob,
-        porcentajeExtra: Number.isFinite(pct) ? pct : 20,
+        porcentajeExtra: pct,
       })
       .subscribe({
         next: (res) => {
@@ -236,7 +239,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
           this.desde = res.desde;
           this.hasta = res.hasta;
           this.diasCobertura = res.diasCobertura;
-          this.porcentajeExtra = Number(res.porcentajeExtra);
+          this.porcentajeExtra = this.ajustarColchon(Number(res.porcentajeExtra));
           this.lineas = res.lineas.map((l) => ({
             ...l,
             pedir: Math.ceil(Number(l.sugerido) || 0),
@@ -279,6 +282,43 @@ export class SurtirComponent implements OnInit, OnDestroy {
     // Siempre enteros: se compra por litros o piezas cerrados.
     l.pedir = Math.ceil(n);
     this.syncPag();
+  }
+
+  /** Colchón del pedido: solo Sin / 10 / 20 / 30 / 40 / 50. */
+  setColchon(pct: number): void {
+    this.porcentajeExtra = this.ajustarColchon(pct);
+  }
+
+  esColchon(pct: number): boolean {
+    return this.porcentajeExtra === pct;
+  }
+
+  ajustarPedir(l: LineaEditable, delta: number): void {
+    const actual = Number(l.pedir);
+    const base = Number.isFinite(actual) ? actual : 0;
+    l.pedir = Math.max(0, Math.ceil(base + delta));
+    this.onPedirChange(l);
+  }
+
+  ajustarAltaCantidad(delta: number): void {
+    const actual = Number(this.altaCantidad);
+    const base = Number.isFinite(actual) ? actual : 0;
+    this.altaCantidad = Math.max(0, Math.ceil(base + delta));
+  }
+
+  private ajustarColchon(pct: number): number {
+    const n = Number(pct);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    let mejor: number = this.colchones[0];
+    let dist = Math.abs(n - mejor);
+    for (const c of this.colchones) {
+      const d = Math.abs(n - c);
+      if (d < dist) {
+        mejor = c;
+        dist = d;
+      }
+    }
+    return mejor;
   }
 
   quitar(l: LineaEditable): void {

@@ -212,10 +212,10 @@ public class InventarioService {
     // Precios mayoreo manuales; si no vienen y cambió compra, recalcular desde márgenes
     if (req.precioMayoreo5() != null || req.precioMayoreo10() != null) {
       if (req.precioMayoreo5() != null) {
-        p.setPrecioMayoreo5(req.precioMayoreo5());
+        p.setPrecioMayoreo5(pesoEntero(req.precioMayoreo5()));
       }
       if (req.precioMayoreo10() != null) {
-        p.setPrecioMayoreo10(req.precioMayoreo10());
+        p.setPrecioMayoreo10(pesoEntero(req.precioMayoreo10()));
       }
     } else if (req.precioCompra() != null) {
       aplicarMayoreoDesdeCompra(p, margen);
@@ -262,12 +262,22 @@ public class InventarioService {
     if (compra.compareTo(BigDecimal.ZERO) <= 0) {
       return;
     }
-    p.setPrecioMayoreo5(conMargen(compra, margen.getMargenMayoreo5()));
-    p.setPrecioMayoreo10(conMargen(compra, margen.getMargenMayoreo10()));
+    p.setPrecioMayoreo5(conMargenEntero(compra, margen.getMargenMayoreo5()));
+    p.setPrecioMayoreo10(conMargenEntero(compra, margen.getMargenMayoreo10()));
   }
 
   private static BigDecimal conMargen(BigDecimal compra, BigDecimal margen) {
     return compra.multiply(BigDecimal.ONE.add(nz(margen))).setScale(2, RoundingMode.HALF_UP);
+  }
+
+  /** Mayoreo (≥5 / ≥10) se cobra en efectivo: pesos enteros, sin centavos. */
+  private static BigDecimal conMargenEntero(BigDecimal compra, BigDecimal margen) {
+    return pesoEntero(compra.multiply(BigDecimal.ONE.add(nz(margen))));
+  }
+
+  private static BigDecimal pesoEntero(BigDecimal valor) {
+    if (valor == null) return null;
+    return valor.setScale(0, RoundingMode.HALF_UP);
   }
 
   private InventarioDto toDto(Producto p, MargenConfig margen) {
@@ -317,16 +327,18 @@ public class InventarioService {
     BigDecimal compra = nz(p.getPrecioCompra());
     BigDecimal margenMin = nz(margen.getMargenMin());
     BigDecimal margenMax = nz(margen.getMargenMax());
-    BigDecimal min = conMargen(compra, margenMin);
-    BigDecimal max = conMargen(compra, margenMax);
+    BigDecimal min = conMargenEntero(compra, margenMin);
+    BigDecimal max = conMargenEntero(compra, margenMax);
     BigDecimal mayoreo5 =
-        p.getPrecioMayoreo5() != null
-            ? p.getPrecioMayoreo5()
-            : conMargen(compra, margen.getMargenMayoreo5());
+        pesoEntero(
+            p.getPrecioMayoreo5() != null
+                ? p.getPrecioMayoreo5()
+                : conMargen(compra, margen.getMargenMayoreo5()));
     BigDecimal mayoreo10 =
-        p.getPrecioMayoreo10() != null
-            ? p.getPrecioMayoreo10()
-            : conMargen(compra, margen.getMargenMayoreo10());
+        pesoEntero(
+            p.getPrecioMayoreo10() != null
+                ? p.getPrecioMayoreo10()
+                : conMargen(compra, margen.getMargenMayoreo10()));
 
     BigDecimal casaMonto = nz(casa).multiply(compra).setScale(2, RoundingMode.HALF_UP);
 
@@ -341,6 +353,7 @@ public class InventarioService {
     }
 
     boolean bajoMinimo = venta.compareTo(BigDecimal.ZERO) > 0 && venta.compareTo(min) < 0;
+    boolean enMinimo = venta.compareTo(BigDecimal.ZERO) > 0 && venta.compareTo(min) == 0;
     UnidadVenta vendePor = p.getVendePor() != null ? p.getVendePor() : UnidadVenta.LITROS;
     DepartamentoProducto depto =
         p.getDepartamento() != null
@@ -362,6 +375,7 @@ public class InventarioService {
         casaMonto,
         ganancia,
         bajoMinimo,
+        enMinimo,
         vendePor,
         vendePor.toLabel(),
         depto,

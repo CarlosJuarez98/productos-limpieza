@@ -536,12 +536,12 @@ button.icono.danger:hover:not(:disabled) {
   overflow-wrap: normal;
 }
 
-/* Solo en pantallas bajas / muchas filas: scroll interno de tabla */
-@media (min-width: 768px) and (max-height: 720px) {
+/* Escritorio: scroll de filas dentro de la tabla; encabezados fijos */
+@media (min-width: 768px) {
   .table-wrap.hist-tabla {
-    overflow-y: auto;
-    max-height: min(55vh, calc(100dvh - 14rem));
-    overscroll-behavior-y: contain;
+    overflow: auto !important;
+    max-height: min(70vh, calc(100dvh - 11.5rem)) !important;
+    overscroll-behavior: contain;
   }
 }
 
@@ -807,6 +807,7 @@ th {
   font-size: 0.88rem;
   letter-spacing: 0.01em;
   border-bottom: 2px solid #c5d4cb;
+  box-shadow: 0 2px 6px rgba(26, 43, 35, 0.08);
 }
 
 /* Celdas con color propio de columna: no las pinta el hover/estado de fila */
@@ -1642,6 +1643,7 @@ button.chip.ghost:hover {
   .panel-titulo {
     font-family: Fraunces, Georgia, serif;
     letter-spacing: -0.015em;
+    font-weight: 700;
   }
 
   .stat {
@@ -1702,9 +1704,16 @@ button.chip.ghost:hover {
     font-weight: 700;
   }
 
+  .hist-cards .card-cols dt,
+  .card-cols dt {
+    font-weight: 700;
+    color: var(--text);
+  }
+
   .hist-cards .item-meta {
     font-size: 0.78rem;
     margin-bottom: 0.28rem;
+    font-weight: 700;
   }
 
   .hist-cards button.icono,

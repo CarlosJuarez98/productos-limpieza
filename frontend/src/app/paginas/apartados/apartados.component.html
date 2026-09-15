@@ -287,7 +287,11 @@
 
         <div class="bloque-cols">
           @for (cat of rubros; track cat.id) {
-            <div class="registro-col">
+            <div
+              class="registro-col"
+              [attr.id]="'apartado-' + cat.codigo + '-' + bloque.tipo"
+              data-pag-top
+            >
               <h5>
                 {{ cat.nombre }}
                 <span class="saldo-inline"
@@ -395,6 +399,7 @@
                 [pagina]="pagMov(cat.codigo, bloque.tipo).pagina"
                 [pageSize]="pagMov(cat.codigo, bloque.tipo).pageSize"
                 [ariaLabel]="'Páginas ' + bloque.titulo + ' ' + cat.nombre"
+                [scrollAncla]="'#apartado-' + cat.codigo + '-' + bloque.tipo"
                 (prev)="pagMov(cat.codigo, bloque.tipo).anterior()"
                 (next)="pagMov(cat.codigo, bloque.tipo).siguiente()"
               />

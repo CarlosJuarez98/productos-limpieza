@@ -16,7 +16,7 @@
     </label>
   </div>
 
-  <h3>Precios actuales</h3>
+  <h3 id="precios-actuales-top" data-pag-top>Precios actuales</h3>
   <div class="table-wrap hist-tabla">
     <table>
       <thead>
@@ -74,13 +74,14 @@
     [pagina]="pagActuales.pagina"
     [pageSize]="pagActuales.pageSize"
     ariaLabel="Páginas de precios actuales"
+    scrollAncla="#precios-actuales-top"
     (prev)="pagActuales.anterior()"
     (next)="pagActuales.siguiente()"
   />
 </section>
 
 <section class="panel" style="margin-top: 1rem">
-  <h3>Historial</h3>
+  <h3 id="precios-hist-top" data-pag-top>Historial</h3>
   <div class="table-wrap hist-tabla">
     <table>
       <thead>
@@ -141,6 +142,7 @@
     [pagina]="pagAnteriores.pagina"
     [pageSize]="pagAnteriores.pageSize"
     ariaLabel="Páginas de historial de precios"
+    scrollAncla="#precios-hist-top"
     (prev)="pagAnteriores.anterior()"
     (next)="pagAnteriores.siguiente()"
   />

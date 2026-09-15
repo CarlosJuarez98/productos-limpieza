@@ -48,6 +48,10 @@ export class ListaPreciosComponent implements OnInit, OnDestroy {
     mayoreo10: false,
   };
 
+  toggleCol(which: 'mayoreo5' | 'mayoreo10'): void {
+    this.cols[which] = !this.cols[which];
+  }
+
   constructor(private api: ApiService) {}
 
   ngOnInit(): void {
@@ -112,20 +116,26 @@ export class ListaPreciosComponent implements OnInit, OnDestroy {
         views: [{ showGridLines: true }],
       });
 
-      const logoH = 56;
-      let logoW = 56;
+      // Nombre ancho; precios angostos e iguales (fácil de escanear).
+      const anchoPrecio = 12;
+      ws.getColumn(1).width = 38;
+      for (let i = 2; i <= colCount; i++) {
+        ws.getColumn(i).width = anchoPrecio;
+      }
+
+      const logoH = 78;
       try {
         const logoBuf = await this.cargarLogo();
         if (logoBuf) {
           const dims = await this.dimsLogoProporcional(logoBuf, logoH);
-          logoW = dims.w;
           const logoId = wb.addImage({
             buffer: logoBuf,
             extension: 'png',
           });
-          // Logo en col A, nombre del negocio a la derecha (misma fila).
+          // Columna extra a la derecha del bloque de datos, justo después del título.
+          ws.getColumn(colCount + 1).width = Math.max(12, Math.ceil(dims.w / 7) + 1);
           ws.addImage(logoId, {
-            tl: { col: 0, row: 0 },
+            tl: { col: colCount, row: 0 },
             ext: { width: dims.w, height: dims.h },
           });
         }
@@ -133,21 +143,23 @@ export class ListaPreciosComponent implements OnInit, OnDestroy {
         // Sin logo: sigue el export con texto
       }
 
-      // Ancho aprox. de columna A para el logo (excel: ~7px por unidad de width)
-      ws.getColumn(1).width = Math.max(12, Math.ceil(logoW / 7) + 1);
-      ws.getRow(1).height = Math.max(48, logoH * 0.85);
+      ws.getRow(1).height = Math.max(60, logoH * 0.78);
+      ws.getRow(2).height = 20;
 
-      ws.mergeCells(1, 2, 1, Math.max(2, colCount));
-      const titulo = ws.getCell(1, 2);
+      // Título y subtítulo combinan todas las columnas de datos (2, 3 o 4).
+      if (colCount > 1) {
+        ws.mergeCells(1, 1, 1, colCount);
+        ws.mergeCells(2, 1, 2, colCount);
+      }
+      const titulo = ws.getCell(1, 1);
       titulo.value = this.marca;
       titulo.font = { bold: true, size: 18, color: { argb: 'FF163528' } };
-      titulo.alignment = { vertical: 'middle', horizontal: 'left' };
+      titulo.alignment = { vertical: 'middle', horizontal: 'left', wrapText: false };
 
-      ws.mergeCells(2, 2, 2, Math.max(2, colCount));
-      const sub = ws.getCell(2, 2);
+      const sub = ws.getCell(2, 1);
       sub.value = `Lista de precios · ${this.fechaLista}`;
       sub.font = { bold: true, size: 12, color: { argb: 'FF2D4A3C' } };
-      sub.alignment = { vertical: 'middle', horizontal: 'left' };
+      sub.alignment = { vertical: 'middle', horizontal: 'left', wrapText: false };
 
       const headerRowIdx = 4;
       const headerRow = ws.getRow(headerRowIdx);
@@ -175,11 +187,31 @@ export class ListaPreciosComponent implements OnInit, OnDestroy {
         r++;
       }
 
-      for (let i = 2; i <= colCount; i++) {
-        ws.getColumn(i).width = 14;
+      const lastRow = Math.max(headerRowIdx, r - 1);
+      const lastCol = colCount + 1;
+      for (let rowNum = 1; rowNum <= lastRow; rowNum++) {
+        const row = ws.getRow(rowNum);
+        for (let col = 1; col <= lastCol; col++) {
+          row.getCell(col).protection = { locked: true };
+        }
       }
-      // Producto más ancho (col 1 ya tiene logo width; en filas de datos es el nombre)
-      ws.getColumn(1).width = Math.max(ws.getColumn(1).width || 12, 36);
+
+      // Hoja de solo lectura: se puede ver/seleccionar, no editar.
+      await ws.protect('', {
+        selectLockedCells: true,
+        selectUnlockedCells: true,
+        formatCells: false,
+        formatColumns: false,
+        formatRows: false,
+        insertColumns: false,
+        insertRows: false,
+        insertHyperlinks: false,
+        deleteColumns: false,
+        deleteRows: false,
+        sort: false,
+        autoFilter: false,
+        pivotTables: false,
+      });
 
       const buffer = await wb.xlsx.writeBuffer();
       const blob = new Blob([buffer], {

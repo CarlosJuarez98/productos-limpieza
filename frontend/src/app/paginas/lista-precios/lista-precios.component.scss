@@ -8,41 +8,87 @@
 }
 
 .export-cols {
-  border: 1px solid var(--border, #d5dde6);
-  border-radius: 8px;
-  padding: 0.35rem 0.65rem 0.5rem;
-  margin: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem 1rem;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
-.export-cols legend {
-  padding: 0 0.25rem;
-  font-size: 0.75rem;
-  color: var(--muted, #64748b);
-}
-
-.export-cols .chk {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
+.export-cols .col-chip {
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  background: #fff;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.42rem 0.9rem;
   font-size: 0.88rem;
-  margin: 0;
+  font-weight: 650;
   cursor: pointer;
+  min-height: 2.35rem;
+  box-shadow: none;
+  transform: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
-.export-cols .chk input {
+.export-cols .col-chip:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: none;
+  transform: none;
+}
+
+.export-cols .col-chip.activo {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.lista-tabla {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+/* Nombre amplio; precios angostos e iguales para leer en vertical. */
+.lista-tabla .col-nombre {
   width: auto;
-  margin: 0;
 }
 
-table th {
+.lista-tabla .col-precio {
+  width: 7.25rem;
+}
+
+.lista-tabla th,
+.lista-tabla td {
+  padding: 0.55rem 0.75rem;
+  vertical-align: middle;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.lista-tabla th:first-child,
+.lista-tabla td:first-child {
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lista-tabla th.money,
+.lista-tabla td.money,
+.lista-tabla .money {
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.lista-tabla th {
   font-weight: 700;
 }
 
-td.menudeo {
+.lista-tabla td.menudeo {
   font-weight: 700;
 }
 
@@ -61,38 +107,35 @@ td.menudeo {
     background: #fff;
   }
 
-  table {
+  .lista-tabla {
     min-width: 0;
   }
 
-  th,
-  td {
-    padding: 0.55rem 0.65rem;
+  .lista-tabla .col-precio {
+    width: 5.75rem;
+  }
+
+  .lista-tabla th,
+  .lista-tabla td {
+    padding: 0.5rem 0.55rem;
     font-size: 0.9rem;
-    vertical-align: middle;
   }
 
-  td:first-child {
+  .lista-tabla th:first-child,
+  .lista-tabla td:first-child {
     white-space: normal;
-    min-width: 0;
-    max-width: 12rem;
+    text-overflow: unset;
     line-height: 1.3;
-  }
-
-  td.menudeo,
-  td.money {
-    white-space: nowrap;
-    min-width: 0;
   }
 }
 
 @media (max-width: 1024px) and (orientation: landscape) {
-  table {
+  .lista-tabla {
     min-width: 0;
   }
 
-  th,
-  td {
+  .lista-tabla th,
+  .lista-tabla td {
     padding: 0.4rem 0.55rem;
     font-size: 0.88rem;
   }

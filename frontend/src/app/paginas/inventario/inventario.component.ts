@@ -107,15 +107,15 @@ export class InventarioComponent implements OnInit, OnDestroy {
   private filtroTimer: ReturnType<typeof setTimeout> | null = null;
   readonly columnas: ColDef[] = [
     { key: 'producto', label: 'Producto', fijo: true },
-    { key: 'menudeo', label: 'Menudeo', fijo: true },
+    { key: 'menudeo', label: 'Precio menudeo', fijo: true },
     { key: 'stock', label: 'Stock', fijo: true },
-    { key: 'vende', label: 'Se vende' },
+    { key: 'vende', label: 'Se vende por' },
     { key: 'depto', label: 'Departamento' },
-    { key: 'm5', label: '≥ 5 L' },
-    { key: 'm10', label: '≥ 10 L' },
-    { key: 'compra', label: 'Compra' },
-    { key: 'minSug', label: 'Mín. sugerido' },
-    { key: 'maxSug', label: 'Máx. sugerido' },
+    { key: 'm5', label: 'Mayoreo ≥ 5 L' },
+    { key: 'm10', label: 'Mayoreo ≥ 10 L' },
+    { key: 'compra', label: 'Precio compra' },
+    { key: 'minSug', label: 'Mínimo sugerido' },
+    { key: 'maxSug', label: 'Máximo sugerido' },
     { key: 'ganancia', label: '% ganancia' },
   ];
 
@@ -512,9 +512,26 @@ export class InventarioComponent implements OnInit, OnDestroy {
   }
 
   private scrollLista(): void {
-    setTimeout(() => {
-      this.listaResultados?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 30);
+    // El app-paginador ya lleva al inicio; refuerzo por si el layout tarda.
+    const irArriba = () => {
+      const ancla = document.getElementById('inv-lista-top') || this.listaResultados?.nativeElement;
+      if (!ancla) return;
+      const scope = this.listaResultados?.nativeElement || ancla;
+      scope.querySelectorAll?.('.table-wrap, .hist-cards').forEach((el) => {
+        if (el instanceof HTMLElement) el.scrollTop = 0;
+      });
+      const main = document.querySelector('main') as HTMLElement | null;
+      if (main) {
+        const y =
+          ancla.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - 8;
+        main.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+      } else {
+        ancla.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }
+    };
+    setTimeout(irArriba, 0);
+    setTimeout(irArriba, 80);
+    setTimeout(irArriba, 200);
   }
 
   toggleLista(): void {
@@ -537,6 +554,14 @@ export class InventarioComponent implements OnInit, OnDestroy {
     return i.vendePor === 'PIEZA' || i.vendePorLabel === 'Pieza';
   }
 
+  /** Menudeo estrictamente menor al mínimo sugerido. */
+  esMenudeoBajoMinimo(i: InventarioItem): boolean {
+    const v = Number(i.precioVentaHoy);
+    const m = Number(i.precioMinimoSugerido);
+    if (!(v > 0) || !(m > 0)) return false;
+    return v < Math.round(m) - 0.0001;
+  }
+
   etiquetaUnidad(i: InventarioItem): string {
     return this.esPieza(i) ? 'Pieza' : 'Litros';
   }
@@ -550,13 +575,13 @@ export class InventarioComponent implements OnInit, OnDestroy {
   private sugeridoMin(compra: number | null): number {
     const c = Number(compra) || 0;
     if (c <= 0) return 0;
-    return Math.round(c * (1 + Number(this.pct.min) / 100) * 100) / 100;
+    return Math.round(c * (1 + Number(this.pct.min) / 100));
   }
 
   private sugeridoMax(compra: number | null): number {
     const c = Number(compra) || 0;
     if (c <= 0) return 0;
-    return Math.round(c * (1 + Number(this.pct.max) / 100) * 100) / 100;
+    return Math.round(c * (1 + Number(this.pct.max) / 100));
   }
 
   get sugeridoPlaceholder(): string {
@@ -674,8 +699,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
   private calcularMayoreo(f: FormProducto): void {
     const c = Number(f.precioCompra) || 0;
     if (c <= 0) return;
-    f.precioMayoreo5 = Math.round(c * (1 + Number(this.pct.mayoreo5) / 100) * 100) / 100;
-    f.precioMayoreo10 = Math.round(c * (1 + Number(this.pct.mayoreo10) / 100) * 100) / 100;
+    f.precioMayoreo5 = Math.round(c * (1 + Number(this.pct.mayoreo5) / 100));
+    f.precioMayoreo10 = Math.round(c * (1 + Number(this.pct.mayoreo10) / 100));
   }
 
   cargar(): void {

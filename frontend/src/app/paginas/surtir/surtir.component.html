@@ -1,35 +1,28 @@
 <h2 class="page-title">Surtir / Levantar pedido</h2>
 
-<section class="panel panel-anim">
+<section class="panel panel-anim panel-calcular">
+  <h3 class="bloque-titulo">1. Calcular pedido</h3>
+
   <div class="form-grid toolbar-pedido">
-    <label>
+    <label class="campo-periodo">
       Periodo
       <select [(ngModel)]="modoPeriodo" name="modoPeriodo" (ngModelChange)="onModoPeriodo()">
-        <option value="4_semanas">Últimas 4 semanas (recomendado)</option>
+        <option value="4_semanas">Últimas 4 semanas</option>
         <option value="mes_pasado">Mes pasado</option>
-        <option value="mes_actual">Lo que va del mes (proyecta)</option>
+        <option value="mes_actual">Mes actual</option>
         <option value="custom">Fechas</option>
       </select>
     </label>
-    <label>
-      Desde
-      <input
-        type="date"
-        [(ngModel)]="desde"
-        name="desde"
+    <label class="campo-rango">
+      Desde — Hasta
+      <app-rango-fechas
+        [(desde)]="desde"
+        [(hasta)]="hasta"
         [disabled]="modoPeriodo !== 'custom'"
+        ariaLabel="Rango del periodo"
       />
     </label>
-    <label>
-      Hasta
-      <input
-        type="date"
-        [(ngModel)]="hasta"
-        name="hasta"
-        [disabled]="modoPeriodo !== 'custom'"
-      />
-    </label>
-    <label>
+    <label class="campo-dias">
       Días a cubrir
       <input
         type="text"
@@ -41,63 +34,31 @@
         placeholder="igual al periodo"
       />
     </label>
-    <label>
-      Colchón %
-      <input
-        type="text"
-        inputmode="decimal"
-        appClearable
-        [(ngModel)]="porcentajeExtra"
-        name="porcentajeExtra"
-        placeholder="20"
-      />
-    </label>
-    <button type="button" (click)="calcular()" [disabled]="cargando">
+    <button type="button" class="btn-levantar" (click)="calcular()" [disabled]="cargando">
       {{ cargando ? 'Calculando…' : 'Levantar pedido' }}
     </button>
   </div>
 
-  <div class="filtro-chips seg-control" role="group" aria-label="Qué surtir">
-    <button type="button" class="modo-chip seg-btn" [class.activo]="filtroDepto === 'todo'" (click)="setFiltroDepto('todo')">
-      Todo
+  <div class="filtro-chips colchon-chips" role="group" aria-label="Colchón del pedido">
+    <span class="colchon-etiqueta">Colchón</span>
+    <button type="button" class="modo-chip seg-btn" [class.activo]="esColchon(0)" (click)="setColchon(0)">
+      Sin
     </button>
-    <button type="button" class="modo-chip seg-btn" [class.activo]="filtroDepto === 'limpieza'" (click)="setFiltroDepto('limpieza')">
-      Limpieza
+    <button type="button" class="modo-chip seg-btn" [class.activo]="esColchon(10)" (click)="setColchon(10)">
+      10%
     </button>
-    <button type="button" class="modo-chip seg-btn" [class.activo]="filtroDepto === 'jarceria'" (click)="setFiltroDepto('jarceria')">
-      Jarcería
+    <button type="button" class="modo-chip seg-btn" [class.activo]="esColchon(20)" (click)="setColchon(20)">
+      20%
     </button>
-  </div>
-
-  <div class="alta-manual">
-    <p class="alta-manual-tit">Agregar producto a mano</p>
-    <p class="muted hint-inline">Para ofertas o algo que no salió en el cálculo. Se coloca solo en Limpieza o Jarcería según el producto.</p>
-    <div class="alta-manual-fila">
-      <label class="campo producto-campo">
-        Producto
-        <app-producto-autocomplete
-          [productos]="productos"
-          [productoId]="altaProductoId"
-          inputName="altaSurtirProd"
-          placeholder="Busca en inventario…"
-          mostrarExtra="stock"
-          [enterAvanza]="true"
-          (productoIdChange)="altaProductoId = $event"
-        />
-      </label>
-      <label class="campo">
-        Pedir
-        <input
-          type="text"
-          inputmode="numeric"
-          appClearable
-          [(ngModel)]="altaCantidad"
-          name="altaSurtirCant"
-          placeholder="0"
-        />
-      </label>
-      <button type="button" (click)="agregarManual()">Agregar</button>
-    </div>
+    <button type="button" class="modo-chip seg-btn" [class.activo]="esColchon(30)" (click)="setColchon(30)">
+      30%
+    </button>
+    <button type="button" class="modo-chip seg-btn" [class.activo]="esColchon(40)" (click)="setColchon(40)">
+      40%
+    </button>
+    <button type="button" class="modo-chip seg-btn" [class.activo]="esColchon(50)" (click)="setColchon(50)">
+      50%
+    </button>
   </div>
 
   @if (error) {
@@ -106,16 +67,72 @@
   @if (ok) {
     <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
   }
+</section>
 
-  <div class="acciones-pedido cta-bar-mobile">
-    <button type="button" (click)="registrarPedido()" [disabled]="totalLineas === 0 || registrando">
-      {{ etiquetaRegistrar }}
-    </button>
+<details class="panel panel-anim alta-manual-details">
+  <summary>
+    <span class="alta-manual-tit">Agregar producto a mano</span>
+    <span class="muted hint-inline">Opcional · ofertas o algo que no salió en el cálculo</span>
+  </summary>
+  <div class="alta-manual-fila">
+    <label class="campo producto-campo">
+      Producto
+      <app-producto-autocomplete
+        [productos]="productos"
+        [productoId]="altaProductoId"
+        inputName="altaSurtirProd"
+        placeholder="Busca en inventario…"
+        mostrarExtra="stock"
+        [enterAvanza]="true"
+        (productoIdChange)="altaProductoId = $event"
+      />
+    </label>
+    <label class="campo">
+      Pedir
+      <div class="pedir-stepper">
+        <div class="pedir-stepper-core">
+          <button type="button" class="stepper-btn" (click)="ajustarAltaCantidad(-1)" aria-label="Bajar 1">−</button>
+          <input
+            type="text"
+            inputmode="numeric"
+            [(ngModel)]="altaCantidad"
+            name="altaSurtirCant"
+            placeholder="0"
+          />
+          <button type="button" class="stepper-btn" (click)="ajustarAltaCantidad(1)" aria-label="Subir 1">+</button>
+        </div>
+      </div>
+    </label>
+    <button type="button" (click)="agregarManual()">Agregar</button>
+  </div>
+</details>
+
+<section class="panel panel-anim panel-resultados">
+  <div class="resultados-toolbar">
+    <div>
+      <h3 class="bloque-titulo">2. Revisar y registrar</h3>
+      <div class="filtro-chips seg-control" role="group" aria-label="Qué surtir">
+        <button type="button" class="modo-chip seg-btn" [class.activo]="filtroDepto === 'todo'" (click)="setFiltroDepto('todo')">
+          Todo
+        </button>
+        <button type="button" class="modo-chip seg-btn" [class.activo]="filtroDepto === 'limpieza'" (click)="setFiltroDepto('limpieza')">
+          Limpieza
+        </button>
+        <button type="button" class="modo-chip seg-btn" [class.activo]="filtroDepto === 'jarceria'" (click)="setFiltroDepto('jarceria')">
+          Jarcería
+        </button>
+      </div>
+    </div>
+    <div class="acciones-pedido cta-bar-mobile">
+      <button type="button" (click)="registrarPedido()" [disabled]="totalLineas === 0 || registrando">
+        {{ etiquetaRegistrar }}
+      </button>
+    </div>
   </div>
 </section>
 
 @if (mostrarLimpieza) {
-<section class="panel lista-grupo">
+<section class="panel lista-grupo" id="surtir-limpieza-top" data-pag-top>
   <div class="grupo-cab">
     <h3 class="panel-titulo">Limpieza</h3>
     <span class="muted">{{ totalLitros }} productos</span>
@@ -131,8 +148,7 @@
           <th class="money">Para cubrir</th>
           <th class="money">Faltó antes</th>
           <th class="money">Con colchón</th>
-          <th class="money">Pedir</th>
-          <th></th>
+          <th class="col-pedir">Pedir</th>
         </tr>
       </thead>
       <tbody>
@@ -149,23 +165,26 @@
             <td class="money">{{ l.consumoBase | number: '1.0-2' }}</td>
             <td class="money">{{ l.faltanteAnterior | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoConColchon | number: '1.0-2' }}</td>
-            <td class="money col-pedir">
-              <input
-                type="text"
-                inputmode="decimal"
-                appClearable
-                [(ngModel)]="l.pedir"
-                [name]="'pedirL' + l.productoId"
-                (change)="onPedirChange(l)"
-              />
-            </td>
-            <td class="actions">
-              <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
+            <td class="col-pedir">
+              <div class="pedir-stepper pedir-stepper-tabla">
+                <div class="pedir-stepper-core">
+                  <button type="button" class="stepper-btn" (click)="ajustarPedir(l, -1)" aria-label="Bajar 1">−</button>
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    [(ngModel)]="l.pedir"
+                    [name]="'pedirL' + l.productoId"
+                    (change)="onPedirChange(l)"
+                  />
+                  <button type="button" class="stepper-btn" (click)="ajustarPedir(l, 1)" aria-label="Subir 1">+</button>
+                </div>
+                <button type="button" class="danger pedir-quitar" title="Quitar" (click)="quitar(l)">×</button>
+              </div>
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="8" class="muted">
+            <td colspan="7" class="muted">
               {{ textoVacioGrupo('limpieza') }}
             </td>
           </tr>
@@ -208,14 +227,19 @@
         <div class="item-fila pedir-movil">
           <label>
             Pedir (L)
-            <input
-              type="text"
-              inputmode="decimal"
-              appClearable
-              [(ngModel)]="l.pedir"
-              [name]="'pedirLM' + l.productoId"
-              (change)="onPedirChange(l)"
-            />
+            <div class="pedir-stepper">
+              <div class="pedir-stepper-core">
+                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, -1)" aria-label="Bajar 1 L">−</button>
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  [(ngModel)]="l.pedir"
+                  [name]="'pedirLM' + l.productoId"
+                  (change)="onPedirChange(l)"
+                />
+                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, 1)" aria-label="Subir 1 L">+</button>
+              </div>
+            </div>
           </label>
           <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
         </div>
@@ -231,6 +255,7 @@
     [total]="pagLitros.total"
     [pagina]="pagLitros.pagina"
     [pageSize]="pagLitros.pageSize"
+    scrollAncla="#surtir-limpieza-top"
     (prev)="pagLitros.anterior()"
     (next)="pagLitros.siguiente()"
   />
@@ -238,7 +263,7 @@
 }
 
 @if (mostrarJarceria) {
-<section class="panel lista-grupo">
+<section class="panel lista-grupo" id="surtir-jarceria-top" data-pag-top>
   <div class="grupo-cab">
     <h3 class="panel-titulo">Jarcería</h3>
     <span class="muted">{{ totalPiezas }} productos</span>
@@ -254,8 +279,7 @@
           <th class="money">Para cubrir</th>
           <th class="money">Faltó antes</th>
           <th class="money">Con colchón</th>
-          <th class="money">Pedir</th>
-          <th></th>
+          <th class="col-pedir">Pedir</th>
         </tr>
       </thead>
       <tbody>
@@ -272,23 +296,26 @@
             <td class="money">{{ l.consumoBase | number: '1.0-2' }}</td>
             <td class="money">{{ l.faltanteAnterior | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoConColchon | number: '1.0-2' }}</td>
-            <td class="money col-pedir">
-              <input
-                type="text"
-                inputmode="decimal"
-                appClearable
-                [(ngModel)]="l.pedir"
-                [name]="'pedirP' + l.productoId"
-                (change)="onPedirChange(l)"
-              />
-            </td>
-            <td class="actions">
-              <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
+            <td class="col-pedir">
+              <div class="pedir-stepper pedir-stepper-tabla">
+                <div class="pedir-stepper-core">
+                  <button type="button" class="stepper-btn" (click)="ajustarPedir(l, -1)" aria-label="Bajar 1">−</button>
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    [(ngModel)]="l.pedir"
+                    [name]="'pedirP' + l.productoId"
+                    (change)="onPedirChange(l)"
+                  />
+                  <button type="button" class="stepper-btn" (click)="ajustarPedir(l, 1)" aria-label="Subir 1">+</button>
+                </div>
+                <button type="button" class="danger pedir-quitar" title="Quitar" (click)="quitar(l)">×</button>
+              </div>
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="8" class="muted">
+            <td colspan="7" class="muted">
               {{ textoVacioGrupo('jarceria') }}
             </td>
           </tr>
@@ -331,14 +358,19 @@
         <div class="item-fila pedir-movil">
           <label>
             Pedir (pza)
-            <input
-              type="text"
-              inputmode="decimal"
-              appClearable
-              [(ngModel)]="l.pedir"
-              [name]="'pedirPM' + l.productoId"
-              (change)="onPedirChange(l)"
-            />
+            <div class="pedir-stepper">
+              <div class="pedir-stepper-core">
+                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, -1)" aria-label="Bajar 1">−</button>
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  [(ngModel)]="l.pedir"
+                  [name]="'pedirPM' + l.productoId"
+                  (change)="onPedirChange(l)"
+                />
+                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, 1)" aria-label="Subir 1">+</button>
+              </div>
+            </div>
           </label>
           <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
         </div>
@@ -354,6 +386,7 @@
     [total]="pagPiezas.total"
     [pagina]="pagPiezas.pagina"
     [pageSize]="pagPiezas.pageSize"
+    scrollAncla="#surtir-jarceria-top"
     (prev)="pagPiezas.anterior()"
     (next)="pagPiezas.siguiente()"
   />
