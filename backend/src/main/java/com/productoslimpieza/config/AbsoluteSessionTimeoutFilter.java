@@ -13,14 +13,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Cierra la sesión a los 20 minutos sin actividad. Cada petición autenticada la renueva.
+ * Sesión deslizante de 20 minutos. Si hay petición con sesión viva, se renueva;
+ * si pasan 20 min sin uso, se invalida.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 20)
 public class AbsoluteSessionTimeoutFilter extends OncePerRequestFilter {
 
+  /** Última actividad (ms). */
   public static final String LOGIN_AT_ATTR = "pl.loginAtMillis";
   public static final long MAX_SESSION_MS = 20L * 60L * 1000L;
+  public static final int MAX_SESSION_SECONDS = (int) (MAX_SESSION_MS / 1000L);
 
   @Override
   protected void doFilterInternal(
@@ -28,16 +31,19 @@ public class AbsoluteSessionTimeoutFilter extends OncePerRequestFilter {
       throws ServletException, IOException {
     HttpSession session = request.getSession(false);
     if (session != null) {
-      Object loginAt = session.getAttribute(LOGIN_AT_ATTR);
-      if (loginAt instanceof Long started) {
+      Object lastAt = session.getAttribute(LOGIN_AT_ATTR);
+      if (lastAt instanceof Long started) {
         long now = System.currentTimeMillis();
-        long age = now - started;
-        if (age > MAX_SESSION_MS) {
-          session.invalidate();
+        if (now - started > MAX_SESSION_MS) {
+          try {
+            session.invalidate();
+          } catch (IllegalStateException ignored) {
+            /* ya invalidada */
+          }
           SecurityContextHolder.clearContext();
         } else {
           session.setAttribute(LOGIN_AT_ATTR, now);
-          session.setMaxInactiveInterval((int) (MAX_SESSION_MS / 1000L));
+          session.setMaxInactiveInterval(MAX_SESSION_SECONDS);
         }
       }
     }

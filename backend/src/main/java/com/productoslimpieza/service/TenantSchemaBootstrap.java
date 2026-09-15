@@ -34,10 +34,14 @@ public class TenantSchemaBootstrap implements ApplicationRunner {
       "TRASPASO_LINEAS",
       "TRASPASO_ABONOS",
       "PRODUCCIONES",
+      "PRODUCCION_INSUMOS",
       "CORTES_CAJA",
       "AJUSTES_INVENTARIO",
       "PEDIDOS",
       "PEDIDO_ITEMS",
+      "PEDIDO_ABONOS",
+      "RECETAS",
+      "RECETA_INSUMOS",
       "APARTADO_RUBROS"
   );
 

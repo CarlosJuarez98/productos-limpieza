@@ -48,8 +48,8 @@
   </div>
 
   <ul class="hist-cards">
-    @for (p of pagActuales.paginaItems; track p.productoId) {
-      <li>
+    @for (p of pagActuales.paginaItems; track p.productoId; let idx = $index) {
+      <li [style.--i]="idx">
         <div class="item-meta">
           <span>
             @if (p.vigenteDesde) {
@@ -115,8 +115,8 @@
   </div>
 
   <ul class="hist-cards">
-    @for (p of pagAnteriores.paginaItems; track p.id) {
-      <li>
+    @for (p of pagAnteriores.paginaItems; track p.id; let idx = $index) {
+      <li [style.--i]="idx">
         <div class="item-meta">
           <span>
             {{ p.fechaVigencia | fechaDmY }} ·

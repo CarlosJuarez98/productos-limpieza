@@ -35,13 +35,22 @@
   }
 
   .calc-denoms {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.35rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .calc-den {
+    padding: 0.45rem 0.5rem;
   }
 
   .calc-den input {
-    min-height: 2.35rem;
-    font-size: 0.95rem !important;
+    min-height: 2.65rem;
+    font-size: 1.05rem !important;
+  }
+
+  .calc-resumen {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
   }
 }
 
@@ -556,8 +565,76 @@ button.linkish {
   background: none;
   border: none;
   color: var(--accent);
-  padding: 0;
-  font-size: inherit;
+  box-shadow: none;
+  transform: none;
+}
+
+button.linkish:hover:not(:disabled) {
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 75%, #000);
+  box-shadow: none;
+  transform: none;
   text-decoration: underline;
-  cursor: pointer;
+}
+@media (max-width: 767px) {
+  .banco-panel.ui-card,
+  .banco-panel {
+    border-radius: 1.15rem;
+    padding: 0.9rem 1rem;
+  }
+
+  .banco-saldo {
+    border-radius: 0.95rem;
+    width: 100%;
+    align-items: flex-start;
+    margin-top: 0.55rem;
+  }
+
+  .banco-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .banco-toggle {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .totales-panel .stats,
+  .stats {
+    gap: 0.55rem;
+  }
+
+  .stat strong {
+    font-family: Fraunces, Georgia, serif;
+  }
+
+  .calc-panel {
+    border-radius: 1.1rem;
+  }
+
+  .calc-denoms {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem;
+  }
+
+  .calc-den input {
+    min-height: 2.75rem !important;
+    border-radius: 0.65rem;
+  }
+
+  .calc-resumen {
+    grid-template-columns: 1fr !important;
+  }
+
+  .movs-efectivo,
+  .order-mov,
+  .order-periodo {
+    border-radius: 1.05rem;
+  }
+
+  form.form-grid > button[type='submit'] {
+    min-height: 2.85rem;
+    border-radius: 999px;
+  }
 }

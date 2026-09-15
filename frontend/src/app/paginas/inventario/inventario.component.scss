@@ -3,6 +3,16 @@ h3 {
   font-size: 1.1rem;
 }
 
+.inv-loading,
+.inv-loading-soft {
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+}
+
+.inv-loading-soft {
+  opacity: 0.75;
+}
+
 .lista-toggle {
   display: flex;
   width: 100%;
@@ -10,12 +20,26 @@ h3 {
   justify-content: space-between;
   gap: 0.75rem;
   margin: 0 0 0.75rem;
-  padding: 0.55rem 0.15rem;
+  padding: 0.55rem 0.55rem;
   border: 0;
+  border-radius: 0.75rem;
   background: transparent;
   cursor: pointer;
   color: var(--text);
   text-align: left;
+  box-shadow: none;
+  transform: none;
+}
+
+.lista-toggle:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: none;
+  transform: none;
+}
+
+.lista-toggle:hover .chev {
+  color: var(--accent);
 }
 
 .lista-toggle-titulo {
@@ -512,14 +536,15 @@ th.col-sugerido {
 }
 
 .icon-btn.danger {
-  color: #fff;
-  background: var(--danger);
-  border-color: var(--danger);
+  color: var(--danger);
+  background: #fff;
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
 }
 
 .icon-btn.danger:hover {
-  background: #7a2424;
-  border-color: #7a2424;
+  background: color-mix(in srgb, var(--danger) 12%, #fff);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .sugerido-form {
@@ -822,5 +847,37 @@ input[readonly] {
   :host table.inv-table th.col-producto,
   :host table.inv-table td.col-producto {
     min-width: 0;
+  }
+}
+@media (max-width: 767px) {
+  .hist-cards > li {
+    border-radius: 1.05rem;
+  }
+
+  .hist-cards .item-motivo {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 1.05rem;
+  }
+
+  .toolbar-lista .buscar input,
+  .toolbar-lista .search {
+    min-height: 2.75rem;
+  }
+
+  .lista-toggle {
+    border-radius: 0.95rem;
+    padding: 0.7rem 0.55rem !important;
+  }
+
+  .margen-btn,
+  .cols-btn,
+  .buscar-ir {
+    min-height: 2.75rem;
+    border-radius: 999px;
+  }
+
+  .inv-card-resumen strong {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 1.15rem;
   }
 }

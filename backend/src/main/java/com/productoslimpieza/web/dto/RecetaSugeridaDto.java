@@ -1,6 +1,7 @@
 package com.productoslimpieza.web.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record RecetaSugeridaDto(
     Long productoResultadoId,
@@ -11,4 +12,5 @@ public record RecetaSugeridaDto(
     BigDecimal cantidadProducto,
     BigDecimal cantidadAgua,
     BigDecimal cantidadInsumo,
-    BigDecimal ratioInsumo) {}
+    BigDecimal ratioInsumo,
+    List<RecetaInsumoDto> insumos) {}

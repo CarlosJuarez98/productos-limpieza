@@ -222,9 +222,7 @@ public class PedidoService {
     Map<Long, InsumoAlertaDto> porInsumo = new HashMap<>();
     for (RecetaDto receta : recetasPorResultado.values()) {
       Producto resultado = productos.get(receta.productoResultadoId());
-      Producto insumo = productos.get(receta.productoInsumoId());
       if (resultado == null || !resultado.isActivo()) continue;
-      if (insumo == null || !insumo.isActivo()) continue;
 
       BigDecimal consumoObs = consumoPeriodo(resultado, ini, fin);
       BigDecimal demanda = consumoObs.multiply(escala).multiply(factor);
@@ -233,73 +231,109 @@ public class PedidoService {
       if (aProducir.compareTo(BigDecimal.ZERO) < 0) {
         aProducir = BigDecimal.ZERO;
       }
-
-      BigDecimal ratio = ratioInsumo(receta);
-      BigDecimal stockIns = inventarioService.stockActual(insumo);
-      BigDecimal insumoNecesario = aProducir.multiply(ratio);
-      BigDecimal pedir = insumoNecesario.subtract(stockIns);
-
-      if (stockIns.compareTo(BigDecimal.ZERO) <= 0 && demanda.compareTo(BigDecimal.ZERO) > 0) {
-        pedir = pedir.max(demanda.multiply(ratio));
-        if (insumoNecesario.compareTo(BigDecimal.ZERO) <= 0) {
-          insumoNecesario = demanda.multiply(ratio);
-        }
-      }
-
       if (demanda.compareTo(BigDecimal.ZERO) <= 0 && aProducir.compareTo(BigDecimal.ZERO) <= 0) {
         continue;
       }
-      if (pedir.compareTo(BigDecimal.ZERO) < 0) {
-        pedir = BigDecimal.ZERO;
-      }
 
-      String recetaTxt =
-          strip(receta.cantidadInsumo())
-              + " L "
-              + insumo.getNombre()
-              + " + "
-              + strip(receta.cantidadAgua())
-              + " L agua = "
-              + strip(receta.cantidadProducto())
-              + " L "
-              + resultado.getNombre();
-      String motivo =
-          recetaTxt
-              + ". Para «"
-              + resultado.getNombre()
-              + "»: demanda ~"
-              + demanda.setScale(1, RoundingMode.HALF_UP)
-              + " L, stock producto "
-              + stockRes.setScale(1, RoundingMode.HALF_UP)
-              + " L → preparar ~"
-              + aProducir.setScale(1, RoundingMode.HALF_UP)
-              + " L (insumo ~"
-              + insumoNecesario.setScale(2, RoundingMode.HALF_UP)
-              + " L; tienes "
-              + stockIns.setScale(1, RoundingMode.HALF_UP)
-              + " L)";
+      var lineasInsumo =
+          receta.insumos() != null && !receta.insumos().isEmpty()
+              ? receta.insumos()
+              : List.of(
+                  new com.productoslimpieza.web.dto.RecetaInsumoDto(
+                      receta.productoInsumoId(),
+                      receta.productoInsumoNombre(),
+                      receta.cantidadInsumo()));
 
-      InsumoAlertaDto prev = porInsumo.get(insumo.getId());
-      BigDecimal sugerido = pedir.setScale(0, RoundingMode.CEILING);
-      if (prev != null) {
-        sugerido = prev.sugeridoPedir().add(sugerido);
-        motivo = prev.motivo() + "; también " + resultado.getNombre();
+      String recetaTxt = textoReceta(receta, resultado.getNombre());
+
+      for (var linea : lineasInsumo) {
+        if (linea == null || linea.productoInsumoId() == null) continue;
+        Producto insumo = productos.get(linea.productoInsumoId());
+        if (insumo == null || !insumo.isActivo()) continue;
+
+        BigDecimal ratio = ratioParte(linea.cantidad(), receta.cantidadProducto());
+        BigDecimal stockIns = inventarioService.stockActual(insumo);
+        BigDecimal insumoNecesario = aProducir.multiply(ratio);
+        BigDecimal pedir = insumoNecesario.subtract(stockIns);
+
+        if (stockIns.compareTo(BigDecimal.ZERO) <= 0 && demanda.compareTo(BigDecimal.ZERO) > 0) {
+          pedir = pedir.max(demanda.multiply(ratio));
+          if (insumoNecesario.compareTo(BigDecimal.ZERO) <= 0) {
+            insumoNecesario = demanda.multiply(ratio);
+          }
+        }
+        if (pedir.compareTo(BigDecimal.ZERO) < 0) {
+          pedir = BigDecimal.ZERO;
+        }
+
+        String motivo =
+            recetaTxt
+                + ". Para «"
+                + resultado.getNombre()
+                + "»: demanda ~"
+                + demanda.setScale(1, RoundingMode.HALF_UP)
+                + " L, stock producto "
+                + stockRes.setScale(1, RoundingMode.HALF_UP)
+                + " L → preparar ~"
+                + aProducir.setScale(1, RoundingMode.HALF_UP)
+                + " L (insumo «"
+                + insumo.getNombre()
+                + "» ~"
+                + insumoNecesario.setScale(2, RoundingMode.HALF_UP)
+                + " L; tienes "
+                + stockIns.setScale(1, RoundingMode.HALF_UP)
+                + " L)";
+
+        InsumoAlertaDto prev = porInsumo.get(insumo.getId());
+        BigDecimal sugerido = pedir.setScale(0, RoundingMode.CEILING);
+        if (prev != null) {
+          sugerido = prev.sugeridoPedir().add(sugerido);
+          motivo = prev.motivo() + "; también " + resultado.getNombre();
+        }
+        porInsumo.put(
+            insumo.getId(),
+            new InsumoAlertaDto(
+                insumo.getId(),
+                insumo.getNombre(),
+                resultado.getId(),
+                resultado.getNombre(),
+                stockIns.setScale(2, RoundingMode.HALF_UP),
+                stockRes.setScale(2, RoundingMode.HALF_UP),
+                sugerido,
+                motivo));
       }
-      porInsumo.put(
-          insumo.getId(),
-          new InsumoAlertaDto(
-              insumo.getId(),
-              insumo.getNombre(),
-              resultado.getId(),
-              resultado.getNombre(),
-              stockIns.setScale(2, RoundingMode.HALF_UP),
-              stockRes.setScale(2, RoundingMode.HALF_UP),
-              sugerido,
-              motivo));
     }
     return porInsumo.values().stream()
         .sorted(Comparator.comparing(InsumoAlertaDto::sugeridoPedir).reversed())
         .toList();
+  }
+
+  private static String textoReceta(RecetaDto receta, String nombreResultado) {
+    StringBuilder sb = new StringBuilder();
+    if (receta.insumos() != null && !receta.insumos().isEmpty()) {
+      for (int i = 0; i < receta.insumos().size(); i++) {
+        var li = receta.insumos().get(i);
+        if (i > 0) sb.append(" + ");
+        sb.append(strip(li.cantidad())).append(" L ").append(li.productoInsumoNombre());
+      }
+    } else {
+      sb.append(strip(receta.cantidadInsumo()))
+          .append(" L ")
+          .append(receta.productoInsumoNombre());
+    }
+    sb.append(" + ")
+        .append(strip(receta.cantidadAgua()))
+        .append(" L agua = ")
+        .append(strip(receta.cantidadProducto()))
+        .append(" L ")
+        .append(nombreResultado);
+    return sb.toString();
+  }
+
+  private static BigDecimal ratioParte(BigDecimal parte, BigDecimal total) {
+    BigDecimal p = nz(total);
+    if (p.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
+    return nz(parte).divide(p, 8, RoundingMode.HALF_UP);
   }
 
   private static BigDecimal ratioInsumo(RecetaDto r) {

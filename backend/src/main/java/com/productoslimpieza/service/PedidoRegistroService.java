@@ -1,14 +1,24 @@
 package com.productoslimpieza.service;
 
+import com.productoslimpieza.domain.CategoriaApartado;
+import com.productoslimpieza.domain.DepartamentoProducto;
 import com.productoslimpieza.domain.Entrada;
 import com.productoslimpieza.domain.EstadoPedido;
 import com.productoslimpieza.domain.Pedido;
+import com.productoslimpieza.domain.PedidoAbono;
 import com.productoslimpieza.domain.PedidoItem;
 import com.productoslimpieza.domain.Producto;
+import com.productoslimpieza.domain.TipoMovimientoApartado;
 import com.productoslimpieza.domain.UnidadVenta;
 import com.productoslimpieza.repo.EntradaRepository;
+import com.productoslimpieza.repo.PedidoAbonoRepository;
 import com.productoslimpieza.repo.PedidoRepository;
 import com.productoslimpieza.repo.ProductoRepository;
+import com.productoslimpieza.web.dto.ApartadoDto;
+import com.productoslimpieza.web.dto.ApartadoRequest;
+import com.productoslimpieza.web.dto.PedidoAbonoDto;
+import com.productoslimpieza.web.dto.PedidoAbonoRequest;
+import com.productoslimpieza.web.dto.PedidoCreditoRequest;
 import com.productoslimpieza.web.dto.PedidoDto;
 import com.productoslimpieza.web.dto.PedidoItemDto;
 import com.productoslimpieza.web.dto.PedidoItemRequest;
@@ -36,14 +46,20 @@ public class PedidoRegistroService {
   private final PedidoRepository pedidoRepo;
   private final ProductoRepository productoRepo;
   private final EntradaRepository entradaRepo;
+  private final PedidoAbonoRepository abonoRepo;
+  private final ApartadoService apartadoService;
 
   public PedidoRegistroService(
       PedidoRepository pedidoRepo,
       ProductoRepository productoRepo,
-      EntradaRepository entradaRepo) {
+      EntradaRepository entradaRepo,
+      PedidoAbonoRepository abonoRepo,
+      ApartadoService apartadoService) {
     this.pedidoRepo = pedidoRepo;
     this.productoRepo = productoRepo;
     this.entradaRepo = entradaRepo;
+    this.abonoRepo = abonoRepo;
+    this.apartadoService = apartadoService;
   }
 
   @Transactional(readOnly = true)
@@ -198,7 +214,17 @@ public class PedidoRegistroService {
         actualizarPrecioCompraSiCambio(item.getProducto(), precio);
       }
     }
+    if (req.fechaLimitePago() != null) {
+      p.setFechaLimitePago(req.fechaLimitePago());
+      pedidoRepo.save(p);
+    }
     recalcularRecibidoDesdeEntradas(pedidoId);
+    // Solo registra pago si viene explícito (null = solo mercancía, el pago va después).
+    if (req.pagadoAhora() != null && req.pagadoAhora().compareTo(BigDecimal.ZERO) > 0) {
+      registrarPagoSiHay(p.getId(), req.pagadoAhora(), hoy, "Pago al recibir surtido");
+    } else {
+      activarCreditoSiHayDeudaSinPagos(pedidoId);
+    }
     return obtener(pedidoId);
   }
 
@@ -247,11 +273,197 @@ public class PedidoRegistroService {
   public void eliminar(Long id) {
     Pedido p = pedidoRepo.findById(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+    BigDecimal total = nz(entradaRepo.sumTotalByPedidoId(id)).setScale(2, RoundingMode.HALF_UP);
+    BigDecimal pagado = nz(abonoRepo.sumMontoByPedidoId(id)).setScale(2, RoundingMode.HALF_UP);
+    BigDecimal saldo = total.subtract(pagado);
+    if (saldo.compareTo(new BigDecimal("0.009")) > 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "Todavía debes $"
+              + saldo.setScale(2, RoundingMode.HALF_UP).toPlainString()
+              + " en este pedido. Sáldalo o déjalo a crédito; no lo borres o pierdes el control de la deuda.");
+    }
+    // Quita pagos/gastos; el stock de entradas se conserva.
+    List<PedidoAbono> abonos = abonoRepo.findByPedidoIdOrderByFechaDescIdDesc(id);
+    for (PedidoAbono a : abonos) {
+      borrarGastoLigado(a);
+      abonoRepo.delete(a);
+    }
     for (var e : entradaRepo.findByPedidoId(id)) {
       e.setPedido(null);
       entradaRepo.save(e);
     }
     pedidoRepo.delete(p);
+  }
+
+  /**
+   * Cancela un pedido sin mercancía: no deja entradas ni stock. Si ya hubo recepción, usar {@link #eliminar}.
+   */
+  @Transactional
+  public void cancelar(Long id) {
+    Pedido p = pedidoRepo.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+    List<Entrada> entradas = entradaRepo.findByPedidoId(id);
+    if (!entradas.isEmpty()) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "Ya hay mercancía registrada. Usa Eliminar (el stock se queda).");
+    }
+    Pedido full = pedidoRepo.findByIdWithItems(id).orElse(p);
+    boolean algoRecibido = full.getItems().stream()
+        .anyMatch(i -> nz(i.getCantidadRecibida()).compareTo(BigDecimal.ZERO) > 0);
+    if (algoRecibido) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "Ya hay mercancía registrada. Usa Eliminar (el stock se queda).");
+    }
+    List<PedidoAbono> abonos = abonoRepo.findByPedidoIdOrderByFechaDescIdDesc(id);
+    for (PedidoAbono a : abonos) {
+      borrarGastoLigado(a);
+      abonoRepo.delete(a);
+    }
+    pedidoRepo.delete(p);
+  }
+
+  @Transactional
+  public PedidoDto actualizarCredito(Long id, PedidoCreditoRequest req) {
+    Pedido p = pedidoRepo.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+    p.setFechaLimitePago(req.fechaLimitePago());
+    pedidoRepo.save(p);
+    return obtener(id);
+  }
+
+  @Transactional
+  public PedidoDto agregarItem(Long pedidoId, PedidoItemRequest req) {
+    Pedido p = pedidoRepo.findByIdWithItems(pedidoId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+    if (p.getEstado() == EstadoPedido.CERRADO) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El pedido ya está cerrado");
+    }
+    agregarOSumarItem(p, req);
+    pedidoRepo.save(p);
+    aplicarEstadoSegunItems(p);
+    return obtener(pedidoId);
+  }
+
+  @Transactional
+  public PedidoDto actualizarItem(Long pedidoId, Long itemId, PedidoItemRequest req) {
+    Pedido p = pedidoRepo.findByIdWithItems(pedidoId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+    if (p.getEstado() == EstadoPedido.CERRADO) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El pedido ya está cerrado");
+    }
+    PedidoItem item = p.getItems().stream()
+        .filter(i -> i.getId().equals(itemId))
+        .findFirst()
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no está en el pedido"));
+    BigDecimal pedida = normalizarCantidad(item.getProducto(), req.cantidad());
+    BigDecimal rec = recibido(item);
+    if (pedida.compareTo(rec) < 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "No puedes pedir menos de lo ya recibido (" + rec.stripTrailingZeros().toPlainString() + ")");
+    }
+    item.setCantidadPedida(pedida);
+    pedidoRepo.save(p);
+    aplicarEstadoSegunItems(p);
+    return obtener(pedidoId);
+  }
+
+  @Transactional
+  public PedidoDto eliminarItem(Long pedidoId, Long itemId) {
+    Pedido p = pedidoRepo.findByIdWithItems(pedidoId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+    if (p.getEstado() == EstadoPedido.CERRADO) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El pedido ya está cerrado");
+    }
+    PedidoItem item = p.getItems().stream()
+        .filter(i -> i.getId().equals(itemId))
+        .findFirst()
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no está en el pedido"));
+    if (recibido(item).compareTo(BigDecimal.ZERO) > 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "Ya hay mercancía recibida de «" + item.getProducto().getNombre() + "». No se puede quitar.");
+    }
+    p.getItems().remove(item);
+    item.setPedido(null);
+    if (p.getItems().isEmpty()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El pedido no puede quedarse sin productos");
+    }
+    pedidoRepo.save(p);
+    aplicarEstadoSegunItems(p);
+    return obtener(pedidoId);
+  }
+
+  @Transactional
+  public PedidoDto crearAbono(Long pedidoId, PedidoAbonoRequest req) {
+    Pedido p = pedidoRepo.findById(pedidoId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+    if (req.fechaLimitePago() != null) {
+      p.setFechaLimitePago(req.fechaLimitePago());
+      pedidoRepo.save(p);
+    }
+    registrarPagoSiHay(pedidoId, req.monto(), req.fecha(), req.nota());
+    return obtener(pedidoId);
+  }
+
+  @Transactional
+  public PedidoDto actualizarAbono(Long abonoId, PedidoAbonoRequest req) {
+    PedidoAbono a = abonoRepo.findById(abonoId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pago no encontrado"));
+    Long pedidoId = a.getPedido().getId();
+    BigDecimal total = nz(entradaRepo.sumTotalByPedidoId(pedidoId)).setScale(2, RoundingMode.HALF_UP);
+    BigDecimal pagadoOtros = nz(abonoRepo.sumMontoByPedidoId(pedidoId)).subtract(nz(a.getMonto()));
+    BigDecimal max = total.subtract(pagadoOtros).setScale(2, RoundingMode.HALF_UP);
+    if (req.monto().compareTo(max.add(new BigDecimal("0.01"))) > 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "El pago no puede ser mayor a lo que falta ($" + max.max(BigDecimal.ZERO).toPlainString() + ")");
+    }
+    BigDecimal nuevo = req.monto().setScale(2, RoundingMode.HALF_UP);
+    a.setFecha(req.fecha());
+    a.setMonto(nuevo);
+    a.setNota(req.nota() != null && !req.nota().isBlank() ? req.nota().trim() : null);
+    String motivo = motivoGastoSurtir(pedidoId);
+    if (a.getApartadoId() != null) {
+      apartadoService.actualizar(
+          a.getApartadoId(),
+          new ApartadoRequest(
+              req.fecha(),
+              CategoriaApartado.PRODUCTOS.name(),
+              nuevo,
+              TipoMovimientoApartado.GASTO,
+              motivo));
+    } else {
+      ApartadoDto gasto =
+          apartadoService.crear(
+              new ApartadoRequest(
+                  req.fecha(),
+                  CategoriaApartado.PRODUCTOS.name(),
+                  nuevo,
+                  TipoMovimientoApartado.GASTO,
+                  motivo));
+      a.setApartadoId(gasto.id());
+    }
+    abonoRepo.save(a);
+    if (req.fechaLimitePago() != null) {
+      Pedido p = a.getPedido();
+      p.setFechaLimitePago(req.fechaLimitePago());
+      pedidoRepo.save(p);
+    }
+    return obtener(pedidoId);
+  }
+
+  @Transactional
+  public PedidoDto eliminarAbono(Long abonoId) {
+    PedidoAbono a = abonoRepo.findById(abonoId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pago no encontrado"));
+    Long pedidoId = a.getPedido().getId();
+    borrarGastoLigado(a);
+    abonoRepo.delete(a);
+    return obtener(pedidoId);
   }
 
   @Transactional
@@ -339,6 +551,27 @@ public class PedidoRegistroService {
           prod.getPrecioCompra());
     }).toList();
     int conFalta = (int) items.stream().filter(i -> i.cantidadFaltante().compareTo(BigDecimal.ZERO) > 0).count();
+    BigDecimal totalProveedor = nz(entradaRepo.sumTotalByPedidoId(full.getId())).setScale(2, RoundingMode.HALF_UP);
+    List<PedidoAbonoDto> abonos = abonoRepo.findByPedidoIdOrderByFechaDescIdDesc(full.getId()).stream()
+        .map(a -> new PedidoAbonoDto(
+            a.getId(),
+            full.getId(),
+            a.getFecha(),
+            nz(a.getMonto()).setScale(2, RoundingMode.HALF_UP),
+            a.getNota()))
+        .toList();
+    // Solo cuenta como pagado lo registrado en abonos. Mercancía sin pagos = deuda
+    // (aunque aún no hayan puesto fecha de crédito).
+    BigDecimal totalPagado = abonos.stream()
+        .map(PedidoAbonoDto::monto)
+        .reduce(BigDecimal.ZERO, BigDecimal::add)
+        .setScale(2, RoundingMode.HALF_UP);
+    BigDecimal saldo = totalProveedor.subtract(totalPagado).setScale(2, RoundingMode.HALF_UP);
+    if (saldo.compareTo(BigDecimal.ZERO) < 0) {
+      saldo = BigDecimal.ZERO;
+    }
+    boolean tieneEntradas = !entradaRepo.findByPedidoId(full.getId()).isEmpty()
+        || items.stream().anyMatch(i -> i.cantidadRecibida().compareTo(BigDecimal.ZERO) > 0);
     return new PedidoDto(
         full.getId(),
         full.getFecha(),
@@ -348,9 +581,140 @@ public class PedidoRegistroService {
         full.getDiasCobertura(),
         full.getPorcentajeExtra(),
         full.getNota(),
+        full.getFechaLimitePago(),
+        totalProveedor,
+        totalPagado,
+        saldo,
         items.size(),
         conFalta,
-        items);
+        tieneEntradas,
+        items,
+        abonos);
+  }
+
+  private void registrarPagoSiHay(Long pedidoId, BigDecimal monto, LocalDate fecha, String nota) {
+    if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
+      return;
+    }
+    BigDecimal pago = monto.setScale(2, RoundingMode.HALF_UP);
+    BigDecimal total = nz(entradaRepo.sumTotalByPedidoId(pedidoId)).setScale(2, RoundingMode.HALF_UP);
+    BigDecimal pagado = nz(abonoRepo.sumMontoByPedidoId(pedidoId)).setScale(2, RoundingMode.HALF_UP);
+    BigDecimal max = total.subtract(pagado);
+    if (max.compareTo(BigDecimal.ZERO) <= 0) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Este pedido ya está saldado");
+    }
+    if (pago.compareTo(max) > 0) {
+      pago = max;
+    }
+    Pedido p = pedidoRepo.findByIdWithItems(pedidoId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+    LocalDate f = fecha != null ? fecha : LocalDate.now(ZONA);
+    String motivo = motivoGastoSurtir(p);
+    ApartadoDto gasto =
+        apartadoService.crear(
+            new ApartadoRequest(
+                f,
+                CategoriaApartado.PRODUCTOS.name(),
+                pago,
+                TipoMovimientoApartado.GASTO,
+                motivo));
+    PedidoAbono a = new PedidoAbono();
+    a.setPedido(p);
+    a.setFecha(f);
+    a.setMonto(pago);
+    a.setApartadoId(gasto.id());
+    if (nota != null && !nota.isBlank()) {
+      a.setNota(nota.trim());
+    } else {
+      a.setNota("Surtir · " + motivo);
+    }
+    abonoRepo.save(a);
+  }
+
+  private void borrarGastoLigado(PedidoAbono a) {
+    if (a.getApartadoId() == null) return;
+    try {
+      apartadoService.eliminar(a.getApartadoId());
+    } catch (ResponseStatusException ex) {
+      if (ex.getStatusCode() != HttpStatus.NOT_FOUND) {
+        throw ex;
+      }
+    }
+    a.setApartadoId(null);
+  }
+
+  /** Tras guardar mercancía sin pago, activa el control de crédito (saldo pendiente). */
+  private void activarCreditoSiHayDeudaSinPagos(Long pedidoId) {
+    Pedido p = pedidoRepo.findById(pedidoId).orElse(null);
+    if (p == null) return;
+    BigDecimal total = nz(entradaRepo.sumTotalByPedidoId(pedidoId));
+    BigDecimal pagado = nz(abonoRepo.sumMontoByPedidoId(pedidoId));
+    if (total.subtract(pagado).compareTo(new BigDecimal("0.009")) <= 0) return;
+    if (p.getFechaLimitePago() != null) return;
+    p.setFechaLimitePago(LocalDate.now(ZONA));
+    pedidoRepo.save(p);
+  }
+
+  /** Motivo del gasto según departamentos del pedido (recibidos; si no hay, todos). */
+  private String motivoGastoSurtir(Long pedidoId) {
+    Pedido p = pedidoRepo.findByIdWithItems(pedidoId).orElse(null);
+    return p == null ? "productos" : motivoGastoSurtir(p);
+  }
+
+  private String motivoGastoSurtir(Pedido p) {
+    boolean limpia = false;
+    boolean jarceria = false;
+    List<PedidoItem> base = p.getItems().stream()
+        .filter(i -> recibido(i).compareTo(BigDecimal.ZERO) > 0)
+        .toList();
+    if (base.isEmpty()) {
+      base = p.getItems();
+    }
+    for (PedidoItem item : base) {
+      Producto prod = item.getProducto();
+      DepartamentoProducto d = prod.getDepartamento();
+      if (d == null) {
+        d = DepartamentoProducto.inferir(prod.getVendePor(), prod.getNombre());
+      }
+      if (d == DepartamentoProducto.JARCERIA) {
+        jarceria = true;
+      } else {
+        limpia = true;
+      }
+    }
+    if (limpia && jarceria) return "productos y jarceria";
+    if (jarceria) return "jarceria";
+    return "productos";
+  }
+
+  private void agregarOSumarItem(Pedido pedido, PedidoItemRequest linea) {
+    if (linea.cantidad() == null || linea.cantidad().compareTo(BigDecimal.ZERO) <= 0) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La cantidad debe ser mayor a 0");
+    }
+    Producto producto = productoRepo.findById(linea.productoId())
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
+    if (!producto.isActivo()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Producto inactivo: " + producto.getNombre());
+    }
+    BigDecimal pedida = normalizarCantidad(producto, linea.cantidad());
+    for (PedidoItem existente : pedido.getItems()) {
+      if (existente.getProducto().getId().equals(producto.getId())) {
+        existente.setCantidadPedida(existente.getCantidadPedida().add(pedida));
+        return;
+      }
+    }
+    PedidoItem item = new PedidoItem();
+    item.setProducto(producto);
+    item.setCantidadRecibida(BigDecimal.ZERO);
+    item.setCantidadPedida(pedida);
+    pedido.addItem(item);
+  }
+
+  private BigDecimal normalizarCantidad(Producto producto, BigDecimal cantidad) {
+    UnidadVenta u = producto.getVendePor() != null ? producto.getVendePor() : UnidadVenta.LITROS;
+    return u == UnidadVenta.PIEZA
+        ? cantidad.setScale(0, RoundingMode.CEILING)
+        : cantidad.setScale(2, RoundingMode.HALF_UP);
   }
 
   private static BigDecimal nz(BigDecimal v) {

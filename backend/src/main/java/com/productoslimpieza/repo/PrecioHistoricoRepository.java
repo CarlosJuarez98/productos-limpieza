@@ -28,5 +28,15 @@ public interface PrecioHistoricoRepository extends JpaRepository<PrecioHistorico
     return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
   }
 
+  /** Precio vigente por producto (fechaVigencia ≤ :fecha). */
+  @Query("""
+      select p.producto.id, p.precio from PrecioHistorico p
+      where p.fechaVigencia = (
+        select max(p2.fechaVigencia) from PrecioHistorico p2
+        where p2.producto = p.producto and p2.fechaVigencia <= :fecha
+      )
+      """)
+  List<Object[]> findPreciosVigentesGroupByProducto(@Param("fecha") LocalDate fecha);
+
   void deleteByProducto(Producto producto);
 }

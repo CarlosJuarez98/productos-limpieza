@@ -53,7 +53,7 @@ public class AuthController {
         old.invalidate();
       }
       HttpSession session = request.getSession(true);
-      session.setMaxInactiveInterval(20 * 60);
+      session.setMaxInactiveInterval(AbsoluteSessionTimeoutFilter.MAX_SESSION_SECONDS);
       session.setAttribute(AbsoluteSessionTimeoutFilter.LOGIN_AT_ATTR, System.currentTimeMillis());
       securityContextRepository.saveContext(context, request, response);
 
@@ -61,7 +61,7 @@ public class AuthController {
           "ok", true,
           "username", auth.getName(),
           "displayName", displayName(auth.getName()),
-          "sessionMinutes", 20);
+          "sessionMinutes", AbsoluteSessionTimeoutFilter.MAX_SESSION_SECONDS / 60);
     } catch (AuthenticationException ex) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario o contraseña incorrectos");
     }

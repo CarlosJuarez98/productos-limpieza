@@ -7,5 +7,6 @@
   { "fecha": "2026-06-09", "paraApartar": 580, "fondoPeriodo": 200 },
   { "fecha": "2026-07-04", "paraApartar": 645.5, "fondoPeriodo": 200 },
   { "fecha": "2026-07-21", "paraApartar": 500, "fondoPeriodo": 200 },
-  { "fecha": "2026-08-22", "paraApartar": 980, "fondoPeriodo": 200 }
+  { "fecha": "2026-08-22", "paraApartar": 980, "fondoPeriodo": 200 },
+  { "fecha": "2026-09-13", "paraApartar": 0, "fondoPeriodo": 200 }
 ]

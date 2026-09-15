@@ -15,6 +15,9 @@ public interface EntradaRepository extends JpaRepository<Entrada, Long> {
   @Query("select coalesce(sum(e.cantidad), 0) from Entrada e where e.producto = :producto")
   BigDecimal sumCantidadByProducto(@Param("producto") Producto producto);
 
+  @Query("select e.producto.id, coalesce(sum(e.cantidad), 0) from Entrada e group by e.producto.id")
+  List<Object[]> sumCantidadGroupByProducto();
+
   @Query("select coalesce(sum(e.total), 0) from Entrada e")
   BigDecimal sumTotal();
 
@@ -29,6 +32,9 @@ public interface EntradaRepository extends JpaRepository<Entrada, Long> {
       Producto producto, BigDecimal cantidad);
 
   List<Entrada> findByPedidoId(Long pedidoId);
+
+  @Query("select coalesce(sum(coalesce(e.total, 0)), 0) from Entrada e where e.pedido.id = :pedidoId")
+  BigDecimal sumTotalByPedidoId(@Param("pedidoId") Long pedidoId);
 
   java.util.Optional<Entrada> findFirstByProductoIdAndPrecioProveedorIsNotNullOrderByFechaDescIdDesc(
       Long productoId);

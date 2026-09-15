@@ -22,7 +22,13 @@ interface LineaForm {
 }
 
 type DraftTraspasos = {
-  form: { fecha: string; persona: string; nota: string };
+  form: {
+    fecha: string;
+    persona?: string;
+    personaId?: number | null;
+    personaNueva?: string;
+    nota: string;
+  };
   lineas: Omit<LineaForm, 'key'>[];
   nextKey: number;
 };
@@ -55,13 +61,14 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   private pullSub?: Subscription;
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
   form = {
-    fecha: new Date().toISOString().slice(0, 10),
-    persona: '',
+    fecha: this.hoyLocal(),
+    personaId: null as number | null,
+    personaNueva: '',
     nota: '',
   };
   lineas: LineaForm[] = [this.nuevaLinea()];
   abono = {
-    fecha: new Date().toISOString().slice(0, 10),
+    fecha: this.hoyLocal(),
     monto: null as number | null,
     personaId: null as number | null,
     nota: '',
@@ -72,7 +79,8 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   guardandoEdit = false;
   formEdit = {
     fecha: '',
-    persona: '',
+    personaId: null as number | null,
+    personaNueva: '',
     nota: '',
     lineas: [] as LineaForm[],
   };
@@ -95,6 +103,30 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     this.persistirBorrador();
     this.pullSub?.unsubscribe();
     if (this.draftTimer != null) clearTimeout(this.draftTimer);
+  }
+
+  hoyLocal(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  get fechaMax(): string {
+    return this.hoyLocal();
+  }
+
+  private validarFecha(fecha: string, destino: 'error' | 'errorEdit' = 'error'): boolean {
+    if (!fecha) {
+      this[destino] = 'Indica la fecha';
+      return false;
+    }
+    if (fecha > this.hoyLocal()) {
+      this[destino] = 'No se pueden registrar traspasos con fecha futura';
+      return false;
+    }
+    return true;
   }
 
   @HostListener('window:pagehide')
@@ -173,6 +205,48 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     return (this.data.personas ?? []).map((p) => ({ id: p.id, nombre: p.nombre, saldo: 0 }));
   }
 
+  get personasLista() {
+    return this.data?.personas ?? [];
+  }
+
+  onPersonaListaCambio(): void {
+    if (this.form.personaId != null) this.form.personaNueva = '';
+    this.programarBorrador();
+  }
+
+  onPersonaEditCambio(): void {
+    if (this.formEdit.personaId != null) this.formEdit.personaNueva = '';
+  }
+
+  private nombreDeLista(id: number | null): string {
+    if (id == null) return '';
+    return this.personasLista.find((p) => p.id === id)?.nombre?.trim() || '';
+  }
+
+  private nombrePersonaCaptura(): string {
+    if (this.form.personaId != null) return this.nombreDeLista(this.form.personaId);
+    return this.form.personaNueva.trim();
+  }
+
+  private nombrePersonaEdit(): string {
+    if (this.formEdit.personaId != null) return this.nombreDeLista(this.formEdit.personaId);
+    return this.formEdit.personaNueva.trim();
+  }
+
+  private aplicarNombrePersona(
+    nombre: string | null | undefined,
+    personaId: number | null | undefined
+  ): { personaId: number | null; personaNueva: string } {
+    if (personaId != null && this.nombreDeLista(personaId)) {
+      return { personaId, personaNueva: '' };
+    }
+    const n = (nombre || '').trim();
+    if (!n) return { personaId: null, personaNueva: '' };
+    const p = this.personasLista.find((x) => x.nombre.toLowerCase() === n.toLowerCase());
+    if (p) return { personaId: p.id, personaNueva: '' };
+    return { personaId: null, personaNueva: n };
+  }
+
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
     this.programarBorrador();
@@ -241,6 +315,9 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     this.api.traspasos().subscribe({
       next: (d) => {
         this.data = d;
+        const cap = this.aplicarNombrePersona(this.nombrePersonaCaptura(), this.form.personaId);
+        this.form.personaId = cap.personaId;
+        this.form.personaNueva = cap.personaNueva;
         this.syncPaginadores(true);
       },
       error: (e) => (this.error = this.msgError(e) || 'No se pudieron cargar traspasos'),
@@ -250,13 +327,19 @@ export class TraspasosComponent implements OnInit, OnDestroy {
 
   guardar(): void {
     this.error = '';
-    if (!this.form.persona?.trim()) {
-      this.error = 'Indica la persona';
+    const persona = this.nombrePersonaCaptura();
+    if (!persona) {
+      this.error = this.form.personaId == null ? 'Escribe el nombre de la persona nueva' : 'Indica la persona';
       return;
     }
+    if (!this.validarFecha(this.form.fecha)) return;
     const lineas = this.lineas
       .filter((l) => l.productoId != null && Number(l.cantidad) > 0)
-      .map((l) => ({ productoId: l.productoId as number, cantidad: Number(l.cantidad) }));
+      .map((l) => ({
+        productoId: l.productoId as number,
+        productoNombre: this.productos.find((x) => x.id === l.productoId)?.nombre,
+        cantidad: Number(l.cantidad),
+      }));
     if (!lineas.length) {
       this.error = 'Elige productos del inventario y su cantidad';
       return;
@@ -268,13 +351,14 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     this.api
       .crearTraspaso({
         fecha: this.form.fecha,
-        persona: this.form.persona.trim(),
+        persona,
         nota: this.form.nota || null,
         lineas,
       })
       .subscribe({
         next: () => {
-          this.form.persona = '';
+          this.form.personaId = null;
+          this.form.personaNueva = '';
           this.form.nota = '';
           this.lineas = Array.from({ length: capturaLineasVacias() }, () => this.nuevaLinea());
           this.drafts.clear(TraspasosComponent.DRAFT);
@@ -297,6 +381,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
       this.error = 'Indica el monto del abono';
       return;
     }
+    if (!this.validarFecha(this.abono.fecha)) return;
     this.api
       .crearAbonoTraspaso({
         fecha: this.abono.fecha,
@@ -328,7 +413,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     this.editandoOriginal = t;
     this.formEdit = {
       fecha: t.fecha,
-      persona: t.persona || '',
+      ...this.aplicarNombrePersona(t.persona, t.personaId),
       nota: t.nota || '',
       lineas: (t.lineas || []).map((l) => ({
         key: this.nextKey++,
@@ -383,10 +468,13 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   guardarEdicion(): void {
     if (this.editandoId == null) return;
     this.errorEdit = '';
-    if (!this.formEdit.persona?.trim()) {
-      this.errorEdit = 'Indica la persona';
+    const persona = this.nombrePersonaEdit();
+    if (!persona) {
+      this.errorEdit =
+        this.formEdit.personaId == null ? 'Escribe el nombre de la persona nueva' : 'Indica la persona';
       return;
     }
+    if (!this.validarFecha(this.formEdit.fecha, 'errorEdit')) return;
     const lineas = this.formEdit.lineas
       .filter((l) => l.productoId != null && Number(l.cantidad) > 0)
       .map((l) => ({ productoId: l.productoId as number, cantidad: Number(l.cantidad) }));
@@ -402,7 +490,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     this.api
       .actualizarTraspaso(this.editandoId, {
         fecha: this.formEdit.fecha,
-        persona: this.formEdit.persona.trim(),
+        persona,
         nota: this.formEdit.nota || null,
         lineas,
       })
@@ -427,7 +515,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
 
   private hayBorradorUtil(): boolean {
     return (
-      !!this.form.persona.trim() ||
+      !!this.nombrePersonaCaptura() ||
       !!this.form.nota.trim() ||
       this.lineas.some(
         (l) =>
@@ -447,7 +535,12 @@ export class TraspasosComponent implements OnInit, OnDestroy {
       return;
     }
     const draft: DraftTraspasos = {
-      form: { ...this.form },
+      form: {
+        fecha: this.form.fecha,
+        personaId: this.form.personaId,
+        personaNueva: this.form.personaNueva,
+        nota: this.form.nota,
+      },
       nextKey: this.nextKey,
       lineas: this.lineas.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
     };
@@ -460,7 +553,8 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     if (draft.form) {
       this.form = {
         fecha: draft.form.fecha || this.form.fecha,
-        persona: draft.form.persona || '',
+        personaId: draft.form.personaId ?? null,
+        personaNueva: (draft.form.personaNueva || draft.form.persona || '').trim(),
         nota: draft.form.nota || '',
       };
     }

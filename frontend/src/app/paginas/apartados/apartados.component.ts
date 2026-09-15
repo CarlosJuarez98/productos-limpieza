@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -16,6 +16,7 @@ import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { AutoHideDirective } from '../../auto-hide.directive';
+import { enfocarInput, inputsVisiblesDe, navegarCampos, programarEnfoque } from '../../captura-focus.util';
 
 @Component({
   selector: 'app-apartados',
@@ -25,6 +26,9 @@ import { AutoHideDirective } from '../../auto-hide.directive';
   styleUrl: './apartados.component.scss',
 })
 export class ApartadosComponent implements OnInit {
+  @ViewChildren('montoApartar') montoApartarInputs!: QueryList<ElementRef<HTMLInputElement>>;
+  @ViewChildren('gastoCampo') gastoCampos!: QueryList<ElementRef<HTMLInputElement>>;
+
   data: ApartadosResumen | null = null;
   caja: CajaResumen | null = null;
   private pagMovs = new Map<string, PaginacionEstado<Apartado>>();
@@ -53,6 +57,16 @@ export class ApartadosComponent implements OnInit {
   editandoRubroId: number | null = null;
   editandoRubroNombre = '';
   adminRubrosAbierto = false;
+  editandoId: number | null = null;
+  errorEdit = '';
+  guardandoEdit = false;
+  formEdit = {
+    fecha: '',
+    categoria: '',
+    ingreso: null as number | null,
+    motivo: '',
+    tipo: 'INGRESO' as TipoMovimientoApartado,
+  };
 
   readonly bloquesRegistros: { titulo: string; tipo: TipoMovimientoApartado }[] = [
     { titulo: 'Ganancias', tipo: 'INGRESO' },
@@ -250,6 +264,23 @@ export class ApartadosComponent implements OnInit {
       el.value = String(valor);
     }
     this.cdr.detectChanges();
+  }
+
+  onApartarNav(ev: KeyboardEvent): void {
+    navegarCampos(ev, inputsVisiblesDe(this.montoApartarInputs));
+  }
+
+  onGastoNav(ev: KeyboardEvent): void {
+    navegarCampos(ev, inputsVisiblesDe(this.gastoCampos), {
+      alFinalEnter: () => {
+        this.agregarGasto();
+        programarEnfoque(() => {
+          const next = inputsVisiblesDe(this.gastoCampos);
+          const montos = next.filter((_, i) => i % 2 === 0);
+          enfocarInput(montos[montos.length - 1] ?? null);
+        });
+      },
+    });
   }
 
   guardarGastos(): void {
@@ -472,6 +503,69 @@ export class ApartadosComponent implements OnInit {
   async eliminar(id: number): Promise<void> {
     const ok = await this.confirmDlg.ask('¿Eliminar movimiento de apartado?', { confirmarTexto: 'Eliminar' });
     if (!ok) return;
+    if (this.editandoId === id) this.cancelarEdicion();
     this.api.eliminarApartado(id).subscribe({ next: () => this.cargar() });
+  }
+
+  editar(a: Apartado): void {
+    this.error = '';
+    this.errorEdit = '';
+    this.editandoId = a.id;
+    this.formEdit = {
+      fecha: a.fecha,
+      categoria: a.categoria,
+      ingreso: Number(a.ingreso),
+      motivo: a.motivo || '',
+      tipo: a.tipo,
+    };
+  }
+
+  cancelarEdicion(): void {
+    this.editandoId = null;
+    this.errorEdit = '';
+    this.guardandoEdit = false;
+  }
+
+  guardarEdicion(): void {
+    if (this.editandoId == null) return;
+    this.errorEdit = '';
+    const fecha = this.formEdit.fecha || this.hoyLocal();
+    if (fecha > this.hoyLocal()) {
+      this.errorEdit = 'La fecha no puede ser posterior a hoy';
+      return;
+    }
+    const monto = Number(this.formEdit.ingreso);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      this.errorEdit = 'Indica un monto mayor a 0';
+      return;
+    }
+    if (!this.formEdit.categoria) {
+      this.errorEdit = 'Elige el apartado';
+      return;
+    }
+    if (this.formEdit.tipo === 'GASTO' && !this.formEdit.motivo.trim()) {
+      this.errorEdit = 'Indica el motivo del gasto';
+      return;
+    }
+    this.guardandoEdit = true;
+    this.api
+      .actualizarApartado(this.editandoId, {
+        fecha,
+        categoria: this.formEdit.categoria,
+        ingreso: monto,
+        tipo: this.formEdit.tipo,
+        motivo: this.formEdit.motivo.trim() || null,
+      })
+      .subscribe({
+        next: () => {
+          this.guardandoEdit = false;
+          this.cancelarEdicion();
+          this.cargar();
+        },
+        error: (e) => {
+          this.guardandoEdit = false;
+          this.errorEdit = e.error?.error || 'No se pudo guardar el cambio';
+        },
+      });
   }
 }

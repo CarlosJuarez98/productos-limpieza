@@ -13,13 +13,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       if (err instanceof HttpErrorResponse && err.status === 401) {
         const url = req.url || '';
         if (!url.includes('/api/auth/login') && !url.includes('/api/auth/me')) {
-          // Solo echar si ya habíamos confirmado sesión (evita login al recargar).
-          // status 0 = sin red: no cerrar sesión.
-          if (auth.autenticado) {
-            auth.marcarNoAutenticado();
-            if (!router.url.startsWith('/login')) {
-              void router.navigateByUrl('/login');
-            }
+          auth.marcarNoAutenticado();
+          if (!router.url.split('?')[0].startsWith('/login')) {
+            void router.navigateByUrl('/login');
           }
         }
       }

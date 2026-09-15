@@ -150,3 +150,28 @@
 .icon-btn.danger:hover {
   background: #fdeceb;
 }
+@media (max-width: 767px) {
+  .stats-inversion .stat {
+    border-radius: 0.95rem;
+    padding: 0.65rem 0.7rem;
+  }
+
+  .stats-inversion .stat strong {
+    font-family: Fraunces, Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+
+  .panel {
+    border-radius: 1.05rem;
+  }
+
+  .hist-cards .item-motivo {
+    font-family: Fraunces, Georgia, serif;
+  }
+
+  form.form-infra button[type='submit'],
+  .form-grid > button {
+    min-height: 2.85rem;
+    border-radius: 999px;
+  }
+}

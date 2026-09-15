@@ -43,10 +43,10 @@
   </div>
 </div>
 
-<section class="panel captura-panel">
+<section class="panel captura-panel panel-anim">
   <div class="ticket">
     @for (l of lineas; track l.key; let i = $index) {
-      <article class="linea-card" [attr.id]="'linea-' + l.key" [class.stock-warn]="excedeStock(l, i)">
+      <article class="linea-card ui-card" [attr.id]="'linea-' + l.key" [class.stock-warn]="excedeStock(l, i)" [style.--i]="i">
         <header class="linea-top">
           <span class="linea-num">{{ i + 1 }}</span>
           <div class="modo-chips" role="group" [attr.aria-label]="'Modo venta ' + (i + 1)">
@@ -73,7 +73,11 @@
               [attr.aria-label]="l.pagoTarjeta ? 'Quitar pago con tarjeta' : 'Pago con tarjeta'"
               [attr.aria-pressed]="l.pagoTarjeta"
             >
-              💳
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2.5" y="5.5" width="19" height="13" rx="2"/>
+                <path d="M2.5 10h19"/>
+                <path d="M7 15h4"/>
+              </svg>
             </button>
           }
           <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
@@ -212,7 +216,7 @@
     }
   </div>
 
-  <div class="captura-actions">
+  <div class="captura-actions cta-bar-mobile">
     <button
       type="button"
       class="btn-agregar-linea"
@@ -236,7 +240,7 @@
       (click)="cancelarTicket()"
       [disabled]="guardando || !ticketEnCurso"
     >
-      Cancelar venta
+      Cancelar
     </button>
   </div>
 
@@ -248,11 +252,11 @@
 <section class="panel historial-panel" style="margin-top: 1rem" #listaHistorial>
   <div class="toolbar historial-toolbar">
     <h3 class="historial-titulo panel-titulo">Registradas</h3>
-    <div class="filtro-chips" role="group" aria-label="Filtro historial">
-      <button type="button" class="modo-chip" [class.activo]="soloHoy" (click)="setSoloHoy(true)">
+    <div class="filtro-chips seg-control" role="group" aria-label="Filtro historial">
+      <button type="button" class="modo-chip seg-btn" [class.activo]="soloHoy" (click)="setSoloHoy(true)">
         Del día
       </button>
-      <button type="button" class="modo-chip" [class.activo]="!soloHoy" (click)="setSoloHoy(false)">
+      <button type="button" class="modo-chip seg-btn" [class.activo]="!soloHoy" (click)="setSoloHoy(false)">
         Todas
       </button>
     </div>
@@ -340,8 +344,8 @@
 
   <!-- Móvil: tarjetas estilo Gastos -->
   <ul class="hist-cards">
-    @for (v of pagHist.paginaItems; track v.id) {
-      <li [id]="'venta-card-' + v.id">
+    @for (v of pagHist.paginaItems; track v.id; let idx = $index) {
+      <li [id]="'venta-card-' + v.id" [style.--i]="idx">
         <div class="item-meta">
           <span [class.fecha-naranja]="esRegistroCorte(v)">{{ v.fecha | fechaDmY }}</span>
           <span class="item-meta-der">
@@ -484,7 +488,7 @@
           [class.activo]="formEdit.pagoTarjeta"
           (click)="formEdit.pagoTarjeta = !formEdit.pagoTarjeta"
         >
-          {{ formEdit.pagoTarjeta ? '💳 Tarjeta (banco)' : 'Efectivo (caja)' }}
+          {{ formEdit.pagoTarjeta ? 'Tarjeta (banco)' : 'Efectivo (caja)' }}
         </button>
       </label>
     }
@@ -504,7 +508,12 @@
   @if (esVentaSinCobro(v)) {
     <span class="pago-marca sin-cobro" title="Sin cobro">—</span>
   } @else if (v.pagoTarjeta) {
-    <span class="pago-marca tarjeta" title="Tarjeta (banco)">💳</span>
+    <span class="pago-marca tarjeta" title="Tarjeta (banco)" aria-label="Tarjeta">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2.5" y="5.5" width="19" height="13" rx="2"/>
+        <path d="M2.5 10h19"/>
+      </svg>
+    </span>
   } @else {
     <span class="pago-marca efectivo" title="Efectivo (caja)">$</span>
   }

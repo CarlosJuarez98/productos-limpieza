@@ -27,12 +27,26 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
       @Param("tipos") List<TipoVenta> tipos);
 
   @Query("""
+      select v.producto.id, coalesce(sum(v.cantidad), 0) from Venta v
+      where v.tipoVenta in :tipos
+      group by v.producto.id
+      """)
+  List<Object[]> sumCantidadGroupByProductoAndTipos(@Param("tipos") List<TipoVenta> tipos);
+
+  @Query("""
       select coalesce(sum(v.cantidad), 0) from Venta v
       where v.producto = :producto and v.tipoVenta = :tipo
       """)
   BigDecimal sumCantidadByProductoAndTipo(
       @Param("producto") Producto producto,
       @Param("tipo") TipoVenta tipo);
+
+  @Query("""
+      select v.producto.id, coalesce(sum(v.cantidad), 0) from Venta v
+      where v.tipoVenta = :tipo
+      group by v.producto.id
+      """)
+  List<Object[]> sumCantidadGroupByProductoAndTipo(@Param("tipo") TipoVenta tipo);
 
   @Query("""
       select coalesce(sum(v.total), 0) from Venta v

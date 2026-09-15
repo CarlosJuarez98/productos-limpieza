@@ -1,4 +1,4 @@
-<h2 class="page-title">Entrada de proveedor</h2>
+﻿<h2 class="page-title">Entrada de proveedor</h2>
 
 @if (fechaUltimoCorte) {
   <p class="corte-aviso">
@@ -213,7 +213,7 @@
     </div>
   }
 
-  <div class="toolbar lote-actions">
+  <div class="toolbar lote-actions cta-bar-mobile">
     <button
       type="button"
       class="btn-agregar-linea"
@@ -247,32 +247,60 @@
     <span class="chev">{{ prepAbierta ? '▾' : '▸' }}</span>
   </button>
   @if (prepAbierta) {
-  <div class="panel-toggle-body">
-  <div class="recetas-bar">
+  <div class="panel-toggle-body prep-body">
+  <div class="prep-seg" role="tablist" aria-label="Preparación">
+    <button
+      type="button"
+      role="tab"
+      class="prep-seg-btn"
+      [class.activo]="prepVista === 'preparar'"
+      [attr.aria-selected]="prepVista === 'preparar'"
+      (click)="setPrepVista('preparar')"
+    >
+      Preparar
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="prep-seg-btn"
+      [class.activo]="prepVista === 'formulas'"
+      [attr.aria-selected]="prepVista === 'formulas'"
+      (click)="setPrepVista('formulas')"
+    >
+      Fórmulas
+    </button>
+  </div>
+  <div class="recetas-bar desktop-only">
     <button type="button" class="secondary btn-recetas" (click)="toggleRecetas()" [attr.aria-expanded]="recetasAbierta">
       {{ recetasAbierta ? 'Ocultar fórmulas' : 'Editar fórmulas' }}
     </button>
   </div>
-  @if (recetasAbierta) {
-    <div class="recetas-editor">
+  @if (recetasAbierta || prepVista === 'formulas') {
+    <div class="recetas-editor prep-panel-anim">
       @if (recetas.length) {
-        <ul class="recetas-lista">
+        <div class="recetas-rail" aria-label="Fórmulas">
           @for (r of recetas; track r.id) {
-            <li>
-              <span>
-                {{ r.cantidadProducto | number: '1.0-4' }} L {{ r.productoResultadoNombre }}
-                =
-                {{ r.cantidadAgua | number: '1.0-4' }} L agua
-                +
-                {{ r.cantidadInsumo | number: '1.0-4' }} L {{ r.productoInsumoNombre }}
-              </span>
+            <article class="receta-card" [class.editando]="editandoRecetaId === r.id">
+              <div class="receta-card-main">
+                <strong class="receta-nombre">{{ r.productoResultadoNombre }}</strong>
+                <p class="receta-formula">
+                  {{ r.cantidadProducto | number: '1.0-4' }} L =
+                  {{ r.cantidadAgua | number: '1.0-4' }} L agua
+                  + {{ textoInsumosReceta(r) }}
+                </p>
+                <div class="receta-chips">
+                  @for (i of insumosDeReceta(r); track i.productoInsumoId) {
+                    <span class="chip">{{ i.cantidad | number: '1.0-4' }} L · {{ i.productoInsumoNombre }}</span>
+                  }
+                </div>
+              </div>
               <span class="receta-lista-acciones">
-                <button type="button" class="secondary" (click)="editarFormula(r)">Editar</button>
-                <button type="button" class="danger" (click)="eliminarFormula(r)">Eliminar</button>
+                <button type="button" class="secondary mini" (click)="editarFormula(r)">Editar</button>
+                <button type="button" class="danger mini" (click)="eliminarFormula(r)">Eliminar</button>
               </span>
-            </li>
+            </article>
           }
-        </ul>
+        </div>
       } @else {
         <p class="muted">Aún no hay fórmulas. Crea la primera abajo.</p>
       }
@@ -291,65 +319,66 @@
             + Producto nuevo
           </button>
         </div>
-        <div class="campo-receta campo-receta-wide">
-          <span class="campo-receta-label">Insumo</span>
-          <app-producto-autocomplete
-            [productos]="productos"
-            [productoId]="formReceta.productoInsumoId"
-            (productoIdChange)="formReceta.productoInsumoId = $event"
-            placeholder="Ej. Hipoclorito / Base…"
-            inputName="recetaIns"
-            mostrarExtra="stock"
-          />
-          <button type="button" class="linkish" (click)="abrirAltaProducto('insumo')">
-            + Insumo nuevo
-          </button>
-        </div>
         <div class="campo-receta">
           <label class="campo-receta-label" for="recetaCantProd">Producto (L)</label>
-          <input
-            id="recetaCantProd"
-            type="text"
-            inputmode="decimal"
-            [(ngModel)]="formReceta.cantidadProducto"
-            name="recetaCantProd"
-          />
-          <span class="campo-receta-foot" aria-hidden="true"></span>
+          <input id="recetaCantProd" type="text" inputmode="decimal" [(ngModel)]="formReceta.cantidadProducto" name="recetaCantProd" />
         </div>
         <div class="campo-receta">
           <label class="campo-receta-label" for="recetaCantAgua">Agua (L)</label>
-          <input
-            id="recetaCantAgua"
-            type="text"
-            inputmode="decimal"
-            [(ngModel)]="formReceta.cantidadAgua"
-            name="recetaCantAgua"
-          />
-          <span class="campo-receta-foot" aria-hidden="true"></span>
+          <input id="recetaCantAgua" type="text" inputmode="decimal" [(ngModel)]="formReceta.cantidadAgua" name="recetaCantAgua" />
         </div>
-        <div class="campo-receta">
-          <label class="campo-receta-label" for="recetaCantIns">Insumo (L)</label>
-          <input
-            id="recetaCantIns"
-            type="text"
-            inputmode="decimal"
-            [(ngModel)]="formReceta.cantidadInsumo"
-            name="recetaCantIns"
-          />
-          <span class="campo-receta-foot" aria-hidden="true"></span>
+      </div>
+
+      <div class="mix-meter" [class.ok]="formulaCuadra()" [class.warn]="num(formReceta.cantidadProducto) > 0 && !formulaCuadra()">
+        <div class="mix-meter-track" aria-hidden="true">
+          <span class="mix-agua" [style.width.%]="pctAguaFormula()"></span>
+          <span class="mix-ins" [style.width.%]="100 - pctAguaFormula()"></span>
         </div>
+        <p class="mix-meter-txt">
+          @if (formulaCuadra()) {
+            Mezcla lista · agua {{ pctAguaFormula() }}% · concentrado {{ 100 - pctAguaFormula() }}%
+          } @else {
+            Agua + insumos debe sumar el producto
+          }
+        </p>
+      </div>
+
+      <div class="insumos-editor">
+        <div class="insumos-editor-cab">
+          <span class="campo-receta-label">Insumos (mezcla)</span>
+          <button type="button" class="secondary mini" (click)="agregarInsumoFormula()">+ Insumo</button>
+        </div>
+        @for (ins of formReceta.insumos; track $index; let i = $index) {
+          <div class="insumo-fila">
+            <app-producto-autocomplete
+              [productos]="productos"
+              [productoId]="ins.productoInsumoId"
+              (productoIdChange)="ins.productoInsumoId = $event"
+              placeholder="Base / Hipoclorito…"
+              [inputName]="'recetaIns' + i"
+              mostrarExtra="stock"
+            />
+            <input type="text" inputmode="decimal" [(ngModel)]="ins.cantidad" [name]="'recetaCantIns' + i" placeholder="L" aria-label="Litros de insumo" />
+            <button type="button" class="danger mini" (click)="quitarInsumoFormula(i)" [disabled]="formReceta.insumos.length <= 1" title="Quitar">×</button>
+            <button type="button" class="linkish" (click)="abrirAltaProducto('insumo', i)">+ Nuevo</button>
+          </div>
+        }
+        <p class="muted ayuda-suma">
+          Agua + insumos = {{ (num(formReceta.cantidadAgua) + totalInsumosFormula()) | number: '1.0-4' }} L
+          @if (num(formReceta.cantidadProducto) > 0) {
+            (producto {{ formReceta.cantidadProducto | number: '1.0-4' }} L)
+          }
+        </p>
       </div>
 
       @if (altaProductoPara) {
         <div class="alta-en-receta">
-          <p class="muted">
-            {{ altaProductoPara === 'resultado' ? 'Nuevo producto preparado' : 'Nuevo insumo' }}
-          </p>
+          <p class="muted">{{ altaProductoPara === 'resultado' ? 'Nuevo producto preparado' : 'Nuevo insumo' }}</p>
           <app-producto-alta-form
             [namePrefix]="'prepAlta' + altaProductoPara"
             [submitLabel]="'Registrar y usar'"
             (creado)="onProductoCreadoFormula($event)"
-            (cancelado)="altaProductoPara = null"
+            (cancelado)="altaProductoPara = null; altaInsumoIndex = null"
           />
         </div>
       }
@@ -363,96 +392,109 @@
         }
         <button type="button" class="secondary" (click)="cancelarEdicionRecetas()">Cerrar</button>
       </div>
-      @if (errorRecetas) {
-        <p class="error">{{ errorRecetas }}</p>
-      }
-      @if (okRecetas) {
-        <p class="ok-msg" appAutoHide (autoHide)="okRecetas = ''">{{ okRecetas }}</p>
-      }
+      @if (errorRecetas) { <p class="error">{{ errorRecetas }}</p> }
+      @if (okRecetas) { <p class="ok-msg" appAutoHide (autoHide)="okRecetas = ''">{{ okRecetas }}</p> }
     </div>
   }
-  <form class="form-grid form-prep" (ngSubmit)="guardarPreparacion()">
-    <label>
-      Fecha
-      <input
-        type="date"
-        [(ngModel)]="prep.fecha"
-        name="prepFecha"
-        [min]="fechaMin || null"
-        [max]="fechaMax"
-        required
-        (ngModelChange)="programarBorrador()"
-      />
-    </label>
-    <label>
-      Producto preparado
-      <app-producto-autocomplete
-        [productos]="productosPreparables"
-        [productoId]="prep.productoResultadoId"
-        (productoIdChange)="onResultadoChange($event)"
-        [required]="true"
-        placeholder="Productos con fórmula…"
-      />
-    </label>
-    <label>
-      Cantidad preparada
-      <input
-        type="text"
-        inputmode="decimal"
-        appClearable
-        [(ngModel)]="prep.cantidadResultado"
-        (ngModelChange)="onCantidadPrepChange()"
-        name="prepCantRes"
-        placeholder="0"
-        required
-      />
-    </label>
-    <label>
-      Insumo
-      <input [value]="prep.insumoNombre || '—'" name="prepInsumo" disabled />
-    </label>
-    <label>
-      Cantidad de insumo
-      <div class="dato-fijo" [class.disp-warn]="excedeStockInsumoPrep">
-        @if (prep.cantidadInsumo != null) {
-          {{ prep.cantidadInsumo | number: '1.0-2' }} L
-        } @else {
-          <span class="muted">—</span>
+
+  @if (prepVista === 'preparar') {
+  <form class="form-prep-card prep-panel-anim" (ngSubmit)="guardarPreparacion()">
+    <p class="prep-step-tit">¿Qué preparamos?</p>
+
+    @if (productosPreparables.length) {
+      <div class="prep-quick" aria-label="Elegir producto">
+        @for (p of productosPreparables; track p.id) {
+          <button
+            type="button"
+            class="prep-pill"
+            [class.activo]="prep.productoResultadoId === p.id"
+            (click)="elegirPreparable(p.id)"
+          >
+            {{ p.nombre }}
+          </button>
         }
       </div>
-    </label>
-    <label class="campo-accion">
-      <span class="campo-accion-spacer" aria-hidden="true">&nbsp;</span>
-      <div class="prep-actions">
-        <button type="submit" [disabled]="excedeStockInsumoPrep">
-          {{ editandoPrepId != null ? 'Guardar cambios' : 'Registrar preparación' }}
-        </button>
-        @if (editandoPrepId != null) {
-          <button type="button" class="secondary" (click)="cancelarEdicionPrep()">Cancelar</button>
-        }
+    }
+
+    <div class="form-prep-grid">
+      <label class="prep-fecha">
+        Fecha
+        <input type="date" [(ngModel)]="prep.fecha" name="prepFecha" [min]="fechaMin || null" [max]="fechaMax" required (ngModelChange)="programarBorrador()" />
+      </label>
+      <label class="prep-campo-wide desktop-only">
+        Producto preparado
+        <app-producto-autocomplete
+          [productos]="productosPreparables"
+          [productoId]="prep.productoResultadoId"
+          (productoIdChange)="onResultadoChange($event)"
+          [required]="true"
+          placeholder="Productos con fórmula…"
+        />
+      </label>
+    </div>
+
+    <div class="prep-hero-cant">
+      <span class="prep-hero-label">Litros a preparar</span>
+      <div class="prep-stepper">
+        <button type="button" class="stepper-btn" (click)="ajustarCantPrep(-1)" aria-label="Bajar 1 L">−</button>
+        <input
+          type="text"
+          inputmode="decimal"
+          appClearable
+          class="prep-hero-input"
+          [(ngModel)]="prep.cantidadResultado"
+          (ngModelChange)="onCantidadPrepChange()"
+          name="prepCantRes"
+          placeholder="0"
+          required
+          aria-label="Cantidad preparada en litros"
+        />
+        <button type="button" class="stepper-btn" (click)="ajustarCantPrep(1)" aria-label="Subir 1 L">+</button>
       </div>
-    </label>
-  </form>
-  @if (prep.productoInsumoId != null) {
-    <p class="prep-stock" [class.disp-warn]="excedeStockInsumoPrep" [class.ok-stock]="!excedeStockInsumoPrep && (prep.cantidadInsumo ?? 0) > 0">
-      @if (excedeStockInsumoPrep) {
-        No alcanza el {{ prep.insumoNombre || 'insumo' }}:
-        necesitas {{ prep.cantidadInsumo | number: '1.0-2' }} L,
-        hay {{ stockInsumoPrep | number: '1.0-2' }} L.
-      } @else if ((prep.cantidadInsumo ?? 0) > 0) {
-        Hay {{ stockInsumoPrep | number: '1.0-2' }} L de {{ prep.insumoNombre }} — suficiente.
-      } @else {
-        Disp. {{ prep.insumoNombre || 'insumo' }}: {{ stockInsumoPrep | number: '1.0-2' }} L
+      <div class="prep-stepper-quick">
+        <button type="button" class="chip ghost" (click)="ajustarCantPrep(5)">+5</button>
+        <button type="button" class="chip ghost" (click)="ajustarCantPrep(16)">+16</button>
+        <button type="button" class="chip ghost" (click)="prep.cantidadResultado = 16; onCantidadPrepChange()">16 L</button>
+      </div>
+    </div>
+
+    @if (prep.insumos.length) {
+      <div class="prep-mix-flow" [class.warn]="excedeStockInsumoPrep" [class.ok]="!excedeStockInsumoPrep">
+        <p class="prep-insumos-tit">Mezcla que se descuenta</p>
+        <ol class="prep-flow">
+          @for (i of prep.insumos; track i.productoInsumoId; let last = $last) {
+            <li class="prep-flow-item" [class.falta]="i.cantidad > stockDe(i.productoInsumoId) + 1e-9">
+              <span class="prep-flow-dot" aria-hidden="true"></span>
+              <div class="prep-flow-body">
+                <strong>{{ i.nombre }}</strong>
+                <span>{{ i.cantidad | number: '1.0-2' }} L · hay {{ stockDe(i.productoInsumoId) | number: '1.0-2' }} L</span>
+              </div>
+            </li>
+            @if (!last) {
+              <li class="prep-flow-join" aria-hidden="true">+</li>
+            }
+          }
+        </ol>
+      </div>
+    } @else if (prep.productoResultadoId) {
+      <p class="muted prep-hint">Elige cantidad para ver los insumos.</p>
+    }
+
+    <div class="prep-actions prep-cta">
+      <button type="submit" [disabled]="excedeStockInsumoPrep || !prep.insumos.length">
+        {{ editandoPrepId != null ? 'Guardar cambios' : 'Registrar preparación' }}
+      </button>
+      @if (editandoPrepId != null) {
+        <button type="button" class="secondary" (click)="cancelarEdicionPrep()">Cancelar</button>
       }
-    </p>
-  }
-  @if (errorPrep) {
-    <p class="error">{{ errorPrep }}</p>
-  }
-  @if (okPrep) {
-    <p class="ok-msg" appAutoHide (autoHide)="okPrep = ''">{{ okPrep }}</p>
+    </div>
+  </form>
   }
 
+  @if (errorPrep) { <p class="error">{{ errorPrep }}</p> }
+  @if (okPrep) { <p class="ok-msg" appAutoHide (autoHide)="okPrep = ''">{{ okPrep }}</p> }
+
+  @if (prepVista === 'preparar') {
   <div class="table-wrap hist-tabla hist-prep">
     <table>
       <thead>
@@ -460,8 +502,7 @@
           <th class="col-fecha">Fecha</th>
           <th class="col-producto">Preparado</th>
           <th class="money col-cant">Cantidad</th>
-          <th class="col-insumo">Insumo usado</th>
-          <th class="money col-cant-insumo">Cant. insumo</th>
+          <th class="col-insumo">Insumos</th>
           <th class="col-acciones" aria-label="Acciones"></th>
         </tr>
       </thead>
@@ -471,43 +512,14 @@
             <td class="col-fecha">{{ p.fecha | fechaDmY }}</td>
             <td class="col-producto">{{ p.productoResultadoNombre }}</td>
             <td class="money col-cant">{{ p.cantidadResultado | number: '1.2-2' }}</td>
-            <td class="col-insumo">{{ p.productoInsumoNombre }}</td>
-            <td class="money col-cant-insumo">{{ p.cantidadInsumo | number: '1.2-2' }}</td>
+            <td class="col-insumo">{{ textoInsumosProduccion(p) }}</td>
             <td class="col-acciones">
               <div class="acciones-celda">
-                @if (editandoPrepId !== p.id) {
-                  <button
-                    type="button"
-                    class="icon-btn"
-                    title="Editar"
-                    aria-label="Editar"
-                    (click)="editarProduccion(p)"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                      />
-                    </svg>
-                  </button>
-                } @else {
-                  <span class="icon-btn-spacer" aria-hidden="true"></span>
-                }
-                <button
-                  type="button"
-                  class="icon-btn danger"
-                  title="Eliminar"
-                  aria-label="Eliminar"
-                  (click)="eliminarProduccion(p.id)"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M6 6l12 12M18 6L6 18"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.25"
-                      stroke-linecap="round"
-                    />
-                  </svg>
+                <button type="button" class="icon-btn" title="Editar" aria-label="Editar" (click)="editarProduccion(p)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
+                <button type="button" class="icon-btn danger" title="Eliminar" aria-label="Eliminar" (click)="eliminarProduccion(p.id)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"/></svg>
                 </button>
               </div>
             </td>
@@ -517,46 +529,26 @@
     </table>
   </div>
 
-  <ul class="hist-cards">
-    @for (p of pagPrep.paginaItems; track p.id) {
-      <li [class.editando-card]="editandoPrepId === p.id">
+  <ul class="hist-cards prep-hist-cards">
+    @for (p of pagPrep.paginaItems; track p.id; let idx = $index) {
+      <li class="prep-hist-card" [style.--i]="idx" [class.editando-card]="editandoPrepId === p.id">
         <div class="item-meta">
           <span>{{ p.fecha | fechaDmY }}</span>
-          <span class="item-tag">{{ p.productoInsumoNombre }} · {{ p.cantidadInsumo | number: '1.2-2' }}</span>
+          <strong class="money">{{ p.cantidadResultado | number: '1.2-2' }} L</strong>
         </div>
         <p class="item-motivo">{{ p.productoResultadoNombre }}</p>
+        <div class="receta-chips">
+          @for (i of insumosDeProduccion(p); track i.productoInsumoId) {
+            <span class="chip">{{ i.cantidad | number: '1.0-2' }} L · {{ i.productoInsumoNombre }}</span>
+          }
+        </div>
         <div class="item-fila">
-          <strong class="money">{{ p.cantidadResultado | number: '1.2-2' }}</strong>
           <div class="acciones">
-            <button
-              type="button"
-              class="icono"
-              title="Editar"
-              aria-label="Editar"
-              (click)="editarProduccion(p)"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                />
-              </svg>
+            <button type="button" class="icono" title="Editar" aria-label="Editar" (click)="editarProduccion(p)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             </button>
-            <button
-              type="button"
-              class="icono peligro"
-              title="Eliminar"
-              aria-label="Eliminar"
-              (click)="eliminarProduccion(p.id)"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M6 6l12 12M18 6L6 18"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                />
-              </svg>
+            <button type="button" class="icono peligro" title="Eliminar" aria-label="Eliminar" (click)="eliminarProduccion(p.id)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
           </div>
         </div>
@@ -573,6 +565,7 @@
     (prev)="pagPrep.anterior()"
     (next)="pagPrep.siguiente()"
   />
+  }
   </div>
   }
 </section>
@@ -799,8 +792,8 @@
   }
 
   <ul class="hist-cards">
-    @for (e of pagEntradas.paginaItems; track e.id) {
-      <li [class.editando-card]="editandoEntradaId === e.id">
+    @for (e of pagEntradas.paginaItems; track e.id; let idx = $index) {
+      <li [style.--i]="idx" [class.editando-card]="editandoEntradaId === e.id">
         <div class="item-meta">
           <span>{{ e.fecha | fechaDmY }}</span>
           <span class="item-tag">

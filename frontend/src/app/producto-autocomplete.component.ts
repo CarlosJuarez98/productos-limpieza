@@ -163,6 +163,7 @@ import { InventarioItem } from './modelos';
       .sugerencias li:hover,
       .sugerencias li.activo {
         background: #eef5f1;
+        color: var(--text);
       }
       .sugerencias li.vacio {
         cursor: default;

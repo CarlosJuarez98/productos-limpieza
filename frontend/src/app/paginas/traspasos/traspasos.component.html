@@ -55,8 +55,8 @@
     </div>
 
     <ul class="hist-cards">
-      @for (s of data.saldosPorPersona; track s.personaId) {
-        <li>
+      @for (s of data.saldosPorPersona; track s.personaId; let idx = $index) {
+        <li [style.--i]="idx">
           <div class="item-meta">
             <span>
               @switch (s.estado) {
@@ -88,6 +88,7 @@
           type="date"
           [(ngModel)]="form.fecha"
           name="fecha"
+          [max]="fechaMax"
           required
           (ngModelChange)="programarBorrador()"
           (keydown.enter)="onFechaEnter($event)"
@@ -95,16 +96,30 @@
       </label>
       <label>
         Persona
-        <input
-          appClearable
-          [(ngModel)]="form.persona"
-          name="persona"
-          list="personas-existentes"
-          required
-          placeholder="Nombre"
-          (ngModelChange)="programarBorrador()"
-        />
+        <select
+          [(ngModel)]="form.personaId"
+          name="personaId"
+          (ngModelChange)="onPersonaListaCambio()"
+        >
+          <option [ngValue]="null">Nueva persona…</option>
+          @for (p of personasLista; track p.id) {
+            <option [ngValue]="p.id">{{ p.nombre }}</option>
+          }
+        </select>
       </label>
+      @if (form.personaId == null) {
+        <label>
+          Nombre
+          <input
+            appClearable
+            [(ngModel)]="form.personaNueva"
+            name="personaNueva"
+            required
+            placeholder="Nombre"
+            (ngModelChange)="programarBorrador()"
+          />
+        </label>
+      }
       <label>
         Nota
         <input appClearable [(ngModel)]="form.nota" name="nota" (ngModelChange)="programarBorrador()" />
@@ -268,7 +283,7 @@
       }
     </div>
 
-    <div class="toolbar lote-actions" style="margin-top: 0.65rem">
+    <div class="toolbar lote-actions cta-bar-mobile" style="margin-top: 0.65rem">
       <button
         type="button"
         class="btn-agregar-linea"
@@ -293,7 +308,7 @@
   <form class="form-grid" (ngSubmit)="guardarAbono()">
     <label>
       Fecha
-      <input type="date" [(ngModel)]="abono.fecha" name="abonoFecha" required />
+      <input type="date" [(ngModel)]="abono.fecha" name="abonoFecha" [max]="fechaMax" required />
     </label>
     <label>
       Persona
@@ -345,12 +360,6 @@
   }
 </section>
 
-<datalist id="personas-existentes">
-  @for (p of data?.personas || []; track p.id) {
-    <option [value]="p.nombre"></option>
-  }
-</datalist>
-
 @if (data) {
   <div class="dos-cols" style="margin-top: 1rem">
     <section class="panel">
@@ -396,18 +405,32 @@
                     <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
                       <label>
                         Fecha
-                        <input type="date" [(ngModel)]="formEdit.fecha" name="editFecha" required />
+                        <input type="date" [(ngModel)]="formEdit.fecha" name="editFecha" [max]="fechaMax" required />
                       </label>
                       <label>
                         Persona
-                        <input
-                          appClearable
-                          [(ngModel)]="formEdit.persona"
-                          name="editPersona"
-                          list="personas-existentes"
-                          required
-                        />
+                        <select
+                          [(ngModel)]="formEdit.personaId"
+                          name="editPersonaId"
+                          (ngModelChange)="onPersonaEditCambio()"
+                        >
+                          <option [ngValue]="null">Nueva persona…</option>
+                          @for (p of personasLista; track p.id) {
+                            <option [ngValue]="p.id">{{ p.nombre }}</option>
+                          }
+                        </select>
                       </label>
+                      @if (formEdit.personaId == null) {
+                        <label>
+                          Nombre
+                          <input
+                            appClearable
+                            [(ngModel)]="formEdit.personaNueva"
+                            name="editPersonaNueva"
+                            required
+                          />
+                        </label>
+                      }
                       <label>
                         Nota
                         <input appClearable [(ngModel)]="formEdit.nota" name="editNota" />
@@ -458,8 +481,8 @@
       </div>
 
       <ul class="hist-cards">
-        @for (t of pagTraspasos.paginaItems; track t.id) {
-          <li class="traspaso-card">
+        @for (t of pagTraspasos.paginaItems; track t.id; let idx = $index) {
+          <li class="traspaso-card" [style.--i]="idx">
             <div class="item-meta">
               <span>{{ t.fecha | fechaDmY }}</span>
               <span class="item-tag">{{ t.persona || '—' }}</span>
@@ -513,18 +536,32 @@
                 <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
                   <label>
                     Fecha
-                    <input type="date" [(ngModel)]="formEdit.fecha" name="editFechaM" required />
+                    <input type="date" [(ngModel)]="formEdit.fecha" name="editFechaM" [max]="fechaMax" required />
                   </label>
                   <label>
                     Persona
-                    <input
-                      appClearable
-                      [(ngModel)]="formEdit.persona"
-                      name="editPersonaM"
-                      list="personas-existentes"
-                      required
-                    />
+                    <select
+                      [(ngModel)]="formEdit.personaId"
+                      name="editPersonaIdM"
+                      (ngModelChange)="onPersonaEditCambio()"
+                    >
+                      <option [ngValue]="null">Nueva persona…</option>
+                      @for (p of personasLista; track p.id) {
+                        <option [ngValue]="p.id">{{ p.nombre }}</option>
+                      }
+                    </select>
                   </label>
+                  @if (formEdit.personaId == null) {
+                    <label>
+                      Nombre
+                      <input
+                        appClearable
+                        [(ngModel)]="formEdit.personaNueva"
+                        name="editPersonaNuevaM"
+                        required
+                      />
+                    </label>
+                  }
                   <label>
                     Nota
                     <input appClearable [(ngModel)]="formEdit.nota" name="editNotaM" />
@@ -612,8 +649,8 @@
       </div>
 
       <ul class="hist-cards">
-        @for (a of pagAbonos.paginaItems; track a.id) {
-          <li>
+        @for (a of pagAbonos.paginaItems; track a.id; let idx = $index) {
+          <li [style.--i]="idx">
             <div class="item-meta">
               <span>{{ a.fecha | fechaDmY }}</span>
               <span class="item-tag">{{ a.persona || '—' }}</span>

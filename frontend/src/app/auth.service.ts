@@ -27,14 +27,16 @@ function displayNameOf(username: string | undefined | null): string {
 }
 
 const AUTH_CACHE_KEY = 'pl.auth.snapshot';
+/** Con red, no confiar en cache de sesión más de esto. */
+const FRESH_MS = 30_000;
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly base = '/api/auth';
   private readonly estado$ = new BehaviorSubject<AuthMe | null>(null);
-  /** Un solo /me en vuelo; tras resolver se usa el cache de estado$. */
   private meInflight$: Observable<AuthMe> | null = null;
+  private lastServerAt = 0;
 
   readonly authChanges$ = this.estado$.asObservable();
 
@@ -57,9 +59,19 @@ export class AuthService {
     return e?.authenticated ? e.username || null : null;
   }
 
-  me(): Observable<AuthMe> {
+  /**
+   * Estado de sesión. Con `force` (o cache viejo) consulta al servidor.
+   * Sin sesión o sesión vencida → authenticated: false.
+   */
+  me(opts?: { force?: boolean }): Observable<AuthMe> {
     const cached = this.estado$.value;
-    if (cached !== null) {
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    const fresh = Date.now() - this.lastServerAt < FRESH_MS;
+    if (
+      !opts?.force &&
+      cached !== null &&
+      (!online || !cached.authenticated || fresh)
+    ) {
       return of(cached);
     }
     if (this.meInflight$) {
@@ -69,9 +81,12 @@ export class AuthService {
       map((m) =>
         m.authenticated
           ? { ...m, displayName: m.displayName || displayNameOf(m.username) }
-          : m
+          : { authenticated: false }
       ),
-      tap((m) => this.persistAuth(m)),
+      tap((m) => {
+        this.lastServerAt = Date.now();
+        this.persistAuth(m);
+      }),
       catchError((err: unknown) => {
         const status = (err as { status?: number })?.status;
         const sinRed =
@@ -82,13 +97,14 @@ export class AuthService {
           return of(snap);
         }
         const empty: AuthMe = { authenticated: false };
+        this.lastServerAt = Date.now();
         this.persistAuth(empty);
         return of(empty);
       }),
       finalize(() => {
         this.meInflight$ = null;
       }),
-      shareReplay(1)
+      shareReplay({ bufferSize: 1, refCount: true })
     );
     return this.meInflight$;
   }
@@ -101,23 +117,28 @@ export class AuthService {
         { withCredentials: true }
       )
       .pipe(
-        tap((r) =>
+        tap((r) => {
+          this.lastServerAt = Date.now();
           this.persistAuth({
             authenticated: true,
             username: r.username,
             displayName: r.displayName || displayNameOf(r.username),
             remainingSeconds: 20 * 60,
-          })
-        ),
+          });
+        }),
         map(() => undefined)
       );
   }
 
   logout(): Observable<void> {
     return this.http.post<{ ok: boolean }>(`${this.base}/logout`, {}, { withCredentials: true }).pipe(
-      tap(() => this.persistAuth({ authenticated: false })),
+      tap(() => {
+        this.lastServerAt = Date.now();
+        this.persistAuth({ authenticated: false });
+      }),
       map(() => undefined),
       catchError(() => {
+        this.lastServerAt = Date.now();
         this.persistAuth({ authenticated: false });
         return of(undefined);
       })
@@ -125,26 +146,15 @@ export class AuthService {
   }
 
   marcarNoAutenticado(): void {
+    this.lastServerAt = Date.now();
     this.persistAuth({ authenticated: false });
   }
 
-  /** Llama a /me para renovar la sesión si el usuario sigue activo. */
+  /** Renueva la sesión en el servidor si hay actividad; si ya caducó, limpia estado. */
   renovarSesion(): void {
     if (!this.autenticado) return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-    this.http.get<AuthMe>(`${this.base}/me`, { withCredentials: true }).subscribe({
-      next: (m) => {
-        if (m?.authenticated) {
-          this.persistAuth({
-            ...m,
-            displayName: m.displayName || displayNameOf(m.username),
-          });
-        } else {
-          this.persistAuth({ authenticated: false });
-        }
-      },
-      error: () => undefined,
-    });
+    this.me({ force: true }).subscribe();
   }
 
   private persistAuth(m: AuthMe): void {

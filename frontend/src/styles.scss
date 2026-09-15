@@ -29,7 +29,8 @@ html {
 html,
 body {
   margin: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
+  max-width: 100%;
   background:
     radial-gradient(ellipse 70% 45% at 0% 0%, rgba(28, 101, 74, 0.07), transparent 55%),
     linear-gradient(180deg, #f6faf7 0%, var(--bg) 45%, #e6ede8 100%);
@@ -103,18 +104,25 @@ textarea {
 button {
   cursor: pointer;
   border: none;
-  border-radius: 0.45rem;
+  border-radius: 999px;
   background: var(--accent);
   color: #fff;
-  padding: 0.45rem 0.85rem;
+  padding: 0.5rem 1.05rem;
   font-weight: 650;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+}
+
+button:hover:not(:disabled):not(.icon-btn):not(.icono):not(.clearable-x):not(.panel-toggle):not(.lista-toggle):not(.pedido-cab):not(.secondary):not(.danger):not(.modo-chip):not(.seg-btn):not(.chip):not(.ghost):not(.btn-salir):not(.bn-more):not(.btn-agregar-linea):not(.stepper-btn):not(.quitar):not(.tarjeta-btn):not(.linkish):not(.btn-mini) {
+  background: color-mix(in srgb, var(--accent) 82%, #fff);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(28, 101, 74, 0.14);
+  transform: translateY(-1px);
 }
 
 button.secondary {
   background: #fff;
   color: var(--accent);
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
 }
 
 button .chev {
@@ -126,11 +134,23 @@ button .chev {
 
 button.secondary:hover:not(:disabled) {
   background: var(--accent-soft);
+  color: var(--accent);
   border-color: #a7c2b4;
+  box-shadow: none;
+  transform: none;
 }
 
 button.danger {
-  background: var(--danger);
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, #fff);
+}
+
+button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 8%, #fff);
+  color: var(--danger);
+  box-shadow: none;
+  transform: none;
 }
 
 button:disabled {
@@ -141,10 +161,11 @@ button:disabled {
 input,
 select {
   border: 1px solid var(--line);
-  border-radius: 0.4rem;
-  padding: 0.42rem 0.55rem;
+  border-radius: 0.75rem;
+  padding: 0.48rem 0.65rem;
   background: #fff;
   min-width: 0;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 input:focus,
@@ -214,7 +235,24 @@ input[type='number'] {
   font-size: 1.22rem;
   font-weight: 700;
   color: var(--text);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
+  font-family: Fraunces, Georgia, serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.page-title::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  flex-shrink: 0;
 }
 
 .panel > h3,
@@ -223,6 +261,8 @@ input[type='number'] {
   font-size: 1.02rem;
   font-weight: 700;
   color: var(--text);
+  font-family: Fraunces, Georgia, serif;
+  letter-spacing: -0.02em;
 }
 
 .clearable-wrap {
@@ -297,13 +337,59 @@ input[type='number'] {
 }
 
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 0.7rem 0.85rem;
-  box-shadow: var(--shadow);
+  background:
+    linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 28%, #fff) 100%);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, #fff);
+  border-radius: 1.05rem;
+  padding: 0.85rem 1rem;
+  box-shadow: 0 10px 26px rgba(22, 40, 33, 0.05);
   max-width: 100%;
   min-width: 0;
+}
+
+.stat {
+  border-radius: 0.9rem;
+  padding: 0.55rem 0.75rem;
+  background:
+    linear-gradient(165deg, #fff 0%, #f4f9f6 100%);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, #fff);
+}
+
+.stat strong {
+  font-family: Fraunces, Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+/* Icon buttons stay square-ish (not pills) */
+button.icon-btn,
+button.icono,
+.acciones-celda .icon-btn,
+.hist-cards button.icono {
+  border-radius: 0.65rem !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+button.icon-btn.danger,
+button.icono.peligro,
+button.icono.danger,
+td.actions .icon-btn.danger,
+.acciones-celda .icon-btn.danger,
+.hist-cards button.icono.peligro,
+.hist-cards button.icono.danger {
+  background: #fff !important;
+  color: var(--danger) !important;
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--line)) !important;
+}
+
+button.icon-btn.danger:hover:not(:disabled),
+button.icono.peligro:hover:not(:disabled),
+button.icono.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, #fff) !important;
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .form-grid {
@@ -1004,6 +1090,51 @@ td.actions .icon-btn.danger:hover:not(:disabled) {
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  border-radius: 0.65rem;
+}
+
+.panel-toggle:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: inherit;
+  box-shadow: none;
+  transform: none;
+}
+
+.panel-toggle:hover .chev {
+  color: var(--accent);
+}
+
+/* Cabeceras de tarjeta / lista: no heredar hover verde intenso del <button> */
+button.lista-toggle,
+button.pedido-cab,
+button.panel-toggle {
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  transform: none;
+  border-radius: 0.75rem;
+}
+
+.lista-toggle,
+.pedido-cab {
+  border-radius: 0.75rem !important;
+}
+
+.lista-toggle:hover:not(:disabled),
+.pedido-cab:hover:not(:disabled) {
+  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.pedido-cab:hover .muted,
+.pedido-cab:hover .cab-estado {
+  color: var(--muted);
+}
+
+.pedido-cab:hover .warn-txt {
+  color: var(--warn);
 }
 
 .panel-toggle .panel-titulo,
@@ -1023,30 +1154,50 @@ td.actions .icon-btn.danger:hover:not(:disabled) {
   margin-top: 0.75rem;
 }
 
-/* Historial: tabla escritorio / tarjetas móvil (estilo Gastos) */
+/* Historial: tabla escritorio / tarjetas móvil (estilo innovador en ambos) */
 .hist-cards {
   display: none;
   list-style: none;
-  margin: 0.45rem 0 0;
+  margin: 0.55rem 0 0;
   padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 0.75rem;
-  background: #fff;
-  overflow: hidden;
+  flex-direction: column;
+  gap: 0.65rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .hist-cards > li {
-  padding: 0.55rem 0.7rem;
-  border-bottom: 1px solid var(--line);
+  padding: 0.85rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, #fff);
+  border-radius: 1rem;
+  background:
+    linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 35%, #fff) 100%);
+  box-shadow: 0 8px 20px rgba(22, 40, 33, 0.045);
+  animation: fade-up 0.4s ease both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .hist-cards > li:last-child {
-  border-bottom: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, #fff);
 }
 
 .hist-cards > li.vacio {
   color: var(--muted);
   font-weight: 400;
+  background: #fff;
+  box-shadow: none;
+  text-align: center;
+  padding: 1.1rem;
 }
 
 .hist-cards .item-meta {
@@ -1056,12 +1207,15 @@ td.actions .icon-btn.danger:hover:not(:disabled) {
   color: var(--muted);
   font-size: 0.8rem;
   margin-bottom: 0.2rem;
+  min-width: 0;
 }
 
 .hist-cards .item-tag {
   font-weight: 600;
   color: var(--text);
   text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .hist-cards .item-motivo {
@@ -1070,13 +1224,20 @@ td.actions .icon-btn.danger:hover:not(:disabled) {
   color: var(--text);
   overflow-wrap: anywhere;
   font-weight: 650;
+  min-width: 0;
 }
 
 .hist-cards .item-fila {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.75rem;
+  min-width: 0;
+}
+
+.hist-cards .item-fila > * {
+  min-width: 0;
 }
 
 .hist-cards .acciones {
@@ -1187,7 +1348,7 @@ button.btn-agregar-linea {
   border: 1px solid var(--line);
   border-radius: 0.55rem;
   background: #fff;
-  color: var(--ink);
+  color: var(--text);
   font-size: 1.55rem;
   font-weight: 600;
   line-height: 1;
@@ -1195,9 +1356,11 @@ button.btn-agregar-linea {
 }
 
 button.btn-agregar-linea:hover:not(:disabled) {
-  background: #f4f8f5;
-  border-color: #9db5a8;
-  color: var(--ink);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+  color: var(--accent);
+  box-shadow: none;
+  transform: none;
 }
 
 .fila-actions > button.btn-guardar-filas,
@@ -1211,18 +1374,24 @@ button.btn-agregar-linea:hover:not(:disabled) {
 }
 
 @media (max-width: 767px) {
-  /* Sin sticky: en móvil tapaba campos (Persona, etc.) sobre nav inferior */
+  /* Layout base; sticky dock lo define .cta-bar-mobile más abajo */
   .fila-actions,
   .lote-actions,
   .captura-actions,
   .gasto-actions {
     flex-direction: row;
     align-items: center;
-    position: static;
-    z-index: auto;
     margin-left: 0;
     margin-right: 0;
     margin-bottom: 0;
+  }
+
+  .fila-actions:not(.cta-bar-mobile),
+  .lote-actions:not(.cta-bar-mobile),
+  .captura-actions:not(.cta-bar-mobile),
+  .gasto-actions:not(.cta-bar-mobile) {
+    position: static;
+    z-index: auto;
     padding: 0.55rem 0 0;
     background: transparent;
     border-top: none;
@@ -1253,6 +1422,445 @@ button.btn-agregar-linea:hover:not(:disabled) {
   .modo-chip,
   button.quitar {
     min-height: 2.75rem;
+  }
+}
+
+/* =============================================================================
+   Mobile UI kit (Mesa Lista–inspired, brand greens)
+   Reusable: .seg-control, .ui-card, .chip, .rail-x, .panel-anim, .cta-bar-mobile
+   ============================================================================= */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.seg-control {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0.25rem;
+  padding: 0.28rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 70%, #e8eee9);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, #fff);
+}
+
+.seg-btn {
+  min-height: 2.55rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 0.45rem 0.7rem;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.seg-btn.activo,
+.seg-btn[aria-selected='true'] {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 4px 12px rgba(22, 40, 33, 0.08);
+}
+
+.seg-btn:not(.activo):hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.ui-card {
+  border: 1px solid color-mix(in srgb, var(--line) 75%, #fff);
+  border-radius: 1.05rem;
+  background:
+    linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 40%, #fff) 100%);
+  box-shadow: 0 10px 24px rgba(22, 40, 33, 0.05);
+  padding: 0.85rem 0.95rem;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.32rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.chip.ghost {
+  background: #fff;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
+}
+
+button.chip,
+button.chip.ghost {
+  cursor: pointer;
+  min-height: 2.35rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+button.chip:hover,
+button.chip.ghost:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: none;
+  transform: none;
+}
+
+/* Chips / filtros: hover suave, texto oscuro (no el verde intenso del botón primario) */
+.modo-chip:hover:not(:disabled):not(.activo),
+.seg-btn:hover:not(:disabled):not(.activo) {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+  box-shadow: none;
+  transform: none;
+}
+
+.modo-chip.activo:hover:not(:disabled),
+.seg-btn.activo:hover:not(:disabled) {
+  /* Mantener contraste del estado activo */
+  color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+
+.stepper-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: none;
+  transform: none;
+}
+
+.stepper-btn {
+  flex: 0 0 auto;
+  width: 2.85rem;
+  height: 2.85rem;
+  min-width: 2.85rem;
+  min-height: 2.85rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  background: #fff;
+  color: var(--accent);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(22, 40, 33, 0.06);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stepper-btn:active:not(:disabled) {
+  transform: scale(0.96);
+  background: var(--accent-soft);
+}
+
+.rail-x {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.55rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  padding: 0.1rem 0.05rem 0.45rem;
+  scrollbar-width: thin;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rail-x > * {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.panel-anim {
+  animation: fade-up 0.38s ease both;
+}
+
+.panel-anim[style*='--i'],
+.hist-cards > li[style*='--i'] {
+  animation: fade-up 0.42s ease both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+.cta-bar-mobile {
+  /* Sticky CTA polish only on mobile; desktop keeps host flex layout. */
+}
+
+@media (max-width: 767px) {
+  button:not(.icon-btn):not(.icono):not(.clearable-x):not(.btn-agregar-linea):not(.linkish):not(.panel-toggle):not(.btn-guardar-filas):not(.btn-cancelar-ticket) {
+    min-height: 2.75rem;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 2.65rem;
+  }
+
+  .page-title {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 1.28rem;
+    letter-spacing: -0.02em;
+  }
+
+  .panel {
+    border-radius: 1rem;
+    border-color: color-mix(in srgb, var(--line) 80%, #fff);
+    box-shadow: 0 8px 22px rgba(22, 40, 33, 0.045);
+  }
+
+  .panel > h3,
+  .panel-titulo {
+    font-family: Fraunces, Georgia, serif;
+    letter-spacing: -0.015em;
+  }
+
+  .stat {
+    border-radius: 0.85rem;
+    padding: 0.55rem 0.7rem;
+    background: linear-gradient(165deg, #fff 0%, #f4f9f6 100%);
+  }
+
+  .stat strong {
+    font-family: Fraunces, Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+
+  .hist-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+    margin-top: 0.55rem;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .hist-cards > li {
+    padding: 0.85rem 0.95rem;
+    border: 1px solid color-mix(in srgb, var(--line) 70%, #fff);
+    border-radius: 1rem;
+    background:
+      linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 35%, #fff) 100%);
+    box-shadow: 0 8px 20px rgba(22, 40, 33, 0.045);
+    animation: fade-up 0.4s ease both;
+    animation-delay: calc(var(--i, 0) * 40ms);
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .hist-cards > li:last-child {
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, #fff);
+  }
+
+  .hist-cards > li.vacio {
+    background: #fff;
+    box-shadow: none;
+    text-align: center;
+    padding: 1.1rem;
+  }
+
+  .hist-cards .item-motivo {
+    font-family: Fraunces, Georgia, serif;
+    font-size: 1.02rem;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+  }
+
+  .hist-cards .item-meta {
+    font-size: 0.78rem;
+    margin-bottom: 0.28rem;
+  }
+
+  .hist-cards button.icono,
+  .hist-cards .acciones button.danger {
+    width: 2.55rem;
+    height: 2.55rem;
+    min-width: 2.55rem;
+    min-height: 2.55rem;
+    border-radius: 0.65rem;
+  }
+
+  .hist-edicion-movil {
+    border-radius: 1.05rem;
+    padding: 0.9rem;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(28, 101, 74, 0.08), transparent 45%),
+      #f7fbf8;
+  }
+
+  .modo-chips,
+  .filtro-chips {
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .modo-chip {
+    min-height: 2.25rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+  }
+
+  .cta-bar-mobile {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.4rem;
+    /* In-flow single row: fits above bottom-nav after Total; avoids mid-screen overlays */
+    position: static;
+    z-index: auto;
+    margin-top: 0.55rem;
+    margin-left: 0;
+    margin-right: 0;
+    padding: 0.35rem 0 0.15rem;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .cta-bar-mobile:has(> button.btn-cancelar-ticket),
+  .cta-bar-mobile:has(> button.danger),
+  .cta-bar-mobile:has(> button.secondary) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .cta-bar-mobile > button.btn-agregar-linea {
+    grid-column: 1;
+    grid-row: 1;
+    width: 2.65rem;
+    height: 2.65rem;
+    min-width: 2.65rem;
+    min-height: 2.65rem;
+    border-radius: 999px;
+    flex: 0 0 auto;
+  }
+
+  .cta-bar-mobile > button.btn-guardar-filas,
+  .cta-bar-mobile > button:not(.btn-agregar-linea):not(.secondary):not(.danger):not(.btn-cancelar-ticket) {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.65rem;
+    border-radius: 999px;
+    font-size: 0.92rem;
+    flex: none;
+  }
+
+  .cta-bar-mobile > button.secondary,
+  .cta-bar-mobile > button.danger,
+  .cta-bar-mobile > button.btn-cancelar-ticket {
+    grid-column: 3;
+    grid-row: 1;
+    width: auto;
+    max-width: 5.8rem;
+    min-width: 0;
+    min-height: 2.65rem;
+    padding-inline: 0.5rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    line-height: 1.15;
+    flex: none;
+  }
+
+  /* Solo un botón primario (p.ej. Surtir): ocupar el ancho útil */
+  .cta-bar-mobile > button:only-child,
+  .cta-bar-mobile:not(:has(.btn-agregar-linea)) > button.btn-guardar-filas,
+  .cta-bar-mobile:not(:has(.btn-agregar-linea)) > button:not(.secondary):not(.danger):not(.btn-cancelar-ticket) {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .ui-card {
+    padding: 0.95rem 1rem;
+  }
+
+  .rail-x {
+    margin: 0;
+    padding-left: 0.05rem;
+    padding-right: 0.05rem;
+  }
+
+  .panel,
+  .ui-card,
+  .form-grid,
+  .stats,
+  .toolbar,
+  .ticket,
+  section {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .form-grid {
+    gap: 0.45rem;
+    margin-bottom: 0.55rem;
+  }
+
+  .page-title {
+    margin-bottom: 0.45rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-anim,
+  .hist-cards > li,
+  .prep-panel-anim,
+  .prep-hist-card {
+    animation: none !important;
+  }
+
+  .seg-btn,
+  .stepper-btn,
+  .chip,
+  .ui-card,
+  .receta-card,
+  button:not(.icon-btn):not(.icono) {
+    transition: none !important;
   }
 }
 
