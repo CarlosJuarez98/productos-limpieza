@@ -871,7 +871,7 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.lineas.splice(index, 1);
   }
 
-  guardarTodas(): void {
+  async guardarTodas(): Promise<void> {
     this.error = '';
     if (!this.fecha) {
       this.error = 'Indica la fecha';
@@ -924,6 +924,9 @@ export class VentasComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const ok = await this.confirmarTicket(pendientes);
+    if (!ok) return;
+
     this.guardando = true;
     this.api
       .crearVentasLote({
@@ -967,6 +970,48 @@ export class VentasComponent implements OnInit, OnDestroy {
       },
       error: (e) => (this.error = e.error?.error || 'Error al eliminar'),
     });
+  }
+
+  private async confirmarTicket(pendientes: LineaVenta[]): Promise<boolean> {
+    const recuento = this.recuentoTicket(pendientes);
+    const n = pendientes.filter((l) => l.productoId != null).length;
+    return this.confirmDlg.ask(recuento, {
+      titulo: n <= 1 ? '¿Guardar esta venta?' : '¿Guardar este ticket?',
+      confirmarTexto: 'Guardar',
+    });
+  }
+
+  private recuentoTicket(pendientes: LineaVenta[]): string {
+    const lineas = pendientes.filter((l) => l.productoId != null);
+    const max = 8;
+    const filas = lineas.slice(0, max).map((l) => this.lineaRecuento(l));
+    if (lineas.length > max) filas.push(`… y ${lineas.length - max} más`);
+    const n = lineas.length;
+    const partes = [`${n} ${n === 1 ? 'producto' : 'productos'}`];
+    if (this.totalTicket > 0) partes.push(`$${this.fmtMoney(this.totalTicket)}`);
+    const pie = [partes.join(' · ')];
+    const costo = this.costoTicketSinCobro;
+    if (costo > 0) pie.push(`Muestras / casa nos cuestan $${this.fmtMoney(costo)}`);
+    const tarjeta = lineas.filter((l) => l.pagoTarjeta && !this.esSinCobro(l)).length;
+    if (tarjeta) pie.push(`${tarjeta} con tarjeta (va al banco)`);
+    if (this.fecha) pie.push(`Fecha ${formatFechaDmY(this.fecha)}`);
+    return `${filas.join('\n')}\n\n${pie.join('\n')}`;
+  }
+
+  private lineaRecuento(l: LineaVenta): string {
+    const nombre = this.productoDe(l)?.nombre || 'Producto';
+    const cant = Number(l.cantidad) || 0;
+    const cantTxt = Number.isInteger(cant) ? String(cant) : String(Math.round(cant * 1000) / 1000);
+    const uni = this.unidadDe(l);
+    const extras: string[] = [];
+    if (l.modo !== 'MENUDEO') {
+      extras.push(this.modos.find((m) => m.value === l.modo)?.label || l.modo);
+    }
+    if (l.pagoTarjeta && !this.esSinCobro(l)) extras.push('tarjeta');
+    const tot = this.totalEstimado(l);
+    const money = this.esSinCobro(l) ? 'sin cobro' : tot != null ? `$${this.fmtMoney(tot)}` : '';
+    const extra = extras.length ? ` · ${extras.join(' · ')}` : '';
+    return `${nombre}  ·  ${cantTxt} ${uni}  ·  ${money}${extra}`.trim();
   }
 
   private tieneDatos(l: LineaVenta): boolean {

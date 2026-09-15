@@ -1,12 +1,34 @@
-/* PC: título y totales en flujo normal. */
+/* Título, fecha, ticket y ventas del día: fijos al bajar las líneas. */
 .ventas-fijo {
-  margin: 0 0 0.75rem;
-  padding: 0;
-  background: transparent;
+  position: sticky;
+  top: 0;
+  z-index: 16;
+  margin: -0.7rem -1rem 0.75rem;
+  padding: 0.7rem 1rem 0.65rem;
+  background: var(--bg);
+  isolation: isolate;
+  box-sizing: border-box;
 }
 
 .ventas-fijo::before {
-  display: none;
+  display: block;
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 50vh;
+  background: var(--bg);
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  .ventas-fijo {
+    margin-left: calc(-1 * clamp(1.25rem, 3vw, 2.25rem));
+    margin-right: calc(-1 * clamp(1.25rem, 3vw, 2.25rem));
+    padding-left: clamp(1.25rem, 3vw, 2.25rem);
+    padding-right: clamp(1.25rem, 3vw, 2.25rem);
+  }
 }
 
 .ventas-fijo .page-title {
@@ -595,19 +617,28 @@ td.fecha-naranja {
 
 @media (max-width: 767px) {
   .ventas-fijo {
-    position: static;
-    z-index: auto;
-    margin: 0 0 0.45rem;
-    padding: 0;
-    background: transparent;
-    isolation: auto;
-    max-width: 100%;
-    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 16;
+    margin: -0.5rem -0.6rem 0.5rem;
+    padding: 0.5rem 0.6rem 0.55rem;
+    background: var(--bg);
+    isolation: isolate;
+    max-width: none;
+    width: auto;
     box-sizing: border-box;
   }
 
   .ventas-fijo::before {
-    display: none;
+    display: block;
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 50vh;
+    background: var(--bg);
+    pointer-events: none;
   }
 
   .ventas-fijo .page-title {
@@ -684,16 +715,13 @@ td.fecha-naranja {
 
 @media (max-width: 1024px) and (orientation: landscape) {
   .ventas-fijo {
-    position: static;
-    z-index: auto;
-    margin: 0 0 0.65rem;
-    padding: 0;
-    background: transparent;
-    isolation: auto;
-  }
-
-  .ventas-fijo::before {
-    display: none;
+    position: sticky;
+    top: 0;
+    z-index: 16;
+    margin: -0.7rem -1rem 0.65rem;
+    padding: 0.7rem 1rem 0.65rem;
+    background: var(--bg);
+    isolation: isolate;
   }
 
   .ventas-fijo::before {
