@@ -556,7 +556,11 @@ public class CajaService {
     corteRepo.save(c);
   }
 
-  /** Cortes históricos Mama. El periodo abierto es el día siguiente al último corte en BD. */
+  /**
+   * Cortes históricos Mama (Excel). El 13/09 es de admin, no de mamá.
+   * Tras el 22/08 el periodo abierto arranca con fondo propio ($50), no el $200 de admin.
+   */
+  private static final BigDecimal FONDO_MAMA_PERIODO_ABIERTO = new BigDecimal("50.00");
   private static final List<CorteSemilla> CORTES_MAMA = List.of(
       new CorteSemilla(LocalDate.of(2026, 4, 14), bd("0"), bd("0")),
       new CorteSemilla(LocalDate.of(2026, 4, 19), bd("102"), bd("0")),
@@ -566,8 +570,7 @@ public class CajaService {
       new CorteSemilla(LocalDate.of(2026, 6, 9), bd("580"), bd("200")),
       new CorteSemilla(LocalDate.of(2026, 7, 4), bd("645.5"), bd("200")),
       new CorteSemilla(LocalDate.of(2026, 7, 21), bd("500"), bd("200")),
-      new CorteSemilla(LocalDate.of(2026, 8, 22), bd("980"), bd("200")),
-      new CorteSemilla(LocalDate.of(2026, 9, 13), bd("0"), bd("200"))
+      new CorteSemilla(LocalDate.of(2026, 8, 22), bd("980"), bd("200"))
   );
 
   private void asegurarCortesMamaDesdeExcel(CajaConfig cfg) {
@@ -582,6 +585,15 @@ public class CajaService {
         corteRepo.flush();
       }
     });
+    // Semilla errónea: el 13/09 pertenece a admin (paraApartar 538); no copiarlo a mamá.
+    corteRepo.findByFecha(LocalDate.of(2026, 9, 13)).ifPresent(erroneo -> {
+      BigDecimal para = nz(erroneo.getParaApartar());
+      if (para.compareTo(BigDecimal.ZERO) == 0
+          || para.compareTo(new BigDecimal("538")) == 0) {
+        corteRepo.delete(erroneo);
+        corteRepo.flush();
+      }
+    });
     for (CorteSemilla s : CORTES_MAMA) {
       if (corteRepo.findByFecha(s.fecha()).isPresent()) continue;
       try {
@@ -590,7 +602,9 @@ public class CajaService {
         c.setFecha(s.fecha());
         c.setFondoPeriodo(s.fondoPeriodo());
         c.setParaApartar(s.paraApartar());
-        c.setTotalCaja(s.paraApartar().add(FONDO_DEFAULT).setScale(2, RoundingMode.HALF_UP));
+        BigDecimal fondoCierre =
+            s.fondoPeriodo().compareTo(BigDecimal.ZERO) > 0 ? s.fondoPeriodo() : FONDO_DEFAULT;
+        c.setTotalCaja(s.paraApartar().add(fondoCierre).setScale(2, RoundingMode.HALF_UP));
         c.setTotalCalculadora(c.getTotalCaja());
         c.setTotalNegocio(c.getTotalCaja());
         corteRepo.saveAndFlush(c);
@@ -600,6 +614,7 @@ public class CajaService {
     }
     LocalDate ultimoSemilla = CORTES_MAMA.get(CORTES_MAMA.size() - 1).fecha();
     LocalDate ultimo = corteRepo.findMaxFecha().orElse(ultimoSemilla);
+    // Si solo hay historial Excel, el abierto empieza el 23/08; un corte real posterior sí manda.
     if (ultimo.isBefore(ultimoSemilla)) {
       ultimo = ultimoSemilla;
     }
@@ -610,8 +625,17 @@ public class CajaService {
       cfg.setFechaInicio(inicioEsperado);
       cfgDirty = true;
     }
-    if (cfg.getFondoInicial() == null || cfg.getFondoInicial().compareTo(BigDecimal.ZERO) == 0) {
-      cfg.setFondoInicial(FONDO_DEFAULT);
+    // Fondo del periodo abierto: propio de mamá ($50 tras el Excel), no el default de admin.
+    if (ultimo.equals(ultimoSemilla)) {
+      BigDecimal fondo = cfg.getFondoInicial();
+      if (fondo == null
+          || fondo.compareTo(BigDecimal.ZERO) == 0
+          || fondo.compareTo(FONDO_DEFAULT) == 0) {
+        cfg.setFondoInicial(FONDO_MAMA_PERIODO_ABIERTO);
+        cfgDirty = true;
+      }
+    } else if (cfg.getFondoInicial() == null || cfg.getFondoInicial().compareTo(BigDecimal.ZERO) == 0) {
+      cfg.setFondoInicial(FONDO_MAMA_PERIODO_ABIERTO);
       cfgDirty = true;
     }
     LocalDate fin = hoy.isBefore(inicioEsperado) ? inicioEsperado : hoy;
