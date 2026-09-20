@@ -37,6 +37,10 @@ _migrate/cloud_dump.json
 _migrate/*.tar.gz
 _migrate/node_modules/
 
+# Archivos JSON del purge anual (locales / volumen Docker)
+archivo-anual/
+backend/archivo-anual/
+
 # Basura de pruebas locales
 _b64.txt
 _caja_*.json

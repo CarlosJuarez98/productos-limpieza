@@ -81,13 +81,13 @@ public class CajaService {
     List<LocalDate> fechasCorte = corteRepo.findAllByOrderByFechaAsc().stream()
         .map(CorteCaja::getFecha)
         .toList();
-    LocalDate ultimoCorte = corteRepo.findMaxFecha().orElseGet(() ->
+    LocalDate ultimoCorte = corteRepo.findMaxFecha(TenantContext.require()).orElseGet(() ->
         cfg.getFechaInicio() != null ? cfg.getFechaInicio().minusDays(1) : null);
 
     BigDecimal fondoCfg = nz(cfg.getFondoInicial());
     BigDecimal paraApartarCorte = montoParaApartarUltimoCorte(fondoCfg);
     List<String> catsApartar = rubroService.codigosLiquidaCorte();
-    BigDecimal yaApartado = corteRepo.findMaxFecha().isPresent()
+    BigDecimal yaApartado = corteRepo.findMaxFecha(TenantContext.require()).isPresent()
         ? nz(apartadoRepo.sumIngresosByCategoriasAndFecha(catsApartar, desde, hasta))
         : BigDecimal.ZERO;
     BigDecimal disponibleApartar = paraApartarCorte
@@ -95,7 +95,7 @@ public class CajaService {
         .max(BigDecimal.ZERO)
         .setScale(2, RoundingMode.HALF_UP);
     // Sin cortes: disponible = exceso de caja sobre el fondo (periodo abierto histórico).
-    if (corteRepo.findMaxFecha().isEmpty()) {
+    if (corteRepo.findMaxFecha(TenantContext.require()).isEmpty()) {
       disponibleApartar = t.totalCaja.subtract(fondoCfg.max(FONDO_DEFAULT))
           .max(BigDecimal.ZERO)
           .setScale(2, RoundingMode.HALF_UP);
@@ -155,7 +155,7 @@ public class CajaService {
     if (fondo.compareTo(BigDecimal.ZERO) <= 0) {
       fondo = FONDO_DEFAULT;
     }
-    var ultimoOpt = corteRepo.findMaxFecha().flatMap(corteRepo::findByFecha);
+    var ultimoOpt = corteRepo.findMaxFecha(TenantContext.require()).flatMap(corteRepo::findByFecha);
     if (ultimoOpt.isEmpty()) {
       return tPeriodo.totalCaja.subtract(fondo).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     }
@@ -180,7 +180,7 @@ public class CajaService {
 
   /** Sobrante del último corte (contado − fondo) que se liquida con ingresos a apartados. */
   private BigDecimal montoParaApartarUltimoCorte(BigDecimal fondoQueQueda) {
-    return corteRepo.findMaxFecha()
+    return corteRepo.findMaxFecha(TenantContext.require())
         .flatMap(corteRepo::findByFecha)
         .map(c -> {
           if (c.getParaApartar() != null && c.getParaApartar().compareTo(BigDecimal.ZERO) >= 0) {
@@ -542,7 +542,7 @@ public class CajaService {
       return;
     }
     if (cfg.getFechaInicio() == null) return;
-    if (corteRepo.findMaxFecha().isPresent()) return;
+    if (corteRepo.findMaxFecha(TenantContext.require()).isPresent()) return;
     LocalDate fechaCorte = cfg.getFechaInicio().minusDays(1);
     if (corteRepo.findByFecha(fechaCorte).isPresent()) return;
     CorteCaja c = new CorteCaja();
@@ -585,14 +585,10 @@ public class CajaService {
         corteRepo.flush();
       }
     });
-    // Semilla errónea: el 13/09 pertenece a admin (paraApartar 538); no copiarlo a mamá.
+    // El 13/09 es de admin; cualquier copia en mamá (semilla o bleed) se elimina.
     corteRepo.findByFecha(LocalDate.of(2026, 9, 13)).ifPresent(erroneo -> {
-      BigDecimal para = nz(erroneo.getParaApartar());
-      if (para.compareTo(BigDecimal.ZERO) == 0
-          || para.compareTo(new BigDecimal("538")) == 0) {
-        corteRepo.delete(erroneo);
-        corteRepo.flush();
-      }
+      corteRepo.delete(erroneo);
+      corteRepo.flush();
     });
     for (CorteSemilla s : CORTES_MAMA) {
       if (corteRepo.findByFecha(s.fecha()).isPresent()) continue;
@@ -613,7 +609,7 @@ public class CajaService {
       }
     }
     LocalDate ultimoSemilla = CORTES_MAMA.get(CORTES_MAMA.size() - 1).fecha();
-    LocalDate ultimo = corteRepo.findMaxFecha().orElse(ultimoSemilla);
+    LocalDate ultimo = corteRepo.findMaxFecha(TenantContext.require()).orElse(ultimoSemilla);
     // Si solo hay historial Excel, el abierto empieza el 23/08; un corte real posterior sí manda.
     if (ultimo.isBefore(ultimoSemilla)) {
       ultimo = ultimoSemilla;

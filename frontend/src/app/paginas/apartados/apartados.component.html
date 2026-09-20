@@ -121,11 +121,11 @@
     <div class="form-grid form-compact">
       <label>
         Fecha
-        <input
-          type="date"
+        <app-fecha-dia
           [(ngModel)]="formIngreso.fecha"
           name="fechaReparto"
           [max]="hoyLocal()"
+          ariaLabel="Fecha de reparto"
         />
       </label>
       @for (r of rubrosApartar; track r.id) {
@@ -160,12 +160,12 @@
     <div class="gasto-toolbar">
       <label>
         Fecha
-        <input
-          type="date"
+        <app-fecha-dia
           [(ngModel)]="fechaGasto"
           name="fechaGasto"
           [max]="hoyLocal()"
-          required
+          [required]="true"
+          ariaLabel="Fecha del gasto"
         />
       </label>
       <span class="muted">Total: <strong>${{ totalGastosForm | number: '1.2-2' }}</strong></span>
@@ -331,12 +331,12 @@
                             <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
                               <label>
                                 Fecha
-                                <input
-                                  type="date"
+                                <app-fecha-dia
                                   [(ngModel)]="formEdit.fecha"
                                   [name]="'editFecha' + a.id"
                                   [max]="hoyLocal()"
-                                  required
+                                  [required]="true"
+                                  ariaLabel="Fecha del movimiento"
                                 />
                               </label>
                               <label>

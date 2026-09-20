@@ -673,7 +673,7 @@
                       <div class="alta-manual-fila">
                         <label class="campo">
                           Fecha
-                          <input type="date" [(ngModel)]="editAbono.fecha" [name]="'abF' + a.id" />
+                          <app-fecha-dia [(ngModel)]="editAbono.fecha" [name]="'abF' + a.id" ariaLabel="Fecha del abono" />
                         </label>
                         <label class="campo">
                           Monto
@@ -702,7 +702,7 @@
               <div class="alta-manual-fila">
                 <label class="campo">
                   Fecha
-                  <input type="date" [(ngModel)]="abonoNuevo.fecha" [name]="'abonoF' + p.id" />
+                  <app-fecha-dia [(ngModel)]="abonoNuevo.fecha" [name]="'abonoF' + p.id" ariaLabel="Fecha del pago" />
                 </label>
                 <label class="campo">
                   Pagas
@@ -718,7 +718,12 @@
                 </label>
                 <label class="campo">
                   Pagar antes del
-                  <input type="date" [(ngModel)]="fechaLimitePago" [name]="'limite' + p.id" (change)="guardarFechaLimite(p)" />
+                  <app-fecha-dia
+                    [(ngModel)]="fechaLimitePago"
+                    [name]="'limite' + p.id"
+                    (ngModelChange)="guardarFechaLimite(p)"
+                    ariaLabel="Fecha límite de pago"
+                  />
                 </label>
                 <label class="campo">
                   Nota

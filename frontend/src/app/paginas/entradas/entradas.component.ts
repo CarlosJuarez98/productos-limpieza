@@ -12,6 +12,7 @@ import { Entrada, InventarioItem, Produccion, Receta, RecetaInsumo } from '../..
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { ProductoAltaFormComponent } from '../../producto-alta-form.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
+import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
@@ -58,6 +59,7 @@ type DraftEntradas = {
     ProductoAutocompleteComponent,
     ProductoAltaFormComponent,
     FechaDmYPipe,
+    FechaDiaComponent,
     ClearableDirective,
     PaginadorComponent,
     AutoHideDirective,
@@ -678,8 +680,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.enfocarCaptura(this.lineas.length - 1, 'producto');
   }
 
-  onFechaEnter(ev: Event): void {
-    ev.preventDefault();
+  onFechaEnter(_ev?: Event): void {
     this.enfocarCaptura(0, 'producto');
   }
 

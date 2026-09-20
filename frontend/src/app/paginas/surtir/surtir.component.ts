@@ -13,6 +13,7 @@ import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { RangoFechasComponent } from '../../rango-fechas.component';
+import { FechaDiaComponent } from '../../fecha-dia.component';
 
 type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean; extra?: boolean };
 type ModoPeriodo = '4_semanas' | 'mes_pasado' | 'mes_actual' | 'custom';
@@ -36,7 +37,7 @@ type ReciboEdit = {
 @Component({
   selector: 'app-surtir',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective, ProductoAutocompleteComponent, RangoFechasComponent],
+  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective, ProductoAutocompleteComponent, RangoFechasComponent, FechaDiaComponent],
   templateUrl: './surtir.component.html',
   styleUrl: './surtir.component.scss',
 })

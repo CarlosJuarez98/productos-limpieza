@@ -526,7 +526,7 @@
   <form class="form-grid form-alta form-ajuste" (ngSubmit)="guardarAjuste()">
     <label>
       Fecha
-      <input type="date" [(ngModel)]="formAjuste.fecha" name="fechaAjuste" required />
+      <app-fecha-dia [(ngModel)]="formAjuste.fecha" name="fechaAjuste" [required]="true" ariaLabel="Fecha del ajuste" />
     </label>
     <div class="campo-unitario">
       <span class="campo-label">Producto</span>
@@ -797,7 +797,7 @@
   <form class="form-grid form-edicion form-ajuste-inline" (ngSubmit)="guardarAjuste()">
     <label>
       Fecha
-      <input type="date" [(ngModel)]="formAjuste.fecha" [name]="'fechaAjuste' + sufijo" required />
+      <app-fecha-dia [(ngModel)]="formAjuste.fecha" [name]="'fechaAjuste' + sufijo" [required]="true" ariaLabel="Fecha del ajuste" />
     </label>
     <label>
       Dejar stock en

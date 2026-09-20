@@ -161,7 +161,7 @@ public class DataNormalizeRunner implements ApplicationRunner {
 
   /** Periodo = día siguiente al último corte en BD. */
   private void alinearPeriodoAlUltimoCorte() {
-    LocalDate ultimo = corteRepo.findMaxFecha().orElse(null);
+    LocalDate ultimo = corteRepo.findMaxFecha(TenantContext.require()).orElse(null);
     if (ultimo == null) {
       return;
     }

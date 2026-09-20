@@ -12,15 +12,15 @@
     <div class="captura-head">
       <label class="fecha-field">
         Fecha
-        <input
-          type="date"
+        <app-fecha-dia
           [(ngModel)]="fecha"
           (ngModelChange)="onFechaChange()"
-          (keydown.enter)="onFechaEnter($event)"
+          (fechaEnter)="onFechaEnter()"
           name="fechaLote"
           [min]="fechaMin || null"
           [max]="fechaMax"
-          required
+          [required]="true"
+          ariaLabel="Fecha de venta"
         />
       </label>
       <div class="totales-rapidos">
@@ -419,13 +419,13 @@
   <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
     <label>
       Fecha
-      <input
-        type="date"
+      <app-fecha-dia
         [(ngModel)]="formEdit.fecha"
         [name]="'editFecha' + sufijo"
         [min]="fechaMin || null"
         [max]="fechaMax"
-        required
+        [required]="true"
+        ariaLabel="Fecha de la venta"
       />
     </label>
     <label>

@@ -1,5 +1,4 @@
 <h2 class="page-title">Uso en casa</h2>
-<p class="muted page-sub">Historial y consumo. El alta se hace en Ventas (modo Casa).</p>
 
 @if (error) {
   <p class="error">{{ error }}</p>
@@ -148,12 +147,12 @@
                 <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
                   <label>
                     Fecha
-                    <input
-                      type="date"
+                    <app-fecha-dia
                       [(ngModel)]="formEdit.fecha"
                       name="editFecha"
                       [max]="fechaMax"
-                      required
+                      [required]="true"
+                      ariaLabel="Fecha"
                     />
                   </label>
                   <label>
@@ -207,12 +206,12 @@
       <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
         <label>
           Fecha
-          <input
-            type="date"
+          <app-fecha-dia
             [(ngModel)]="formEdit.fecha"
             name="editFechaMovil"
             [max]="fechaMax"
-            required
+            [required]="true"
+            ariaLabel="Fecha"
           />
         </label>
         <label>

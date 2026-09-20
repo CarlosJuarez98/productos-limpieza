@@ -22,11 +22,14 @@ services:
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
       SERVER_SERVLET_SESSION_COOKIE_SECURE: ${SERVER_SERVLET_SESSION_COOKIE_SECURE:-false}
       APP_IMPORT_ON_STARTUP: "false"
+      APP_ARCHIVO_ANUAL_ENABLED: "true"
+      APP_ARCHIVO_ANUAL_PATH: /app/archivo-anual
       SERVER_PORT: "8083"
       JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Doracle.net.tns_admin=/wallet"
       LOGGING_LEVEL_COM_PRODUCTOSLIMPIEZA: INFO
     volumes:
       - ./wallet:/wallet:ro
+      - archivo-anual-data:/app/archivo-anual
     mem_limit: 768m
     restart: unless-stopped
 
@@ -51,6 +54,8 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  archivo-anual-data:
+    name: productos-limpieza-archivo-anual
 
 networks:
   control_gastos:

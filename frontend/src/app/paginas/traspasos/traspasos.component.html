@@ -84,14 +84,14 @@
     <div class="form-grid captura-meta">
       <label>
         Fecha
-        <input
-          type="date"
+        <app-fecha-dia
           [(ngModel)]="form.fecha"
           name="fecha"
           [max]="fechaMax"
-          required
+          [required]="true"
           (ngModelChange)="programarBorrador()"
-          (keydown.enter)="onFechaEnter($event)"
+          (fechaEnter)="onFechaEnter()"
+          ariaLabel="Fecha del traspaso"
         />
       </label>
       <label>
@@ -308,7 +308,7 @@
   <form class="form-grid" (ngSubmit)="guardarAbono()">
     <label>
       Fecha
-      <input type="date" [(ngModel)]="abono.fecha" name="abonoFecha" [max]="fechaMax" required />
+      <app-fecha-dia [(ngModel)]="abono.fecha" name="abonoFecha" [max]="fechaMax" [required]="true" ariaLabel="Fecha del abono" />
     </label>
     <label>
       Persona
@@ -405,7 +405,7 @@
                     <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
                       <label>
                         Fecha
-                        <input type="date" [(ngModel)]="formEdit.fecha" name="editFecha" [max]="fechaMax" required />
+                        <app-fecha-dia [(ngModel)]="formEdit.fecha" name="editFecha" [max]="fechaMax" [required]="true" ariaLabel="Fecha" />
                       </label>
                       <label>
                         Persona
@@ -536,7 +536,7 @@
                 <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
                   <label>
                     Fecha
-                    <input type="date" [(ngModel)]="formEdit.fecha" name="editFechaM" [max]="fechaMax" required />
+                    <app-fecha-dia [(ngModel)]="formEdit.fecha" name="editFechaM" [max]="fechaMax" [required]="true" ariaLabel="Fecha" />
                   </label>
                   <label>
                     Persona

@@ -11,8 +11,10 @@ import {
   Output,
   TemplateRef,
   ViewChild,
+  forwardRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { formatFechaDmY } from './fecha-dmy.pipe';
 import {
   ajustarVistaAMesPermitido,
@@ -43,26 +45,31 @@ const MESES = [
   'Diciembre',
 ] as const;
 
-/**
- * Calendario de rango. El popup se monta en document.body para no quedar
- * recortado por overflow/transform de paneles animados al hacer scroll.
- */
+/** Selector de un solo día (reemplazo de input type=date). Popup en document.body. */
 @Component({
-  selector: 'app-rango-fechas',
+  selector: 'app-fecha-dia',
   standalone: true,
   imports: [CommonModule],
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => FechaDiaComponent),
+      multi: true,
+    },
+  ],
   template: `
-    <div class="rango" [class.abierto]="abierto" [class.deshabilitado]="disabled">
+    <div class="fecha-dia" [class.abierto]="abierto" [class.deshabilitado]="isDisabled">
       <button
         type="button"
-        class="rango-trigger"
-        [disabled]="disabled"
+        class="fecha-trigger"
+        [disabled]="isDisabled"
         [attr.aria-expanded]="abierto"
         [attr.aria-label]="ariaLabel"
         (click)="toggle($event)"
+        (keydown.enter)="onTriggerEnter($event)"
       >
-        <span class="rango-texto">{{ textoRango }}</span>
-        <span class="rango-ico" aria-hidden="true">▾</span>
+        <span class="fecha-texto">{{ texto }}</span>
+        <span class="fecha-ico" aria-hidden="true">▾</span>
       </button>
     </div>
 
@@ -97,7 +104,6 @@ const MESES = [
             ›
           </button>
         </div>
-        <p class="cal-hint">{{ hintSeleccion }}</p>
         <div class="cal-grid dias-cab">
           @for (d of diasSemana; track d) {
             <span>{{ d }}</span>
@@ -112,9 +118,8 @@ const MESES = [
                 type="button"
                 class="cal-dia"
                 [class.disabled]="c.disabled"
-                [class.inicio]="esInicio(c.iso)"
-                [class.fin]="esFin(c.iso)"
-                [class.en-rango]="enRango(c.iso)"
+                [class.inicio]="c.iso === valor"
+                [class.fin]="c.iso === valor"
                 [class.hoy]="c.iso === hoy"
                 [disabled]="c.disabled"
                 (click)="elegir(c)"
@@ -126,9 +131,6 @@ const MESES = [
         </div>
         <div class="cal-acc">
           <button type="button" class="secondary cal-btn" (click)="cerrar()">Cerrar</button>
-          @if (!bloquearDesde && (borradorDesde || borradorHasta)) {
-            <button type="button" class="secondary cal-btn" (click)="limpiar()">Limpiar</button>
-          }
         </div>
       </div>
     </ng-template>
@@ -140,11 +142,10 @@ const MESES = [
         width: 100%;
         min-width: 0;
       }
-      .rango {
-        position: relative;
+      .fecha-dia {
         width: 100%;
       }
-      .rango-trigger {
+      .fecha-trigger {
         width: 100%;
         height: 2.35rem;
         min-height: 2.35rem;
@@ -164,20 +165,20 @@ const MESES = [
         cursor: pointer;
         text-align: left;
       }
-      .rango-trigger:hover:not(:disabled) {
+      .fecha-trigger:hover:not(:disabled) {
         background: var(--accent-soft);
         color: var(--text);
         box-shadow: none;
         transform: none;
       }
-      .rango.deshabilitado .rango-trigger,
-      .rango-trigger:disabled {
+      .fecha-dia.deshabilitado .fecha-trigger,
+      .fecha-trigger:disabled {
         background: color-mix(in srgb, var(--line) 18%, #fff);
         color: var(--muted);
         cursor: default;
         opacity: 1;
       }
-      .rango-texto {
+      .fecha-texto {
         flex: 1 1 auto;
         min-width: 0;
         overflow: hidden;
@@ -185,7 +186,7 @@ const MESES = [
         white-space: nowrap;
         font-variant-numeric: tabular-nums;
       }
-      .rango-ico {
+      .fecha-ico {
         flex: 0 0 auto;
         color: var(--muted);
         font-size: 0.85rem;
@@ -193,31 +194,30 @@ const MESES = [
     `,
   ],
 })
-export class RangoFechasComponent implements OnDestroy {
-  @Input() desde = '';
-  @Input() hasta = '';
-  @Input() disabled = false;
-  @Input() bloquearDesde = false;
+export class FechaDiaComponent implements OnDestroy, ControlValueAccessor {
   @Input() min: string | null = null;
   @Input() max: string | null = null;
-  @Input() ariaLabel = 'Rango de fechas';
-  @Output() desdeChange = new EventEmitter<string>();
-  @Output() hastaChange = new EventEmitter<string>();
+  @Input() ariaLabel = 'Fecha';
+  @Input() required = false;
+  @Output() valorChange = new EventEmitter<string>();
+  /** Compat con (ngModelChange) vía CVA; también emite al elegir. */
+  @Output() fechaEnter = new EventEmitter<void>();
 
   @ViewChild('popTpl') popTpl!: TemplateRef<void>;
 
   readonly diasSemana = DIAS;
+  valor = '';
   abierto = false;
+  isDisabled = false;
   vistaAnio = 0;
   vistaMes = 0;
-  borradorDesde = '';
-  borradorHasta = '';
-  paso: 'desde' | 'hasta' = 'desde';
   hoy = '';
   popStyle: Record<string, string> = {};
 
   private embedded?: EmbeddedViewRef<void>;
   private escuchandoScroll = false;
+  private onChange: (v: string) => void = () => {};
+  private onTouched: () => void = () => {};
 
   private readonly onScrollCapture = (): void => {
     if (this.abierto) this.ngZone.run(() => this.cerrar());
@@ -238,22 +238,28 @@ export class RangoFechasComponent implements OnDestroy {
     this.cerrar();
   }
 
-  get textoRango(): string {
-    const a = this.desde || this.borradorDesde;
-    const b = this.hasta || this.borradorHasta;
-    if (a && b) return `${formatFechaDmY(a)} → ${formatFechaDmY(b)}`;
-    if (a) return `${formatFechaDmY(a)} → …`;
-    return 'Elegir fechas';
+  writeValue(v: string | null): void {
+    this.valor = v || '';
+  }
+
+  registerOnChange(fn: (v: string) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.isDisabled = isDisabled;
+  }
+
+  get texto(): string {
+    return this.valor ? formatFechaDmY(this.valor) : 'Elegir fecha';
   }
 
   get tituloMes(): string {
     return `${MESES[this.vistaMes]} ${this.vistaAnio}`;
-  }
-
-  get hintSeleccion(): string {
-    if (this.bloquearDesde) return 'Elige la fecha fin en el calendario';
-    if (this.paso === 'desde' || !this.borradorDesde) return 'Elige la fecha de inicio';
-    return 'Elige la fecha de fin';
   }
 
   get puedeMesAnterior(): boolean {
@@ -303,9 +309,14 @@ export class RangoFechasComponent implements OnDestroy {
     if (this.abierto) this.reposicionar();
   }
 
+  onTriggerEnter(ev: Event): void {
+    ev.preventDefault();
+    this.fechaEnter.emit();
+  }
+
   toggle(ev?: Event): void {
     ev?.stopPropagation();
-    if (this.disabled) return;
+    if (this.isDisabled) return;
     if (this.abierto) {
       this.cerrar();
       return;
@@ -314,10 +325,7 @@ export class RangoFechasComponent implements OnDestroy {
   }
 
   abrir(): void {
-    this.borradorDesde = this.desde || '';
-    this.borradorHasta = this.hasta || '';
-    this.paso = this.bloquearDesde ? 'hasta' : 'desde';
-    const base = this.borradorHasta || this.borradorDesde || this.hoy;
+    const base = this.valor || this.hoy;
     const [y, m] = base.split('-').map(Number);
     if (y && m) {
       this.vistaAnio = y;
@@ -327,7 +335,7 @@ export class RangoFechasComponent implements OnDestroy {
       this.vistaAnio,
       this.vistaMes,
       (iso) => this.fechaBloqueada(iso),
-      base
+      this.valor || this.max || this.hoy
     );
     this.vistaAnio = vista.anio;
     this.vistaMes = vista.mes;
@@ -345,15 +353,7 @@ export class RangoFechasComponent implements OnDestroy {
     this.popStyle = {};
     this.desmontarPop();
     this.quitarScrollListener();
-  }
-
-  limpiar(): void {
-    if (this.bloquearDesde) return;
-    this.borradorDesde = '';
-    this.borradorHasta = '';
-    this.paso = 'desde';
-    this.emitir('', '');
-    this.embedded?.detectChanges();
+    this.onTouched();
   }
 
   mesAnterior(): void {
@@ -374,50 +374,10 @@ export class RangoFechasComponent implements OnDestroy {
 
   elegir(c: Celda): void {
     if (c.disabled) return;
-    if (this.bloquearDesde) {
-      this.borradorHasta = c.iso;
-      if (this.borradorDesde && c.iso < this.borradorDesde) return;
-      this.emitir(this.borradorDesde || this.desde, c.iso);
-      this.cerrar();
-      return;
-    }
-
-    if (this.paso === 'desde' || !this.borradorDesde) {
-      this.borradorDesde = c.iso;
-      this.borradorHasta = '';
-      this.paso = 'hasta';
-      this.embedded?.detectChanges();
-      return;
-    }
-
-    let a = this.borradorDesde;
-    let b = c.iso;
-    if (b < a) {
-      const t = a;
-      a = b;
-      b = t;
-    }
-    this.borradorDesde = a;
-    this.borradorHasta = b;
-    this.emitir(a, b);
+    this.valor = c.iso;
+    this.onChange(c.iso);
+    this.valorChange.emit(c.iso);
     this.cerrar();
-  }
-
-  esInicio(iso: string): boolean {
-    const a = this.borradorDesde || this.desde;
-    return !!a && iso === a;
-  }
-
-  esFin(iso: string): boolean {
-    const b = this.borradorHasta || this.hasta;
-    return !!b && iso === b;
-  }
-
-  enRango(iso: string): boolean {
-    const a = this.borradorDesde || this.desde;
-    const b = this.borradorHasta || this.hasta;
-    if (!a || !b) return false;
-    return iso > a && iso < b;
   }
 
   private montarPop(): void {
@@ -426,9 +386,7 @@ export class RangoFechasComponent implements OnDestroy {
     this.embedded = this.popTpl.createEmbeddedView(undefined as void);
     this.appRef.attachView(this.embedded);
     for (const node of this.embedded.rootNodes) {
-      if (node instanceof HTMLElement) {
-        document.body.appendChild(node);
-      }
+      if (node instanceof HTMLElement) document.body.appendChild(node);
     }
     this.embedded.detectChanges();
   }
@@ -441,7 +399,7 @@ export class RangoFechasComponent implements OnDestroy {
   }
 
   private reposicionar(): void {
-    const trigger = this.host.nativeElement.querySelector('.rango-trigger') as HTMLElement | null;
+    const trigger = this.host.nativeElement.querySelector('.fecha-trigger') as HTMLElement | null;
     if (!trigger) return;
     const r = trigger.getBoundingClientRect();
     const gap = 6;
@@ -452,12 +410,12 @@ export class RangoFechasComponent implements OnDestroy {
     }
     if (left < 12) left = 12;
 
-    const popH = 22 * 16;
+    const popH = 20 * 16;
     let top = r.bottom + gap;
-    if (top + Math.min(popH, 360) > window.innerHeight - 12) {
-      const arriba = r.top - gap - Math.min(popH, 360);
+    if (top + Math.min(popH, 340) > window.innerHeight - 12) {
+      const arriba = r.top - gap - Math.min(popH, 340);
       if (arriba >= 12) top = arriba;
-      else top = Math.max(12, window.innerHeight - Math.min(popH, 360) - 12);
+      else top = Math.max(12, window.innerHeight - Math.min(popH, 340) - 12);
     }
 
     this.popStyle = {
@@ -482,15 +440,9 @@ export class RangoFechasComponent implements OnDestroy {
     this.escuchandoScroll = false;
   }
 
-  private emitir(desde: string, hasta: string): void {
-    if (desde !== this.desde) this.desdeChange.emit(desde);
-    if (hasta !== this.hasta) this.hastaChange.emit(hasta);
-  }
-
   private fechaBloqueada(iso: string): boolean {
     if (this.min && iso < this.min) return true;
     if (this.max && iso > this.max) return true;
-    if (this.bloquearDesde && this.desde && iso < this.desde) return true;
     return false;
   }
 

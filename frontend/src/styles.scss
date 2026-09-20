@@ -112,7 +112,7 @@ button {
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
 }
 
-button:hover:not(:disabled):not(.icon-btn):not(.icono):not(.clearable-x):not(.panel-toggle):not(.lista-toggle):not(.pedido-cab):not(.secondary):not(.danger):not(.modo-chip):not(.seg-btn):not(.chip):not(.ghost):not(.btn-salir):not(.bn-more):not(.btn-agregar-linea):not(.stepper-btn):not(.quitar):not(.tarjeta-btn):not(.linkish):not(.btn-mini) {
+button:hover:not(:disabled):not(.icon-btn):not(.icono):not(.clearable-x):not(.panel-toggle):not(.lista-toggle):not(.pedido-cab):not(.secondary):not(.danger):not(.modo-chip):not(.seg-btn):not(.chip):not(.ghost):not(.btn-salir):not(.bn-more):not(.btn-agregar-linea):not(.stepper-btn):not(.quitar):not(.tarjeta-btn):not(.linkish):not(.btn-mini):not(.cal-dia):not(.cal-nav):not(.rango-trigger):not(.fecha-trigger) {
   background: color-mix(in srgb, var(--accent) 82%, #fff);
   color: #fff;
   box-shadow: 0 6px 14px rgba(28, 101, 74, 0.14);
@@ -1617,7 +1617,7 @@ button.chip.ghost:hover {
 }
 
 @media (max-width: 767px) {
-  button:not(.icon-btn):not(.icono):not(.clearable-x):not(.btn-agregar-linea):not(.linkish):not(.panel-toggle):not(.btn-guardar-filas):not(.btn-cancelar-ticket) {
+  button:not(.icon-btn):not(.icono):not(.clearable-x):not(.btn-agregar-linea):not(.linkish):not(.panel-toggle):not(.btn-guardar-filas):not(.btn-cancelar-ticket):not(.cal-dia):not(.cal-nav):not(.rango-trigger):not(.fecha-trigger) {
     min-height: 2.75rem;
   }
 
@@ -1871,5 +1871,173 @@ button.chip.ghost:hover {
   button:not(.icon-btn):not(.icono) {
     transition: none !important;
   }
+}
+
+/* Calendario (popup en body: estilos globales para no depender del encapsulado) */
+.cal-pop {
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(22, 40, 33, 0.16);
+  overscroll-behavior: contain;
+  color: var(--text);
+  font: inherit;
+}
+
+.cal-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.cal-mes {
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.cal-nav {
+  width: 2.1rem !important;
+  height: 2.1rem !important;
+  min-width: 2.1rem !important;
+  min-height: 2.1rem !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  font-size: 1.25rem !important;
+  line-height: 1 !important;
+  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.cal-nav:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--accent)) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.cal-nav:disabled {
+  opacity: 0.28 !important;
+  cursor: default !important;
+  pointer-events: none;
+}
+
+.cal-vacio {
+  visibility: hidden;
+  pointer-events: none;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.cal-hint {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.2rem;
+}
+
+.cal-grid.dias-cab {
+  margin-bottom: 0.25rem;
+}
+
+.cal-grid.dias-cab span {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 0.2rem 0;
+}
+
+.cal-dia {
+  width: 100% !important;
+  height: 2.15rem !important;
+  min-height: 2.15rem !important;
+  max-height: 2.15rem !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0.45rem !important;
+  background: transparent !important;
+  color: var(--text) !important;
+  font: inherit !important;
+  font-size: 0.84rem !important;
+  font-weight: 650 !important;
+  font-variant-numeric: tabular-nums;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: pointer;
+  line-height: 1 !important;
+}
+
+.cal-dia:hover:not(:disabled):not(.disabled) {
+  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.cal-dia.fuera {
+  color: color-mix(in srgb, var(--muted) 55%, #fff) !important;
+  font-weight: 500 !important;
+}
+
+.cal-dia.hoy:not(.inicio):not(.fin) {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, var(--line)) !important;
+}
+
+.cal-dia.en-rango {
+  background: color-mix(in srgb, var(--accent-soft) 80%, #fff) !important;
+  border-radius: 0 !important;
+}
+
+.cal-dia.inicio,
+.cal-dia.fin {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+
+.cal-dia.inicio {
+  border-radius: 0.45rem 0 0 0.45rem !important;
+}
+
+.cal-dia.fin {
+  border-radius: 0 0.45rem 0.45rem 0 !important;
+}
+
+.cal-dia.inicio.fin {
+  border-radius: 0.45rem !important;
+}
+
+.cal-dia.disabled,
+.cal-dia:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.cal-acc {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.cal-btn {
+  min-height: 2.1rem !important;
+  height: auto !important;
+  padding: 0.3rem 0.75rem !important;
+  font-size: 0.82rem !important;
 }
 

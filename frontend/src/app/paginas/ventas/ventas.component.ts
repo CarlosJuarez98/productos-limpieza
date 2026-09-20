@@ -20,6 +20,7 @@ import { ClearableDirective } from '../../clearable.directive';
 import { InventarioItem, MODOS_VENTA, ModoVenta, TipoVenta, Venta } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
+import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
@@ -62,6 +63,7 @@ type DraftVentas = {
     RouterLink,
     ProductoAutocompleteComponent,
     FechaDmYPipe,
+    FechaDiaComponent,
     ClearableDirective,
     PaginadorComponent,
   ],
@@ -643,8 +645,7 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.enfocarCaptura(this.lineas.length - 1, 'producto');
   }
 
-  onFechaEnter(ev: Event): void {
-    ev.preventDefault();
+  onFechaEnter(_ev?: Event): void {
     this.enfocarCaptura(0, 'producto');
   }
 

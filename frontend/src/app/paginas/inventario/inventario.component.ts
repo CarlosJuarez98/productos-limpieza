@@ -11,6 +11,7 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
+import { FechaDiaComponent } from '../../fecha-dia.component';
 import { compararNombreNatural } from '../../nombre-natural.util';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { OfflineService } from '../../offline.service';
@@ -62,6 +63,7 @@ const COLS_STORAGE = 'pl.inventario.columnas.v3';
     ClearableDirective,
     PaginadorComponent,
     FechaDmYPipe,
+    FechaDiaComponent,
     AutoHideDirective,
   ],
   templateUrl: './inventario.component.html',

@@ -11,15 +11,15 @@
   <div class="toolbar captura-meta">
     <label>
       Fecha
-      <input
-        type="date"
+      <app-fecha-dia
         [(ngModel)]="fecha"
         name="fechaLote"
         [min]="fechaMin || null"
         [max]="fechaMax"
-        required
+        [required]="true"
         (ngModelChange)="programarBorrador()"
-        (keydown.enter)="onFechaEnter($event)"
+        (fechaEnter)="onFechaEnter()"
+        ariaLabel="Fecha de entrada"
       />
     </label>
     <p class="total-lote">
@@ -415,7 +415,15 @@
     <div class="form-prep-grid">
       <label class="prep-fecha">
         Fecha
-        <input type="date" [(ngModel)]="prep.fecha" name="prepFecha" [min]="fechaMin || null" [max]="fechaMax" required (ngModelChange)="programarBorrador()" />
+        <app-fecha-dia
+          [(ngModel)]="prep.fecha"
+          name="prepFecha"
+          [min]="fechaMin || null"
+          [max]="fechaMax"
+          [required]="true"
+          (ngModelChange)="programarBorrador()"
+          ariaLabel="Fecha de preparación"
+        />
       </label>
       <label class="prep-campo-wide desktop-only">
         Producto preparado
@@ -664,13 +672,13 @@
                 <form class="form-grid form-edicion" (ngSubmit)="guardarEdicionEntrada()">
                   <label>
                     Fecha
-                    <input
-                      type="date"
+                    <app-fecha-dia
                       [(ngModel)]="formEdit.fecha"
                       name="editFecha"
                       [min]="fechaMin || null"
                       [max]="fechaMax"
-                      required
+                      [required]="true"
+                      ariaLabel="Fecha de la entrada"
                     />
                   </label>
                   <label>
@@ -731,13 +739,13 @@
       <form class="form-grid form-edicion" (ngSubmit)="guardarEdicionEntrada()">
         <label>
           Fecha
-          <input
-            type="date"
+          <app-fecha-dia
             [(ngModel)]="formEdit.fecha"
             name="editFechaMovil"
             [min]="fechaMin || null"
             [max]="fechaMax"
-            required
+            [required]="true"
+            ariaLabel="Fecha de la entrada"
           />
         </label>
         <label>

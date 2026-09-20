@@ -34,6 +34,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: ProductosLimpieza2026
       # Fuente de verdad: volumen Oracle. No reimportar semillas.
       APP_IMPORT_ON_STARTUP: "false"
+      APP_ARCHIVO_ANUAL_ENABLED: "true"
+      APP_ARCHIVO_ANUAL_PATH: /app/archivo-anual
+    volumes:
+      - archivo-anual-data:/app/archivo-anual
     depends_on:
       oracle:
         condition: service_healthy
@@ -42,3 +46,5 @@ services:
 volumes:
   oracle-productos-limpieza-data:
     name: oracle-productos-limpieza-data
+  archivo-anual-data:
+    name: productos-limpieza-archivo-anual

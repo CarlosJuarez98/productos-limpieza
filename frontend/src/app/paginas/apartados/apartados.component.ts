@@ -12,6 +12,7 @@ import {
   TipoMovimientoApartado,
 } from '../../modelos';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
+import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { ClearableDirective } from '../../clearable.directive';
@@ -21,7 +22,7 @@ import { enfocarInput, inputsVisiblesDe, navegarCampos, programarEnfoque } from 
 @Component({
   selector: 'app-apartados',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe, PaginadorComponent, ClearableDirective, AutoHideDirective],
+  imports: [CommonModule, FormsModule, FechaDmYPipe, FechaDiaComponent, PaginadorComponent, ClearableDirective, AutoHideDirective],
   templateUrl: './apartados.component.html',
   styleUrl: './apartados.component.scss',
 })

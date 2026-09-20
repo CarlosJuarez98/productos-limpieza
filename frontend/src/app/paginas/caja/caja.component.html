@@ -268,7 +268,7 @@
   <form class="form-grid" (ngSubmit)="guardarMovimiento()">
     <label>
       Fecha
-      <input type="date" [(ngModel)]="mov.fecha" name="movFecha" required />
+      <app-fecha-dia [(ngModel)]="mov.fecha" name="movFecha" [required]="true" ariaLabel="Fecha del movimiento" />
     </label>
     <label>
       Tipo

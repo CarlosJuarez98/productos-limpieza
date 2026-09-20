@@ -11,6 +11,7 @@ import { ApiService } from '../../api.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
+import { FechaDiaComponent } from '../../fecha-dia.component';
 import { CajaResumen, InventarioItem, Venta } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { PullRefreshService } from '../../pull-refresh.service';
@@ -63,6 +64,7 @@ const INICIO_HISTORICO = '2025-10-29';
     FormsModule,
     ProductoAutocompleteComponent,
     FechaDmYPipe,
+    FechaDiaComponent,
     ClearableDirective,
     PaginadorComponent,
     AutoHideDirective,
