@@ -58,6 +58,21 @@
             <span class="nav-label">{{ link.short || link.label }}</span>
           </a>
         }
+        <button
+          type="button"
+          class="nav-more"
+          [class.active]="masActivo || masAbierto"
+          (click)="toggleMas()"
+          [attr.aria-expanded]="masAbierto"
+          aria-controls="mas-menu"
+          aria-label="Más"
+          title="Más"
+        >
+          <span class="nav-ico" aria-hidden="true">
+            <ng-container *ngTemplateOutlet="navIcon; context: { $implicit: 'menu' }" />
+          </span>
+          <span class="nav-label">Más</span>
+        </button>
       </nav>
     </div>
   </header>
@@ -106,7 +121,7 @@
         <button type="button" class="mas-cerrar" (click)="cerrarMas()" aria-label="Cerrar">×</button>
       </div>
       <div class="mas-links">
-        @for (link of moreLinks; track link.path) {
+        @for (link of masLinksVista; track link.path) {
           <a [routerLink]="link.path" routerLinkActive="active" (click)="cerrarMas()">
             <span class="mas-ico" aria-hidden="true">
               <ng-container *ngTemplateOutlet="navIcon; context: { $implicit: link.icon }" />
@@ -130,6 +145,19 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
         <path d="M6 7h15l-1.4 8.2a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.6L5.2 3.8A1.5 1.5 0 0 0 3.7 2.5H2"/>
         <circle cx="10" cy="20" r="1.2"/><circle cx="18" cy="20" r="1.2"/>
+      </svg>
+    }
+    @case ('domicilio') {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 11.5 12 4l9 7.5"/><path d="M6 10.5V20h12v-9.5"/><path d="M10 20v-5h4v5"/>
+        <circle cx="18.5" cy="6.5" r="2.2"/>
+      </svg>
+    }
+    @case ('publicidad') {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 11v2a2 2 0 0 0 2 2h2l6 4V5L7 9H5a2 2 0 0 0-2 2Z"/>
+        <path d="M16 9.5a3.5 3.5 0 0 1 0 5"/>
+        <path d="M18.5 7.5a6.5 6.5 0 0 1 0 9"/>
       </svg>
     }
     @case ('inventario') {
@@ -180,6 +208,11 @@
     @case ('lista') {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
         <path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/>
+      </svg>
+    }
+    @case ('menu') {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
       </svg>
     }
     @default {

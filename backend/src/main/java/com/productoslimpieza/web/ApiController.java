@@ -29,6 +29,7 @@ public class ApiController {
   private final PedidoService pedidoService;
   private final PedidoRegistroService pedidoRegistroService;
   private final AjusteInventarioService ajusteInventarioService;
+  private final PedidoDomicilioService pedidoDomicilioService;
 
   public ApiController(
       VentaService ventaService,
@@ -45,7 +46,8 @@ public class ApiController {
       TraspasoService traspasoService,
       PedidoService pedidoService,
       PedidoRegistroService pedidoRegistroService,
-      AjusteInventarioService ajusteInventarioService) {
+      AjusteInventarioService ajusteInventarioService,
+      PedidoDomicilioService pedidoDomicilioService) {
     this.ventaService = ventaService;
     this.entradaService = entradaService;
     this.inventarioService = inventarioService;
@@ -61,6 +63,7 @@ public class ApiController {
     this.pedidoService = pedidoService;
     this.pedidoRegistroService = pedidoRegistroService;
     this.ajusteInventarioService = ajusteInventarioService;
+    this.pedidoDomicilioService = pedidoDomicilioService;
   }
 
   @GetMapping("/ventas")
@@ -254,6 +257,12 @@ public class ApiController {
   @PostMapping("/traspasos/abonos")
   public TraspasoAbonoDto crearAbonoTraspaso(@Valid @RequestBody TraspasoAbonoRequest req) {
     return traspasoService.crearAbono(req);
+  }
+
+  @PutMapping("/traspasos/abonos/{id}")
+  public TraspasoAbonoDto actualizarAbonoTraspaso(
+      @PathVariable Long id, @Valid @RequestBody TraspasoAbonoRequest req) {
+    return traspasoService.actualizarAbono(id, req);
   }
 
   @DeleteMapping("/traspasos/abonos/{id}")
@@ -453,6 +462,48 @@ public class ApiController {
   @PostMapping("/pedidos/{id}/cancelar")
   public void cancelarPedido(@PathVariable Long id) {
     pedidoRegistroService.cancelar(id);
+  }
+
+  @GetMapping("/domicilios")
+  public List<PedidoDomicilioDto> domicilios() {
+    return pedidoDomicilioService.listar();
+  }
+
+  @GetMapping("/domicilios/pendientes")
+  public List<PedidoDomicilioDto> domiciliosPendientes() {
+    return pedidoDomicilioService.listarPendientes();
+  }
+
+  @GetMapping("/domicilios/{id}")
+  public PedidoDomicilioDto domicilio(@PathVariable Long id) {
+    return pedidoDomicilioService.obtener(id);
+  }
+
+  @PostMapping("/domicilios")
+  public PedidoDomicilioDto crearDomicilio(@Valid @RequestBody PedidoDomicilioRequest req) {
+    return pedidoDomicilioService.crear(req);
+  }
+
+  @PutMapping("/domicilios/{id}")
+  public PedidoDomicilioDto actualizarDomicilio(
+      @PathVariable Long id, @Valid @RequestBody PedidoDomicilioRequest req) {
+    return pedidoDomicilioService.actualizar(id, req);
+  }
+
+  @PostMapping("/domicilios/{id}/entregar")
+  public PedidoDomicilioDto entregarDomicilio(
+      @PathVariable Long id, @RequestBody(required = false) PedidoDomicilioEntregarRequest req) {
+    return pedidoDomicilioService.entregar(id, req);
+  }
+
+  @PostMapping("/domicilios/{id}/cancelar")
+  public PedidoDomicilioDto cancelarDomicilio(@PathVariable Long id) {
+    return pedidoDomicilioService.cancelar(id);
+  }
+
+  @DeleteMapping("/domicilios/{id}")
+  public void eliminarDomicilio(@PathVariable Long id) {
+    pedidoDomicilioService.eliminar(id);
   }
 
   @PostMapping("/inversion")

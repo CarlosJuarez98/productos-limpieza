@@ -1,0 +1,421 @@
+<h2 class="page-title">Domicilio</h2>
+
+@if (fechaUltimoCorte) {
+  <p class="corte-aviso">
+    Última fecha de corte:
+    <strong class="fecha-naranja-caja">{{ fechaUltimoCorte | fechaDmY }}</strong>
+  </p>
+}
+
+@if (error) {
+  <p class="error" appAutoHide (ocultar)="error = ''">{{ error }}</p>
+}
+@if (ok) {
+  <p class="ok" appAutoHide (ocultar)="ok = ''">{{ ok }}</p>
+}
+
+<section class="panel captura-panel panel-anim">
+  <div class="captura-head">
+    <label class="fecha-field">
+      Fecha
+      <app-fecha-dia
+        [(ngModel)]="fecha"
+        name="fechaDom"
+        [min]="fechaMin || null"
+        [required]="true"
+        (fechaEnter)="onFechaEnter()"
+        ariaLabel="Fecha del pedido (puede ser futura)"
+      />
+    </label>
+    <label class="cliente-field">
+      Cliente
+      <div
+        class="cliente-ac"
+        [class.abierto]="clienteListaAbierta && clientesFiltrados.length > 0"
+      >
+        <input
+          type="text"
+          appClearable
+          [(ngModel)]="cliente"
+          name="clienteDom"
+          placeholder="Nombre"
+          autocomplete="off"
+          role="combobox"
+          [attr.aria-expanded]="clienteListaAbierta"
+          (focus)="abrirListaClientes()"
+          (ngModelChange)="onClienteCambio()"
+          (keydown)="onClienteKeydown($event)"
+          (blur)="cerrarListaClientes()"
+        />
+        @if (clienteListaAbierta && clientesFiltrados.length) {
+          <div class="lista-clientes" role="listbox" aria-label="Clientes anteriores">
+            @for (c of clientesFiltrados; track c; let i = $index) {
+              <button
+                type="button"
+                class="lista-cliente-item"
+                role="option"
+                [class.activo]="i === clienteIndice"
+                (mousedown)="elegirCliente(c); $event.preventDefault()"
+                (mouseenter)="clienteIndice = i"
+              >
+                {{ c }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </label>
+    <label>
+      Nota
+      <input type="text" appClearable [(ngModel)]="nota" name="notaDom" placeholder="Opcional" />
+    </label>
+    <div class="tot-chip">
+      <span>Total</span>
+      <strong>${{ totalTicket | number: '1.2-2' }}</strong>
+    </div>
+  </div>
+
+  <h3 class="sr-only">{{ editandoId ? 'Editar pedido' : 'Nuevo pedido' }}</h3>
+  @if (editandoId) {
+    <p class="edit-banner">Editando pedido <strong>#{{ editandoId }}</strong></p>
+  }
+
+  <div class="ticket">
+    @for (l of lineas; track l.key; let i = $index) {
+      <article
+        class="linea-card ui-card"
+        [attr.id]="'dom-linea-' + l.key"
+        [class.stock-warn]="excedeStock(l, i)"
+        [style.--i]="i"
+      >
+        <header class="linea-top">
+          <span class="linea-num">{{ i + 1 }}</span>
+          <div class="modo-chips" role="group" [attr.aria-label]="'Modo ' + (i + 1)">
+            @for (t of modos; track t.value) {
+              <button
+                type="button"
+                class="modo-chip"
+                [class.activo]="l.modo === t.value"
+                (mousedown)="$event.preventDefault()"
+                (click)="setModo(l, t.value)"
+              >
+                {{ t.label }}
+              </button>
+            }
+          </div>
+          @if (!esSinCobro(l)) {
+            <button
+              type="button"
+              class="tarjeta-btn"
+              [class.activo]="l.pagoTarjeta"
+              (mousedown)="$event.preventDefault()"
+              (click)="toggleTarjeta(l)"
+              [title]="l.pagoTarjeta ? 'Pago con tarjeta (va al banco)' : 'Marcar pago con tarjeta'"
+              [attr.aria-label]="l.pagoTarjeta ? 'Quitar pago con tarjeta' : 'Pago con tarjeta'"
+              [attr.aria-pressed]="l.pagoTarjeta"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2.5" y="5.5" width="19" height="13" rx="2"/>
+                <path d="M2.5 10h19"/>
+                <path d="M7 15h4"/>
+              </svg>
+            </button>
+          }
+          <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
+        </header>
+
+        <label class="campo producto-campo">
+          Producto
+          <app-producto-autocomplete
+            [productos]="productos"
+            [productoId]="l.productoId"
+            [inputName]="'domProd' + l.key"
+            [enterAvanza]="true"
+            placeholder="Escribe para buscar…"
+            (productoIdChange)="l.productoId = $event"
+            (enterConfirmado)="onProductoEnter(i)"
+          />
+        </label>
+
+        <div class="linea-grid">
+          <label class="campo campo-cantidad">
+            <div class="campo-cab">
+              <span class="campo-label">Cantidad</span>
+              @if (l.productoId != null && stockDisponible(l.productoId) != null && l.modo !== 'PESOS') {
+                <span class="stock-hint" [class.disp-warn]="excedeStock(l, i)">
+                  Disp. {{ stockDisponible(l.productoId) | number: '1.0-2' }} {{ unidadDe(l) }}
+                </span>
+              }
+            </div>
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [(ngModel)]="l.cantidad"
+              [id]="'dom-cant-' + l.key"
+              [name]="'domCant' + l.key"
+              placeholder="0"
+              [class.input-warn]="excedeStock(l, i)"
+              (keydown.enter)="onCampoEnter($event, i, 'cantidad')"
+            />
+          </label>
+          @if (l.modo === 'MAYOREO') {
+            <label class="campo">
+              Precio c/u
+              <div class="precio-input">
+                <span class="peso">$</span>
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  appClearable
+                  [(ngModel)]="l.precioManual"
+                  [id]="'dom-precio-' + l.key"
+                  [name]="'domPrecio' + l.key"
+                  placeholder="0"
+                  (keydown.enter)="onCampoEnter($event, i, 'precio')"
+                />
+              </div>
+            </label>
+            <label class="campo">
+              Total
+              <div class="precio-input">
+                <span class="peso">$</span>
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  appClearable
+                  [(ngModel)]="l.total"
+                  [id]="'dom-total-' + l.key"
+                  [name]="'domTotal' + l.key"
+                  placeholder="0"
+                  (keydown.enter)="onCampoEnter($event, i, 'total')"
+                />
+              </div>
+            </label>
+          } @else if (l.modo === 'MENUDEO' && l.productoId) {
+            <div class="campo pista">
+              <span class="labelish">Menudeo</span>
+              <strong>${{ precioLista(l) | number: '1.2-2' }}</strong>
+            </div>
+            <div class="campo pista">
+              <span class="labelish">Importe</span>
+              <strong>${{ (totalEstimado(l) || 0) | number: '1.2-2' }}</strong>
+            </div>
+          } @else {
+            <div class="campo pista">
+              <span class="labelish">Importe</span>
+              <strong>${{ (totalEstimado(l) || 0) | number: '1.2-2' }}</strong>
+            </div>
+          }
+        </div>
+        @if (avisoStock(l, i); as aviso) {
+          <p class="aviso-stock">
+            {{ aviso }}
+            @if (l.productoId != null) {
+              <a [routerLink]="['/inventario']" [queryParams]="{ ajuste: l.productoId }">Inventario</a>
+              ·
+              <a routerLink="/surtir">Surtir</a>
+              @if (esPreparable(l)) {
+                ·
+                <a [routerLink]="['/entradas']" [queryParams]="{ preparar: l.productoId }">Preparar</a>
+              }
+            }
+          </p>
+        }
+      </article>
+    }
+  </div>
+
+  <div class="reparto-actions captura-actions cta-bar-mobile">
+    <button type="button" class="btn-agregar-linea" (click)="agregarLinea()" title="Agregar fila">+</button>
+    @if (editandoId) {
+      <button type="button" class="secondary btn-cancelar-ticket" (click)="cancelarEdicion()">Descartar</button>
+    }
+    <button
+      type="button"
+      class="btn-guardar-filas"
+      (click)="guardar()"
+      [disabled]="guardando || totalTicket <= 0 || hayExcesoStock"
+      [title]="hayExcesoStock ? 'Hay cantidades mayores al stock disponible' : null"
+    >
+      {{
+        guardando
+          ? 'Guardando…'
+          : hayExcesoStock
+            ? 'Sin stock suficiente'
+            : editandoId
+              ? 'Guardar'
+              : 'Guardar'
+      }}
+      · ${{ totalTicket | number: '1.2-2' }}
+    </button>
+  </div>
+</section>
+
+<section class="panel">
+  <h3>Pendientes ({{ pendientes.length }})</h3>
+  @if (!pendientes.length) {
+    <p class="muted">No hay pedidos pendientes.</p>
+  }
+  <ul class="lista-dom">
+    @for (p of pendientes; track p.id) {
+      <li class="dom-card ui-card" [class.editando]="editandoId === p.id">
+        <header>
+          <div>
+            <strong>#{{ p.id }}</strong>
+            @if (p.cliente) {
+              · {{ p.cliente }}
+            }
+            <span class="muted"> · {{ p.fecha | fechaDmY }}</span>
+          </div>
+          <strong class="tot">${{ p.total | number: '1.2-2' }}</strong>
+        </header>
+        <ul class="items-mini">
+          @for (it of p.items; track it.id) {
+            <li>
+              {{ it.productoNombre }}
+              <span class="muted">{{ it.cantidad }} · {{ it.tipoVentaLabel }}</span>
+              <span>${{ it.total | number: '1.2-2' }}</span>
+            </li>
+          }
+        </ul>
+        <div class="acciones">
+          <button type="button" class="secondary" (click)="editar(p)">Editar</button>
+          <button
+            type="button"
+            class="btn-whatsapp"
+            (click)="compartirPedido(p)"
+            [disabled]="compartiendoId === p.id"
+          >
+            {{ compartiendoId === p.id ? 'Generando…' : 'WhatsApp' }}
+          </button>
+          <button type="button" (click)="abrirEntrega(p)">Entregar</button>
+          <button type="button" class="danger" (click)="cancelar(p)">Cancelar</button>
+        </div>
+      </li>
+    }
+  </ul>
+</section>
+
+@if (historial.length) {
+  <section class="panel">
+    <h3>Recientes</h3>
+    <ul class="lista-dom hist">
+      @for (p of historial; track p.id) {
+        <li class="dom-card ui-card">
+          <header>
+            <div>
+              <strong>#{{ p.id }}</strong>
+              <span class="chip-estado" [class.ok]="p.estado === 'ENTREGADA'">{{ p.estado }}</span>
+              @if (p.cliente) {
+                · {{ p.cliente }}
+              }
+            </div>
+            <strong>${{ p.total | number: '1.2-2' }}</strong>
+          </header>
+          @if (p.estado === 'ENTREGADA' || p.estado === 'CANCELADA') {
+            <div class="acciones">
+              @if (p.estado === 'ENTREGADA') {
+                <button type="button" class="secondary" (click)="editar(p)">Editar</button>
+              }
+              <button type="button" class="danger" (click)="eliminar(p)">Eliminar</button>
+            </div>
+          }
+        </li>
+      }
+    </ul>
+  </section>
+}
+
+@if (entregaPedido) {
+  <div class="entrega-overlay" (click)="cerrarEntrega()" role="presentation">
+    <div
+      class="entrega-dialog"
+      (click)="$event.stopPropagation()"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Entregar pedido"
+    >
+      <h3>Entregar #{{ entregaPedido.id }}</h3>
+      @if (entregaPedido.cliente) {
+        <p class="muted cliente">{{ entregaPedido.cliente }}</p>
+      }
+
+      <div class="entrega-total">
+        <span>Total a cobrar</span>
+        <strong>${{ entregaTotal | number: '1.2-2' }}</strong>
+      </div>
+
+      <div class="modo-chips" role="group" aria-label="Forma de pago">
+        <button
+          type="button"
+          class="modo-chip"
+          [class.activo]="!entregaTarjeta"
+          (click)="setEntregaTarjeta(false)"
+        >
+          Efectivo
+        </button>
+        <button
+          type="button"
+          class="modo-chip"
+          [class.activo]="entregaTarjeta"
+          (click)="setEntregaTarjeta(true)"
+        >
+          Tarjeta
+        </button>
+      </div>
+
+      @if (!entregaTarjeta) {
+        <label class="campo-paga">
+          Paga con
+          <div class="precio-input">
+            <span class="peso">$</span>
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [(ngModel)]="entregaPagaCon"
+              name="entregaPagaCon"
+              placeholder="0.00"
+            />
+          </div>
+        </label>
+
+        <div
+          class="entrega-cambio"
+          [class.falta]="entregaCambio != null && entregaCambio < 0"
+          [class.ok]="entregaCambio != null && entregaCambio >= 0"
+        >
+          @if (entregaCambio == null) {
+            <span class="muted">Indica con cuánto paga el cliente</span>
+          } @else if (entregaCambio < 0) {
+            <span>Faltan</span>
+            <strong>${{ (-entregaCambio) | number: '1.2-2' }}</strong>
+          } @else if (entregaCambio === 0) {
+            <span>Pago exacto</span>
+            <strong>$0.00</strong>
+          } @else {
+            <span>Cambio a dar</span>
+            <strong>${{ entregaCambio | number: '1.2-2' }}</strong>
+          }
+        </div>
+      } @else {
+        <p class="muted tarjeta-nota">Sin cambio: el cobro va a tarjeta / banco.</p>
+      }
+
+      <div class="entrega-actions">
+        <button type="button" class="secondary" (click)="cerrarEntrega()" [disabled]="entregando">
+          Cancelar
+        </button>
+        <button
+          type="button"
+          (click)="confirmarEntrega()"
+          [disabled]="!puedeConfirmarEntrega || entregando"
+        >
+          {{ entregando ? 'Registrando…' : 'Confirmar entrega' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+

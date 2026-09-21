@@ -9,5 +9,7 @@ public record TraspasoAbonoRequest(
     @NotNull LocalDate fecha,
     @NotNull @Positive BigDecimal monto,
     @NotNull Long personaId,
-    String nota
+    String nota,
+    /** true = tarjeta (banco); false/null = efectivo (caja). */
+    Boolean pagoTarjeta
 ) {}

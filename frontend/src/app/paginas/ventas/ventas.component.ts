@@ -22,7 +22,7 @@ import { ProductoAutocompleteComponent } from '../../producto-autocomplete.compo
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
-import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
+import { alinearLineasCaptura, capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { RouterLink } from '@angular/router';
 
@@ -146,6 +146,7 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (!this.restaurarBorrador()) this.resetLineas(capturaLineasVacias());
+    this.alinearLineasViewport();
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
@@ -156,6 +157,19 @@ export class VentasComponent implements OnInit, OnDestroy {
     if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
     if (this.draftTimer != null) clearTimeout(this.draftTimer);
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
+  }
+
+  @HostListener('window:resize')
+  onResizeCaptura(): void {
+    this.alinearLineasViewport();
+  }
+
+  private alinearLineasViewport(): void {
+    this.lineas = alinearLineasCaptura(
+      this.lineas,
+      (l) => !this.tieneDatos(l),
+      () => this.nuevaLinea()
+    );
   }
 
   @HostListener('window:pagehide')
@@ -879,13 +893,13 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   quitarLinea(index: number): void {
-    const min = capturaLineasVacias();
-    if (this.lineas.length <= min) {
+    if (this.lineas.length <= 1) {
       this.lineas[index] = this.nuevaLinea();
-      if (this.lineas.length < min) this.resetLineas(min);
+      this.alinearLineasViewport();
       return;
     }
     this.lineas.splice(index, 1);
+    this.alinearLineasViewport();
   }
 
   async guardarTodas(): Promise<void> {

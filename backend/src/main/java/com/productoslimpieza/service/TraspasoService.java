@@ -1,14 +1,18 @@
 package com.productoslimpieza.service;
 
+import com.productoslimpieza.domain.CajaConfig;
 import com.productoslimpieza.domain.Persona;
 import com.productoslimpieza.domain.Producto;
+import com.productoslimpieza.domain.TipoMovimientoCaja;
 import com.productoslimpieza.domain.Traspaso;
 import com.productoslimpieza.domain.TraspasoAbono;
 import com.productoslimpieza.domain.TraspasoLinea;
+import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.PersonaRepository;
 import com.productoslimpieza.repo.ProductoRepository;
 import com.productoslimpieza.repo.TraspasoAbonoRepository;
 import com.productoslimpieza.repo.TraspasoRepository;
+import com.productoslimpieza.tenant.TenantContext;
 import com.productoslimpieza.web.dto.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -19,6 +23,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,18 +40,24 @@ public class TraspasoService {
   private final ProductoRepository productoRepo;
   private final PersonaRepository personaRepo;
   private final InventarioService inventarioService;
+  private final CajaService cajaService;
+  private final CajaConfigRepository cajaConfigRepo;
 
   public TraspasoService(
       TraspasoRepository traspasoRepo,
       TraspasoAbonoRepository abonoRepo,
       ProductoRepository productoRepo,
       PersonaRepository personaRepo,
-      InventarioService inventarioService) {
+      InventarioService inventarioService,
+      CajaService cajaService,
+      CajaConfigRepository cajaConfigRepo) {
     this.traspasoRepo = traspasoRepo;
     this.abonoRepo = abonoRepo;
     this.productoRepo = productoRepo;
     this.personaRepo = personaRepo;
     this.inventarioService = inventarioService;
+    this.cajaService = cajaService;
+    this.cajaConfigRepo = cajaConfigRepo;
   }
 
   @Transactional
@@ -54,6 +65,7 @@ public class TraspasoService {
     migrarPersonasLegado();
     migrarLineasLegado();
     consolidarMismaFechaPersona();
+    vincularAbonosSinCaja();
 
     List<Traspaso> traspasos = traspasoRepo.findAllWithDetalles();
     List<TraspasoAbono> abonos = abonoRepo.findAllWithPersona();
@@ -137,18 +149,19 @@ public class TraspasoService {
       for (int i = 1; i < mismos.size(); i++) {
         fusionarTraspasoEn(t, mismos.get(i));
       }
-      appendNota(t, blankToNull(req.nota()));
+      appendNota(t, notaTraspaso(req.nota(), algunaMuestra(req)));
     } else {
       t = new Traspaso();
       t.setFecha(req.fecha());
       t.setPersona(persona);
       t.setPersonaNombre(persona.getNombre());
-      t.setNota(blankToNull(req.nota()));
+      t.setNota(notaTraspaso(req.nota(), algunaMuestra(req)));
     }
 
     for (TraspasoLineaRequest lineaReq : req.lineas()) {
       Producto prod = productos.get(lineaReq.productoId());
-      BigDecimal precio = nz(prod.getPrecioCompra());
+      boolean muestra = Boolean.TRUE.equals(lineaReq.muestra());
+      BigDecimal precio = muestra ? BigDecimal.ZERO : nz(prod.getPrecioCompra());
       if (precio.compareTo(BigDecimal.ZERO) <= 0) {
         precio = BigDecimal.ZERO;
       }
@@ -180,12 +193,13 @@ public class TraspasoService {
     t.setFecha(req.fecha());
     t.setPersona(persona);
     t.setPersonaNombre(persona.getNombre());
-    t.setNota(blankToNull(req.nota()));
+    t.setNota(notaTraspaso(req.nota(), algunaMuestra(req)));
 
     t.getLineas().clear();
     for (TraspasoLineaRequest lineaReq : req.lineas()) {
       Producto prod = productos.get(lineaReq.productoId());
-      BigDecimal precio = nz(prod.getPrecioCompra());
+      boolean muestra = Boolean.TRUE.equals(lineaReq.muestra());
+      BigDecimal precio = muestra ? BigDecimal.ZERO : nz(prod.getPrecioCompra());
       agregarOSumarLinea(t, prod, lineaReq.cantidad(), precio);
     }
     recalcularTotal(t);
@@ -226,12 +240,24 @@ public class TraspasoService {
     Persona persona = personaRepo.findById(req.personaId())
         .orElseThrow(() -> new ResponseStatusException(
             HttpStatus.BAD_REQUEST, "Selecciona una persona de la lista"));
+    BigDecimal monto = req.monto().setScale(2, RoundingMode.HALF_UP);
+    String nota = blankToNull(req.nota());
+    boolean tarjeta = Boolean.TRUE.equals(req.pagoTarjeta());
+    String motivo = motivoPagoTraspaso(persona.getNombre(), nota, tarjeta);
+
     TraspasoAbono a = new TraspasoAbono();
     a.setFecha(req.fecha());
-    a.setMonto(req.monto().setScale(2, RoundingMode.HALF_UP));
+    a.setMonto(monto);
     a.setPersona(persona);
     a.setPersonaNombre(persona.getNombre());
-    a.setNota(blankToNull(req.nota()));
+    a.setNota(nota);
+    a.setPagoTarjeta(tarjeta);
+    if (!tarjeta) {
+      MovimientoCajaDto ingreso =
+          cajaService.crearMovimiento(
+              new MovimientoCajaRequest(req.fecha(), TipoMovimientoCaja.INGRESO, monto, motivo));
+      a.setMovimientoCajaId(ingreso.id());
+    }
     TraspasoAbono saved = abonoRepo.save(a);
     if (saved.getPersona() != null) {
       saved.getPersona().getNombre();
@@ -241,10 +267,128 @@ public class TraspasoService {
 
   @Transactional
   public void eliminarAbono(Long id) {
-    if (!abonoRepo.existsById(id)) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Abono no encontrado");
+    TraspasoAbono a = abonoRepo.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Abono no encontrado"));
+    Long movId = a.getMovimientoCajaId();
+    abonoRepo.delete(a);
+    if (movId != null) {
+      try {
+        cajaService.eliminarMovimiento(movId);
+      } catch (ResponseStatusException ignored) {
+        // Ya no está en caja (borrado manual); el abono igual se elimina.
+      }
     }
-    abonoRepo.deleteById(id);
+  }
+
+  @Transactional
+  public TraspasoAbonoDto actualizarAbono(Long id, TraspasoAbonoRequest req) {
+    TraspasoAbono a = abonoRepo.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Abono no encontrado"));
+    validarFechaNoFutura(req.fecha());
+    if (req.monto() == null || req.monto().compareTo(BigDecimal.ZERO) <= 0) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indica un monto mayor a cero");
+    }
+    if (req.personaId() == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecciona una persona de la lista");
+    }
+    Persona persona = personaRepo.findById(req.personaId())
+        .orElseThrow(() -> new ResponseStatusException(
+            HttpStatus.BAD_REQUEST, "Selecciona una persona de la lista"));
+    BigDecimal monto = req.monto().setScale(2, RoundingMode.HALF_UP);
+    String nota = blankToNull(req.nota());
+    boolean tarjeta = Boolean.TRUE.equals(req.pagoTarjeta());
+    String motivo = motivoPagoTraspaso(persona.getNombre(), nota, tarjeta);
+
+    sincronizarMovimientoCajaAbono(a, req.fecha(), monto, motivo, tarjeta);
+
+    a.setFecha(req.fecha());
+    a.setMonto(monto);
+    a.setPersona(persona);
+    a.setPersonaNombre(persona.getNombre());
+    a.setNota(nota);
+    a.setPagoTarjeta(tarjeta);
+    TraspasoAbono saved = abonoRepo.save(a);
+    if (saved.getPersona() != null) {
+      saved.getPersona().getNombre();
+    }
+    return toAbonoDto(saved);
+  }
+
+  /** Efectivo → ingreso en caja; tarjeta → quita ingreso (va al banco). */
+  private void sincronizarMovimientoCajaAbono(
+      TraspasoAbono a, LocalDate fecha, BigDecimal monto, String motivo, boolean tarjeta) {
+    if (tarjeta) {
+      Long movId = a.getMovimientoCajaId();
+      a.setMovimientoCajaId(null);
+      if (movId != null) {
+        try {
+          cajaService.eliminarMovimiento(movId);
+        } catch (ResponseStatusException ignored) {
+          // Movimiento ya no existe.
+        }
+      }
+      return;
+    }
+    MovimientoCajaRequest movReq =
+        new MovimientoCajaRequest(fecha, TipoMovimientoCaja.INGRESO, monto, motivo);
+    if (a.getMovimientoCajaId() != null) {
+      try {
+        cajaService.actualizarMovimiento(a.getMovimientoCajaId(), movReq);
+      } catch (ResponseStatusException e) {
+        if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+          MovimientoCajaDto creado = cajaService.crearMovimiento(movReq);
+          a.setMovimientoCajaId(creado.id());
+        } else {
+          throw e;
+        }
+      }
+    } else {
+      MovimientoCajaDto creado = cajaService.crearMovimiento(movReq);
+      a.setMovimientoCajaId(creado.id());
+    }
+  }
+
+  private static String motivoPagoTraspaso(String personaNombre, String nota, boolean tarjeta) {
+    String base = tarjeta ? "Pago de traspaso (tarjeta)" : "Pago de traspaso";
+    String quien = blankToNull(personaNombre);
+    if (quien != null) {
+      base = base + " - " + quien;
+    }
+    if (nota != null) {
+      base = base + " | " + nota;
+    }
+    if (base.length() > 200) {
+      return base.substring(0, 200);
+    }
+    return base;
+  }
+
+  /** Abonos viejos en efectivo (o creados sin backend actualizado) → ingreso en caja. */
+  private void vincularAbonosSinCaja() {
+    LocalDate inicioPeriodo =
+        cajaConfigRepo
+            .findByTenantId(TenantContext.require())
+            .map(CajaConfig::getFechaInicio)
+            .orElse(null);
+    LocalDate hoy = LocalDate.now(ZoneId.of("America/Mexico_City"));
+    for (TraspasoAbono a : abonoRepo.findAllWithPersona()) {
+      if (a.isPagoTarjeta()) continue;
+      if (a.getMovimientoCajaId() != null) continue;
+      if (a.getMonto() == null || a.getMonto().compareTo(BigDecimal.ZERO) <= 0) continue;
+      if (a.getFecha() == null) continue;
+      // No invocar caja si la fecha no entraría (evita rollback-only).
+      if (inicioPeriodo != null && a.getFecha().isBefore(inicioPeriodo)) continue;
+      if (a.getFecha().isAfter(hoy)) continue;
+      String quien =
+          a.getPersona() != null ? a.getPersona().getNombre() : a.getPersonaNombre();
+      String motivo = motivoPagoTraspaso(quien, a.getNota(), false);
+      MovimientoCajaDto ingreso =
+          cajaService.crearMovimiento(
+              new MovimientoCajaRequest(
+                  a.getFecha(), TipoMovimientoCaja.INGRESO, a.getMonto(), motivo));
+      a.setMovimientoCajaId(ingreso.id());
+      abonoRepo.save(a);
+    }
   }
 
   private Map<Long, Producto> validarLineasYStock(TraspasoRequest req, Map<Long, BigDecimal> creditoStock) {
@@ -390,11 +534,8 @@ public class TraspasoService {
     for (TraspasoLinea l : copiar) {
       Producto prod = l.getProducto();
       if (prod == null) continue;
-      BigDecimal precio = nz(l.getPrecioCompra());
-      if (precio.compareTo(BigDecimal.ZERO) <= 0) {
-        precio = nz(prod.getPrecioCompra());
-      }
-      agregarOSumarLinea(destino, prod, nz(l.getCantidad()), precio);
+      // Conserva precio 0 (muestra); no lo sustituyas por precio de compra.
+      agregarOSumarLinea(destino, prod, nz(l.getCantidad()), nz(l.getPrecioCompra()));
     }
     appendNota(destino, blankToNull(origen.getNota()));
     traspasoRepo.delete(origen);
@@ -402,14 +543,18 @@ public class TraspasoService {
 
   private void agregarOSumarLinea(Traspaso t, Producto prod, BigDecimal cantidad, BigDecimal precio) {
     for (TraspasoLinea existing : t.getLineas()) {
-      if (existing.getProducto() != null && existing.getProducto().getId().equals(prod.getId())) {
-        BigDecimal nuevaCant = nz(existing.getCantidad()).add(cantidad);
-        BigDecimal p = precio.compareTo(BigDecimal.ZERO) > 0 ? precio : nz(existing.getPrecioCompra());
-        existing.setCantidad(nuevaCant);
-        existing.setPrecioCompra(p);
-        existing.setTotal(nuevaCant.multiply(p).setScale(2, RoundingMode.HALF_UP));
-        return;
+      if (existing.getProducto() == null || !existing.getProducto().getId().equals(prod.getId())) {
+        continue;
       }
+      // Solo fusiona si el precio coincide (muestra con muestra, cobrado con cobrado).
+      if (nz(existing.getPrecioCompra()).compareTo(precio) != 0) {
+        continue;
+      }
+      BigDecimal nuevaCant = nz(existing.getCantidad()).add(cantidad);
+      existing.setCantidad(nuevaCant);
+      existing.setPrecioCompra(precio);
+      existing.setTotal(nuevaCant.multiply(precio).setScale(2, RoundingMode.HALF_UP));
+      return;
     }
     TraspasoLinea linea = new TraspasoLinea();
     linea.setProducto(prod);
@@ -484,7 +629,8 @@ public class TraspasoService {
         a.getMonto(),
         per != null ? per.getId() : null,
         per != null ? per.getNombre() : a.getPersonaNombre(),
-        a.getNota()
+        a.getNota(),
+        a.isPagoTarjeta()
     );
   }
 
@@ -504,6 +650,29 @@ public class TraspasoService {
 
   private static String blankToNull(String s) {
     return s == null || s.isBlank() ? null : s.trim();
+  }
+
+  /** Nota del traspaso; si hay alguna muestra, deja constancia sin duplicar la palabra. */
+  private static String notaTraspaso(String nota, boolean algunaMuestra) {
+    String n = blankToNull(nota);
+    if (!algunaMuestra) {
+      return n;
+    }
+    if (n == null) {
+      return "Con muestra";
+    }
+    if (n.toLowerCase(Locale.ROOT).contains("muestra")) {
+      return n;
+    }
+    return n + " · Con muestra";
+  }
+
+  private static boolean algunaMuestra(TraspasoRequest req) {
+    if (req.lineas() == null) return false;
+    for (TraspasoLineaRequest l : req.lineas()) {
+      if (Boolean.TRUE.equals(l.muestra())) return true;
+    }
+    return false;
   }
 
   private static final class Acum {

@@ -130,92 +130,26 @@
       </label>
     </div>
 
-    <div class="table-wrap lote-wrap" style="margin-top: 0.85rem">
-      <table class="lote">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Producto</th>
-            <th>Cantidad</th>
-            <th>Disponible</th>
-            <th>Precio compra $</th>
-            <th>Total $</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (l of lineas; track l.key; let i = $index) {
-            <tr [attr.data-linea-key]="l.key" [class.stock-warn]="excedeStock(l, i)">
-              <td class="muted">{{ i + 1 }}</td>
-              <td>
-                <app-producto-autocomplete
-                  #prodLote
-                  [productos]="productos"
-                  [productoId]="l.productoId"
-                  [inputName]="'prod' + l.key"
-                  mostrarExtra="compra"
-                  [enterAvanza]="true"
-                  (productoIdChange)="onProductoChange(l, $event)"
-                  (enterConfirmado)="onProductoEnter(i)"
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  inputmode="decimal"
-                  appClearable
-                  [(ngModel)]="l.cantidad"
-                  [name]="'cant' + l.key"
-                  [attr.data-cant-key]="l.key"
-                  placeholder="0"
-                  [class.input-warn]="excedeStock(l, i)"
-                  (ngModelChange)="programarBorrador()"
-                  (keydown.enter)="onCantidadEnter($event, i)"
-                />
-              </td>
-              <td>
-                @if (l.productoId != null && stockDisponible(l.productoId) != null) {
-                  <span
-                    class="disp"
-                    [class.disp-warn]="excedeStock(l, i)"
-                    [title]="excedeStock(l, i) ? 'Cantidad mayor al stock' : 'Stock actual'"
-                  >
-                    {{ stockDisponible(l.productoId) | number: '1.0-2' }}
-                  </span>
-                } @else {
-                  <span class="muted">—</span>
-                }
-              </td>
-              <td>
-                @if (l.productoId != null && precioCompra(l.productoId) > 0) {
-                  <span class="money" title="Precio de compra del inventario">
-                    ${{ precioCompra(l.productoId) | number: '1.2-2' }}
-                  </span>
-                } @else {
-                  <span class="muted">—</span>
-                }
-              </td>
-              <td>
-                @if (totalLinea(l) > 0) {
-                  <span class="money">${{ totalLinea(l) | number: '1.2-2' }}</span>
-                } @else {
-                  <span class="muted">—</span>
-                }
-              </td>
-              <td class="actions">
-                <button type="button" class="danger" (click)="quitarLinea(i)" title="Quitar fila">×</button>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-
-    <div class="lote-cards">
+    <div class="prod-filas" style="margin-top: 0.55rem">
       @for (l of lineas; track l.key; let i = $index) {
-        <article class="linea-card" [attr.data-linea-key]="l.key" [class.stock-warn]="excedeStock(l, i)">
-          <header class="linea-top">
+        <article
+          class="prod-fila"
+          [attr.data-linea-key]="l.key"
+          [class.stock-warn]="excedeStock(l, i)"
+          [class.es-muestra]="l.muestra"
+        >
+          <header class="prod-fila-top">
             <span class="linea-num">{{ i + 1 }}</span>
+            <button
+              type="button"
+              class="seg-btn muestra-btn"
+              [class.activo]="l.muestra"
+              (click)="l.muestra = !l.muestra; programarBorrador()"
+              [attr.aria-pressed]="l.muestra"
+              title="Sin cobro: baja inventario pero no se suma a la deuda"
+            >
+              Muestra
+            </button>
             <button type="button" class="danger quitar" (click)="quitarLinea(i)" title="Quitar">×</button>
           </header>
 
@@ -225,7 +159,7 @@
               #prodLote
               [productos]="productos"
               [productoId]="l.productoId"
-              [inputName]="'prodM' + l.key"
+              [inputName]="'prod' + l.key"
               mostrarExtra="compra"
               [enterAvanza]="true"
               (productoIdChange)="onProductoChange(l, $event)"
@@ -233,7 +167,7 @@
             />
           </label>
 
-          <div class="linea-grid">
+          <div class="prod-fila-datos">
             <label class="campo">
               Cantidad
               <input
@@ -241,7 +175,7 @@
                 inputmode="decimal"
                 appClearable
                 [(ngModel)]="l.cantidad"
-                [name]="'cantM' + l.key"
+                [name]="'cant' + l.key"
                 [attr.data-cant-key]="l.key"
                 placeholder="0"
                 [class.input-warn]="excedeStock(l, i)"
@@ -251,7 +185,7 @@
             </label>
 
             <div class="campo">
-              <span class="campo-label">Disponible</span>
+              <span class="campo-label">Disp.</span>
               @if (l.productoId != null && stockDisponible(l.productoId) != null) {
                 <div class="dato-fijo" [class.disp-warn]="excedeStock(l, i)">
                   {{ stockDisponible(l.productoId) | number: '1.0-2' }}
@@ -262,8 +196,8 @@
             </div>
 
             <div class="campo">
-              <span class="campo-label">Precio compra</span>
-              @if (l.productoId != null && precioCompra(l.productoId) > 0) {
+              <span class="campo-label">$ / ud</span>
+              @if (!l.muestra && l.productoId != null && precioCompra(l.productoId) > 0) {
                 <div class="dato-fijo money">${{ precioCompra(l.productoId) | number: '1.2-2' }}</div>
               } @else {
                 <div class="dato-fijo muted">—</div>
@@ -271,9 +205,11 @@
             </div>
 
             <div class="campo total-campo">
-              <span class="campo-label">Total</span>
+              <span class="campo-label">Importe</span>
               @if (totalLinea(l) > 0) {
                 <div class="dato-fijo money">${{ totalLinea(l) | number: '1.2-2' }}</div>
+              } @else if (l.muestra && l.productoId != null && tieneCantidad(l)) {
+                <div class="dato-fijo"><span class="badge ok">Sin cobro</span></div>
               } @else {
                 <div class="dato-fijo muted">—</div>
               }
@@ -353,6 +289,27 @@
       Nota
       <input appClearable [(ngModel)]="abono.nota" name="abonoNota" />
     </label>
+    <div class="campo-tarjeta">
+      <span class="campo-lbl">Forma de pago</span>
+      <div class="pago-seg" role="group" aria-label="Forma de pago">
+        <button
+          type="button"
+          class="seg-btn"
+          [class.activo]="!abono.pagoTarjeta"
+          (click)="abono.pagoTarjeta = false"
+        >
+          Efectivo
+        </button>
+        <button
+          type="button"
+          class="seg-btn"
+          [class.activo]="abono.pagoTarjeta"
+          (click)="abono.pagoTarjeta = true"
+        >
+          Tarjeta
+        </button>
+      </div>
+    </div>
     <button type="submit" [disabled]="!personasParaAbono.length">Registrar abono</button>
   </form>
   @if (error) {
@@ -361,9 +318,131 @@
 </section>
 
 @if (data) {
-  <div class="dos-cols" style="margin-top: 1rem">
-    <section class="panel" id="traspasos-hist-top" data-pag-top>
-      <h3>Historial de traspasos</h3>
+  <section class="panel hist-full" id="traspasos-hist-top" data-pag-top style="margin-top: 1rem">
+    <button
+      type="button"
+      class="panel-toggle"
+      (click)="toggleHistTraspasos()"
+      [attr.aria-expanded]="histTraspasosAbierta"
+    >
+      <h3 class="panel-titulo">Historial de traspasos</h3>
+      <span class="chev">{{ histTraspasosAbierta ? '▾' : '▸' }}</span>
+    </button>
+    @if (histTraspasosAbierta) {
+    <div class="panel-toggle-body">
+      @if (editandoId != null && editandoOriginal) {
+        <form
+          id="edit-traspaso-panel"
+          class="form-edicion"
+          (ngSubmit)="guardarEdicion()"
+        >
+          <header class="edit-head">
+            <p class="edit-titulo">Editando traspaso</p>
+            <p class="edit-sub">
+              {{ editandoOriginal.persona || 'Sin persona' }}
+              · {{ editandoOriginal.fecha | fechaDmY }}
+            </p>
+          </header>
+
+          <div class="edit-meta">
+            <label>
+              Fecha
+              <app-fecha-dia
+                [(ngModel)]="formEdit.fecha"
+                name="editFecha"
+                [max]="fechaMax"
+                [required]="true"
+                ariaLabel="Fecha"
+              />
+            </label>
+            <label>
+              Persona
+              <select
+                [(ngModel)]="formEdit.personaId"
+                name="editPersonaId"
+                (ngModelChange)="onPersonaEditCambio()"
+              >
+                <option [ngValue]="null">Nueva persona…</option>
+                @for (p of personasLista; track p.id) {
+                  <option [ngValue]="p.id">{{ p.nombre }}</option>
+                }
+              </select>
+            </label>
+            @if (formEdit.personaId == null) {
+              <label>
+                Nombre
+                <input
+                  appClearable
+                  [(ngModel)]="formEdit.personaNueva"
+                  name="editPersonaNueva"
+                  required
+                />
+              </label>
+            }
+            <label class="edit-nota">
+              Nota
+              <input appClearable [(ngModel)]="formEdit.nota" name="editNota" />
+            </label>
+          </div>
+
+          <div class="edit-lineas">
+            @for (l of formEdit.lineas; track l.key; let i = $index) {
+              <div class="edit-linea" [class.es-muestra]="l.muestra" [class.stock-warn]="excedeStockEdit(l, i)">
+                <span class="linea-num">{{ i + 1 }}</span>
+                <app-producto-autocomplete
+                  class="edit-prod"
+                  [productos]="productos"
+                  [productoId]="l.productoId"
+                  [inputName]="'editProd' + l.key"
+                  (productoIdChange)="l.productoId = $event"
+                  [required]="true"
+                />
+                <input
+                  class="edit-cant"
+                  type="text"
+                  inputmode="decimal"
+                  [(ngModel)]="l.cantidad"
+                  [name]="'editCant' + l.key"
+                  placeholder="0"
+                  [class.input-warn]="excedeStockEdit(l, i)"
+                  title="Cantidad"
+                  required
+                />
+                <button
+                  type="button"
+                  class="seg-btn muestra-btn"
+                  [class.activo]="l.muestra"
+                  (click)="l.muestra = !l.muestra"
+                  [attr.aria-pressed]="l.muestra"
+                  title="Sin cobro: baja inventario pero no se suma a la deuda"
+                >
+                  Muestra
+                </button>
+                <span class="edit-cobro">
+                  @if (l.muestra) {
+                    <span class="badge ok">Sin cobro</span>
+                  } @else if (l.productoId != null && tieneCantidad(l)) {
+                    <span class="money">${{ totalLinea(l) | number: '1.2-2' }}</span>
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </span>
+              </div>
+            }
+          </div>
+
+          <div class="edicion-actions">
+            <button type="submit" [disabled]="guardandoEdit || hayExcesoStockEdit">
+              {{ guardandoEdit ? 'Guardando…' : 'Guardar cambios' }}
+            </button>
+            <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
+          </div>
+          @if (errorEdit) {
+            <p class="error">{{ errorEdit }}</p>
+          }
+        </form>
+      }
+
       <div class="table-wrap hist-tabla">
         <table>
           <thead>
@@ -377,17 +456,30 @@
           </thead>
           <tbody>
             @for (t of pagTraspasos.paginaItems; track t.id) {
-              <tr>
+              <tr [class.fila-editando]="editandoId === t.id">
                 <td>{{ t.fecha | fechaDmY }}</td>
                 <td>{{ t.persona || '—' }}</td>
                 <td class="col-productos">
                   <ul class="lineas-list">
                     @for (l of t.lineas; track l.id) {
                       <li>
-                        <span class="ln-producto">{{ l.productoNombre }}</span>
+                        <span class="ln-producto" [title]="l.productoNombre">
+                          {{ l.productoNombre }}
+                          @if (esLineaMuestra(l)) {
+                            <span class="badge ok">Muestra</span>
+                          }
+                        </span>
                         <span class="ln-meta">
-                          <span class="ln-cant">{{ l.cantidad | number: '1.0-2' }}</span>
-                          <span class="ln-total muted">${{ l.total | number: '1.2-2' }}</span>
+                          <span class="ln-dato ln-cant">
+                            <span class="ln-lbl">Cantidad</span>
+                            <span class="ln-val">{{ l.cantidad | number: '1.0-2' }}</span>
+                          </span>
+                          @if (!esLineaMuestra(l)) {
+                            <span class="ln-dato ln-total">
+                              <span class="ln-lbl">Subtotal</span>
+                              <span class="ln-val">${{ l.total | number: '1.2-2' }}</span>
+                            </span>
+                          }
                         </span>
                       </li>
                     }
@@ -399,80 +491,6 @@
                   <button type="button" class="danger" title="Eliminar" (click)="eliminar(t.id)">×</button>
                 </td>
               </tr>
-              @if (editandoId === t.id) {
-                <tr class="fila-edicion">
-                  <td colspan="5">
-                    <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
-                      <label>
-                        Fecha
-                        <app-fecha-dia [(ngModel)]="formEdit.fecha" name="editFecha" [max]="fechaMax" [required]="true" ariaLabel="Fecha" />
-                      </label>
-                      <label>
-                        Persona
-                        <select
-                          [(ngModel)]="formEdit.personaId"
-                          name="editPersonaId"
-                          (ngModelChange)="onPersonaEditCambio()"
-                        >
-                          <option [ngValue]="null">Nueva persona…</option>
-                          @for (p of personasLista; track p.id) {
-                            <option [ngValue]="p.id">{{ p.nombre }}</option>
-                          }
-                        </select>
-                      </label>
-                      @if (formEdit.personaId == null) {
-                        <label>
-                          Nombre
-                          <input
-                            appClearable
-                            [(ngModel)]="formEdit.personaNueva"
-                            name="editPersonaNueva"
-                            required
-                          />
-                        </label>
-                      }
-                      <label>
-                        Nota
-                        <input appClearable [(ngModel)]="formEdit.nota" name="editNota" />
-                      </label>
-                      @for (l of formEdit.lineas; track l.key; let i = $index) {
-                        <label>
-                          Producto
-                          <app-producto-autocomplete
-                            [productos]="productos"
-                            [productoId]="l.productoId"
-                            [inputName]="'editProd' + l.key"
-                            (productoIdChange)="l.productoId = $event"
-                            [required]="true"
-                          />
-                        </label>
-                        <label>
-                          Cantidad
-                          <input
-                            type="text"
-                            inputmode="decimal"
-                            appClearable
-                            [(ngModel)]="l.cantidad"
-                            [name]="'editCant' + l.key"
-                            placeholder="0"
-                            [class.input-warn]="excedeStockEdit(l, i)"
-                            required
-                          />
-                        </label>
-                      }
-                      <div class="edicion-actions">
-                        <button type="submit" [disabled]="guardandoEdit || hayExcesoStockEdit">
-                          {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
-                        </button>
-                        <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
-                      </div>
-                    </form>
-                    @if (errorEdit) {
-                      <p class="error">{{ errorEdit }}</p>
-                    }
-                  </td>
-                </tr>
-              }
             } @empty {
               <tr><td colspan="5" class="muted">Sin traspasos.</td></tr>
             }
@@ -482,7 +500,7 @@
 
       <ul class="hist-cards">
         @for (t of pagTraspasos.paginaItems; track t.id; let idx = $index) {
-          <li class="traspaso-card" [style.--i]="idx">
+          <li class="traspaso-card" [style.--i]="idx" [class.fila-editando]="editandoId === t.id">
             <div class="item-meta">
               <span>{{ t.fecha | fechaDmY }}</span>
               <span class="item-tag">{{ t.persona || '—' }}</span>
@@ -490,10 +508,23 @@
             <ul class="card-lineas-visibles">
               @for (ln of t.lineas; track ln.id) {
                 <li>
-                  <span class="ln-producto">{{ ln.productoNombre }}</span>
+                  <span class="ln-producto" [title]="ln.productoNombre">
+                    {{ ln.productoNombre }}
+                    @if (esLineaMuestra(ln)) {
+                      <span class="badge ok">Muestra</span>
+                    }
+                  </span>
                   <span class="ln-meta">
-                    <span class="ln-cant">{{ ln.cantidad | number: '1.0-2' }}</span>
-                    <span class="ln-total muted">${{ ln.total | number: '1.2-2' }}</span>
+                    <span class="ln-dato ln-cant">
+                      <span class="ln-lbl">Cantidad</span>
+                      <span class="ln-val">{{ ln.cantidad | number: '1.0-2' }}</span>
+                    </span>
+                    @if (!esLineaMuestra(ln)) {
+                      <span class="ln-dato ln-total">
+                        <span class="ln-lbl">Subtotal</span>
+                        <span class="ln-val">${{ ln.total | number: '1.2-2' }}</span>
+                      </span>
+                    }
                   </span>
                 </li>
               } @empty {
@@ -501,108 +532,46 @@
               }
             </ul>
             <div class="item-fila">
+              <span class="item-total-lbl">Total</span>
               <strong class="money">${{ t.total | number: '1.2-2' }}</strong>
               <div class="acciones">
                 <button
                   type="button"
                   class="icono"
                   title="Editar"
-                  aria-label="Editar"
                   (click)="editar(t)"
+                  [attr.aria-label]="'Editar traspaso ' + t.id"
                 >
-                  ✎
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20zM14.5 5l4.5 4.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
                 </button>
                 <button
                   type="button"
                   class="icono peligro"
                   title="Eliminar"
-                  aria-label="Eliminar"
                   (click)="eliminar(t.id)"
+                  [attr.aria-label]="'Eliminar traspaso ' + t.id"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path
-                      d="M6 6l12 12M18 6L6 18"
+                      d="M6 7h12M10 7V5h4v2M9 7l.5 12h5L15 7"
                       fill="none"
                       stroke="currentColor"
                       stroke-width="2"
                       stroke-linecap="round"
+                      stroke-linejoin="round"
                     />
                   </svg>
                 </button>
               </div>
             </div>
-            @if (editandoId === t.id) {
-              <div class="hist-edicion-movil">
-                <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
-                  <label>
-                    Fecha
-                    <app-fecha-dia [(ngModel)]="formEdit.fecha" name="editFechaM" [max]="fechaMax" [required]="true" ariaLabel="Fecha" />
-                  </label>
-                  <label>
-                    Persona
-                    <select
-                      [(ngModel)]="formEdit.personaId"
-                      name="editPersonaIdM"
-                      (ngModelChange)="onPersonaEditCambio()"
-                    >
-                      <option [ngValue]="null">Nueva persona…</option>
-                      @for (p of personasLista; track p.id) {
-                        <option [ngValue]="p.id">{{ p.nombre }}</option>
-                      }
-                    </select>
-                  </label>
-                  @if (formEdit.personaId == null) {
-                    <label>
-                      Nombre
-                      <input
-                        appClearable
-                        [(ngModel)]="formEdit.personaNueva"
-                        name="editPersonaNuevaM"
-                        required
-                      />
-                    </label>
-                  }
-                  <label>
-                    Nota
-                    <input appClearable [(ngModel)]="formEdit.nota" name="editNotaM" />
-                  </label>
-                  @for (l of formEdit.lineas; track l.key; let i = $index) {
-                    <label>
-                      Producto
-                      <app-producto-autocomplete
-                        [productos]="productos"
-                        [productoId]="l.productoId"
-                        [inputName]="'editProdM' + l.key"
-                        (productoIdChange)="l.productoId = $event"
-                        [required]="true"
-                      />
-                    </label>
-                    <label>
-                      Cantidad
-                      <input
-                        type="text"
-                        inputmode="decimal"
-                        appClearable
-                        [(ngModel)]="l.cantidad"
-                        [name]="'editCantM' + l.key"
-                        placeholder="0"
-                        [class.input-warn]="excedeStockEdit(l, i)"
-                        required
-                      />
-                    </label>
-                  }
-                  <div class="edicion-actions">
-                    <button type="submit" [disabled]="guardandoEdit || hayExcesoStockEdit">
-                      {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
-                    </button>
-                    <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
-                  </div>
-                </form>
-                @if (errorEdit) {
-                  <p class="error">{{ errorEdit }}</p>
-                }
-              </div>
-            }
           </li>
         } @empty {
           <li class="vacio muted">Sin traspasos.</li>
@@ -617,9 +586,25 @@
         (prev)="pagTraspasos.anterior()"
         (next)="pagTraspasos.siguiente()"
       />
-    </section>
-    <section class="panel" id="traspasos-abonos-top" data-pag-top>
-      <h3>Historial de abonos</h3>
+    </div>
+    }
+  </section>
+
+  <section class="panel hist-full" id="traspasos-abonos-top" data-pag-top style="margin-top: 1rem">
+    <button
+      type="button"
+      class="panel-toggle"
+      (click)="toggleHistAbonos()"
+      [attr.aria-expanded]="histAbonosAbierta"
+    >
+      <h3 class="panel-titulo">Historial de abonos</h3>
+      <span class="chev">{{ histAbonosAbierta ? '▾' : '▸' }}</span>
+    </button>
+    @if (histAbonosAbierta) {
+    <div class="panel-toggle-body">
+      @if (errorAbonoEdit) {
+        <p class="error">{{ errorAbonoEdit }}</p>
+      }
       <div class="table-wrap hist-tabla">
         <table>
           <thead>
@@ -627,23 +612,94 @@
               <th>Fecha</th>
               <th>Monto</th>
               <th>Persona</th>
+              <th>Pago</th>
               <th>Nota</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             @for (a of pagAbonos.paginaItems; track a.id) {
-              <tr>
-                <td>{{ a.fecha | fechaDmY }}</td>
-                <td class="money">${{ a.monto | number: '1.2-2' }}</td>
-                <td>{{ a.persona || '—' }}</td>
-                <td>{{ a.nota || '—' }}</td>
-                <td class="actions">
-                  <button type="button" class="danger" title="Eliminar" (click)="eliminarAbono(a.id)">×</button>
-                </td>
-              </tr>
+              @if (editandoAbonoId === a.id) {
+                <tr class="edit-abono-row">
+                  <td>
+                    <app-fecha-dia
+                      [(ngModel)]="formEditAbono.fecha"
+                      name="editAbonoFecha"
+                      [max]="fechaMax"
+                      [required]="true"
+                      ariaLabel="Fecha del abono"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      inputmode="decimal"
+                      appClearable
+                      [(ngModel)]="formEditAbono.monto"
+                      name="editAbonoMonto"
+                    />
+                  </td>
+                  <td>
+                    <select [(ngModel)]="formEditAbono.personaId" name="editAbonoPersona" required>
+                      <option [ngValue]="null">Selecciona…</option>
+                      @for (p of personasParaAbono; track p.id) {
+                        <option [ngValue]="p.id">{{ p.nombre }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td>
+                    <div class="pago-seg pago-seg-mini" role="group" aria-label="Forma de pago">
+                      <button
+                        type="button"
+                        class="seg-btn"
+                        [class.activo]="!formEditAbono.pagoTarjeta"
+                        (click)="formEditAbono.pagoTarjeta = false"
+                      >
+                        Efectivo
+                      </button>
+                      <button
+                        type="button"
+                        class="seg-btn"
+                        [class.activo]="formEditAbono.pagoTarjeta"
+                        (click)="formEditAbono.pagoTarjeta = true"
+                      >
+                        Tarjeta
+                      </button>
+                    </div>
+                  </td>
+                  <td>
+                    <input appClearable [(ngModel)]="formEditAbono.nota" name="editAbonoNota" />
+                  </td>
+                  <td class="actions">
+                    <button type="button" (click)="guardarAbonoEditado()" [disabled]="guardandoAbonoEdit">
+                      {{ guardandoAbonoEdit ? '…' : 'Guardar' }}
+                    </button>
+                    <button type="button" class="secondary" (click)="cancelarEditarAbono()" [disabled]="guardandoAbonoEdit">
+                      Cancelar
+                    </button>
+                  </td>
+                </tr>
+              } @else {
+                <tr>
+                  <td>{{ a.fecha | fechaDmY }}</td>
+                  <td class="money">${{ a.monto | number: '1.2-2' }}</td>
+                  <td>{{ a.persona || '—' }}</td>
+                  <td>
+                    @if (a.pagoTarjeta) {
+                      <span class="badge favor">Tarjeta</span>
+                    } @else {
+                      <span class="badge ok">Efectivo</span>
+                    }
+                  </td>
+                  <td>{{ a.nota || '—' }}</td>
+                  <td class="actions">
+                    <button type="button" class="secondary" title="Editar" (click)="empezarEditarAbono(a)">✎</button>
+                    <button type="button" class="danger" title="Eliminar" (click)="eliminarAbono(a.id)">×</button>
+                  </td>
+                </tr>
+              }
             } @empty {
-              <tr><td colspan="5" class="muted">Sin abonos.</td></tr>
+              <tr><td colspan="6" class="muted">Sin abonos.</td></tr>
             }
           </tbody>
         </table>
@@ -652,33 +708,110 @@
       <ul class="hist-cards">
         @for (a of pagAbonos.paginaItems; track a.id; let idx = $index) {
           <li [style.--i]="idx">
-            <div class="item-meta">
-              <span>{{ a.fecha | fechaDmY }}</span>
-              <span class="item-tag">{{ a.persona || '—' }}</span>
-            </div>
-            <p class="item-motivo">{{ a.nota || '—' }}</p>
-            <div class="item-fila">
-              <strong class="money">${{ a.monto | number: '1.2-2' }}</strong>
-              <div class="acciones">
-                <button
-                  type="button"
-                  class="icono peligro"
-                  title="Eliminar"
-                  aria-label="Eliminar"
-                  (click)="eliminarAbono(a.id)"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M6 6l12 12M18 6L6 18"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
+            @if (editandoAbonoId === a.id) {
+              <div class="edit-abono-card form-grid">
+                <label>
+                  Fecha
+                  <app-fecha-dia
+                    [(ngModel)]="formEditAbono.fecha"
+                    name="editAbonoFechaM"
+                    [max]="fechaMax"
+                    [required]="true"
+                    ariaLabel="Fecha del abono"
+                  />
+                </label>
+                <label>
+                  Monto
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    appClearable
+                    [(ngModel)]="formEditAbono.monto"
+                    name="editAbonoMontoM"
+                  />
+                </label>
+                <label>
+                  Persona
+                  <select [(ngModel)]="formEditAbono.personaId" name="editAbonoPersonaM" required>
+                    <option [ngValue]="null">Selecciona…</option>
+                    @for (p of personasParaAbono; track p.id) {
+                      <option [ngValue]="p.id">{{ p.nombre }}</option>
+                    }
+                  </select>
+                </label>
+                <label>
+                  Nota
+                  <input appClearable [(ngModel)]="formEditAbono.nota" name="editAbonoNotaM" />
+                </label>
+                <div class="campo-tarjeta">
+                  <span class="campo-lbl">Forma de pago</span>
+                  <div class="pago-seg" role="group" aria-label="Forma de pago">
+                    <button
+                      type="button"
+                      class="seg-btn"
+                      [class.activo]="!formEditAbono.pagoTarjeta"
+                      (click)="formEditAbono.pagoTarjeta = false"
+                    >
+                      Efectivo
+                    </button>
+                    <button
+                      type="button"
+                      class="seg-btn"
+                      [class.activo]="formEditAbono.pagoTarjeta"
+                      (click)="formEditAbono.pagoTarjeta = true"
+                    >
+                      Tarjeta
+                    </button>
+                  </div>
+                </div>
+                <div class="edicion-actions">
+                  <button type="button" (click)="guardarAbonoEditado()" [disabled]="guardandoAbonoEdit">
+                    {{ guardandoAbonoEdit ? '…' : 'Guardar' }}
+                  </button>
+                  <button type="button" class="secondary" (click)="cancelarEditarAbono()" [disabled]="guardandoAbonoEdit">
+                    Cancelar
+                  </button>
+                </div>
               </div>
-            </div>
+            } @else {
+              <div class="item-meta">
+                <span>{{ a.fecha | fechaDmY }}</span>
+                <span class="item-tag">{{ a.persona || '—' }}</span>
+                @if (a.pagoTarjeta) {
+                  <span class="badge favor">Tarjeta</span>
+                } @else {
+                  <span class="badge ok">Efectivo</span>
+                }
+              </div>
+              <p class="item-motivo">{{ a.nota || 'Abono' }}</p>
+              <div class="item-fila">
+                <strong class="money">${{ a.monto | number: '1.2-2' }}</strong>
+                <div class="acciones">
+                  <button type="button" class="icono" title="Editar" (click)="empezarEditarAbono(a)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20zM14.5 5l4.5 4.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <button type="button" class="icono peligro" title="Eliminar" (click)="eliminarAbono(a.id)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M6 6l12 12M18 6L6 18"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            }
           </li>
         } @empty {
           <li class="vacio muted">Sin abonos.</li>
@@ -693,6 +826,7 @@
         (prev)="pagAbonos.anterior()"
         (next)="pagAbonos.siguiente()"
       />
-    </section>
-  </div>
+    </div>
+    }
+  </section>
 }

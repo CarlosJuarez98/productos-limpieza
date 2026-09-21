@@ -4,10 +4,29 @@ export function pageSizeDefault(movil = 12, escritorio = 25): number {
   return window.matchMedia('(max-width: 767px)').matches ? movil : escritorio;
 }
 
-/** Filas vacías al capturar lote: 1 en móvil, 2 en PC. */
+/** Teléfono / tablet: misma regla que las grillas de cards (≤1024px). */
+export function capturaEsMovil(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(max-width: 1024px)').matches;
+}
+
+/** Filas vacías al capturar lote: 1 en móvil/tablet, 2 en PC. */
 export function capturaLineasVacias(movil = 1, escritorio = 2): number {
   if (typeof window === 'undefined') return escritorio;
-  return window.matchMedia('(max-width: 767px)').matches ? movil : escritorio;
+  return capturaEsMovil() ? movil : escritorio;
+}
+
+/** Conserva líneas con datos y rellena vacías hasta el mínimo del viewport. */
+export function alinearLineasCaptura<T>(
+  lineas: T[],
+  esVacia: (l: T) => boolean,
+  crear: () => T
+): T[] {
+  const objetivo = capturaLineasVacias();
+  const llenas = lineas.filter((l) => !esVacia(l));
+  const out = [...llenas];
+  while (out.length < objetivo) out.push(crear());
+  return out.length ? out : [crear()];
 }
 
 /** Estado de paginación sobre un arreglo ya filtrado. */

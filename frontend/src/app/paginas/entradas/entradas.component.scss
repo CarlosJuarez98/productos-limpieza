@@ -18,10 +18,18 @@ h3 {
   top: 0;
   z-index: 16;
   margin: -0.7rem -1rem 0.55rem;
-  padding: 0.55rem 1rem 0.5rem;
+  padding: 0.45rem 1rem 0.5rem;
   background: var(--bg);
   isolation: isolate;
   box-sizing: border-box;
+}
+
+.entradas-fijo .page-title {
+  margin: 0 0 0.35rem;
+}
+
+.entradas-fijo .corte-aviso {
+  margin: 0 0 0.4rem;
 }
 
 .entradas-fijo::before {
@@ -47,7 +55,7 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.75rem 1rem;
+  gap: 0.55rem 0.85rem;
   margin: 0;
   padding: 0;
   background: transparent;
@@ -57,24 +65,41 @@ h3 {
   box-sizing: border-box;
 }
 
-.captura-meta > label {
-  flex: 0 0 auto;
+.captura-meta > label,
+.captura-meta .fecha-field {
+  flex: 1 1 9rem;
   margin: 0;
+  min-width: 0;
 }
 
 .total-lote {
-  flex: 1 1 10rem;
+  flex: 0 0 auto;
   margin: 0;
-  padding: 0 0.5rem 0.55rem;
-  text-align: center;
-  font-size: 1.05rem;
-  color: var(--text);
-  line-height: 1.2;
+  padding: 0.35rem 0.7rem;
+  min-width: 6.5rem;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.15;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  background: #eef6f1;
+  border: 1px solid #9fbfab;
+  border-radius: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .total-lote strong {
+  font-size: 1.12rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  color: #1f3d2a;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .lote-wrap {
@@ -344,7 +369,7 @@ tr.bajo > td:not(.col-propia) {
   margin-top: 0.55rem;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1025px) {
   .lote-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
@@ -842,14 +867,14 @@ tr.editando-fila.bajo > td:not(.col-propia) {
   background: rgba(28, 101, 74, 0.04);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1024px) {
   .lote-cards {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
   .linea-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
   }
 
   .linea-grid > .total-campo {
@@ -857,43 +882,97 @@ tr.editando-fila.bajo > td:not(.col-propia) {
   }
 
   .linea-card {
-    padding: 0.65rem 0.7rem;
+    padding: 0.5rem 0.55rem 0.55rem;
+  }
+
+  .producto-campo {
+    margin-bottom: 0.4rem;
+  }
+
+  .producto-campo app-producto-autocomplete,
+  .producto-campo ::ng-deep .producto-ac input {
+    font-size: 0.95rem !important;
+    min-height: 2.25rem !important;
+  }
+
+  .campo,
+  .campo-label {
+    font-size: 0.75rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .dato-fijo {
+    min-height: 2.1rem !important;
+    font-size: 0.9rem !important;
   }
 
   .toolbar {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: flex-end;
+    flex-wrap: nowrap;
   }
 
   .entradas-fijo {
-    margin: -0.5rem -0.6rem 0.45rem;
-    padding: 0.45rem 0.6rem 0.4rem;
+    margin: -0.35rem -0.5rem 0.35rem;
+    padding: 0.35rem 0.55rem 0.4rem;
+  }
+
+  .entradas-fijo .page-title {
+    margin-bottom: 0.25rem;
   }
 
   .captura-meta {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.45rem;
+    flex-direction: row;
+    align-items: flex-end;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
     padding: 0;
   }
 
+  .captura-meta .fecha-field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .captura-meta .fecha-field ::ng-deep .fecha-trigger,
+  .captura-meta .fecha-field ::ng-deep button.fecha-trigger {
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+    padding: 0 0.55rem !important;
+    font-size: 0.92rem !important;
+  }
+
   .total-lote {
-    order: -1;
-    /* En columna, flex-basis 10rem se volvía altura (~hueco vacío) */
+    order: 0;
     flex: 0 0 auto;
-    padding: 0.15rem 0 0.35rem;
-    font-size: 1.12rem;
+    padding: 0.3rem 0.55rem;
+    min-width: 5.5rem;
+    font-size: 0.68rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .total-lote strong {
+    font-size: 1rem !important;
   }
 
   .corte-aviso {
-    padding: 0.4rem 0.55rem;
-    margin-bottom: 0.45rem;
+    padding: 0.3rem 0.45rem;
+    margin-bottom: 0.3rem;
+    font-size: 0.78rem !important;
+    line-height: 1.25 !important;
   }
 
   .persona-traspaso {
     flex: 0 0 auto;
     max-width: none;
     width: 100%;
+  }
+
+  .hint,
+  .hint-persona {
+    font-size: 0.78rem !important;
+    line-height: 1.25 !important;
+    margin: 0.25rem 0 !important;
   }
 }
 
@@ -1703,5 +1782,117 @@ tr.editando-fila.bajo > td:not(.col-propia) {
   .prep-hist-cards > li {
     border: none;
     padding: 0;
+  }
+}
+
+.hist-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+.revision-margenes {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border, #d0d5d2));
+}
+
+.revision-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.revision-head .panel-titulo {
+  margin: 0;
+}
+
+.revision-hint {
+  margin-bottom: 0.75rem;
+}
+
+.revision-tabla {
+  margin-bottom: 0.75rem;
+}
+
+.revision-tabla .compra-antes,
+.revision-cards .compra-antes {
+  text-decoration: line-through;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+.aviso-menudeo {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.aviso-menudeo.alerta {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.aviso-menudeo.info {
+  color: #1d4ed8;
+  font-weight: 500;
+}
+
+.revision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.revision-cards {
+  display: none;
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  gap: 0.65rem;
+}
+
+.revision-cards > li {
+  border: 1px solid var(--border, #d0d5d2);
+  border-radius: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  background: #fff;
+}
+
+.revision-cards > li.warn {
+  border-color: color-mix(in srgb, #c2410c 40%, #ddd);
+  background: #fff7ed;
+}
+
+.revision-cards > li.bajo {
+  border-color: color-mix(in srgb, #0369a1 40%, #ddd);
+  background: #f0f9ff;
+}
+
+.rev-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.rev-line {
+  margin: 0.2rem 0;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 767px) {
+  .revision-tabla {
+    display: none;
+  }
+
+  .revision-cards {
+    display: grid;
+  }
+
+  .revision-actions > button {
+    flex: 1 1 100%;
   }
 }

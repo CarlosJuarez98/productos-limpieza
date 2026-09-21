@@ -1,15 +1,15 @@
-﻿<h2 class="page-title">Entrada de proveedor</h2>
+﻿<div class="entradas-fijo">
+  <h2 class="page-title">Entrada de proveedor</h2>
 
-@if (fechaUltimoCorte) {
-  <p class="corte-aviso">
-    Última fecha de corte:
-    <strong class="fecha-naranja-caja">{{ fechaUltimoCorte | fechaDmY }}</strong>
-  </p>
-}
+  @if (fechaUltimoCorte) {
+    <p class="corte-aviso">
+      Última fecha de corte:
+      <strong class="fecha-naranja-caja">{{ fechaUltimoCorte | fechaDmY }}</strong>
+    </p>
+  }
 
-<div class="entradas-fijo">
   <div class="toolbar captura-meta">
-    <label>
+    <label class="fecha-field">
       Fecha
       <app-fecha-dia
         [(ngModel)]="fecha"
@@ -23,7 +23,8 @@
       />
     </label>
     <p class="total-lote">
-      Total lote: <strong>${{ totalLote | number: '1.2-2' }}</strong>
+      Total lote
+      <strong>${{ totalLote | number: '1.2-2' }}</strong>
     </p>
   </div>
 </div>
@@ -105,28 +106,39 @@
               [name]="'cant' + l.key"
               [attr.data-cant-key]="l.key"
               placeholder="0"
-              (ngModelChange)="programarBorrador()"
+              (ngModelChange)="onCantidadChange(l)"
               (keydown.enter)="onCantidadEnter($event, i)"
             />
           </label>
 
-          <label class="campo">
-            Precio $
+          <label class="campo total-campo">
+            Total pagado
             <div class="precio-input">
               <span class="peso">$</span>
               <input
                 type="text"
                 inputmode="decimal"
                 appClearable
-                [(ngModel)]="l.precioProveedor"
-                [name]="'precio' + l.key"
-                [attr.data-precio-key]="l.key"
-                [placeholder]="ultimaCompra(l.productoId) != null ? (ultimaCompra(l.productoId) | number: '1.2-2') : '0'"
-                (ngModelChange)="programarBorrador()"
-                (keydown.enter)="onPrecioEnter($event, i)"
+                [ngModel]="l.totalPagado"
+                (ngModelChange)="onTotalPagadoChange(l, $event)"
+                [name]="'total' + l.key"
+                [attr.data-total-key]="l.key"
+                placeholder=""
+                (keydown.enter)="onTotalEnter($event, i)"
               />
             </div>
           </label>
+
+          <div class="campo">
+            <span class="campo-label">{{ etiquetaPrecio(l.productoId) }}</span>
+            @if (tienePrecioUnitario(l.precioProveedor)) {
+              <div class="dato-fijo money" title="Se calcula solo: total ÷ cantidad">
+                ${{ l.precioProveedor | number: '1.2-4' }}
+              </div>
+            } @else {
+              <div class="dato-fijo muted">—</div>
+            }
+          </div>
 
           <div class="campo">
             <span class="campo-label">Última</span>
@@ -163,15 +175,6 @@
                 }
               }
             </div>
-          </div>
-
-          <div class="campo total-campo">
-            <span class="campo-label">Total</span>
-            @if (totalLinea(l) != null) {
-              <div class="dato-fijo money">${{ totalLinea(l) | number: '1.2-2' }}</div>
-            } @else {
-              <div class="dato-fijo muted">—</div>
-            }
           </div>
 
           @if (l.tambienTraspasar) {
@@ -242,6 +245,135 @@
     <p class="error">{{ error }}</p>
   }
 </section>
+
+@if (revisionPrecios.length) {
+  <section class="panel revision-margenes" style="margin-top: 1rem">
+    <div class="revision-head">
+      <h3 class="panel-titulo">Precios que cambiaron — ¿ajustar venta?</h3>
+      <button type="button" class="icon-btn" (click)="cerrarRevision()" title="Cerrar" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M6 6l12 12M18 6L6 18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.25"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+    </div>
+    <p class="hint revision-hint">
+      Con la compra nueva se recalculan mínimo/máximo sugeridos. El mayoreo se puede actualizar aquí; el
+      menudeo se ajusta en Inventario si hace falta.
+    </p>
+    <div class="table-wrap revision-tabla">
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th class="col-cambio">¿?</th>
+            <th class="money">Compra</th>
+            <th class="money">Menudeo</th>
+            <th class="money">Rango sugerido</th>
+            <th class="money">Mayoreo ≥5 / ≥10</th>
+            <th>Aviso</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of revisionPrecios; track r.productoId) {
+            <tr [class.warn]="r.cambio === 'SUBIO'" [class.bajo]="r.cambio === 'BAJO'">
+              <td [title]="r.nombre">{{ r.nombre }}</td>
+              <td class="col-cambio">
+                @if (r.cambio === 'SUBIO') {
+                  <span class="icono-cambio subio" title="Subió" aria-label="Subió">↑</span>
+                } @else {
+                  <span class="icono-cambio bajo" title="Bajó" aria-label="Bajó">↓</span>
+                }
+              </td>
+              <td class="money">
+                @if (r.compraAnterior != null) {
+                  <span class="compra-antes">${{ r.compraAnterior | number: '1.2-2' }}</span>
+                  →
+                }
+                <strong>${{ r.compraNueva | number: '1.2-2' }}</strong>
+              </td>
+              <td class="money">${{ r.ventaHoy | number: '1.0-0' }}</td>
+              <td class="money">
+                ${{ r.minSugerido | number: '1.0-0' }} – ${{ r.maxSugerido | number: '1.0-0' }}
+              </td>
+              <td class="money">
+                ${{ r.mayoreo5 | number: '1.0-0' }} / ${{ r.mayoreo10 | number: '1.0-0' }}
+              </td>
+              <td>
+                <span
+                  class="aviso-menudeo"
+                  [class.alerta]="r.avisoMenudeo === 'bajo_min' || r.avisoMenudeo === 'sin_venta'"
+                  [class.info]="r.avisoMenudeo === 'sobre_max' || r.avisoMenudeo === 'en_min'"
+                >
+                  {{ textoAvisoMenudeo(r.avisoMenudeo) }}
+                </span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <ul class="revision-cards">
+      @for (r of revisionPrecios; track r.productoId) {
+        <li [class.warn]="r.cambio === 'SUBIO'" [class.bajo]="r.cambio === 'BAJO'">
+          <div class="rev-card-top">
+            <strong>{{ r.nombre }}</strong>
+            @if (r.cambio === 'SUBIO') {
+              <span class="icono-cambio subio">↑</span>
+            } @else {
+              <span class="icono-cambio bajo">↓</span>
+            }
+          </div>
+          <p class="rev-line">
+            Compra
+            @if (r.compraAnterior != null) {
+              <span class="compra-antes">${{ r.compraAnterior | number: '1.2-2' }}</span> →
+            }
+            <strong>${{ r.compraNueva | number: '1.2-2' }}</strong>
+          </p>
+          <p class="rev-line">
+            Menudeo <strong>${{ r.ventaHoy | number: '1.0-0' }}</strong>
+            · sugerido ${{ r.minSugerido | number: '1.0-0' }}–${{ r.maxSugerido | number: '1.0-0' }}
+          </p>
+          <p class="rev-line">
+            Mayoreo ≥5 / ≥10: ${{ r.mayoreo5 | number: '1.0-0' }} / ${{ r.mayoreo10 | number: '1.0-0' }}
+          </p>
+          <p
+            class="aviso-menudeo"
+            [class.alerta]="r.avisoMenudeo === 'bajo_min' || r.avisoMenudeo === 'sin_venta'"
+            [class.info]="r.avisoMenudeo === 'sobre_max' || r.avisoMenudeo === 'en_min'"
+          >
+            {{ textoAvisoMenudeo(r.avisoMenudeo) }}
+          </p>
+        </li>
+      }
+    </ul>
+    <div class="revision-actions">
+      <button
+        type="button"
+        (click)="recalcularMayoreoDesdeMargenes()"
+        [disabled]="recalculandoMargenes"
+      >
+        {{ recalculandoMargenes ? 'Recalculando…' : 'Recalcular mayoreo' }}
+      </button>
+      <button type="button" class="secondary" (click)="irAInventario()">
+        Ajustar menudeo en Inventario
+      </button>
+      <button type="button" class="secondary" (click)="cerrarRevision()">Listo</button>
+    </div>
+    @if (okMargenes) {
+      <p class="ok-msg" appAutoHide (autoHide)="okMargenes = ''">{{ okMargenes }}</p>
+    }
+    @if (errorMargenes) {
+      <p class="error">{{ errorMargenes }}</p>
+    }
+  </section>
+}
 
 <section class="panel panel-prep" id="entradas-prep-top" data-pag-top style="margin-top: 1rem">
   <button type="button" class="panel-toggle" (click)="togglePrep()" [attr.aria-expanded]="prepAbierta">
@@ -582,6 +714,17 @@
   </button>
   @if (histAbierta) {
   <div class="panel-toggle-body">
+  <div class="hist-acciones">
+    <button
+      type="button"
+      class="secondary"
+      (click)="revisarPreciosCambiados()"
+      [disabled]="!hayEntradasConCambioPrecio"
+      title="Ver productos cuyo precio de compra subió o bajó y comparar con menudeo/márgenes"
+    >
+      Revisar márgenes
+    </button>
+  </div>
   <div class="table-wrap hist-tabla hist-entradas">
     <table>
       <thead>
@@ -589,7 +732,7 @@
           <th class="col-fecha">Fecha</th>
           <th class="col-producto">Producto</th>
           <th class="money col-cant">Cantidad</th>
-          <th class="money col-precio">Precio</th>
+          <th class="money col-precio">Precio unit.</th>
           <th class="money col-total">Total</th>
           <th class="money col-ultima">Última compra</th>
           <th class="col-cambio" title="¿Subió, bajó o igual vs la última compra?">¿Subió?</th>
@@ -697,25 +840,35 @@
                       inputmode="decimal"
                       appClearable
                       [(ngModel)]="formEdit.cantidad"
+                      (ngModelChange)="onFormEditCantidadChange()"
                       name="editCant"
                       placeholder="0"
                       required
                     />
                   </label>
                   <label>
-                    Precio proveedor
+                    Total pagado
                     <div class="precio-input">
                       <span class="peso">$</span>
                       <input
                         type="text"
                         inputmode="decimal"
                         appClearable
-                        [(ngModel)]="formEdit.precioProveedor"
-                        name="editPrecio"
-                        placeholder="0"
+                        [ngModel]="formEdit.totalPagado"
+                        (ngModelChange)="onFormEditTotalChange($event)"
+                        name="editTotal"
+                        placeholder=""
                       />
                     </div>
                   </label>
+                  <div>
+                    <span class="campo-label">{{ etiquetaPrecio(formEdit.productoId) }}</span>
+                    @if (tienePrecioUnitario(formEdit.precioProveedor)) {
+                      <div class="dato-fijo money">${{ formEdit.precioProveedor | number: '1.2-4' }}</div>
+                    } @else {
+                      <div class="dato-fijo muted">—</div>
+                    }
+                  </div>
                   <div class="edicion-actions">
                     <button type="submit" [disabled]="guardandoEdit">
                       {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
@@ -764,25 +917,35 @@
             inputmode="decimal"
             appClearable
             [(ngModel)]="formEdit.cantidad"
+            (ngModelChange)="onFormEditCantidadChange()"
             name="editCantMovil"
             placeholder="0"
             required
           />
         </label>
         <label>
-          Precio proveedor
+          Total pagado
           <div class="precio-input">
             <span class="peso">$</span>
             <input
               type="text"
               inputmode="decimal"
               appClearable
-              [(ngModel)]="formEdit.precioProveedor"
-              name="editPrecioMovil"
-              placeholder="0"
+              [ngModel]="formEdit.totalPagado"
+              (ngModelChange)="onFormEditTotalChange($event)"
+              name="editTotalMovil"
+              placeholder=""
             />
           </div>
         </label>
+        <div>
+          <span class="campo-label">{{ etiquetaPrecio(formEdit.productoId) }}</span>
+          @if (tienePrecioUnitario(formEdit.precioProveedor)) {
+            <div class="dato-fijo money">${{ formEdit.precioProveedor | number: '1.2-4' }}</div>
+          } @else {
+            <div class="dato-fijo muted">—</div>
+          }
+        </div>
         <div class="edicion-actions">
           <button type="submit" [disabled]="guardandoEdit">
             {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}

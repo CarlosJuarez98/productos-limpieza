@@ -109,8 +109,8 @@
   gap: 0.55rem;
 }
 
-/* Escritorio: 2 rectángulos compactos por fila (hacia la derecha). */
-@media (min-width: 900px) {
+/* Escritorio ancho: 2 rectángulos compactos por fila. */
+@media (min-width: 1025px) {
   .ticket {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
@@ -483,6 +483,37 @@
 .producto-campo ::ng-deep .producto-ac input {
   font-size: 1.05rem;
   min-height: 2.55rem;
+}
+
+@media (max-width: 1024px) {
+  .ticket {
+    grid-template-columns: 1fr !important;
+  }
+
+  .producto-campo {
+    margin-bottom: 0.4rem;
+  }
+
+  .producto-campo app-producto-autocomplete,
+  .producto-campo ::ng-deep .producto-ac input {
+    font-size: 0.95rem !important;
+    min-height: 2.25rem !important;
+  }
+
+  .linea-card {
+    padding: 0.5rem 0.55rem 0.55rem;
+  }
+
+  .campo,
+  .campo-label {
+    font-size: 0.75rem !important;
+  }
+
+  .modo-chip {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.4rem;
+    min-height: 1.7rem;
+  }
 }
 
 .linea-grid {

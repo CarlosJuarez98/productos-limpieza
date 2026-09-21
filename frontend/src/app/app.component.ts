@@ -10,6 +10,8 @@ import { ApiService } from './api.service';
 
 type NavIcon =
   | 'ventas'
+  | 'domicilio'
+  | 'publicidad'
   | 'inventario'
   | 'entradas'
   | 'surtir'
@@ -35,9 +37,10 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mainScroll') mainRef!: ElementRef<HTMLElement>;
   @ViewChild('topNav') topNavRef?: ElementRef<HTMLElement>;
 
-  /** Escritorio: todas las secciones. */
+  /** Escritorio: secciones frecuentes (el resto va en Más). */
   readonly links: NavLink[] = [
     { path: '/ventas', label: 'Ventas', icon: 'ventas' },
+    { path: '/domicilio', label: 'Domicilio', icon: 'domicilio' },
     { path: '/inventario', label: 'Inventario', icon: 'inventario' },
     { path: '/entradas', label: 'Entrada de proveedor', short: 'Entradas', icon: 'entradas' },
     { path: '/surtir', label: 'Surtir', icon: 'surtir' },
@@ -47,18 +50,25 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     { path: '/inversion', label: 'Inversión', icon: 'inversion' },
     { path: '/precios', label: 'Histórico precios', short: 'Precios', icon: 'precios' },
     { path: '/uso-casa', label: 'Uso en casa', short: 'Uso casa', icon: 'uso-casa' },
-    { path: '/lista-precios', label: 'Lista precios', short: 'Más', icon: 'lista' },
   ];
 
   /** Móvil: barra inferior (operación diaria). */
   readonly bottomLinks: NavLink[] = [
     { path: '/ventas', label: 'Ventas', icon: 'ventas' },
+    { path: '/domicilio', label: 'Domicilio', icon: 'domicilio' },
     { path: '/inventario', label: 'Inventario', icon: 'inventario' },
-    { path: '/entradas', label: 'Entradas', icon: 'entradas' },
     { path: '/caja', label: 'Caja', icon: 'caja' },
   ];
 
+  /** Solo aparecen en Más (escritorio y móvil). */
+  readonly moreOnlyLinks: NavLink[] = [
+    { path: '/lista-precios', label: 'Lista precios', icon: 'lista' },
+    { path: '/publicidad', label: 'Publicidad', icon: 'publicidad' },
+  ];
+
+  /** Móvil: resto de secciones + lista/publicidad. */
   readonly moreLinks: NavLink[] = [
+    { path: '/entradas', label: 'Entradas', icon: 'entradas' },
     { path: '/surtir', label: 'Surtir / Pedido', icon: 'surtir' },
     { path: '/traspasos', label: 'Traspasos', icon: 'traspasos' },
     { path: '/apartados', label: 'Apartados', icon: 'apartados' },
@@ -66,6 +76,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     { path: '/precios', label: 'Histórico precios', icon: 'precios' },
     { path: '/uso-casa', label: 'Uso en casa', icon: 'uso-casa' },
     { path: '/lista-precios', label: 'Lista precios', icon: 'lista' },
+    { path: '/publicidad', label: 'Publicidad', icon: 'publicidad' },
   ];
 
   masAbierto = false;
@@ -109,7 +120,15 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   get masActivo(): boolean {
-    return this.moreLinks.some((l) => this.router.url.startsWith(l.path));
+    return this.masLinksVista.some((l) => this.router.url.startsWith(l.path));
+  }
+
+  /** En móvil el sheet trae todas las secciones secundarias; en escritorio solo Lista y Publicidad. */
+  get masLinksVista(): NavLink[] {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      return this.moreLinks;
+    }
+    return this.moreOnlyLinks;
   }
 
   private irALogin(): void {
@@ -372,7 +391,13 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     const target = e.target;
     if (!(target instanceof Element)) return;
 
-    if (target.closest('.overlay, [role="dialog"], app-confirm-dialog, .sugerencias, .mas-sheet')) return;
+    if (
+      target.closest(
+        '.overlay, [role="dialog"], .cal-pop, app-confirm-dialog, .sugerencias, .mas-sheet'
+      )
+    ) {
+      return;
+    }
 
     const nested = target.closest('.table-wrap, .ticket') as HTMLElement | null;
     if (nested && main.contains(nested)) {

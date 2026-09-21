@@ -10,6 +10,8 @@ import { UsoCasaComponent } from './paginas/uso-casa/uso-casa.component';
 import { TraspasosComponent } from './paginas/traspasos/traspasos.component';
 import { InversionComponent } from './paginas/inversion/inversion.component';
 import { SurtirComponent } from './paginas/surtir/surtir.component';
+import { DomicilioComponent } from './paginas/domicilio/domicilio.component';
+import { PublicidadComponent } from './paginas/publicidad/publicidad.component';
 import { LoginComponent } from './paginas/login/login.component';
 import { authGuard, guestGuard } from './auth.guard';
 
@@ -17,6 +19,8 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent, canActivate: [guestGuard] },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: 'ventas', component: VentasComponent, canActivate: [authGuard] },
+  { path: 'domicilio', component: DomicilioComponent, canActivate: [authGuard] },
+  { path: 'publicidad', component: PublicidadComponent, canActivate: [authGuard] },
   { path: 'entradas', component: EntradasComponent, canActivate: [authGuard] },
   { path: 'surtir', component: SurtirComponent, canActivate: [authGuard] },
   { path: 'inventario', component: InventarioComponent, canActivate: [authGuard] },

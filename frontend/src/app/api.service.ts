@@ -21,6 +21,7 @@ import {
   RecetaSugerida,
   PedidoSugerido,
   PedidoRegistrado,
+  PedidoDomicilio,
   Traspaso,
   TraspasoAbono,
   TraspasosResumen,
@@ -191,6 +192,10 @@ export class ApiService {
 
   crearAbonoTraspaso(body: unknown): Observable<TraspasoAbono> {
     return this.http.post<TraspasoAbono>(`${this.base}/traspasos/abonos`, body);
+  }
+
+  actualizarAbonoTraspaso(id: number, body: unknown): Observable<TraspasoAbono> {
+    return this.http.put<TraspasoAbono>(`${this.base}/traspasos/abonos/${id}`, body);
   }
 
   eliminarAbonoTraspaso(id: number): Observable<void> {
@@ -379,5 +384,40 @@ export class ApiService {
 
   eliminarInversion(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/inversion/${id}`);
+  }
+
+  domicilios(): Observable<PedidoDomicilio[]> {
+    return this.http.get<PedidoDomicilio[]>(`${this.base}/domicilios`);
+  }
+
+  domiciliosPendientes(): Observable<PedidoDomicilio[]> {
+    return this.http.get<PedidoDomicilio[]>(`${this.base}/domicilios/pendientes`);
+  }
+
+  domicilio(id: number): Observable<PedidoDomicilio> {
+    return this.http.get<PedidoDomicilio>(`${this.base}/domicilios/${id}`);
+  }
+
+  crearDomicilio(body: unknown): Observable<PedidoDomicilio> {
+    return this.http.post<PedidoDomicilio>(`${this.base}/domicilios`, body);
+  }
+
+  actualizarDomicilio(id: number, body: unknown): Observable<PedidoDomicilio> {
+    return this.http.put<PedidoDomicilio>(`${this.base}/domicilios/${id}`, body);
+  }
+
+  entregarDomicilio(
+    id: number,
+    body?: { fecha?: string; pagoTarjeta?: boolean }
+  ): Observable<PedidoDomicilio> {
+    return this.http.post<PedidoDomicilio>(`${this.base}/domicilios/${id}/entregar`, body || {});
+  }
+
+  cancelarDomicilio(id: number): Observable<PedidoDomicilio> {
+    return this.http.post<PedidoDomicilio>(`${this.base}/domicilios/${id}/cancelar`, {});
+  }
+
+  eliminarDomicilio(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/domicilios/${id}`);
   }
 }

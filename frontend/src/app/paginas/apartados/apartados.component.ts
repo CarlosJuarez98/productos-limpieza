@@ -246,13 +246,24 @@ export class ApartadosComponent implements OnInit {
       this.montos[codigo] = null;
       return;
     }
-    const limpio = Number(String(raw).replace(/,/g, '').trim());
+    // Acepta punto o coma decimal; no reescribe el input mientras escriben "10." / "0,5".
+    const normalized = String(raw).trim().replace(/,/g, '.');
+    if (!/^\d*\.?\d{0,2}$/.test(normalized)) {
+      el.value = this.montos[codigo] != null ? String(this.montos[codigo]) : '';
+      return;
+    }
+    if (normalized === '.' || normalized.endsWith('.')) {
+      const base = normalized === '.' ? 0 : Number(normalized.slice(0, -1));
+      this.montos[codigo] = Number.isFinite(base) ? base : null;
+      return;
+    }
+    const limpio = Number(normalized);
     if (!Number.isFinite(limpio)) {
       return;
     }
-    if (limpio <= 0) {
-      this.montos[codigo] = limpio === 0 ? 0 : null;
-      el.value = limpio === 0 ? '0' : '';
+    if (limpio < 0) {
+      this.montos[codigo] = null;
+      el.value = '';
       return;
     }
     const otros = this.rubrosApartar
@@ -261,7 +272,8 @@ export class ApartadosComponent implements OnInit {
     const maxCampo = Math.round(Math.max(0, this.disponibleCaja - otros) * 100) / 100;
     const valor = Math.round(Math.min(limpio, maxCampo) * 100) / 100;
     this.montos[codigo] = valor;
-    if (valor !== limpio || el.value !== String(valor)) {
+    // Solo fuerza el valor si se tocó el tope de disponible (no al tipear decimales).
+    if (valor < limpio) {
       el.value = String(valor);
     }
     this.cdr.detectChanges();

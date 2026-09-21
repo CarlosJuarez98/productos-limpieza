@@ -9,5 +9,6 @@ public record TraspasoAbonoDto(
     BigDecimal monto,
     Long personaId,
     String persona,
-    String nota
+    String nota,
+    boolean pagoTarjeta
 ) {}

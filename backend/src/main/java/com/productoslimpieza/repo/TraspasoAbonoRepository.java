@@ -19,4 +19,7 @@ public interface TraspasoAbonoRepository extends JpaRepository<TraspasoAbono, Lo
 
   @Query("select coalesce(sum(a.monto), 0) from TraspasoAbono a")
   BigDecimal sumMonto();
+
+  @Query("select coalesce(sum(a.monto), 0) from TraspasoAbono a where a.pagoTarjeta = true")
+  BigDecimal sumMontoPagoTarjeta();
 }

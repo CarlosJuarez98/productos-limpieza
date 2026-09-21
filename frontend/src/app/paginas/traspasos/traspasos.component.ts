@@ -11,7 +11,7 @@ import { ProductoAutocompleteComponent } from '../../producto-autocomplete.compo
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
-import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
+import { alinearLineasCaptura, capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { Traspaso, TraspasoAbono } from '../../modelos';
 import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
@@ -20,6 +20,7 @@ interface LineaForm {
   key: number;
   productoId: number | null;
   cantidad: number | null;
+  muestra: boolean;
 }
 
 type DraftTraspasos = {
@@ -57,6 +58,11 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   data: TraspasosResumen | null = null;
   pagTraspasos = new PaginacionEstado<Traspaso>();
   pagAbonos = new PaginacionEstado<TraspasoAbono>();
+  /** Historiales colapsables (móvil: cerrados al inicio). */
+  histTraspasosAbierta =
+    typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
+  histAbonosAbierta =
+    typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches;
   productos: InventarioItem[] = [];
   error = '';
   private nextKey = 1;
@@ -68,15 +74,26 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     personaNueva: '',
     nota: '',
   };
-  lineas: LineaForm[] = [this.nuevaLinea()];
+  lineas: LineaForm[] = Array.from({ length: capturaLineasVacias() }, () => this.nuevaLinea());
   abono = {
     fecha: this.hoyLocal(),
     monto: null as number | null,
     personaId: null as number | null,
     nota: '',
+    pagoTarjeta: false,
+  };
+  editandoAbonoId: number | null = null;
+  guardandoAbonoEdit = false;
+  errorAbonoEdit = '';
+  formEditAbono = {
+    fecha: '',
+    monto: null as number | null,
+    personaId: null as number | null,
+    nota: '',
+    pagoTarjeta: false,
   };
   editandoId: number | null = null;
-  private editandoOriginal: Traspaso | null = null;
+  editandoOriginal: Traspaso | null = null;
   errorEdit = '';
   guardandoEdit = false;
   formEdit = {
@@ -97,6 +114,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.restaurarBorrador();
+    this.alinearLineasAlViewport();
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
@@ -105,6 +123,28 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     this.persistirBorrador();
     this.pullSub?.unsubscribe();
     if (this.draftTimer != null) clearTimeout(this.draftTimer);
+  }
+
+  /** En móvil/tablet 1 card vacía; en PC 2. Recorta vacías sobrantes del borrador. */
+  private alinearLineasAlViewport(): void {
+    this.lineas = alinearLineasCaptura(
+      this.lineas,
+      (l) => l.productoId == null && !(Number(l.cantidad) > 0) && !l.muestra,
+      () => this.nuevaLinea()
+    );
+  }
+
+  @HostListener('window:resize')
+  onResizeViewport(): void {
+    this.alinearLineasAlViewport();
+  }
+
+  toggleHistTraspasos(): void {
+    this.histTraspasosAbierta = !this.histTraspasosAbierta;
+  }
+
+  toggleHistAbonos(): void {
+    this.histAbonosAbierta = !this.histAbonosAbierta;
   }
 
   hoyLocal(): string {
@@ -138,7 +178,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   }
 
   private nuevaLinea(): LineaForm {
-    return { key: this.nextKey++, productoId: null, cantidad: null };
+    return { key: this.nextKey++, productoId: null, cantidad: null, muestra: false };
   }
 
   precioCompra(productoId: number | null): number {
@@ -172,9 +212,23 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   }
 
   totalLinea(l: LineaForm): number {
+    if (l.muestra) return 0;
     const cant = Number(l.cantidad);
     if (!Number.isFinite(cant) || cant <= 0) return 0;
     return Math.round(cant * this.precioCompra(l.productoId) * 100) / 100;
+  }
+
+  /** Template-safe: evita Number() en HTML (strict templates). */
+  tieneCantidad(l: { cantidad?: number | null }): boolean {
+    const c = Number(l.cantidad);
+    return Number.isFinite(c) && c > 0;
+  }
+
+  esLineaMuestra(l: { total?: number | null; precioCompra?: number | null } | LineaForm): boolean {
+    if ('muestra' in l && typeof (l as LineaForm).muestra === 'boolean') {
+      return (l as LineaForm).muestra;
+    }
+    return Number((l as { total?: number }).total) === 0;
   }
 
   get totalEstimado(): number {
@@ -298,12 +352,12 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   }
 
   quitarLinea(index: number): void {
-    if (this.lineas.length <= 1) {
-      this.lineas = [this.nuevaLinea()];
-      this.programarBorrador();
-      return;
-    }
     this.lineas.splice(index, 1);
+    const min = capturaLineasVacias();
+    while (this.lineas.length < min) {
+      this.lineas.push(this.nuevaLinea());
+    }
+    if (!this.lineas.length) this.lineas.push(this.nuevaLinea());
     this.programarBorrador();
   }
 
@@ -340,6 +394,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
         productoId: l.productoId as number,
         productoNombre: this.productos.find((x) => x.id === l.productoId)?.nombre,
         cantidad: Number(l.cantidad),
+        muestra: l.muestra === true,
       }));
     if (!lineas.length) {
       this.error = 'Elige productos del inventario y su cantidad';
@@ -389,16 +444,90 @@ export class TraspasosComponent implements OnInit, OnDestroy {
         monto: this.abono.monto,
         personaId: this.abono.personaId,
         nota: this.abono.nota || null,
+        pagoTarjeta: this.abono.pagoTarjeta === true,
       })
       .subscribe({
         next: () => {
           this.abono.monto = null;
           this.abono.personaId = null;
           this.abono.nota = '';
+          this.abono.pagoTarjeta = false;
           this.cargar();
         },
         error: (e) => (this.error = this.msgError(e) || 'Error al guardar abono'),
       });
+  }
+
+  empezarEditarAbono(a: TraspasoAbono): void {
+    this.errorAbonoEdit = '';
+    this.editandoAbonoId = a.id;
+    this.formEditAbono = {
+      fecha: a.fecha,
+      monto: Number(a.monto),
+      personaId: a.personaId,
+      nota: a.nota || '',
+      pagoTarjeta: !!a.pagoTarjeta,
+    };
+  }
+
+  cancelarEditarAbono(): void {
+    this.editandoAbonoId = null;
+    this.errorAbonoEdit = '';
+    this.guardandoAbonoEdit = false;
+  }
+
+  guardarAbonoEditado(): void {
+    if (this.editandoAbonoId == null) return;
+    this.errorAbonoEdit = '';
+    if (this.formEditAbono.personaId == null) {
+      this.errorAbonoEdit = 'Selecciona la persona de la lista';
+      return;
+    }
+    if (!(Number(this.formEditAbono.monto) > 0)) {
+      this.errorAbonoEdit = 'Indica el monto del abono';
+      return;
+    }
+    if (!this.formEditAbono.fecha) {
+      this.errorAbonoEdit = 'Indica la fecha';
+      return;
+    }
+    if (this.formEditAbono.fecha > this.hoyLocal()) {
+      this.errorAbonoEdit = 'La fecha no puede ser futura';
+      return;
+    }
+    this.guardandoAbonoEdit = true;
+    this.api
+      .actualizarAbonoTraspaso(this.editandoAbonoId, {
+        fecha: this.formEditAbono.fecha,
+        monto: this.formEditAbono.monto,
+        personaId: this.formEditAbono.personaId,
+        nota: this.formEditAbono.nota || null,
+        pagoTarjeta: this.formEditAbono.pagoTarjeta === true,
+      })
+      .subscribe({
+        next: () => {
+          this.guardandoAbonoEdit = false;
+          this.cancelarEditarAbono();
+          this.cargar();
+        },
+        error: (e) => {
+          this.guardandoAbonoEdit = false;
+          this.errorAbonoEdit = this.msgError(e) || 'Error al actualizar abono';
+        },
+      });
+  }
+
+  async eliminarAbono(id: number): Promise<void> {
+    const ok = await this.confirmDlg.ask(
+      '¿Eliminar abono? También se quita el ingreso en caja.',
+      { confirmarTexto: 'Eliminar' }
+    );
+    if (!ok) return;
+    if (this.editandoAbonoId === id) this.cancelarEditarAbono();
+    this.api.eliminarAbonoTraspaso(id).subscribe({
+      next: () => this.cargar(),
+      error: (e) => (this.error = this.msgError(e) || 'Error al eliminar abono'),
+    });
   }
 
   async eliminar(id: number): Promise<void> {
@@ -410,6 +539,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
 
   editar(t: Traspaso): void {
     this.errorEdit = '';
+    this.histTraspasosAbierta = true;
     this.editandoId = t.id;
     this.editandoOriginal = t;
     this.formEdit = {
@@ -420,15 +550,17 @@ export class TraspasosComponent implements OnInit, OnDestroy {
         key: this.nextKey++,
         productoId: l.productoId ?? null,
         cantidad: l.cantidad ?? null,
+        muestra: Number(l.total) === 0,
       })),
     };
     if (!this.formEdit.lineas.length) this.formEdit.lineas = [this.nuevaLinea()];
     this.cdr.detectChanges();
-    setTimeout(() => {
-      const el =
-        document.querySelector('.hist-edicion-movil') || document.querySelector('.fila-edicion');
-      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 50);
+    setTimeout(() => this.enfocarEdicion(t.id), 80);
+  }
+
+  private enfocarEdicion(_id: number): void {
+    const el = document.getElementById('edit-traspaso-panel');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   cancelarEdicion(): void {
@@ -478,7 +610,11 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     if (!this.validarFecha(this.formEdit.fecha, 'errorEdit')) return;
     const lineas = this.formEdit.lineas
       .filter((l) => l.productoId != null && Number(l.cantidad) > 0)
-      .map((l) => ({ productoId: l.productoId as number, cantidad: Number(l.cantidad) }));
+      .map((l) => ({
+        productoId: l.productoId as number,
+        cantidad: Number(l.cantidad),
+        muestra: l.muestra === true,
+      }));
     if (!lineas.length) {
       this.errorEdit = 'Elige productos y su cantidad';
       return;
@@ -506,12 +642,6 @@ export class TraspasosComponent implements OnInit, OnDestroy {
           this.errorEdit = this.msgError(e) || 'Error al actualizar traspaso';
         },
       });
-  }
-
-  async eliminarAbono(id: number): Promise<void> {
-    const ok = await this.confirmDlg.ask('¿Eliminar abono?', { confirmarTexto: 'Eliminar' });
-    if (!ok) return;
-    this.api.eliminarAbonoTraspaso(id).subscribe({ next: () => this.cargar() });
   }
 
   private hayBorradorUtil(): boolean {
@@ -543,7 +673,11 @@ export class TraspasosComponent implements OnInit, OnDestroy {
         nota: this.form.nota,
       },
       nextKey: this.nextKey,
-      lineas: this.lineas.map(({ productoId, cantidad }) => ({ productoId, cantidad })),
+      lineas: this.lineas.map(({ productoId, cantidad, muestra }) => ({
+        productoId,
+        cantidad,
+        muestra: !!muestra,
+      })),
     };
     this.drafts.save(TraspasosComponent.DRAFT, draft);
   }
@@ -565,6 +699,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
         key: this.nextKey++,
         productoId: l.productoId ?? null,
         cantidad: l.cantidad ?? null,
+        muestra: !!l.muestra,
       }));
     }
   }

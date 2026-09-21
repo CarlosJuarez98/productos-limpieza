@@ -14,7 +14,7 @@ import { ProductoAltaFormComponent } from '../../producto-alta-form.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
-import { capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
+import { alinearLineasCaptura, capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
@@ -23,7 +23,10 @@ interface LineaForm {
   key: number;
   productoId: number | null;
   cantidad: number | null;
+  /** Precio unitario (se calcula: total pagado ÷ cantidad). */
   precioProveedor: number | null;
+  /** Lo que pagaste por la cantidad; vacío hasta que lo captures. */
+  totalPagado: number | null;
   /** Si true, esta línea participa en el traspaso (icono activo). */
   tambienTraspasar: boolean;
   /** Cantidad a traspasar de esta línea (opcional, ≤ cantidad de entrada). */
@@ -32,9 +35,32 @@ interface LineaForm {
 
 type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
 
+type AvisoMenudeo = 'bajo_min' | 'en_min' | 'ok' | 'sobre_max' | 'sin_venta';
+
+interface CambioCapturado {
+  productoId: number;
+  nombre: string;
+  cambio: 'SUBIO' | 'BAJO';
+  compraAnterior: number | null;
+}
+
+interface RevisionPrecioItem {
+  productoId: number;
+  nombre: string;
+  cambio: 'SUBIO' | 'BAJO';
+  compraAnterior: number | null;
+  compraNueva: number;
+  ventaHoy: number;
+  minSugerido: number;
+  maxSugerido: number;
+  mayoreo5: number;
+  mayoreo10: number;
+  avisoMenudeo: AvisoMenudeo;
+}
+
 type DraftEntradas = {
   fecha: string;
-  lineas: Array<Omit<LineaForm, 'key'> & { tambienTraspasar?: boolean }>;
+  lineas: Array<Omit<LineaForm, 'key'> & { tambienTraspasar?: boolean; totalPagado?: number | null }>;
   nextKey: number;
   /** @deprecated Preferir por línea; se migra al restaurar. */
   tambienTraspasar?: boolean;
@@ -83,6 +109,11 @@ export class EntradasComponent implements OnInit, OnDestroy {
   okPrep = '';
   ok = '';
   errorEdit = '';
+  /** Productos cuyo precio de compra subió/bajó: comparar menudeo vs rango sugerido. */
+  revisionPrecios: RevisionPrecioItem[] = [];
+  recalculandoMargenes = false;
+  okMargenes = '';
+  errorMargenes = '';
   guardando = false;
   guardandoEdit = false;
   /** Persona destino cuando alguna línea tiene traspaso activo. */
@@ -125,6 +156,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     productoId: null as number | null,
     cantidad: null as number | null,
     precioProveedor: null as number | null,
+    totalPagado: null as number | null,
   };
 
   constructor(
@@ -139,6 +171,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.restaurarBorrador();
+    this.alinearLineasViewport();
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
@@ -147,6 +180,28 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.persistirBorrador();
     this.pullSub?.unsubscribe();
     if (this.draftTimer != null) clearTimeout(this.draftTimer);
+  }
+
+  @HostListener('window:resize')
+  onResizeCaptura(): void {
+    this.alinearLineasViewport();
+  }
+
+  private entradaLineaVacia(l: LineaForm): boolean {
+    return (
+      l.productoId == null &&
+      !(Number(l.cantidad) > 0) &&
+      !(Number(l.precioProveedor) > 0) &&
+      !(Number(l.totalPagado) > 0)
+    );
+  }
+
+  private alinearLineasViewport(): void {
+    this.lineas = alinearLineasCaptura(
+      this.lineas,
+      (l) => this.entradaLineaVacia(l),
+      () => this.nuevaLinea()
+    );
   }
 
   @HostListener('window:pagehide')
@@ -434,6 +489,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
       productoId: null,
       cantidad: null,
       precioProveedor: null,
+      totalPagado: null,
       tambienTraspasar: false,
       cantidadTraspaso: null,
     };
@@ -444,6 +500,21 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.programarBorrador();
   }
 
+  onCantidadChange(l: LineaForm): void {
+    this.recalcularPrecioDesdeTotal(l);
+    this.programarBorrador();
+  }
+
+  /** Unidad del precio (L o pza) según el producto. */
+  etiquetaPrecio(productoId: number | null): string {
+    const p = this.productos.find((x) => x.id === productoId);
+    return p?.vendePor === 'PIEZA' ? 'Precio / pza' : 'Precio / L';
+  }
+
+  /**
+   * Detecta si el valor en Precio parece el total pagado (cant × última)
+   * en vez del precio unitario. Ej: 0.250 L × $36 = $9.
+   */
   nombreProducto(productoId: number | null): string {
     if (productoId == null) return '—';
     return this.productos.find((p) => p.id === productoId)?.nombre || '—';
@@ -495,6 +566,13 @@ export class EntradasComponent implements OnInit, OnDestroy {
     return diff > 0 ? 'SUBIO' : 'BAJO';
   }
 
+  /** Precio unitario listo para mostrar (no usar Number/String en el template). */
+  tienePrecioUnitario(precio: number | null | undefined): boolean {
+    if (precio == null || String(precio) === '') return false;
+    const n = Number(precio);
+    return Number.isFinite(n) && n >= 0;
+  }
+
   /** Diferencia absoluta vs última compra (para mostrar en badge). */
   diffAbsLinea(l: LineaForm): number {
     return Math.abs(this.diffLinea(l) ?? 0);
@@ -516,11 +594,268 @@ export class EntradasComponent implements OnInit, OnDestroy {
     return null;
   }
 
+  get hayEntradasConCambioPrecio(): boolean {
+    return this.entradas.some((e) => e.precioMayor || e.precioMenor);
+  }
+
+  textoAvisoMenudeo(a: AvisoMenudeo): string {
+    switch (a) {
+      case 'bajo_min':
+        return 'Menudeo bajo el mínimo → conviene subir';
+      case 'en_min':
+        return 'Menudeo en el mínimo (justo)';
+      case 'sobre_max':
+        return 'Menudeo arriba del máximo → puedes bajar';
+      case 'sin_venta':
+        return 'Sin precio de menudeo';
+      default:
+        return 'Menudeo dentro del rango';
+    }
+  }
+
+  private avisoMenudeoDe(p: InventarioItem): AvisoMenudeo {
+    const venta = Number(p.precioVentaHoy) || 0;
+    if (venta <= 0) return 'sin_venta';
+    if (p.precioVentaBajoMinimo) return 'bajo_min';
+    if (p.precioVentaEnMinimo) return 'en_min';
+    const max = Number(p.precioMaximoSugerido) || 0;
+    if (max > 0 && venta > max + 0.005) return 'sobre_max';
+    return 'ok';
+  }
+
+  private construirRevision(cambios: CambioCapturado[]): void {
+    const porId = new Map<number, CambioCapturado>();
+    for (const c of cambios) {
+      if (c.productoId == null) continue;
+      porId.set(c.productoId, c);
+    }
+    const items: RevisionPrecioItem[] = [];
+    for (const c of porId.values()) {
+      const p = this.productos.find((x) => x.id === c.productoId);
+      if (!p) continue;
+      items.push({
+        productoId: c.productoId,
+        nombre: p.nombre || c.nombre,
+        cambio: c.cambio,
+        compraAnterior: c.compraAnterior,
+        compraNueva: Number(p.precioCompra) || 0,
+        ventaHoy: Number(p.precioVentaHoy) || 0,
+        minSugerido: Number(p.precioMinimoSugerido) || 0,
+        maxSugerido: Number(p.precioMaximoSugerido) || 0,
+        mayoreo5: Number(p.precioMayoreo5) || 0,
+        mayoreo10: Number(p.precioMayoreo10) || 0,
+        avisoMenudeo: this.avisoMenudeoDe(p),
+      });
+    }
+    items.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    this.revisionPrecios = items;
+    this.okMargenes = '';
+    this.errorMargenes = '';
+    if (items.length) {
+      setTimeout(() => {
+        document.querySelector('.revision-margenes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    }
+  }
+
+  private capturarCambiosDeLineas(lineasForm: LineaForm[]): CambioCapturado[] {
+    const out: CambioCapturado[] = [];
+    for (const l of lineasForm) {
+      const c = this.cambioLinea(l);
+      if (c !== 'SUBIO' && c !== 'BAJO') continue;
+      if (l.productoId == null) continue;
+      out.push({
+        productoId: l.productoId,
+        nombre: this.nombreProducto(l.productoId),
+        cambio: c,
+        compraAnterior: this.ultimaCompra(l.productoId),
+      });
+    }
+    return out;
+  }
+
+  private refrescarInventarioYRevision(cambios: CambioCapturado[]): void {
+    this.api.inventario().subscribe({
+      next: (p) => {
+        this.productos = p;
+        if (cambios.length) this.construirRevision(cambios);
+      },
+    });
+  }
+
+  revisarPreciosCambiados(): void {
+    this.errorMargenes = '';
+    const seen = new Set<number>();
+    const cambios: CambioCapturado[] = [];
+    for (const e of this.entradas) {
+      if (!e.precioMayor && !e.precioMenor) continue;
+      if (seen.has(e.productoId)) continue;
+      seen.add(e.productoId);
+      cambios.push({
+        productoId: e.productoId,
+        nombre: e.productoNombre,
+        cambio: e.precioMayor ? 'SUBIO' : 'BAJO',
+        compraAnterior:
+          e.precioCompraAnterior != null ? Number(e.precioCompraAnterior) : null,
+      });
+    }
+    if (!cambios.length) {
+      this.errorMargenes = 'No hay entradas con precio que haya subido o bajado';
+      return;
+    }
+    this.refrescarInventarioYRevision(cambios);
+  }
+
+  cerrarRevision(): void {
+    this.revisionPrecios = [];
+    this.okMargenes = '';
+    this.errorMargenes = '';
+  }
+
+  irAInventario(): void {
+    void this.router.navigate(['/inventario']);
+  }
+
+  async recalcularMayoreoDesdeMargenes(): Promise<void> {
+    if (!this.revisionPrecios.length) return;
+    const ok = await this.confirmDlg.ask(
+      '¿Recalcular mayoreo (≥5 / ≥10) con los % de margen actuales? El menudeo no se cambia solo: revísalo en Inventario si hace falta.',
+      { confirmarTexto: 'Recalcular mayoreo' }
+    );
+    if (!ok) return;
+    this.recalculandoMargenes = true;
+    this.errorMargenes = '';
+    this.okMargenes = '';
+    const ids = this.revisionPrecios.map((r) => r.productoId);
+    const anteriores = new Map(
+      this.revisionPrecios.map((r) => [r.productoId, { cambio: r.cambio, compraAnterior: r.compraAnterior, nombre: r.nombre }])
+    );
+    this.api.aplicarPreciosDesdeMargenes().subscribe({
+      next: () => {
+        this.api.inventario().subscribe({
+          next: (p) => {
+            this.productos = p;
+            const cambios: CambioCapturado[] = ids.map((id) => {
+              const prev = anteriores.get(id)!;
+              return {
+                productoId: id,
+                nombre: prev.nombre,
+                cambio: prev.cambio,
+                compraAnterior: prev.compraAnterior,
+              };
+            });
+            this.construirRevision(cambios);
+            this.recalculandoMargenes = false;
+            this.okMargenes = 'Mayoreo recalculado. Revisa si el menudeo sigue en rango.';
+          },
+          error: () => {
+            this.recalculandoMargenes = false;
+            this.errorMargenes = 'Mayoreo aplicado, pero no se pudo refrescar inventario';
+          },
+        });
+      },
+      error: (e) => {
+        this.recalculandoMargenes = false;
+        this.errorMargenes = e.error?.error || 'No se pudo recalcular el mayoreo';
+      },
+    });
+  }
+
+  /** Total capturado por el usuario (no se rellena solo). */
   totalLinea(l: LineaForm): number | null {
+    if (l.totalPagado != null && String(l.totalPagado) !== '') {
+      const t = Number(l.totalPagado);
+      return Number.isFinite(t) && t >= 0 ? Math.round(t * 100) / 100 : null;
+    }
+    return null;
+  }
+
+  private recalcularPrecioDesdeTotal(l: LineaForm): void {
+    const total = Number(l.totalPagado);
     const cant = Number(l.cantidad);
-    const precio = Number(l.precioProveedor);
-    if (!Number.isFinite(cant) || cant <= 0 || !Number.isFinite(precio) || precio < 0) return null;
-    return Math.round(cant * precio * 100) / 100;
+    if (
+      l.totalPagado == null ||
+      String(l.totalPagado) === '' ||
+      !Number.isFinite(total) ||
+      total < 0 ||
+      !Number.isFinite(cant) ||
+      cant <= 0
+    ) {
+      if (l.totalPagado == null || String(l.totalPagado) === '') {
+        l.precioProveedor = null;
+      }
+      return;
+    }
+    l.precioProveedor = Math.round((total / cant) * 10000) / 10000;
+  }
+
+  /**
+   * Escribes lo que pagaste por esa cantidad → se calcula el precio por L/pza.
+   * El campo queda vacío hasta que lo captures (no se rellena solo).
+   */
+  onTotalPagadoChange(l: LineaForm, raw: number | string | null): void {
+    if (raw === '' || raw == null) {
+      l.totalPagado = null;
+      l.precioProveedor = null;
+      this.programarBorrador();
+      return;
+    }
+    const total = Number(raw);
+    if (!Number.isFinite(total) || total < 0) {
+      this.programarBorrador();
+      return;
+    }
+    l.totalPagado = Math.round(total * 100) / 100;
+    this.recalcularPrecioDesdeTotal(l);
+    this.programarBorrador();
+  }
+
+  onPrecioUnitarioChange(l: LineaForm): void {
+    this.programarBorrador();
+  }
+
+  onFormEditTotalChange(raw: number | string | null): void {
+    if (raw === '' || raw == null) {
+      this.formEdit.totalPagado = null;
+      this.formEdit.precioProveedor = null;
+      return;
+    }
+    const total = Number(raw);
+    if (!Number.isFinite(total) || total < 0) return;
+    this.formEdit.totalPagado = Math.round(total * 100) / 100;
+    const cant = Number(this.formEdit.cantidad);
+    if (Number.isFinite(cant) && cant > 0) {
+      this.formEdit.precioProveedor = Math.round((total / cant) * 10000) / 10000;
+    }
+  }
+
+  onFormEditCantidadChange(): void {
+    const total = Number(this.formEdit.totalPagado);
+    const cant = Number(this.formEdit.cantidad);
+    if (
+      this.formEdit.totalPagado != null &&
+      Number.isFinite(total) &&
+      total >= 0 &&
+      Number.isFinite(cant) &&
+      cant > 0
+    ) {
+      this.formEdit.precioProveedor = Math.round((total / cant) * 10000) / 10000;
+    }
+  }
+
+  /** Enter en total pagado → siguiente fila. */
+  onTotalEnter(ev: Event, index: number): void {
+    ev.preventDefault();
+    this.avanzarTrasPrecio(index);
+  }
+
+  private avanzarTrasPrecio(index: number): void {
+    const irA = index + 1;
+    if (irA >= this.lineas.length) {
+      this.agregarLinea();
+      this.cdr.detectChanges();
+    }
+    this.enfocarCaptura(Math.min(irA, this.lineas.length - 1), 'producto');
   }
 
   get totalLote(): number {
@@ -689,36 +1024,33 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.enfocarCaptura(index, 'cantidad');
   }
 
-  /** Enter en cantidad → precio proveedor. */
+  /** Enter en cantidad → total pagado. */
   onCantidadEnter(ev: Event, index: number): void {
     ev.preventDefault();
     this.programarBorrador();
-    this.enfocarCaptura(index, 'precio');
+    this.enfocarCaptura(index, 'total');
   }
 
-  /** Enter en precio → siguiente fila (crea una si hace falta), como en ventas. */
+  /** Enter en precio unitario → siguiente fila. */
   onPrecioEnter(ev: Event, index: number): void {
     ev.preventDefault();
     this.programarBorrador();
-    const irA = index + 1;
-    if (irA >= this.lineas.length) {
-      this.agregarLinea();
-      return;
-    }
-    this.enfocarCaptura(irA, 'producto');
+    this.avanzarTrasPrecio(index);
   }
 
   private autosVisibles(): ProductoAutocompleteComponent[] {
     return (this.prodAutos?.toArray() || []).filter((a) => a.estaVisible());
   }
 
-  private enfocarCaptura(index: number, campo: 'producto' | 'cantidad' | 'precio'): void {
+  private enfocarCaptura(index: number, campo: 'producto' | 'cantidad' | 'precio' | 'total'): void {
     const go = () => {
       const key = this.lineas[index]?.key;
       if (campo === 'cantidad') {
         enfocarPorAttr('data-cant-key', key ?? '');
       } else if (campo === 'precio') {
         enfocarPorAttr('data-precio-key', key ?? '');
+      } else if (campo === 'total') {
+        enfocarPorAttr('data-total-key', key ?? '');
       } else {
         this.autosVisibles()[index]?.focus();
       }
@@ -729,14 +1061,14 @@ export class EntradasComponent implements OnInit, OnDestroy {
   }
 
   quitarLinea(index: number): void {
-    const min = capturaLineasVacias();
-    if (this.lineas.length <= min) {
+    if (this.lineas.length <= 1) {
       this.lineas[index] = this.nuevaLinea();
-      if (this.lineas.length < min) this.lineas = this.crearLineasVacias();
+      this.alinearLineasViewport();
       this.programarBorrador();
       return;
     }
     this.lineas.splice(index, 1);
+    this.alinearLineasViewport();
     this.programarBorrador();
   }
 
@@ -892,6 +1224,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
 
     const persona = this.traspasoPersona.trim();
     const fechaGuardada = this.fecha;
+    const cambiosPrecio = this.capturarCambiosDeLineas(lineasForm);
     this.guardando = true;
     this.api
       .crearEntradasLote({
@@ -920,6 +1253,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
           this.traspasoPersona = '';
           this.persistirBorrador();
           this.cargar();
+          this.refrescarInventarioYRevision(cambiosPrecio);
         },
         error: (e) => {
           this.guardando = false;
@@ -937,11 +1271,23 @@ export class EntradasComponent implements OnInit, OnDestroy {
   editarEntrada(e: Entrada): void {
     this.errorEdit = '';
     this.editandoEntradaId = e.id;
+    const cant = e.cantidad != null ? Number(e.cantidad) : null;
+    const precio = e.precioProveedor != null ? Number(e.precioProveedor) : null;
+    const total =
+      cant != null &&
+      Number.isFinite(cant) &&
+      cant > 0 &&
+      precio != null &&
+      Number.isFinite(precio) &&
+      precio >= 0
+        ? Math.round(cant * precio * 100) / 100
+        : null;
     this.formEdit = {
       fecha: e.fecha,
       productoId: e.productoId,
-      cantidad: e.cantidad,
-      precioProveedor: e.precioProveedor,
+      cantidad: cant,
+      precioProveedor: precio,
+      totalPagado: total,
     };
     this.cdr.detectChanges();
     setTimeout(() => {
@@ -974,15 +1320,32 @@ export class EntradasComponent implements OnInit, OnDestroy {
       return;
     }
     this.guardandoEdit = true;
+    const pid = this.formEdit.productoId as number;
+    const nuevoPrecio =
+      this.formEdit.precioProveedor != null && String(this.formEdit.precioProveedor) !== ''
+        ? Number(this.formEdit.precioProveedor)
+        : null;
+    const compraActual = Number(this.productos.find((p) => p.id === pid)?.precioCompra) || 0;
+    let cambiosEdit: CambioCapturado[] = [];
+    if (nuevoPrecio != null && Number.isFinite(nuevoPrecio) && compraActual > 0) {
+      const diff = Math.round((nuevoPrecio - compraActual) * 100) / 100;
+      if (Math.abs(diff) >= 0.005) {
+        cambiosEdit = [
+          {
+            productoId: pid,
+            nombre: this.nombreProducto(pid),
+            cambio: diff > 0 ? 'SUBIO' : 'BAJO',
+            compraAnterior: compraActual,
+          },
+        ];
+      }
+    }
     this.api
       .actualizarEntrada(this.editandoEntradaId, {
         fecha: this.formEdit.fecha,
         productoId: this.formEdit.productoId,
         cantidad: cant,
-        precioProveedor:
-          this.formEdit.precioProveedor != null && String(this.formEdit.precioProveedor) !== ''
-            ? Number(this.formEdit.precioProveedor)
-            : null,
+        precioProveedor: nuevoPrecio,
         actualizarPrecioCompra: true,
         aplicarAPedido: null,
         pedidoId: null,
@@ -992,6 +1355,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
           this.guardandoEdit = false;
           this.cancelarEdicionEntrada();
           this.cargar();
+          this.refrescarInventarioYRevision(cambiosEdit);
         },
         error: (e) => {
           this.guardandoEdit = false;
@@ -1126,6 +1490,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
       l.tambienTraspasar ||
       (l.cantidad != null && Number(l.cantidad) !== 0) ||
       (l.precioProveedor != null && String(l.precioProveedor) !== '') ||
+      (l.totalPagado != null && String(l.totalPagado) !== '') ||
       (l.cantidadTraspaso != null && Number(l.cantidadTraspaso) !== 0)
     );
   }
@@ -1163,10 +1528,11 @@ export class EntradasComponent implements OnInit, OnDestroy {
       nextKey: this.nextKey,
       traspasoPersona: this.traspasoPersona,
       lineas: this.lineas.map(
-        ({ productoId, cantidad, precioProveedor, tambienTraspasar, cantidadTraspaso }) => ({
+        ({ productoId, cantidad, precioProveedor, totalPagado, tambienTraspasar, cantidadTraspaso }) => ({
           productoId,
           cantidad,
           precioProveedor,
+          totalPagado,
           tambienTraspasar,
           cantidadTraspaso,
         })
@@ -1195,6 +1561,23 @@ export class EntradasComponent implements OnInit, OnDestroy {
           productoId: l.productoId ?? null,
           cantidad: l.cantidad ?? null,
           precioProveedor: l.precioProveedor ?? null,
+          totalPagado:
+            l.totalPagado != null
+              ? l.totalPagado
+              : (() => {
+                  const cant = Number(l.cantidad);
+                  const precio = Number(l.precioProveedor);
+                  if (
+                    Number.isFinite(cant) &&
+                    cant > 0 &&
+                    Number.isFinite(precio) &&
+                    precio >= 0 &&
+                    l.precioProveedor != null
+                  ) {
+                    return Math.round(cant * precio * 100) / 100;
+                  }
+                  return null;
+                })(),
           tambienTraspasar: porLinea,
           cantidadTraspaso: cantTr,
         };

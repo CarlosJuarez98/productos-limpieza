@@ -290,6 +290,7 @@ export interface TraspasoAbono {
   personaId: number | null;
   persona: string | null;
   nota: string | null;
+  pagoTarjeta?: boolean;
 }
 
 export interface Persona {
@@ -429,6 +430,31 @@ export interface PedidoRegistrado {
   tieneEntradas?: boolean;
   items: PedidoItemRegistrado[];
   abonos: PedidoAbono[];
+}
+
+export type EstadoPedidoDomicilio = 'PENDIENTE' | 'ENTREGADA' | 'CANCELADA';
+
+export interface PedidoDomicilioItem {
+  id: number;
+  productoId: number | null;
+  productoNombre: string | null;
+  tipoVenta: TipoVenta;
+  tipoVentaLabel: string;
+  cantidad: number;
+  total: number;
+  pagoTarjeta: boolean;
+}
+
+export interface PedidoDomicilio {
+  id: number;
+  fecha: string;
+  estado: EstadoPedidoDomicilio;
+  cliente: string | null;
+  telefono: string | null;
+  nota: string | null;
+  fechaEntrega: string | null;
+  total: number;
+  items: PedidoDomicilioItem[];
 }
 
 export const MODOS_VENTA: { value: ModoVenta; label: string }[] = [

@@ -40,6 +40,9 @@ public class TenantSchemaBootstrap implements ApplicationRunner {
       "PEDIDOS",
       "PEDIDO_ITEMS",
       "PEDIDO_ABONOS",
+      "PEDIDOS_DOMICILIO",
+      "PEDIDO_DOMICILIO_ITEMS",
+      "PEDIDO_DOMICILIO_VENTAS",
       "RECETAS",
       "RECETA_INSUMOS",
       "APARTADO_RUBROS"
@@ -64,7 +67,33 @@ public class TenantSchemaBootstrap implements ApplicationRunner {
     ensureCorteTenantFechaUnique();
     ensurePagoTarjetaColumn();
     ensureDepartamentoColumn();
+    ensureTraspasoAbonoMovimientoColumn();
+    ensureTraspasoAbonoPagoTarjetaColumn();
     log.info("TenantSchemaBootstrap: listo");
+  }
+
+  private void ensureTraspasoAbonoMovimientoColumn() {
+    if (!tableExists("TRASPASO_ABONOS") || columnExists("TRASPASO_ABONOS", "MOVIMIENTO_CAJA_ID")) {
+      return;
+    }
+    try {
+      jdbc.execute("ALTER TABLE TRASPASO_ABONOS ADD MOVIMIENTO_CAJA_ID NUMBER(19)");
+      log.info("Añadida columna MOVIMIENTO_CAJA_ID a TRASPASO_ABONOS");
+    } catch (Exception e) {
+      log.warn("No se pudo añadir MOVIMIENTO_CAJA_ID a TRASPASO_ABONOS: {}", e.getMessage());
+    }
+  }
+
+  private void ensureTraspasoAbonoPagoTarjetaColumn() {
+    if (!tableExists("TRASPASO_ABONOS") || columnExists("TRASPASO_ABONOS", "PAGO_TARJETA")) {
+      return;
+    }
+    try {
+      jdbc.execute("ALTER TABLE TRASPASO_ABONOS ADD PAGO_TARJETA NUMBER(1) DEFAULT 0 NOT NULL");
+      log.info("Añadida columna PAGO_TARJETA a TRASPASO_ABONOS");
+    } catch (Exception e) {
+      log.warn("No se pudo añadir PAGO_TARJETA a TRASPASO_ABONOS: {}", e.getMessage());
+    }
   }
 
   private void ensurePagoTarjetaColumn() {

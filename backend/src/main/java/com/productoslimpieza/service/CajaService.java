@@ -10,6 +10,7 @@ import com.productoslimpieza.repo.ApartadoRepository;
 import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.CorteCajaRepository;
 import com.productoslimpieza.repo.MovimientoCajaRepository;
+import com.productoslimpieza.repo.TraspasoAbonoRepository;
 import com.productoslimpieza.repo.VentaRepository;
 import com.productoslimpieza.tenant.TenantContext;
 import com.productoslimpieza.web.dto.CajaConfigRequest;
@@ -51,6 +52,7 @@ public class CajaService {
   private final ApartadoRepository apartadoRepo;
   private final CorteCajaRepository corteRepo;
   private final ApartadoRubroService rubroService;
+  private final TraspasoAbonoRepository traspasoAbonoRepo;
 
   public CajaService(
       CajaConfigRepository configRepo,
@@ -58,13 +60,15 @@ public class CajaService {
       VentaRepository ventaRepo,
       ApartadoRepository apartadoRepo,
       CorteCajaRepository corteRepo,
-      ApartadoRubroService rubroService) {
+      ApartadoRubroService rubroService,
+      TraspasoAbonoRepository traspasoAbonoRepo) {
     this.configRepo = configRepo;
     this.movimientoRepo = movimientoRepo;
     this.ventaRepo = ventaRepo;
     this.apartadoRepo = apartadoRepo;
     this.corteRepo = corteRepo;
     this.rubroService = rubroService;
+    this.traspasoAbonoRepo = traspasoAbonoRepo;
   }
 
   @Transactional
@@ -87,15 +91,17 @@ public class CajaService {
     BigDecimal fondoCfg = nz(cfg.getFondoInicial());
     BigDecimal paraApartarCorte = montoParaApartarUltimoCorte(fondoCfg);
     List<String> catsApartar = rubroService.codigosLiquidaCorte();
-    BigDecimal yaApartado = corteRepo.findMaxFecha(TenantContext.require()).isPresent()
-        ? nz(apartadoRepo.sumIngresosByCategoriasAndFecha(catsApartar, desde, hasta))
+    // Incluye el día del corte: suele apartarse el mismo día; fechaInicio es corte+1.
+    LocalDate desdeYaApartado = ultimoCorte != null ? ultimoCorte : desde;
+    BigDecimal yaApartado = ultimoCorte != null
+        ? nz(apartadoRepo.sumIngresosByCategoriasAndFecha(catsApartar, desdeYaApartado, hasta))
         : BigDecimal.ZERO;
     BigDecimal disponibleApartar = paraApartarCorte
         .subtract(yaApartado)
         .max(BigDecimal.ZERO)
         .setScale(2, RoundingMode.HALF_UP);
     // Sin cortes: disponible = exceso de caja sobre el fondo (periodo abierto histórico).
-    if (corteRepo.findMaxFecha(TenantContext.require()).isEmpty()) {
+    if (ultimoCorte == null) {
       disponibleApartar = t.totalCaja.subtract(fondoCfg.max(FONDO_DEFAULT))
           .max(BigDecimal.ZERO)
           .setScale(2, RoundingMode.HALF_UP);
@@ -104,6 +110,7 @@ public class CajaService {
     }
 
     BigDecimal ventasTarjetaGlobal = nz(ventaRepo.sumTotalTarjetaByTipos(TIPOS_PRODUCTO))
+        .add(nz(traspasoAbonoRepo.sumMontoPagoTarjeta()))
         .setScale(2, RoundingMode.HALF_UP);
     BigDecimal saldoBancoGlobal = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
         .subtract(nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA)))
@@ -146,8 +153,8 @@ public class CajaService {
   }
 
   /**
-   * Tras un corte: lo apartable = (contado − fondo $200) − ya apartado en el periodo nuevo.
-   * Las ventas del periodo nuevo no aumentan el disponible hasta el siguiente corte.
+   * Tras un corte: lo apartable = (contado − fondo) − ya apartado desde el día del corte
+   * (inclusive). Las ventas del periodo nuevo no aumentan el disponible hasta el siguiente corte.
    */
   private BigDecimal calcularDisponibleParaApartar(
       CajaConfig cfg, Totales tPeriodo, LocalDate desdePeriodo, LocalDate hastaPeriodo) {
@@ -162,8 +169,9 @@ public class CajaService {
     CorteCaja ultimo = ultimoOpt.get();
     BigDecimal aApartarDelCorte = montoParaApartar(ultimo, fondo);
     List<String> cats = rubroService.codigosLiquidaCorte();
+    LocalDate desdeYa = ultimo.getFecha() != null ? ultimo.getFecha() : desdePeriodo;
     BigDecimal apartadosNuevos = nz(apartadoRepo.sumIngresosByCategoriasAndFecha(
-        cats, desdePeriodo, hastaPeriodo));
+        cats, desdeYa, hastaPeriodo));
     return aApartarDelCorte
         .subtract(apartadosNuevos)
         .max(BigDecimal.ZERO)
@@ -438,6 +446,42 @@ public class CajaService {
     MovimientoCaja m = new MovimientoCaja();
     m.setFecha(req.fecha());
     m.setTipo(req.tipo());
+    m.setMonto(req.monto());
+    m.setMotivo(req.motivo());
+    return toDto(movimientoRepo.save(m));
+  }
+
+  @Transactional
+  public MovimientoCajaDto actualizarMovimiento(Long id, MovimientoCajaRequest req) {
+    MovimientoCaja m = movimientoRepo.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movimiento no encontrado"));
+    if (req.monto() == null || req.monto().compareTo(BigDecimal.ZERO) <= 0) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El monto debe ser mayor a 0");
+    }
+    if (req.fecha() != null && req.fecha().isAfter(LocalDate.now(ZONA))) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha no puede ser posterior a hoy");
+    }
+    CajaConfig cfg = getOrCreateConfig();
+    LocalDate desde = cfg.getFechaInicio();
+    if (desde != null && req.fecha() != null && req.fecha().isBefore(desde)) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "La fecha es anterior al inicio del periodo (" + desde + "). ¿Quisiste el periodo actual?");
+    }
+    if (req.tipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
+      BigDecimal saldoBanco = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
+          .subtract(nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA)));
+      if (m.getTipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
+        saldoBanco = saldoBanco.add(nz(m.getMonto()));
+      }
+      if (req.monto().compareTo(saldoBanco) > 0) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "Saldo en banco insuficiente ($" + saldoBanco.setScale(2, RoundingMode.HALF_UP) + ")");
+      }
+    }
+    m.setFecha(req.fecha());
+    m.setTipo(req.tipo() != null ? req.tipo() : m.getTipo());
     m.setMonto(req.monto());
     m.setMotivo(req.motivo());
     return toDto(movimientoRepo.save(m));

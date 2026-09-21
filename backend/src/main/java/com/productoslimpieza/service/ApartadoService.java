@@ -105,6 +105,14 @@ public class ApartadoService {
                     (a, b) -> a,
                     LinkedHashMap::new));
 
+    List<String> catsCorte = rubroService.codigosLiquidaCorte();
+    var caja = cajaService.resumen();
+    LocalDate desdeLiq =
+        caja.fechaUltimoCorte() != null ? caja.fechaUltimoCorte() : caja.fechaInicio();
+    LocalDate hastaLiq = caja.fechaFin();
+    BigDecimal disponApartar = nz(caja.disponibleParaApartar());
+    BigDecimal aApartarEnLote = BigDecimal.ZERO;
+
     List<Apartado> aGuardar = new ArrayList<>(req.lineas().size());
     Map<String, BigDecimal> gastadoEnLote = new HashMap<>();
     for (ApartadoLineaLoteRequest linea : req.lineas()) {
@@ -117,6 +125,7 @@ public class ApartadoService {
       if (linea.ingreso() == null || linea.ingreso().compareTo(BigDecimal.ZERO) <= 0) {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El monto debe ser mayor a 0");
       }
+      BigDecimal monto = linea.ingreso().setScale(2, RoundingMode.HALF_UP);
       String key = linea.categoria() == null ? "" : linea.categoria().trim().toLowerCase(Locale.ROOT);
       String codigo = codigos.get(key);
       if (codigo == null) {
@@ -129,7 +138,7 @@ public class ApartadoService {
             nz(apartadoRepo.sumByCategoriaAndTipo(codigo, TipoMovimientoApartado.INGRESO))
                 .subtract(nz(apartadoRepo.sumByCategoriaAndTipo(codigo, TipoMovimientoApartado.GASTO)))
                 .subtract(gastadoEnLote.getOrDefault(codigo.toLowerCase(Locale.ROOT), BigDecimal.ZERO));
-        if (linea.ingreso().compareTo(saldo) > 0) {
+        if (monto.compareTo(saldo) > 0) {
           throw new ResponseStatusException(
               HttpStatus.BAD_REQUEST,
               "En "
@@ -138,16 +147,25 @@ public class ApartadoService {
                   + saldo.setScale(2, RoundingMode.HALF_UP)
                   + ")");
         }
-        gastadoEnLote.merge(
-            codigo.toLowerCase(Locale.ROOT), linea.ingreso(), BigDecimal::add);
+        gastadoEnLote.merge(codigo.toLowerCase(Locale.ROOT), monto, BigDecimal::add);
+      } else if (catsCorte.stream().anyMatch(c -> c.equalsIgnoreCase(codigo))
+          && enPeriodo(req.fecha(), desdeLiq, hastaLiq)) {
+        aApartarEnLote = aApartarEnLote.add(monto);
       }
       Apartado a = new Apartado();
       a.setFecha(req.fecha());
       a.setCategoria(codigo);
-      a.setIngreso(linea.ingreso());
+      a.setIngreso(monto);
       a.setTipo(tipo);
       a.setMotivo(linea.motivo());
       aGuardar.add(a);
+    }
+    if (aApartarEnLote.compareTo(disponApartar) > 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "No hay tanto disponible para apartar ($"
+              + disponApartar.setScale(2, RoundingMode.HALF_UP)
+              + ")");
     }
     return apartadoRepo.saveAll(aGuardar).stream().map(this::toDto).toList();
   }
@@ -189,10 +207,13 @@ public class ApartadoService {
       var caja = cajaService.resumen();
       BigDecimal disp = nz(caja.disponibleParaApartar());
       List<String> catsCorte = rubroService.codigosLiquidaCorte();
-      boolean oldCuenta = cuentaEnCajaPeriodo(a, caja.fechaInicio(), caja.fechaFin(), catsCorte);
+      // Desde el día del último corte (no fechaInicio=corte+1), para no perder el mismo día.
+      LocalDate desdeLiq =
+          caja.fechaUltimoCorte() != null ? caja.fechaUltimoCorte() : caja.fechaInicio();
+      boolean oldCuenta = cuentaEnCajaPeriodo(a, desdeLiq, caja.fechaFin(), catsCorte);
       boolean newCuenta =
           catsCorte.stream().anyMatch(c -> c.equalsIgnoreCase(codigo))
-              && enPeriodo(req.fecha(), caja.fechaInicio(), caja.fechaFin());
+              && enPeriodo(req.fecha(), desdeLiq, caja.fechaFin());
       BigDecimal extra = BigDecimal.ZERO;
       if (newCuenta) extra = extra.add(req.ingreso());
       if (oldCuenta) extra = extra.subtract(nz(a.getIngreso()));

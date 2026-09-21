@@ -31,6 +31,14 @@ public class TraspasoAbono extends TenantEntity {
   @Column(length = 255)
   private String nota;
 
+  /** Ingreso en caja ligado a este pago (solo si fue en efectivo). */
+  @Column(name = "movimiento_caja_id")
+  private Long movimientoCajaId;
+
+  /** Si true, el cobro va al banco (como ventas con tarjeta); no crea ingreso de efectivo. */
+  @Column(name = "pago_tarjeta", nullable = false)
+  private boolean pagoTarjeta = false;
+
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
   public LocalDate getFecha() { return fecha; }
@@ -43,4 +51,8 @@ public class TraspasoAbono extends TenantEntity {
   public void setPersonaNombre(String personaNombre) { this.personaNombre = personaNombre; }
   public String getNota() { return nota; }
   public void setNota(String nota) { this.nota = nota; }
+  public Long getMovimientoCajaId() { return movimientoCajaId; }
+  public void setMovimientoCajaId(Long movimientoCajaId) { this.movimientoCajaId = movimientoCajaId; }
+  public boolean isPagoTarjeta() { return pagoTarjeta; }
+  public void setPagoTarjeta(boolean pagoTarjeta) { this.pagoTarjeta = pagoTarjeta; }
 }
