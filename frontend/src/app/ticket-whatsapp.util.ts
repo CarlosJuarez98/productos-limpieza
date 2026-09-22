@@ -1012,15 +1012,15 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
     (i) => i || loadImage('/amorcas-logo.png').then((j) => j || loadImage('/publicidad/amorcas-c.jpg'))
   );
 
-  // Más ancho + leve estirado horizontal para que AMORCAS no se vea apretado
-  const W = 680;
+  const W = 540;
   const pad = 28;
   const n = Math.max(datos.lineas.length, 1);
   const rowH = 44;
-  const LOGO_AR = 1152 / 896;
-  const logoW = logo ? W - pad * 2 : 0;
-  // Caja un poco más baja que el AR natural → drawImage separa letras en X
-  const logoH = logo ? Math.round((logoW / LOGO_AR) * 0.82) : 0;
+  // Tamaño medio centrado; proporción natural (sin estirar a todo el ancho)
+  const iw = logo ? logo.naturalWidth || logo.width || 1152 : 1152;
+  const ih = logo ? logo.naturalHeight || logo.height || 896 : 896;
+  const logoW = logo ? 320 : 0;
+  const logoH = logo ? Math.round(logoW * (ih / iw)) : 0;
   const headerExtra = logo ? logoH + 18 : 0;
   const H = 260 + headerExtra + n * rowH + 140;
   const canvas = document.createElement('canvas');
@@ -1041,34 +1041,24 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
 
   if (logo) {
     const lx = (W - logoW) / 2;
-    ctx.drawImage(logo, lx, y, logoW, logoH);
+    drawImageContain(ctx, logo, lx, y, logoW, logoH);
     y += logoH + 14;
   } else {
-    y = 52;
+    y = 48;
     ctx.fillStyle = '#111';
     ctx.textAlign = 'center';
-    ctx.font = '900 36px "Segoe UI", "Arial Black", sans-serif';
-    try {
-      (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = '0.12em';
-    } catch {
-      /* ignore */
-    }
+    ctx.font = '900 28px "Courier New", Courier, monospace';
     ctx.fillText('AMORCAS', cx, y);
-    try {
-      (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = '0px';
-    } catch {
-      /* ignore */
-    }
-    y += 30;
+    y += 26;
   }
 
   ctx.fillStyle = '#111';
   ctx.textAlign = 'center';
-  ctx.font = '600 14px "Courier New", Courier, monospace';
+  ctx.font = '600 13px "Courier New", Courier, monospace';
   ctx.fillText(DIR_AMORCAS, cx, y);
-  y += 20;
+  y += 18;
   ctx.fillText(`Horario: ${HORARIO_ATENCION}`, cx, y);
-  y += 24;
+  y += 22;
 
   dashLine(ctx, pad, y, W - pad * 2);
   y += 28;
