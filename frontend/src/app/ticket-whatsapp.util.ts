@@ -183,6 +183,39 @@ function drawImageContain(
   ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
 }
 
+/**
+ * Dibuja el círculo del logo recortando padding transparente del PNG landscape.
+ * amorcas-chingon.png = 1152×896 con contenido opaco ~824×824 centrado.
+ */
+function drawLogoBadge(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  size: number
+): void {
+  const iw = img.naturalWidth || img.width || 1;
+  const ih = img.naturalHeight || img.height || 1;
+  // Crop fijo del asset chingon; si es otro logo, usa el cuadrado inscrito
+  let sx = 0;
+  let sy = 0;
+  let sw = iw;
+  let sh = ih;
+  if (iw === 1152 && ih === 896) {
+    sx = 152;
+    sy = 32;
+    sw = 824;
+    sh = 824;
+  } else if (iw !== ih) {
+    const side = Math.min(iw, ih);
+    sx = Math.floor((iw - side) / 2);
+    sy = Math.floor((ih - side) / 2);
+    sw = side;
+    sh = side;
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, size, size);
+}
+
 /** Llena el rectángulo recortando el sobrante (sin dejar cajas vacías). */
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
@@ -1016,12 +1049,9 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
   const pad = 28;
   const n = Math.max(datos.lineas.length, 1);
   const rowH = 44;
-  // Tamaño medio centrado; proporción natural (sin estirar a todo el ancho)
-  const iw = logo ? logo.naturalWidth || logo.width || 1152 : 1152;
-  const ih = logo ? logo.naturalHeight || logo.height || 896 : 896;
-  const logoW = logo ? 320 : 0;
-  const logoH = logo ? Math.round(logoW * (ih / iw)) : 0;
-  const headerExtra = logo ? logoH + 18 : 0;
+  // Círculo del logo (~74% del ancho): recorte cuadrado, sin padding del PNG
+  const logoSize = logo ? 400 : 0;
+  const headerExtra = logo ? logoSize + 18 : 0;
   const H = 260 + headerExtra + n * rowH + 140;
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -1040,9 +1070,9 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
   let y = 28;
 
   if (logo) {
-    const lx = (W - logoW) / 2;
-    drawImageContain(ctx, logo, lx, y, logoW, logoH);
-    y += logoH + 14;
+    const lx = (W - logoSize) / 2;
+    drawLogoBadge(ctx, logo, lx, y, logoSize);
+    y += logoSize + 14;
   } else {
     y = 48;
     ctx.fillStyle = '#111';
@@ -1070,14 +1100,6 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
   ctx.textAlign = 'right';
   ctx.fillText(`FOLIO: #${folio}`, W - pad, y);
   y += 22;
-  ctx.textAlign = 'left';
-  ctx.font = '600 13px "Courier New", Courier, monospace';
-  ctx.fillText('NOTA DE VENTA / COMPROBANTE', pad, y);
-  if (datos.pagoTarjeta) {
-    ctx.textAlign = 'right';
-    ctx.fillText('PAGO: TARJETA', W - pad, y);
-  }
-  y += 18;
   dashLine(ctx, pad, y, W - pad * 2);
   y += 26;
 
