@@ -107,7 +107,8 @@ public class PedidoDomicilio extends TenantEntity {
   }
 
   public void setVentaIds(List<Long> ventaIds) {
-    this.ventaIds = ventaIds != null ? ventaIds : new ArrayList<>();
+    // Siempre mutable: Hibernate hace clear()/addAll() en el merge.
+    this.ventaIds = ventaIds != null ? new ArrayList<>(ventaIds) : new ArrayList<>();
   }
 
   public List<PedidoDomicilioItem> getItems() {

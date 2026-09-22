@@ -164,7 +164,7 @@ public class PedidoDomicilioService {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "No se pudieron registrar las ventas");
     }
-    p.setVentaIds(ventas.stream().map(VentaDto::id).toList());
+    p.setVentaIds(ventas.stream().map(VentaDto::id).collect(Collectors.toCollection(ArrayList::new)));
   }
 
   private void borrarVentasLigadas(PedidoDomicilio p) {
