@@ -1012,13 +1012,15 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
     (i) => i || loadImage('/amorcas-logo.png').then((j) => j || loadImage('/publicidad/amorcas-c.jpg'))
   );
 
-  const W = 540;
+  // Más ancho + leve estirado horizontal para que AMORCAS no se vea apretado
+  const W = 680;
   const pad = 28;
   const n = Math.max(datos.lineas.length, 1);
   const rowH = 44;
   const LOGO_AR = 1152 / 896;
-  const logoW = logo ? 240 : 0;
-  const logoH = logo ? Math.round(logoW / LOGO_AR) : 0;
+  const logoW = logo ? W - pad * 2 : 0;
+  // Caja un poco más baja que el AR natural → drawImage separa letras en X
+  const logoH = logo ? Math.round((logoW / LOGO_AR) * 0.82) : 0;
   const headerExtra = logo ? logoH + 18 : 0;
   const H = 260 + headerExtra + n * rowH + 140;
   const canvas = document.createElement('canvas');
@@ -1039,24 +1041,34 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
 
   if (logo) {
     const lx = (W - logoW) / 2;
-    drawImageContain(ctx, logo, lx, y, logoW, logoH);
+    ctx.drawImage(logo, lx, y, logoW, logoH);
     y += logoH + 14;
   } else {
-    y = 48;
+    y = 52;
     ctx.fillStyle = '#111';
     ctx.textAlign = 'center';
-    ctx.font = '900 28px "Courier New", Courier, monospace';
+    ctx.font = '900 36px "Segoe UI", "Arial Black", sans-serif';
+    try {
+      (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = '0.12em';
+    } catch {
+      /* ignore */
+    }
     ctx.fillText('AMORCAS', cx, y);
-    y += 26;
+    try {
+      (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = '0px';
+    } catch {
+      /* ignore */
+    }
+    y += 30;
   }
 
   ctx.fillStyle = '#111';
   ctx.textAlign = 'center';
-  ctx.font = '600 13px "Courier New", Courier, monospace';
+  ctx.font = '600 14px "Courier New", Courier, monospace';
   ctx.fillText(DIR_AMORCAS, cx, y);
-  y += 18;
+  y += 20;
   ctx.fillText(`Horario: ${HORARIO_ATENCION}`, cx, y);
-  y += 22;
+  y += 24;
 
   dashLine(ctx, pad, y, W - pad * 2);
   y += 28;
