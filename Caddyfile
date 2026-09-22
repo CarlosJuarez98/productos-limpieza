@@ -14,3 +14,13 @@ gastos.163.192.146.143.sslip.io {
 	encode gzip
 	reverse_proxy control-gastos-api:8081
 }
+
+mesa.163.192.146.143.sslip.io {
+	encode gzip
+	reverse_proxy mesa-lista-api:8080
+}
+
+taxi.163.192.146.143.sslip.io {
+	encode gzip
+	reverse_proxy taximetro-api:8084
+}
