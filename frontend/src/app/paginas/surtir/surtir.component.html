@@ -1,39 +1,24 @@
 <h2 class="page-title">Surtir / Levantar pedido</h2>
 
+<section class="panel panel-anim tips-surtir" aria-label="Cuándo surtir">
+  <h3 class="bloque-titulo">¿Qué surtir? (por stock)</h3>
+  <div class="tips-grid">
+    @for (t of tipsSurtir; track t.depto) {
+      <article class="tip-card" [attr.data-estado]="t.estado">
+        <header class="tip-cab">
+          <strong>{{ t.titulo }}</strong>
+          <span class="tip-badge">{{ etiquetaEstadoTip(t.estado) }}</span>
+        </header>
+        <p class="tip-ultimo">{{ t.ultimoTexto }}</p>
+      </article>
+    }
+  </div>
+</section>
+
 <section class="panel panel-anim panel-calcular">
   <h3 class="bloque-titulo">1. Calcular pedido</h3>
 
-  <div class="form-grid toolbar-pedido">
-    <label class="campo-periodo">
-      Periodo
-      <select [(ngModel)]="modoPeriodo" name="modoPeriodo" (ngModelChange)="onModoPeriodo()">
-        <option value="4_semanas">Últimas 4 semanas</option>
-        <option value="mes_pasado">Mes pasado</option>
-        <option value="mes_actual">Mes actual</option>
-        <option value="custom">Fechas</option>
-      </select>
-    </label>
-    <label class="campo-rango">
-      Desde — Hasta
-      <app-rango-fechas
-        [(desde)]="desde"
-        [(hasta)]="hasta"
-        [disabled]="modoPeriodo !== 'custom'"
-        ariaLabel="Rango del periodo"
-      />
-    </label>
-    <label class="campo-dias">
-      Días a cubrir
-      <input
-        type="text"
-        inputmode="numeric"
-        appClearable
-        [(ngModel)]="diasCobertura"
-        name="diasCobertura"
-        [disabled]="modoPeriodo !== 'custom'"
-        placeholder="igual al periodo"
-      />
-    </label>
+  <div class="form-grid toolbar-pedido toolbar-pedido-stock">
     <button type="button" class="btn-levantar" (click)="calcular()" [disabled]="cargando">
       {{ cargando ? 'Calculando…' : 'Levantar pedido' }}
     </button>
@@ -143,7 +128,7 @@
       <thead>
         <tr>
           <th>Producto</th>
-          <th class="money">Stock</th>
+          <th class="money col-stock">Stock</th>
           <th class="money">Vendió</th>
           <th class="money">Para cubrir</th>
           <th class="money">Faltó antes</th>
@@ -160,7 +145,7 @@
                 <span class="item-tag">extra</span>
               }
             </td>
-            <td class="money">{{ l.stockActual | number: '1.0-2' }}</td>
+            <td class="money col-stock">{{ l.stockActual | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoBase | number: '1.0-2' }}</td>
             <td class="money">{{ l.faltanteAnterior | number: '1.0-2' }}</td>
@@ -204,7 +189,7 @@
         </p>
         <div class="item-meta">
           <span>Litros</span>
-          <span class="item-tag">Stock {{ l.stockActual | number: '1.0-2' }}</span>
+          <span class="item-tag col-stock">Stock {{ l.stockActual | number: '1.0-2' }}</span>
         </div>
         <dl class="card-cols">
           <div>
@@ -274,7 +259,7 @@
       <thead>
         <tr>
           <th>Producto</th>
-          <th class="money">Stock</th>
+          <th class="money col-stock">Stock</th>
           <th class="money">Vendió</th>
           <th class="money">Para cubrir</th>
           <th class="money">Faltó antes</th>
@@ -291,7 +276,7 @@
                 <span class="item-tag">extra</span>
               }
             </td>
-            <td class="money">{{ l.stockActual | number: '1.0-2' }}</td>
+            <td class="money col-stock">{{ l.stockActual | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoBase | number: '1.0-2' }}</td>
             <td class="money">{{ l.faltanteAnterior | number: '1.0-2' }}</td>
@@ -335,7 +320,7 @@
         </p>
         <div class="item-meta">
           <span>Pieza</span>
-          <span class="item-tag">Stock {{ l.stockActual | number: '1.0-2' }}</span>
+          <span class="item-tag col-stock">Stock {{ l.stockActual | number: '1.0-2' }}</span>
         </div>
         <dl class="card-cols">
           <div>

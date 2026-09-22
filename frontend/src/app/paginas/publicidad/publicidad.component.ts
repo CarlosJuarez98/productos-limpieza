@@ -1,11 +1,11 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { PublicidadGaleriaItem } from '../../modelos';
-import { compartirPublicidad } from '../../ticket-whatsapp.util';
+import { InventarioItem, PublicidadGaleriaItem } from '../../modelos';
+import { compartirPublicidad, enviarTextoWhatsApp } from '../../ticket-whatsapp.util';
 import { generarLotePublicidad, PromoGenerada } from '../../promo-generador.util';
 
 type Promo = {
@@ -22,61 +22,7 @@ type Promo = {
   guardando?: boolean;
 };
 
-const CONTACTO =
-  'WhatsApp 247-120-6128 · Fracc. Los Álamos #121-C';
-
-/** Promos fijas iniciales (arte guardado). */
-const PROMOS_INICIALES: Promo[] = [
-  {
-    id: 'v2-dom',
-    titulo: 'Pide a domicilio',
-    descripcion: `Fabuloso $10 · Cloro $6 · Axion $30 · ${CONTACTO}`,
-    src: '/api/publicidad/media/promo-v2-domicilio.jpg?v=4',
-    textoShare: `¡Pide a domicilio! Fabuloso $10/L · Cloro $6/L · Axion $30/L — Amorcas · ${CONTACTO}`,
-    nueva: true,
-  },
-  {
-    id: 'v2-mayo',
-    titulo: 'Mayoreo que conviene',
-    descripcion: `Fabuloso $6/L · Cloro $3/L · Suavitel $13/L · ${CONTACTO}`,
-    src: '/api/publicidad/media/promo-v2-mayoreo.jpg?v=4',
-    textoShare: `Mayoreo Amorcas: Fabuloso $6/L · Cloro $3/L · Suavitel $13/L · ${CONTACTO}`,
-    nueva: true,
-  },
-  {
-    id: 'v2-lav',
-    titulo: 'Día de lavado',
-    descripcion: `Ariel $22 · Roma $25 · Suavitel $15 · Vanish $20 · ${CONTACTO}`,
-    src: '/api/publicidad/media/promo-v2-lavado.jpg?v=4',
-    textoShare: `Día de lavado Amorcas: Ariel $22 · Roma $25 · Suavitel $15 · Vanish $20 · ${CONTACTO}`,
-    nueva: true,
-  },
-  {
-    id: 'v2-coc',
-    titulo: 'Cocina brillante',
-    descripcion: `Axion $30 · Desengrasante $54 · Dentro del fracc. · ${CONTACTO}`,
-    src: '/api/publicidad/media/promo-v2-cocina.jpg?v=4',
-    textoShare: `Cocina brillante Amorcas · ${CONTACTO}`,
-    nueva: true,
-  },
-  {
-    id: 'v2-jarc',
-    titulo: 'Jarcería y hogar',
-    descripcion: `Escobas · Cubetas · Fibras · ${CONTACTO}`,
-    src: '/api/publicidad/media/deco-jarceria.png?v=4',
-    textoShare: `Jarcería y hogar — Amorcas · ${CONTACTO}`,
-    nueva: true,
-  },
-  {
-    id: 'v2-status',
-    titulo: 'Estado WhatsApp',
-    descripcion: `Vertical · Te lo llevamos · ${CONTACTO}`,
-    src: '/api/publicidad/media/promo-v2-status.jpg?v=4',
-    textoShare: `Te lo llevamos a domicilio — Amorcas · ${CONTACTO}`,
-    nueva: true,
-    vertical: true,
-  },
-];
+const LOTE_SIZE = 5;
 
 @Component({
   selector: 'app-publicidad',
@@ -89,12 +35,32 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   error = '';
   ok = '';
   compartiendoId: string | null = null;
+  /** Tras mandar la foto: texto listo para el 2º toque. */
+  textoPendienteWa = '';
+  enviandoTexto = false;
   preview: Promo | null = null;
   generando = false;
   guardandoSeleccion = false;
 
-  promosNuevas: Promo[] = [...PROMOS_INICIALES];
+  /** Lote visible (siempre 5 generadas). */
+  promosNuevas: Promo[] = [];
+  /** Historial de lotes para volver atrás / adelante. */
+  private historialLotes: Promo[][] = [];
+  indiceLote = -1;
   private blobUrls: string[] = [];
+
+  get puedeAnterior(): boolean {
+    return this.indiceLote > 0;
+  }
+
+  get puedeSiguiente(): boolean {
+    return this.indiceLote >= 0 && this.indiceLote < this.historialLotes.length - 1;
+  }
+
+  get loteLabel(): string {
+    if (this.indiceLote < 0) return '';
+    return `${this.indiceLote + 1} / ${this.historialLotes.length}`;
+  }
 
   get seleccionCount(): number {
     return this.promosNuevas.filter((p) => p.seleccionada && p.blob).length;
@@ -122,13 +88,14 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       }
     }
     this.cargarGaleria();
+    void this.generarMas();
   }
 
   ngOnDestroy(): void {
-    this.limpiarBlobs();
+    this.limpiarTodosBlobs();
   }
 
-  private limpiarBlobs(): void {
+  private limpiarTodosBlobs(): void {
     this.blobUrls.forEach((u) => URL.revokeObjectURL(u));
     this.blobUrls = [];
   }
@@ -158,21 +125,64 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     };
   }
 
+  /** Genera 5 nuevas aleatorias y las agrega al historial. */
   async generarMas(): Promise<void> {
     this.generando = true;
     this.error = '';
     this.ok = '';
     this.preview = null;
     try {
-      const lote = await generarLotePublicidad(6);
-      this.limpiarBlobs();
-      this.blobUrls = lote.map((p) => p.src);
-      this.promosNuevas = lote.map((p) => this.fromGen(p));
+      // Si estamos en medio del historial, descartar “futuro” al generar nuevo lote
+      if (this.indiceLote >= 0 && this.indiceLote < this.historialLotes.length - 1) {
+        const descartados = this.historialLotes.slice(this.indiceLote + 1);
+        for (const lote of descartados) {
+          lote.forEach((p) => {
+            if (p.src.startsWith('blob:')) URL.revokeObjectURL(p.src);
+          });
+        }
+        this.historialLotes = this.historialLotes.slice(0, this.indiceLote + 1);
+      }
+
+      const inv = await new Promise<InventarioItem[]>((resolve, reject) => {
+        this.api.inventario().subscribe({ next: resolve, error: reject });
+      });
+      const lote = await generarLotePublicidad(
+        LOTE_SIZE,
+        inv.map((p) => ({
+          id: p.id,
+          nombre: p.nombre,
+          precioVentaHoy: p.precioVentaHoy,
+          vendePor: p.vendePor,
+          departamento: p.departamento,
+        }))
+      );
+      const promos = lote.map((p) => this.fromGen(p));
+      lote.forEach((p) => this.blobUrls.push(p.src));
+      this.historialLotes.push(promos);
+      this.indiceLote = this.historialLotes.length - 1;
+      this.promosNuevas = promos;
+      this.ok = '5 promos con menudeo real · estilo Ropa / Trastes';
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudieron generar las promos';
     } finally {
       this.generando = false;
     }
+  }
+
+  loteAnterior(): void {
+    if (!this.puedeAnterior) return;
+    this.indiceLote -= 1;
+    this.promosNuevas = this.historialLotes[this.indiceLote];
+    this.preview = null;
+    this.ok = `Lote ${this.loteLabel}`;
+  }
+
+  loteSiguiente(): void {
+    if (!this.puedeSiguiente) return;
+    this.indiceLote += 1;
+    this.promosNuevas = this.historialLotes[this.indiceLote];
+    this.preview = null;
+    this.ok = `Lote ${this.loteLabel}`;
   }
 
   private fromGen(p: PromoGenerada): Promo {
@@ -236,6 +246,11 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     this.preview = null;
   }
 
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.preview) this.cerrarPreview();
+  }
+
   onElegirArchivo(ev: Event): void {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -291,18 +306,54 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     ev?.stopPropagation();
     this.error = '';
     this.ok = '';
+    this.textoPendienteWa = '';
     this.compartiendoId = p.id;
     try {
-      const modo = await compartirPublicidad(p.src, p.titulo, undefined, p.blob);
-      this.ok =
-        modo === 'compartido'
-          ? `Listo: elige el chat (${p.titulo})`
-          : `Imagen descargada (${p.titulo}): compártela en WhatsApp`;
+      const { modo, texto, automatico } = await compartirPublicidad(
+        p.src,
+        p.titulo,
+        p.textoShare,
+        p.blob
+      );
+      if (automatico) {
+        this.textoPendienteWa = '';
+        this.ok =
+          modo === 'compartido'
+            ? 'Listo: foto + mensaje (en ese orden) en un solo envío.'
+            : 'Descargadas 2 imágenes · súbelas a WhatsApp (flyer y luego el texto).';
+      } else {
+        this.textoPendienteWa = texto;
+        this.ok =
+          'Tu celular no juntó las 2 imágenes. Foto enviada · toca «Enviar texto».';
+      }
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudo compartir';
     } finally {
       this.compartiendoId = null;
     }
+  }
+
+  async enviarTextoPendiente(): Promise<void> {
+    const texto = this.textoPendienteWa.trim();
+    if (!texto || this.enviandoTexto) return;
+    this.enviandoTexto = true;
+    this.error = '';
+    try {
+      const modo = await enviarTextoWhatsApp(texto);
+      this.textoPendienteWa = '';
+      this.ok =
+        modo === 'compartido'
+          ? 'Texto enviado a WhatsApp (después de la foto).'
+          : 'Se abrió WhatsApp con el texto · elígelo el mismo chat.';
+    } catch (e: unknown) {
+      this.error = e instanceof Error ? e.message : 'No se pudo enviar el texto';
+    } finally {
+      this.enviandoTexto = false;
+    }
+  }
+
+  cancelarTextoPendiente(): void {
+    this.textoPendienteWa = '';
   }
 
   private msgError(e: unknown, fallback: string): string {

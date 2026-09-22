@@ -12,13 +12,25 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
-import { RangoFechasComponent } from '../../rango-fechas.component';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 
 type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean; extra?: boolean };
 type ModoPeriodo = '4_semanas' | 'mes_pasado' | 'mes_actual' | 'custom';
 type GrupoPedido = 'LIMPIEZA' | 'JARCERIA';
 type FiltroDepto = 'todo' | 'limpieza' | 'jarceria';
+type TipSurtirEstado = 'urgente' | 'pronto' | 'ok' | 'sin_dato';
+type TipSurtir = {
+  depto: GrupoPedido;
+  titulo: string;
+  ultimoIso: string | null;
+  ultimoTexto: string;
+  diasDesde: number | null;
+  cicloDias: number | null;
+  recomendadoIso: string | null;
+  recomendadoTexto: string;
+  estado: TipSurtirEstado;
+  detalle: string;
+};
 type ReciboEdit = {
   itemId: number;
   productoId: number;
@@ -37,7 +49,7 @@ type ReciboEdit = {
 @Component({
   selector: 'app-surtir',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective, ProductoAutocompleteComponent, RangoFechasComponent, FechaDiaComponent],
+  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective, ProductoAutocompleteComponent, FechaDiaComponent],
   templateUrl: './surtir.component.html',
   styleUrl: './surtir.component.scss',
 })
@@ -74,6 +86,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
   guardandoAbono = false;
   pagLitros = new PaginacionEstado<LineaEditable>(12);
   pagPiezas = new PaginacionEstado<LineaEditable>(12);
+  tipsSurtir: TipSurtir[] = [];
   private pullSub?: Subscription;
 
   constructor(
@@ -86,11 +99,22 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.aplicarModoPeriodo();
     this.cargarPedidos();
     this.cargarSaldoProductos();
-    this.api.inventario().subscribe({ next: (p) => (this.productos = p), error: () => (this.productos = []) });
+    this.api.inventario().subscribe({
+      next: (p) => {
+        this.productos = p;
+        this.recalcularTipsSurtir();
+      },
+      error: () => (this.productos = []),
+    });
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => {
       this.cargarPedidos();
       this.cargarSaldoProductos();
-      this.api.inventario().subscribe({ next: (p) => (this.productos = p) });
+      this.api.inventario().subscribe({
+        next: (p) => {
+          this.productos = p;
+          this.recalcularTipsSurtir();
+        },
+      });
     });
   }
 
@@ -100,9 +124,159 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   cargarPedidos(): void {
     this.api.pedidos().subscribe({
-      next: (p) => (this.pedidos = p),
-      error: () => (this.pedidos = []),
+      next: (p) => {
+        this.pedidos = p;
+        this.recalcularTipsSurtir();
+      },
+      error: () => {
+        this.pedidos = [];
+        this.recalcularTipsSurtir();
+      },
     });
+  }
+
+  /** Tips de surtido guiados por stock (no por calendario: hay productos lentos). */
+  recalcularTipsSurtir(): void {
+    this.tipsSurtir = [
+      this.construirTipSurtir('LIMPIEZA', 'Limpieza / productos'),
+      this.construirTipSurtir('JARCERIA', 'Jarcería'),
+    ];
+  }
+
+  private construirTipSurtir(depto: GrupoPedido, titulo: string): TipSurtir {
+    const hoy = this.hoyLocal();
+    const fechas = this.fechasSurtirDepto(depto);
+    const ultimoIso = fechas.length ? fechas[fechas.length - 1] : null;
+    const diasDesde = ultimoIso ? this.diasEntre(ultimoIso, hoy) : null;
+    const stock = this.resumenStockDepto(depto);
+    const criticos = stock.enCero + stock.bajos;
+
+    let estado: TipSurtirEstado;
+    if (stock.total === 0) {
+      estado = 'sin_dato';
+    } else if (stock.enCero >= 3 || criticos >= 8) {
+      estado = 'urgente';
+    } else if (stock.enCero >= 1 || stock.bajos >= 2) {
+      estado = 'pronto';
+    } else {
+      estado = 'ok';
+    }
+
+    const stockTxt =
+      stock.total === 0
+        ? 'Sin productos en inventario'
+        : stock.enCero === 0 && stock.bajos === 0
+          ? `Stock bien · ${stock.total} producto(s)`
+          : [
+              stock.enCero > 0 ? `${stock.enCero} en cero` : null,
+              stock.bajos > 0 ? `${stock.bajos} bajos` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ');
+
+    let recomendadoTexto: string;
+    let recomendadoIso: string | null = null;
+    if (estado === 'urgente') {
+      recomendadoIso = hoy;
+      recomendadoTexto = 'Surtir ahora · prioriza los que van en cero';
+    } else if (estado === 'pronto') {
+      recomendadoIso = hoy;
+      recomendadoTexto = 'Conviene surtir pronto · reponer bajos y ceros';
+    } else if (estado === 'ok') {
+      recomendadoTexto = 'No urge · el stock aguanta';
+    } else {
+      recomendadoTexto = 'Carga inventario para ver la guía';
+    }
+
+    const partesDetalle: string[] = [];
+    if (estado === 'urgente' || estado === 'pronto') {
+      partesDetalle.push('Levanta pedido con colchón para reponer ceros y bajos.');
+    } else if (estado === 'ok') {
+      partesDetalle.push('Algunos productos salen lento: mira el stock, no el calendario.');
+    }
+
+    return {
+      depto,
+      titulo,
+      ultimoIso,
+      ultimoTexto: stockTxt,
+      diasDesde,
+      cicloDias: null,
+      recomendadoIso,
+      recomendadoTexto,
+      estado,
+      detalle: partesDetalle.join(' ') || 'Revisa el stock al decidir el pedido.',
+    };
+  }
+
+  private resumenStockDepto(depto: GrupoPedido): {
+    total: number;
+    enCero: number;
+    bajos: number;
+  } {
+    let total = 0;
+    let enCero = 0;
+    let bajos = 0;
+    for (const p of this.productos) {
+      if (inferirDepartamento(p.vendePor, p.nombre, p.departamento) !== depto) continue;
+      total++;
+      const stock = Number(p.stockActual) || 0;
+      if (stock <= 0) {
+        enCero++;
+        continue;
+      }
+      const umbral = p.vendePor === 'PIEZA' ? 1 : 2;
+      if (stock <= umbral) bajos++;
+    }
+    return { total, enCero, bajos };
+  }
+
+  private textoUltimo(iso: string, diasDesde: number): string {
+    if (diasDesde === 0) return `Hoy (${this.formatoCorto(iso)})`;
+    if (diasDesde === 1) return `Ayer (${this.formatoCorto(iso)})`;
+    return `Hace ${diasDesde} días · ${this.formatoCorto(iso)}`;
+  }
+
+  private formatoCorto(iso: string): string {
+    const [y, m, d] = iso.split('-');
+    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const mi = Number(m) - 1;
+    return `${Number(d)}-${meses[mi] || m}-${y}`;
+  }
+
+  private fechasSurtirDepto(depto: GrupoPedido): string[] {
+    const set = new Set<string>();
+    for (const p of this.pedidos) {
+      if (!p.fecha || !this.pedidoTieneDepto(p, depto)) continue;
+      set.add(p.fecha);
+    }
+    return [...set].sort();
+  }
+
+  private pedidoTieneDepto(p: PedidoRegistrado, depto: GrupoPedido): boolean {
+    const items = p.items || [];
+    if (!items.length) return false;
+    return items.some((it) => {
+      const prod = this.productos.find((x) => x.id === it.productoId);
+      return (
+        inferirDepartamento(it.vendePor, it.productoNombre, prod?.departamento) === depto
+      );
+    });
+  }
+
+  private diasEntre(desdeIso: string, hastaIso: string): number {
+    const [y1, m1, d1] = desdeIso.split('-').map(Number);
+    const [y2, m2, d2] = hastaIso.split('-').map(Number);
+    const a = Date.UTC(y1, m1 - 1, d1);
+    const b = Date.UTC(y2, m2 - 1, d2);
+    return Math.round((b - a) / 86400000);
+  }
+
+  etiquetaEstadoTip(estado: TipSurtirEstado): string {
+    if (estado === 'urgente') return 'Surtir ya';
+    if (estado === 'pronto') return 'Pronto';
+    if (estado === 'ok') return 'Stock ok';
+    return 'Sin datos';
   }
 
   cargarSaldoProductos(): void {
@@ -218,9 +392,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.error = '';
     this.ok = '';
     this.cargando = true;
-    if (this.modoPeriodo !== 'custom') {
-      this.aplicarModoPeriodo();
-    }
+    // Ventana fija interna solo para estimar consumo; la UI no pide fechas.
+    this.modoPeriodo = '4_semanas';
+    this.aplicarModoPeriodo();
     const pct = this.ajustarColchon(this.porcentajeExtra);
     this.porcentajeExtra = pct;
     const cob =
@@ -241,19 +415,47 @@ export class SurtirComponent implements OnInit, OnDestroy {
           this.hasta = res.hasta;
           this.diasCobertura = res.diasCobertura;
           this.porcentajeExtra = this.ajustarColchon(Number(res.porcentajeExtra));
-          this.lineas = res.lineas.map((l) => ({
-            ...l,
-            pedir: Math.ceil(Number(l.sugerido) || 0),
-            incluido: true,
-          }));
+          this.lineas = res.lineas.map((l) => {
+            const pedir = this.pedirDesdeColchon(l);
+            return {
+              ...l,
+              // Pedir = Con colchón redondeado ↑↓
+              sugerido: pedir,
+              pedir,
+              incluido: true,
+            };
+          });
           this.syncPag(true);
           this.cargando = false;
+          this.ok = 'Pedido calculado según stock y colchón.';
         },
         error: (e) => {
           this.error = e.error?.error || 'No se pudo calcular el pedido';
           this.cargando = false;
         },
       });
+  }
+
+  /**
+   * Pedir inicial = Con colchón redondeado a entero cerrado (14.4→14, 4.8→5).
+   * Siempre número entero al arrancar.
+   */
+  pedirDesdeColchon(l: Pick<PedidoLinea, 'consumoConColchon' | 'vendePor'>): number {
+    return this.redondearPedirCerrado(Number(l.consumoConColchon) || 0);
+  }
+
+  /** Siempre entero ≥ 1 si hay cantidad (Math.round). */
+  private redondearPedirCerrado(necesidad: number): number {
+    if (!Number.isFinite(necesidad) || necesidad <= 0) return 0;
+    const n = Math.round(necesidad);
+    return n > 0 ? n : 1;
+  }
+
+  /** Al editar a mano: encaja en enteros (pieza) o múltiplos de 0.25 (litros). */
+  private normalizarPedir(n: number, vendePor?: string): number {
+    if (!Number.isFinite(n) || n < 0) return 0;
+    if (vendePor === 'PIEZA') return Math.max(0, Math.round(n));
+    return Math.max(0, Math.round(n * 4) / 4);
   }
 
   get proyectaMes(): boolean {
@@ -265,11 +467,15 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   private activas(grupo?: GrupoPedido): LineaEditable[] {
-    return this.lineas.filter((l) => {
-      if (!l.incluido || !(Number(l.pedir) > 0)) return false;
-      if (!grupo) return true;
-      return this.deptoDe(l) === grupo;
-    });
+    return this.lineas
+      .filter((l) => {
+        if (!l.incluido || !(Number(l.pedir) > 0)) return false;
+        if (!grupo) return true;
+        return this.deptoDe(l) === grupo;
+      })
+      .sort((a, b) =>
+        (a.productoNombre || '').localeCompare(b.productoNombre || '', 'es', { sensitivity: 'base' })
+      );
   }
 
   private syncPag(reset = false): void {
@@ -278,10 +484,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   onPedirChange(l: LineaEditable): void {
-    let n = Number(l.pedir);
-    if (!Number.isFinite(n) || n < 0) n = 0;
-    // Siempre enteros: se compra por litros o piezas cerrados.
-    l.pedir = Math.ceil(n);
+    l.pedir = this.normalizarPedir(Number(l.pedir), l.vendePor);
     this.syncPag();
   }
 
@@ -297,8 +500,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
   ajustarPedir(l: LineaEditable, delta: number): void {
     const actual = Number(l.pedir);
     const base = Number.isFinite(actual) ? actual : 0;
-    l.pedir = Math.max(0, Math.ceil(base + delta));
-    this.onPedirChange(l);
+    const paso = l.vendePor === 'PIEZA' ? delta : delta * 0.25;
+    l.pedir = this.normalizarPedir(base + paso, l.vendePor);
+    this.syncPag();
   }
 
   ajustarAltaCantidad(delta: number): void {

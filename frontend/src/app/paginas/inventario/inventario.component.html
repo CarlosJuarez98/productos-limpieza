@@ -21,47 +21,49 @@
       } @else if (cargando && items.length > 0) {
         <p class="muted inv-loading-soft">Actualizando…</p>
       }
-      <div class="toolbar toolbar-lista">
-        <label class="buscar">
-          Buscar
-          <div class="buscar-row">
-            <input
-              class="search"
-              appClearable
-              [ngModel]="filtroTexto"
-              (ngModelChange)="onFiltroTexto($event)"
-              name="filtro"
-              placeholder="Nombre del producto..."
-              (keydown.enter)="onBuscarEnter($event)"
-            />
-            <button type="button" class="buscar-ir" (click)="aplicarBusqueda()">Ir</button>
-          </div>
-        </label>
-
-        <div class="margen-wrap">
-          <button type="button" class="secondary margen-btn" (click)="toggleMenuMargenes($event)">
-            Márgenes
-          </button>
-        </div>
-
-        <div class="cols-wrap">
-          <button type="button" class="secondary cols-btn" (click)="toggleMenuColumnas($event)">
-            Más columnas
-          </button>
-          @if (menuColumnas) {
-            <div class="cols-menu" (click)="$event.stopPropagation()">
-              @for (c of columnasOpcionales; track c.key) {
-                <button
-                  type="button"
-                  class="col-toggle"
-                  [class.activo]="col(c.key)"
-                  (click)="toggleCol(c.key, $event)"
-                >
-                  {{ c.label }}
-                </button>
-              }
+      <div class="toolbar-sticky-shell">
+        <div class="toolbar toolbar-lista">
+          <label class="buscar">
+            Buscar
+            <div class="buscar-row">
+              <input
+                class="search"
+                appClearable
+                [ngModel]="filtroTexto"
+                (ngModelChange)="onFiltroTexto($event)"
+                name="filtro"
+                placeholder="Nombre del producto..."
+                (keydown.enter)="onBuscarEnter($event)"
+              />
+              <button type="button" class="buscar-ir" (click)="aplicarBusqueda()">Ir</button>
             </div>
-          }
+          </label>
+
+          <div class="margen-wrap">
+            <button type="button" class="secondary margen-btn" (click)="toggleMenuMargenes($event)">
+              Márgenes
+            </button>
+          </div>
+
+          <div class="cols-wrap">
+            <button type="button" class="secondary cols-btn" (click)="toggleMenuColumnas($event)">
+              Columnas
+            </button>
+            @if (menuColumnas) {
+              <div class="cols-menu" (click)="$event.stopPropagation()">
+                @for (c of columnasOpcionales; track c.key) {
+                  <button
+                    type="button"
+                    class="col-toggle"
+                    [class.activo]="col(c.key)"
+                    (click)="toggleCol(c.key, $event)"
+                  >
+                    {{ c.label }}
+                  </button>
+                }
+              </div>
+            }
+          </div>
         </div>
       </div>
       @if (menuMargenes) {
@@ -385,9 +387,11 @@
                   </strong>
                 }
                 <span class="stock-pill">
-                  Stock
-                  <span [class.stock-cero]="i.stockActual <= 0">{{ i.stockActual | number: '1.2-2' }}</span>
-                  {{ esPieza(i) ? 'pza' : 'L' }}
+                  <span class="stock-pill-label">Stock</span>
+                  <span class="stock-pill-val" [class.stock-cero]="i.stockActual <= 0">{{
+                    i.stockActual | number: '1.2-2'
+                  }}</span>
+                  <span class="stock-pill-unit">{{ esPieza(i) ? 'pza' : 'L' }}</span>
                 </span>
               </div>
               <div class="acciones">

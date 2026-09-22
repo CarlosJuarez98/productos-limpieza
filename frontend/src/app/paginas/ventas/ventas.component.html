@@ -309,8 +309,10 @@
         @for (v of pagHist.paginaItems; track v.id) {
           <tr [id]="'venta-row-' + v.id">
             <td class="col-folio">
-              @if (v.folio != null) {
+              @if (v.folio != null && esTicketFolioVisible(v)) {
                 <strong>#{{ v.folio }}</strong>
+              } @else if (v.folio != null) {
+                <span class="muted folio-cont">↳</span>
               } @else {
                 <span class="muted">—</span>
               }
@@ -334,15 +336,17 @@
               }
             </td>
             <td class="col-acciones actions">
-              <button
-                type="button"
-                class="icon-btn"
-                title="Ticket / WhatsApp"
-                [disabled]="ticketVentaId === v.id"
-                (click)="compartirTicketFolio(v)"
-              >
-                {{ ticketVentaId === v.id ? '…' : '🎫' }}
-              </button>
+              @if (esTicketFolioVisible(v)) {
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Ticket / WhatsApp"
+                  [disabled]="ticketVentaId === v.id"
+                  (click)="compartirTicketFolio(v)"
+                >
+                  {{ ticketVentaId === v.id ? '…' : '🎫' }}
+                </button>
+              }
               <button type="button" class="icon-btn" title="Editar" (click)="editarVenta(v)">✎</button>
               <button type="button" class="danger" (click)="eliminar(v.id)" title="Eliminar">×</button>
             </td>
@@ -370,7 +374,7 @@
         <div class="item-meta">
           <span [class.fecha-naranja]="esRegistroCorte(v)">{{ v.fecha | fechaDmY }}</span>
           <span class="item-meta-der">
-            @if (v.folio != null) {
+            @if (v.folio != null && esTicketFolioVisible(v)) {
               <span class="item-tag folio-tag">Folio #{{ v.folio }}</span>
             }
             <span class="item-tag">
@@ -389,16 +393,18 @@
             }
           </strong>
           <div class="acciones">
-            <button
-              type="button"
-              class="icono"
-              title="Ticket / WhatsApp"
-              aria-label="Ticket"
-              [disabled]="ticketVentaId === v.id"
-              (click)="compartirTicketFolio(v)"
-            >
-              {{ ticketVentaId === v.id ? '…' : '🎫' }}
-            </button>
+            @if (esTicketFolioVisible(v)) {
+              <button
+                type="button"
+                class="icono"
+                title="Ticket / WhatsApp"
+                aria-label="Ticket"
+                [disabled]="ticketVentaId === v.id"
+                (click)="compartirTicketFolio(v)"
+              >
+                {{ ticketVentaId === v.id ? '…' : '🎫' }}
+              </button>
+            }
             <button
               type="button"
               class="icono"

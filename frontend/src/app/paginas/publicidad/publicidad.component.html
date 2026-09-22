@@ -7,12 +7,55 @@
   <p class="ok" appAutoHide (ocultar)="ok = ''">{{ ok }}</p>
 }
 
+@if (textoPendienteWa) {
+  <div class="wa-texto-bar" role="status">
+    <div class="wa-texto-bar-copy">
+      <strong>Paso 2 · Enviar texto</strong>
+      <span class="muted">Solo si no se mandó solo (ya está copiado)</span>
+    </div>
+    <div class="wa-texto-bar-acciones">
+      <button type="button" class="btn-texto-omitir" (click)="cancelarTextoPendiente()">
+        Luego
+      </button>
+      <button
+        type="button"
+        class="btn-whatsapp btn-enviar-texto"
+        (click)="enviarTextoPendiente()"
+        [disabled]="enviandoTexto"
+      >
+        {{ enviandoTexto ? 'Abriendo…' : 'Enviar texto' }}
+      </button>
+    </div>
+  </div>
+}
+
 <section class="bloque">
   <header class="bloque-head">
     <div class="bloque-titulos">
       <h3>Promos listas</h3>
+      @if (loteLabel) {
+        <span class="muted mini">Lote {{ loteLabel }}</span>
+      }
     </div>
     <div class="bloque-acciones">
+      <button
+        type="button"
+        class="btn-nav-lote"
+        (click)="loteAnterior()"
+        [disabled]="generando || !puedeAnterior"
+        title="5 anteriores"
+      >
+        ← Anteriores
+      </button>
+      <button
+        type="button"
+        class="btn-nav-lote"
+        (click)="loteSiguiente()"
+        [disabled]="generando || !puedeSiguiente"
+        title="5 siguientes"
+      >
+        Siguientes →
+      </button>
       <button
         type="button"
         class="btn-guardar-sel"
@@ -33,7 +76,7 @@
         (click)="generarMas()"
         [disabled]="generando"
       >
-        {{ generando ? 'Generando…' : 'Generar más' }}
+        {{ generando ? 'Generando…' : 'Generar 5 nuevas' }}
       </button>
     </div>
   </header>

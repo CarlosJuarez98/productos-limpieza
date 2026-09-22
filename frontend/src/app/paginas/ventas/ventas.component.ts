@@ -84,6 +84,8 @@ export class VentasComponent implements OnInit, OnDestroy {
   filtroTexto = '';
   /** Resultados filtrados (cache). */
   filtradas: Venta[] = [];
+  /** Ids de la última línea de cada folio/día (único botón ticket + etiqueta folio). */
+  private ticketFolioIds = new Set<number>();
   pagHist = new PaginacionEstado<Venta>();
   /** Historial: solo el día de la fecha de captura, o todo. */
   soloHoy = true;
@@ -202,7 +204,24 @@ export class VentasComponent implements OnInit, OnDestroy {
       const porFecha = b.fecha.localeCompare(a.fecha);
       return porFecha !== 0 ? porFecha : b.id - a.id;
     });
+    this.recalcularTicketFolioIds();
     this.pagHist.setItems(this.filtradas, reset);
+  }
+
+  /** Una sola fila por folio del día: la última línea del ticket (mayor id = arriba en la lista). */
+  private recalcularTicketFolioIds(): void {
+    const best = new Map<string, number>();
+    // Lista va fecha↓ id↓: la última del ticket queda arriba (Axion, etc.).
+    for (const v of this.filtradas) {
+      if (v.folio == null) {
+        best.set(`id:${v.id}`, v.id);
+        continue;
+      }
+      const key = `${v.fecha}|${Number(v.folio)}`;
+      const prev = best.get(key);
+      if (prev == null || v.id > prev) best.set(key, v.id);
+    }
+    this.ticketFolioIds = new Set(best.values());
   }
 
   onFiltroTexto(value: string): void {
@@ -1007,6 +1026,11 @@ export class VentasComponent implements OnInit, OnDestroy {
           this.cargar();
         },
       });
+  }
+
+  /** Folio + 🎫 solo en la última línea del ticket (mismo folio y fecha). */
+  esTicketFolioVisible(v: Venta): boolean {
+    return this.ticketFolioIds.has(v.id);
   }
 
   async compartirTicketFolio(v: Venta): Promise<void> {

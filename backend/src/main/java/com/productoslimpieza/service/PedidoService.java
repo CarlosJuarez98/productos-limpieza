@@ -122,12 +122,14 @@ public class PedidoService {
       UnidadVenta unidad = p.getVendePor() != null ? p.getVendePor() : UnidadVenta.LITROS;
 
       BigDecimal lote = loteCompraTipico(p);
-      BigDecimal necesidad = conColchon.subtract(stock).add(faltAnte);
-      if (necesidad.compareTo(BigDecimal.ZERO) <= 0) {
+      // Solo listar si hace falta (stock bajo el objetivo con colchón).
+      BigDecimal holgura = conColchon.add(faltAnte).subtract(stock);
+      if (holgura.compareTo(BigDecimal.ZERO) <= 0) {
         continue;
       }
 
-      BigDecimal sugerido = redondearALote(necesidad, lote);
+      // Pedir = Con colchón redondeado ↑↓ (14.4→14, 4.8→5). No resta stock.
+      BigDecimal sugerido = redondearPedirCerrado(conColchon, unidad);
       if (sugerido.compareTo(BigDecimal.ZERO) <= 0) {
         continue;
       }
@@ -162,10 +164,7 @@ public class PedidoService {
     incorporarInsumosEnLineas(lineas, alertas, productos);
 
     lineas.sort(
-        Comparator.comparing(PedidoLineaDto::faltanteAnterior, Comparator.reverseOrder())
-            .thenComparing(PedidoLineaDto::consumoBase, Comparator.reverseOrder())
-            .thenComparing(PedidoLineaDto::sugerido, Comparator.reverseOrder())
-            .thenComparing(PedidoLineaDto::productoNombre, String.CASE_INSENSITIVE_ORDER));
+        Comparator.comparing(PedidoLineaDto::productoNombre, String.CASE_INSENSITIVE_ORDER));
 
     return new PedidoSugeridoDto(
         ini, fin, diasObs, diasCob, pct.setScale(2, RoundingMode.HALF_UP), lineas, alertas);
@@ -183,18 +182,23 @@ public class PedidoService {
       if (insumo == null) continue;
       UnidadVenta unidad = insumo.getVendePor() != null ? insumo.getVendePor() : UnidadVenta.LITROS;
       BigDecimal lote = loteCompraTipico(insumo);
+      BigDecimal pedirNeto = nz(a.sugeridoPedir());
+      // Con colchón = cantidad a surtir del insumo; Pedir = ese valor redondeado.
+      BigDecimal conColchonIns = pedirNeto.setScale(2, RoundingMode.HALF_UP);
+      BigDecimal sugerido = redondearPedirCerrado(conColchonIns, unidad);
+      BigDecimal stockIns = nz(a.stockInsumo());
       lineas.add(
           new PedidoLineaDto(
               insumo.getId(),
               insumo.getNombre(),
               unidad.name(),
               unidad.toLabel(),
-              a.stockInsumo(),
+              stockIns,
               BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
               BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
-              a.sugeridoPedir(),
+              conColchonIns,
               BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
-              redondearALote(a.sugeridoPedir(), lote),
+              sugerido,
               lote,
               departamentoDe(insumo).name()));
     }
@@ -285,7 +289,7 @@ public class PedidoService {
                 + " L)";
 
         InsumoAlertaDto prev = porInsumo.get(insumo.getId());
-        BigDecimal sugerido = pedir.setScale(0, RoundingMode.CEILING);
+        BigDecimal sugerido = redondearPedirCerrado(pedir, UnidadVenta.LITROS);
         if (prev != null) {
           sugerido = prev.sugeridoPedir().add(sugerido);
           motivo = prev.motivo() + "; también " + resultado.getNombre();
@@ -360,6 +364,19 @@ public class PedidoService {
     return unidades.add(equivPesos).add(traspasos).add(merma);
   }
 
+  /**
+   * Pedir = Con colchón redondeado a entero cerrado (HALF_UP): 14.4→14, 4.8→5.
+   * Siempre número entero (nunca decimales).
+   */
+  private static BigDecimal redondearPedirCerrado(BigDecimal necesidad, UnidadVenta unidad) {
+    BigDecimal n = nz(necesidad);
+    if (n.compareTo(BigDecimal.ZERO) <= 0) {
+      return BigDecimal.ZERO;
+    }
+    BigDecimal entero = n.setScale(0, RoundingMode.HALF_UP);
+    return entero.compareTo(BigDecimal.ZERO) > 0 ? entero : BigDecimal.ONE;
+  }
+
   /** Mediana de las últimas compras; si no hay historial, 5 L o 1 pieza. */
   private BigDecimal loteCompraTipico(Producto p) {
     List<Entrada> recientes =
@@ -376,19 +393,6 @@ public class PedidoService {
             .sorted()
             .toList();
     return vals.get(vals.size() / 2);
-  }
-
-  private static BigDecimal redondearALote(BigDecimal necesidad, BigDecimal lote) {
-    BigDecimal n = nz(necesidad);
-    if (n.compareTo(BigDecimal.ZERO) <= 0) {
-      return BigDecimal.ZERO;
-    }
-    BigDecimal pack = nz(lote);
-    if (pack.compareTo(BigDecimal.ZERO) <= 0) {
-      return n.setScale(0, RoundingMode.CEILING);
-    }
-    BigDecimal packs = n.divide(pack, 0, RoundingMode.CEILING);
-    return packs.multiply(pack).setScale(2, RoundingMode.HALF_UP);
   }
 
   private static DepartamentoProducto departamentoDe(Producto p) {

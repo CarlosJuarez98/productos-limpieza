@@ -8,25 +8,29 @@ export type TicketLinea = {
 
 export type TicketDatos = {
   cliente?: string | null;
+  /** Teléfono del cliente (opcional; no el de Amorcas). */
+  telefonoCliente?: string | null;
+  /** Fecha ISO yyyy-MM-dd preferida; si no, se parsea `fecha`. */
+  fechaIso?: string | null;
   fecha: string;
   lineas: TicketLinea[];
   total: number;
   nota?: string | null;
 };
 
-/** Paleta fresca (sin teal/verde bosque apagado). */
+/** Paleta Amorcas (logo: navy + teal + verde limón). */
 const C = {
-  ink: '#12263A',
-  mute: '#5B6B7C',
+  ink: '#0A2F5C',
+  mute: '#5A7385',
   paper: '#FFFEFA',
-  soft: '#F3F8FF',
-  line: '#E2EAF2',
-  navy: '#0B2A4A',
-  cyan: '#00B4D8',
-  coral: '#FF6B4A',
-  lime: '#C8F542',
-  sky: '#E8F6FF',
-  cream: '#FFF6EB',
+  soft: '#E8F5F8',
+  line: '#D0E4EA',
+  navy: '#0A2F5C',
+  teal: '#1A9BB5',
+  lime: '#7CB82E',
+  limeSoft: '#C8E86A',
+  sky: '#E8F7FA',
+  mint: '#F2F9E8',
   wa: '#25D366',
 };
 
@@ -37,7 +41,15 @@ function money(n: number): string {
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => resolve(img);
+    img.decoding = 'async';
+    img.onload = () => {
+      const finish = () => resolve(img.width > 0 && img.height > 0 ? img : null);
+      if (typeof img.decode === 'function') {
+        img.decode().then(finish).catch(finish);
+      } else {
+        finish();
+      }
+    };
     img.onerror = () => resolve(null);
     img.src =
       src.startsWith('/') ||
@@ -91,10 +103,183 @@ function drawSpark(ctx: CanvasRenderingContext2D, x: number, y: number, s: numbe
   ctx.fill();
 }
 
-export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
-  const logo = await loadImage('/publicidad/amorcas-chingon.png').then(
-    (i) => i || loadImage('/amorcas-logo.png').then((j) => j || loadImage('/publicidad/amorcas-c.jpg'))
+const MESES_LARGOS = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+] as const;
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'] as const;
+const DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'] as const;
+
+type FechaBonita = {
+  diaNum: string;
+  mesLargo: string;
+  anio: string;
+  weekday: string;
+  labelCorta: string;
+};
+
+function fechaBonita(datos: TicketDatos): FechaBonita {
+  let y = 0;
+  let m = 0;
+  let d = 0;
+  const iso = (datos.fechaIso || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(iso)) {
+    const [yy, mm, dd] = iso.split('-');
+    y = Number(yy);
+    m = Number(mm);
+    d = Number(dd);
+  } else {
+    const dmY = datos.fecha.match(/^(\d{1,2})-([a-z]{3})-(\d{4})$/i);
+    if (dmY) {
+      d = Number(dmY[1]);
+      m = MESES_CORTOS.indexOf(dmY[2].toLowerCase() as (typeof MESES_CORTOS)[number]) + 1;
+      y = Number(dmY[3]);
+    }
+  }
+  if (!y || !m || !d) {
+    return {
+      diaNum: '—',
+      mesLargo: '',
+      anio: '',
+      weekday: '',
+      labelCorta: datos.fecha || '—',
+    };
+  }
+  const dt = new Date(y, m - 1, d);
+  const weekday = DIAS_SEMANA[dt.getDay()] || '';
+  const mesLargo = MESES_LARGOS[m - 1] || '';
+  return {
+    diaNum: String(d),
+    mesLargo,
+    anio: String(y),
+    weekday,
+    labelCorta: `${d} de ${mesLargo} de ${y}`,
+  };
+}
+
+function drawImageContain(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): void {
+  const iw = img.naturalWidth || img.width || 1;
+  const ih = img.naturalHeight || img.height || 1;
+  const scale = Math.min(w / iw, h / ih);
+  const dw = iw * scale;
+  const dh = ih * scale;
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+}
+
+/** Llena el rectángulo recortando el sobrante (sin dejar cajas vacías). */
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): void {
+  const iw = img.naturalWidth || img.width || 1;
+  const ih = img.naturalHeight || img.height || 1;
+  const scale = Math.max(w / iw, h / ih);
+  const dw = iw * scale;
+  const dh = ih * scale;
+  const sx = x + (w - dw) / 2;
+  const sy = y + (h - dh) / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.drawImage(img, sx, sy, dw, dh);
+  ctx.restore();
+}
+
+function drawRoundedImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.clip();
+  drawImageCover(ctx, img, x, y, w, h);
+  ctx.restore();
+}
+
+function drawSticker(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement | null,
+  cx: number,
+  cy: number,
+  size: number,
+  alpha = 1
+): void {
+  if (!img) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  drawImageContain(ctx, img, cx - size / 2, cy - size / 2, size, size);
+  ctx.restore();
+}
+
+/** Patrón suave de burbujas para el fondo general del ticket. */
+function drawBubblesWallpaper(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  alpha = 0.3
+): void {
+  const cell = Math.max(90, Math.min(w, h) * 0.16);
+  const cols = Math.ceil(w / cell) + 1;
+  const rows = Math.ceil(h / cell) + 1;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const cx = x + col * cell + (row % 2 === 0 ? cell * 0.2 : cell * 0.55);
+      const cy = y + row * cell + cell * 0.5;
+      const size = cell * (0.85 + ((row + col) % 3) * 0.1);
+      drawImageContain(ctx, img, cx - size / 2, cy - size / 2, size, size);
+    }
+  }
+  ctx.restore();
+}
+
+async function loadSticker(name: string): Promise<HTMLImageElement | null> {
+  const q = '?v=ticket8';
+  return loadImage(`/publicidad/${name}${q}`).then(
+    (i) => i || loadImage(`/api/publicidad/media/${name}${q}`)
   );
+}
+
+export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
+  const [logo, stripProductos, stripJarceria, stickerBubbles] = await Promise.all([
+    loadImage('/publicidad/amorcas-chingon.png').then(
+      (i) => i || loadImage('/amorcas-logo.png').then((j) => j || loadImage('/publicidad/amorcas-c.jpg'))
+    ),
+    loadSticker('ticket-productos-strip.png'),
+    loadSticker('ticket-jarceria-strip.png'),
+    loadSticker('deco-burbujas.png'),
+  ]);
 
   const W = 1080;
   const margin = 36;
@@ -102,19 +287,29 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
   const cardW = W - margin * 2;
   const pad = 40;
   const n = Math.max(datos.lineas.length, 1);
+  const fb = fechaBonita(datos);
+  const clienteNom = (datos.cliente || '').trim();
+  const tieneCliente = !!clienteNom;
 
-  // Espaciado generoso (nada encimado)
-  const logoDiam = 240;
-  const logoTop = 48;
-  const afterLogoGap = 44;
-  const metaH = datos.cliente ? 120 : 72;
-  const itemH = 108;
+  // Logo: proporción fija del asset (1152×896) — nunca estirar
+  const LOGO_AR = 1152 / 896;
+  const logoBoxW = 520;
+  const logoBoxH = Math.round(logoBoxW / LOGO_AR);
+  const logoTop = 28;
+  const headerBandH = 64;
+  const stripH = 260;
+  const stripGap = 16;
+  const afterBrandGap = 28;
+  const fechaH = 132;
+  const clienteH = 108;
+  const metaH = fechaH + 18 + clienteH;
+  const itemH = 112;
   const itemsGap = 14;
   const itemsH = n * itemH + Math.max(0, n - 1) * itemsGap;
   const totalH = 150;
   const notaH = datos.nota ? 64 : 0;
-  const contactH = 100;
-  const brandH = logoTop + logoDiam + afterLogoGap;
+  const contactH = 88;
+  const brandH = logoTop + logoBoxH + stripGap + stripH + afterBrandGap;
   const cardH =
     brandH + metaH + 28 + itemsH + 36 + totalH + (notaH ? notaH + 16 : 0) + contactH + 48;
   const H = cardH + margin * 2;
@@ -125,22 +320,25 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas no disponible');
 
-  // Fondo aireado
   const bg = ctx.createLinearGradient(0, 0, W * 0.3, H);
   bg.addColorStop(0, C.sky);
-  bg.addColorStop(0.45, C.cream);
-  bg.addColorStop(1, '#EEFBF6');
+  bg.addColorStop(0.5, C.paper);
+  bg.addColorStop(1, C.mint);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  drawSpark(ctx, 70, 90, 14, 'rgba(0,180,216,0.35)');
-  drawSpark(ctx, W - 80, 160, 18, 'rgba(255,107,74,0.3)');
-  drawSpark(ctx, W - 100, H - 120, 12, 'rgba(200,245,66,0.45)');
+  // Burbujas en el fondo general (márgenes claros de la imagen)
+  if (stickerBubbles) {
+    drawBubblesWallpaper(ctx, stickerBubbles, 0, 0, W, H, 0.28);
+  }
 
-  // Card principal
+  drawSpark(ctx, 70, 90, 14, 'rgba(26,155,181,0.35)');
+  drawSpark(ctx, W - 80, 160, 18, 'rgba(124,184,46,0.35)');
+  drawSpark(ctx, W - 100, H - 120, 12, 'rgba(10,47,92,0.2)');
+
   const cardY = margin;
   ctx.save();
-  ctx.shadowColor = 'rgba(18, 38, 58, 0.16)';
+  ctx.shadowColor = 'rgba(10, 47, 92, 0.14)';
   ctx.shadowBlur = 36;
   ctx.shadowOffsetY = 14;
   roundRect(ctx, cardX, cardY, cardW, cardH, 36);
@@ -148,147 +346,210 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
   ctx.fill();
   ctx.restore();
 
-  // Franja superior viva (cyan → coral), baja, sin tapar el logo
+  // También un toque suave de burbujas en el papel blanco de la tarjeta
+  if (stickerBubbles) {
+    ctx.save();
+    roundRect(ctx, cardX, cardY, cardW, cardH, 36);
+    ctx.clip();
+    drawBubblesWallpaper(ctx, stickerBubbles, cardX, cardY, cardW, cardH, 0.14);
+    ctx.restore();
+  }
+
+  // Franja superior
   ctx.save();
-  roundRect(ctx, cardX, cardY, cardW, 120, 36);
+  roundRect(ctx, cardX, cardY, cardW, headerBandH + 48, 36);
   ctx.clip();
   const topG = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY);
   topG.addColorStop(0, C.navy);
-  topG.addColorStop(0.55, C.cyan);
-  topG.addColorStop(1, C.coral);
+  topG.addColorStop(0.5, C.teal);
+  topG.addColorStop(1, C.lime);
   ctx.fillStyle = topG;
-  ctx.fillRect(cardX, cardY, cardW, 120);
+  ctx.fillRect(cardX, cardY, cardW, headerBandH + 48);
   ctx.restore();
 
-  // Logo grande centrado, con sombra (aire abajo)
-  const logoCx = W / 2;
-  const logoCy = cardY + logoTop + logoDiam / 2;
+  // Logo (proporción correcta, centrado)
+  const logoX = (W - logoBoxW) / 2;
+  const logoY = cardY + logoTop;
+  ctx.save();
+  ctx.shadowColor = 'rgba(18, 38, 58, 0.14)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 6;
+  roundRect(ctx, logoX - 10, logoY - 10, logoBoxW + 20, logoBoxH + 20, 24);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fill();
+  ctx.restore();
+
   if (logo) {
-    ctx.save();
-    ctx.shadowColor = 'rgba(18, 38, 58, 0.28)';
-    ctx.shadowBlur = 28;
-    ctx.shadowOffsetY = 10;
-    ctx.drawImage(logo, logoCx - logoDiam / 2, logoCy - logoDiam / 2, logoDiam, logoDiam);
-    ctx.restore();
+    // Contain estricto dentro del rect proporcional
+    drawImageContain(ctx, logo, logoX, logoY, logoBoxW, logoBoxH);
   } else {
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(logoCx, logoCy, logoDiam / 2, 0, Math.PI * 2);
-    ctx.fill();
     ctx.fillStyle = C.navy;
-    ctx.font = '900 36px "Segoe UI", sans-serif';
+    ctx.font = '900 48px "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('AMORCAS', logoCx, logoCy + 12);
+    ctx.fillText('AMORCAS', W / 2, logoY + logoBoxH / 2 + 16);
   }
+
+  // Fotos limpias (sin marco de stickers)
+  const stripY = logoY + logoBoxH + stripGap;
+  const listX = cardX + pad;
+  const listW = cardW - pad * 2;
+  const halfGap = 14;
+  const halfW = (listW - halfGap) / 2;
+
+  const drawPhotoPanel = (x: number, photo: HTMLImageElement | null) => {
+    roundRect(ctx, x, stripY, halfW, stripH, 22);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fill();
+    if (photo) {
+      drawRoundedImageCover(ctx, photo, x, stripY, halfW, stripH, 22);
+    }
+    ctx.strokeStyle = 'rgba(11, 42, 74, 0.14)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, x, stripY, halfW, stripH, 22);
+    ctx.stroke();
+  };
+
+  drawPhotoPanel(listX, stripProductos);
+  drawPhotoPanel(listX + halfW + halfGap, stripJarceria);
 
   let y = cardY + brandH;
+  // listX/listW already set
 
-  // Meta: fecha + cliente, con espacio
+  // —— Fecha ——
+  const fechaBoxH = fechaH;
+  roundRect(ctx, listX, y, listW, fechaBoxH, 24);
+  const fechaGrad = ctx.createLinearGradient(listX, y, listX + listW, y + fechaBoxH);
+  fechaGrad.addColorStop(0, C.navy);
+  fechaGrad.addColorStop(1, '#0E4A6E');
+  ctx.fillStyle = fechaGrad;
+  ctx.fill();
+
+  const dayBoxW = 150;
+  roundRect(ctx, listX + 18, y + 16, dayBoxW, fechaBoxH - 32, 18);
+  ctx.fillStyle = C.limeSoft;
+  ctx.fill();
+  ctx.fillStyle = C.navy;
   ctx.textAlign = 'center';
-  ctx.fillStyle = C.mute;
-  ctx.font = '700 22px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText(datos.fecha, W / 2, y);
+  ctx.font = '900 64px "Segoe UI", system-ui, sans-serif';
+  ctx.fillText(fb.diaNum, listX + 18 + dayBoxW / 2, y + fechaBoxH / 2 + 22);
 
-  if (datos.cliente) {
-    y += 44;
-    // Pill del cliente
-    const label = truncate(ctx, datos.cliente, cardW - pad * 2 - 80);
-    ctx.font = '900 36px "Segoe UI", system-ui, sans-serif';
-    const tw = Math.min(cardW - pad * 2, ctx.measureText(label).width + 64);
-    const px = (W - tw) / 2;
-    roundRect(ctx, px, y - 34, tw, 56, 28);
-    ctx.fillStyle = C.soft;
-    ctx.fill();
-    ctx.strokeStyle = C.cyan;
-    ctx.lineWidth = 2.5;
-    roundRect(ctx, px, y - 34, tw, 56, 28);
-    ctx.stroke();
-    ctx.fillStyle = C.ink;
-    ctx.fillText(label, W / 2, y + 4);
-    y += 58;
+  ctx.textAlign = 'left';
+  const textLeft = listX + 18 + dayBoxW + 28;
+  ctx.fillStyle = C.limeSoft;
+  ctx.font = '800 22px "Segoe UI", system-ui, sans-serif';
+  ctx.fillText((fb.weekday || 'pedido').toUpperCase(), textLeft, y + 48);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '900 40px "Segoe UI", system-ui, sans-serif';
+  const mesAnio = fb.mesLargo
+    ? `${fb.mesLargo.charAt(0).toUpperCase()}${fb.mesLargo.slice(1)} ${fb.anio}`
+    : fb.labelCorta;
+  ctx.fillText(truncate(ctx, mesAnio, listW - dayBoxW - 80), textLeft, y + 98);
+
+  y += fechaBoxH + 18;
+
+  // —— Cliente (sin círculo de iniciales) ——
+  roundRect(ctx, listX, y, listW, clienteH, 24);
+  ctx.fillStyle = C.soft;
+  ctx.fill();
+  ctx.strokeStyle = C.navy;
+  ctx.lineWidth = 2.5;
+  roundRect(ctx, listX, y, listW, clienteH, 24);
+  ctx.stroke();
+
+  const cTextX = listX + 28;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = C.navy;
+  ctx.font = '800 17px "Segoe UI", system-ui, sans-serif';
+  ctx.fillText('PEDIDO PARA', cTextX, y + 36);
+  ctx.fillStyle = C.ink;
+  ctx.font = '900 36px "Segoe UI", system-ui, sans-serif';
+  const nombreShow = tieneCliente ? clienteNom : 'Cliente (sin nombre)';
+  ctx.fillText(truncate(ctx, nombreShow, listW - 56), cTextX, y + 74);
+  if (datos.telefonoCliente?.trim()) {
+    ctx.fillStyle = C.navy;
+    ctx.font = '700 18px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(truncate(ctx, datos.telefonoCliente.trim(), listW - 56), cTextX, y + 98);
   } else {
-    y += 36;
+    ctx.fillStyle = C.navy;
+    ctx.font = '700 17px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText('Entrega a domicilio · Amorcas', cTextX, y + 98);
   }
 
-  // Separador suave
+  y += clienteH + 28;
+
   ctx.strokeStyle = C.line;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(cardX + pad + 20, y);
-  ctx.lineTo(cardX + cardW - pad - 20, y);
+  ctx.moveTo(listX + 20, y);
+  ctx.lineTo(listX + listW - 20, y);
   ctx.stroke();
   y += 28;
 
-  const listX = cardX + pad;
-  const listW = cardW - pad * 2;
-
-  // Ítems como cards sueltas (no filas pegadas)
+  // Ítems
   datos.lineas.forEach((l, i) => {
     const rowY = y + i * (itemH + itemsGap);
+    const accent = i % 2 === 0 ? C.teal : C.lime;
+    const rowBg = i % 2 === 0 ? C.soft : C.mint;
 
     ctx.save();
     ctx.shadowColor = 'rgba(18, 38, 58, 0.06)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 3;
     roundRect(ctx, listX, rowY, listW, itemH, 22);
-    ctx.fillStyle = i % 2 === 0 ? C.soft : '#FFF9F4';
+    ctx.fillStyle = rowBg;
     ctx.fill();
     ctx.restore();
 
-    // Acento lateral coral/cyan alternado
-    ctx.fillStyle = i % 2 === 0 ? C.cyan : C.coral;
-    roundRect(ctx, listX, rowY, 10, itemH, 22);
+    ctx.fillStyle = accent;
+    roundRect(ctx, listX, rowY, 12, itemH, 22);
     ctx.fill();
-    ctx.fillStyle = i % 2 === 0 ? C.cyan : C.coral;
-    ctx.fillRect(listX + 5, rowY, 8, itemH);
+    ctx.fillRect(listX + 6, rowY, 10, itemH);
 
-    // Número
     ctx.beginPath();
-    ctx.arc(listX + 48, rowY + itemH / 2, 22, 0, Math.PI * 2);
+    ctx.arc(listX + 50, rowY + itemH / 2, 24, 0, Math.PI * 2);
     ctx.fillStyle = C.navy;
     ctx.fill();
-    ctx.fillStyle = C.lime;
-    ctx.font = '900 18px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = C.limeSoft;
+    ctx.font = '900 20px "Segoe UI", system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(String(i + 1), listX + 48, rowY + itemH / 2 + 6);
+    ctx.fillText(String(i + 1), listX + 50, rowY + itemH / 2 + 7);
 
-    const textX = listX + 86;
-    const textMax = listW - 260;
+    const textX = listX + 90;
+    const textMax = listW - 270;
     ctx.textAlign = 'left';
     ctx.fillStyle = C.ink;
-    ctx.font = '800 26px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(truncate(ctx, l.nombre, textMax), textX, rowY + 42);
-    ctx.fillStyle = C.mute;
-    ctx.font = '600 18px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(truncate(ctx, l.detalle, textMax), textX, rowY + 72);
+    ctx.font = '900 28px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(truncate(ctx, l.nombre, textMax), textX, rowY + 44);
+    ctx.fillStyle = C.navy;
+    ctx.font = '800 20px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(truncate(ctx, l.detalle, textMax), textX, rowY + 78);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = C.navy;
-    ctx.font = '900 30px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(`$${money(l.total)}`, listX + listW - 28, rowY + itemH / 2 + 10);
+    ctx.font = '900 32px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(`$${money(l.total)}`, listX + listW - 28, rowY + itemH / 2 + 11);
     ctx.textAlign = 'left';
   });
 
   y += itemsH + 36;
 
-  // Total llamativo: navy + franja lima
   roundRect(ctx, listX, y, listW, totalH, 26);
   ctx.fillStyle = C.navy;
   ctx.fill();
-  ctx.fillStyle = C.lime;
+  ctx.fillStyle = C.limeSoft;
   roundRect(ctx, listX, y, 14, totalH, 26);
   ctx.fill();
   ctx.fillRect(listX + 7, y, 14, totalH);
 
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillStyle = C.limeSoft;
   ctx.font = '800 18px "Segoe UI", system-ui, sans-serif';
   ctx.fillText('TOTAL A PAGAR', listX + 44, y + 46);
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = '#FFFFFF';
   ctx.font = '900 56px "Segoe UI", system-ui, sans-serif';
   ctx.fillText(`$${money(datos.total)}`, listX + 44, y + 110);
 
   ctx.textAlign = 'right';
-  ctx.fillStyle = C.lime;
+  ctx.fillStyle = C.limeSoft;
   ctx.font = '800 22px "Segoe UI", system-ui, sans-serif';
   ctx.fillText(`${n} producto${n === 1 ? '' : 's'}`, listX + listW - 36, y + 78);
   ctx.textAlign = 'left';
@@ -297,38 +558,47 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
 
   if (datos.nota) {
     roundRect(ctx, listX, y, listW, 52, 16);
-    ctx.fillStyle = C.cream;
+    ctx.fillStyle = C.mint;
     ctx.fill();
-    ctx.fillStyle = C.coral;
-    ctx.font = '700 18px "Segoe UI", system-ui, sans-serif';
+    ctx.fillStyle = C.teal;
+    ctx.font = '800 18px "Segoe UI", system-ui, sans-serif';
     ctx.fillText(truncate(ctx, `Nota: ${datos.nota}`, listW - 36), listX + 20, y + 34);
     y += notaH;
   }
 
-  // Contacto
-  roundRect(ctx, listX, y, listW, contactH - 12, 20);
-  ctx.fillStyle = '#F0FFF6';
+  roundRect(ctx, listX, y, listW, contactH - 8, 20);
+  ctx.fillStyle = C.soft;
   ctx.fill();
-  ctx.strokeStyle = C.wa;
-  ctx.lineWidth = 3;
-  roundRect(ctx, listX, y, listW, contactH - 12, 20);
+  ctx.strokeStyle = C.navy;
+  ctx.lineWidth = 2.5;
+  roundRect(ctx, listX, y, listW, contactH - 8, 20);
   ctx.stroke();
 
-  roundRect(ctx, listX + 22, y + 20, 48, 48, 24);
-  ctx.fillStyle = C.wa;
+  const pinCx = listX + 46;
+  const pinCy = y + (contactH - 8) / 2 - 4;
+  ctx.beginPath();
+  ctx.arc(pinCx, pinCy - 6, 16, 0, Math.PI * 2);
+  ctx.fillStyle = C.teal;
   ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(pinCx - 12, pinCy);
+  ctx.lineTo(pinCx + 12, pinCy);
+  ctx.lineTo(pinCx, pinCy + 18);
+  ctx.closePath();
+  ctx.fillStyle = C.teal;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(pinCx, pinCy - 6, 6, 0, Math.PI * 2);
   ctx.fillStyle = '#fff';
-  ctx.font = '900 24px "Segoe UI", system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('W', listX + 46, y + 52);
+  ctx.fill();
 
   ctx.textAlign = 'left';
   ctx.fillStyle = C.navy;
-  ctx.font = '900 28px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText('247-120-6128', listX + 88, y + 42);
-  ctx.fillStyle = C.mute;
-  ctx.font = '600 17px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText('Fracc. Los Álamos #121-C', listX + 88, y + 72);
+  ctx.font = '800 15px "Segoe UI", system-ui, sans-serif';
+  ctx.fillText('NOS ENCUENTRAS EN', listX + 88, y + 30);
+  ctx.fillStyle = C.ink;
+  ctx.font = '900 26px "Segoe UI", system-ui, sans-serif';
+  ctx.fillText('Fracc. Los Álamos #121-C', listX + 88, y + 62);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -339,50 +609,42 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
   });
 }
 
-/** Solo imagen + menú Compartir (elige el chat de WhatsApp tú). Sin pedirte el número. */
+/** Solo imagen (sin caption de total: WhatsApp lo mandaría aparte). */
 export async function compartirTicketWhatsApp(datos: TicketDatos): Promise<'compartido' | 'descargado'> {
   const blob = await generarTicketPng(datos);
-  const safeFecha = datos.fecha.replace(/[^\d\-]/g, '_') || 'pedido';
-  const file = new File([blob], `pedido-amorcas-${safeFecha}.png`, { type: 'image/png' });
-
-  const nav = navigator as Navigator & {
-    share?: (data: ShareData) => Promise<void>;
-    canShare?: (data: ShareData) => boolean;
-  };
-
-  if (typeof nav.share === 'function') {
-    try {
-      if (!nav.canShare || nav.canShare({ files: [file] })) {
-        await nav.share({
-          files: [file],
-          title: 'Pedido Amorcas',
-          text: `Total $${money(datos.total)} — Amorcas`,
-        });
-        return 'compartido';
-      }
-    } catch (e: unknown) {
-      if (e instanceof DOMException && e.name === 'AbortError') {
-        return 'compartido';
-      }
-    }
-  }
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-  return 'descargado';
+  const safePart = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'x';
+  const safeFecha = safePart(datos.fechaIso || datos.fecha || 'fecha');
+  const safeCliente = safePart((datos.cliente || '').trim() || 'cliente');
+  const fileName = `pedido-domicilio-AMORCAS-${safeFecha}-${safeCliente}.png`;
+  const file = new File([blob], fileName, { type: 'image/png' });
+  return shareFile(file, 'Pedido Amorcas', '');
 }
 
-/** Comparte publicidad: texto dibujado en la imagen (WhatsApp no junta caption + foto). */
+export type ResultadoSharePublicidad = {
+  modo: 'compartido' | 'descargado';
+  texto: string;
+  /** true si ya se mandó el texto como 2ª imagen (automático). */
+  automatico: boolean;
+};
+
+/**
+ * Un solo toque: 1) foto del flyer, 2) imagen con el mensaje
+ * (Buenos días / en servicio / precios). Así el orden queda correcto
+ * y no hace falta un segundo botón — WhatsApp no permite texto suelto automático fiable.
+ */
 export async function compartirPublicidad(
   src: string,
   titulo: string,
-  _textoOmitido?: string,
+  textoDespues?: string,
   blobPref?: Blob
-): Promise<'compartido' | 'descargado'> {
+): Promise<ResultadoSharePublicidad> {
+  const texto = textoSharePublicidad(titulo, textoDespues);
   let blob = blobPref;
   if (!blob) {
     const url = src.startsWith('/') || src.startsWith('blob:') || src.startsWith('http') ? src : `/${src}`;
@@ -390,101 +652,199 @@ export async function compartirPublicidad(
     if (!res.ok) throw new Error('No se pudo cargar la imagen');
     blob = await res.blob();
   }
-  const conTexto = await generarPublicidadConTexto(blob, titulo);
-  const file = new File(
-    [conTexto],
+  await copiarTextoSeguro(texto);
+
+  const flyerFile = new File(
+    [blob],
     `${titulo.replace(/\s+/g, '-').toLowerCase() || 'promo'}.png`,
-    { type: 'image/png' }
+    { type: blob.type || 'image/png' }
   );
-  // Sin `text`: si se manda aparte, WhatsApp lo envía como otro mensaje.
-  return shareFile(file, titulo || 'Amorcas', '');
+  const textoBlob = await renderTextoComoImagen(texto);
+  const textoFile = new File([textoBlob], 'amorcas-mensaje.png', { type: 'image/png' });
+
+  const multi = await shareFiles([flyerFile, textoFile], titulo || 'Amorcas');
+  if (multi === 'compartido') {
+    return { modo: 'compartido', texto, automatico: true };
+  }
+  // Si el SO no acepta 2 archivos, manda solo la foto (texto queda en portapapeles + paso manual)
+  const solo = await shareFile(flyerFile, titulo || 'Amorcas', '');
+  return { modo: solo, texto, automatico: false };
 }
 
-/** Promo + saludo/horario/contacto en un solo PNG. */
-async function generarPublicidadConTexto(imgBlob: Blob, titulo: string): Promise<Blob> {
-  const objectUrl = URL.createObjectURL(imgBlob);
+/**
+ * Paso manual de respaldo (si el celular no admite 2 imágenes a la vez).
+ */
+export async function enviarTextoWhatsApp(texto: string): Promise<'compartido' | 'abierto'> {
+  const t = (texto || '').trim();
+  if (!t) return 'abierto';
+  await copiarTextoSeguro(t);
+
   try {
-    const img = await loadImage(objectUrl);
-    if (!img) throw new Error('No se pudo leer la imagen');
+    const textoBlob = await renderTextoComoImagen(t);
+    const textoFile = new File([textoBlob], 'amorcas-mensaje.png', { type: 'image/png' });
+    const modo = await shareFile(textoFile, 'Amorcas', t);
+    if (modo === 'compartido') return 'compartido';
+  } catch {
+    /* fallback abajo */
+  }
 
-    const lineas = textoPublicidadLineas(titulo);
-    const W = Math.max(img.naturalWidth || img.width, 720);
-    const scale = W / (img.naturalWidth || img.width);
-    const imgH = Math.round((img.naturalHeight || img.height) * scale);
-    const padX = Math.round(W * 0.055);
-    const padY = Math.round(W * 0.045);
-    const titleSize = Math.max(28, Math.round(W * 0.042));
-    const bodySize = Math.max(24, Math.round(W * 0.034));
-    const lineGap = Math.round(bodySize * 1.35);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = W;
-    const measureCtx = canvas.getContext('2d');
-    if (!measureCtx) throw new Error('Canvas no disponible');
-
-    let textH = padY;
-    for (const L of lineas) {
-      if (!L.text) {
-        textH += Math.round(bodySize * 0.45);
-        continue;
+  const nav = navigator as Navigator & {
+    share?: (data: ShareData) => Promise<void>;
+    canShare?: (data: ShareData) => boolean;
+  };
+  try {
+    if (typeof nav.share === 'function') {
+      const payload: ShareData = { title: 'Amorcas', text: t };
+      if (!nav.canShare || nav.canShare(payload)) {
+        await nav.share(payload);
+        return 'compartido';
       }
-      measureCtx.font = `${L.bold ? '700' : '500'} ${L.size === 'title' ? titleSize : bodySize}px "Segoe UI", system-ui, sans-serif`;
-      const wrapped = wrapCanvasLines(measureCtx, L.text, W - padX * 2);
-      textH += wrapped.length * lineGap + (L.size === 'title' ? Math.round(bodySize * 0.2) : 0);
     }
-    textH += padY;
-
-    canvas.height = imgH + textH;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas no disponible');
-
-    ctx.fillStyle = '#0B2A4A';
-    ctx.fillRect(0, 0, W, canvas.height);
-    ctx.drawImage(img, 0, 0, W, imgH);
-
-    const bandY = imgH;
-    const grad = ctx.createLinearGradient(0, bandY, 0, canvas.height);
-    grad.addColorStop(0, '#0B2A4A');
-    grad.addColorStop(1, '#061828');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, bandY, W, textH);
-
-    ctx.fillStyle = '#FF6B4A';
-    ctx.fillRect(0, bandY, W, Math.max(4, Math.round(W * 0.006)));
-
-    let y = bandY + padY + titleSize * 0.85;
-    for (const L of lineas) {
-      if (!L.text) {
-        y += Math.round(bodySize * 0.45);
-        continue;
-      }
-      const size = L.size === 'title' ? titleSize : bodySize;
-      ctx.font = `${L.bold ? '700' : '500'} ${size}px "Segoe UI", system-ui, sans-serif`;
-      ctx.fillStyle = L.mute ? '#A8C0D4' : L.accent ? '#C8F542' : '#FFFEFA';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'alphabetic';
-      const wrapped = wrapCanvasLines(ctx, L.text, W - padX * 2);
-      for (const row of wrapped) {
-        ctx.fillText(row, padX, y);
-        y += lineGap;
-      }
-      if (L.size === 'title') y += Math.round(bodySize * 0.2);
+  } catch (e: unknown) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      return 'compartido';
     }
+  }
+  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return 'abierto';
+}
 
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo generar PNG'))), 'image/png');
-    });
-  } finally {
-    URL.revokeObjectURL(objectUrl);
+/** Tarjeta PNG con el mensaje (legible, paleta Amorcas). */
+async function renderTextoComoImagen(texto: string): Promise<Blob> {
+  const W = 1080;
+  const padX = 56;
+  const padY = 52;
+  const maxW = W - padX * 2;
+  const lineGap = 10;
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas no disponible');
+
+  type Row = { text: string; size: number; bold: boolean; accent: boolean; mute: boolean };
+  const rows: Row[] = [];
+  const raw = texto.split('\n');
+  for (let i = 0; i < raw.length; i++) {
+    const line = raw[i];
+    if (!line.trim()) {
+      rows.push({ text: '', size: 18, bold: false, accent: false, mute: false });
+      continue;
+    }
+    const esSaludo = i === 0 && /^Buen[oa]s |^¡Hola!/i.test(line);
+    const esBullet = /^\s*[•*]/.test(line);
+    const esMeta = /^[🕘📍💬📌]/.test(line) || /^Amorcas/i.test(line);
+    const size = esSaludo ? 44 : esBullet ? 36 : esMeta ? 32 : 34;
+    const bold = esSaludo || esBullet || /^Ya |^¡Ya |^En servicio|^¡Negocio|^Atendiendo|^Precios|^Mira /i.test(line);
+    ctx.font = `${bold ? 800 : 600} ${size}px "Segoe UI", system-ui, sans-serif`;
+    const wrapped = wrapCanvasLines(ctx, line, maxW);
+    for (const w of wrapped) {
+      rows.push({
+        text: w,
+        size,
+        bold,
+        accent: esSaludo,
+        mute: esMeta && !esSaludo,
+      });
+    }
+  }
+
+  let contentH = 0;
+  for (const r of rows) {
+    contentH += r.text ? r.size + lineGap : 22;
+  }
+  const H = Math.max(720, padY * 2 + contentH + 40);
+  canvas.width = W;
+  canvas.height = H;
+
+  // Fondo marca
+  ctx.fillStyle = '#F7FBFC';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#28A0B8';
+  ctx.fillRect(0, 0, 14, H);
+  ctx.fillStyle = '#B0D040';
+  ctx.fillRect(14, 0, 8, H);
+
+  let y = padY + 8;
+  for (const r of rows) {
+    if (!r.text) {
+      y += 22;
+      continue;
+    }
+    ctx.font = `${r.bold ? 800 : 600} ${r.size}px "Segoe UI", system-ui, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    if (r.accent) ctx.fillStyle = '#28A0B8';
+    else if (r.mute) ctx.fillStyle = '#5a7a88';
+    else ctx.fillStyle = '#183060';
+    ctx.fillText(r.text, padX + 12, y + r.size * 0.85);
+    y += r.size + lineGap;
+  }
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se generó el mensaje'))), 'image/png', 0.92);
+  });
+}
+
+/** Saludo + “ya estamos en servicio”; si hay texto de promo con precios, lo completa. */
+function textoSharePublicidad(titulo: string, textoDespues?: string): string {
+  const custom = (textoDespues || '').trim();
+  const tit = (titulo || '').trim();
+  if (!custom || custom === tit || custom.length < 48) {
+    return textoPublicidadWhatsApp(titulo).trim();
+  }
+  const tieneSaludo = /^Buen[oa]s (días|tardes|noches)/i.test(custom) || /^¡Hola!/i.test(custom);
+  const tieneServicio =
+    /Ya estamos|¡Ya abrimos|En servicio|¡Negocio abierto|Atendiendo con gusto/i.test(custom);
+  if (tieneSaludo && tieneServicio) {
+    return custom;
+  }
+  if (tieneSaludo && !tieneServicio) {
+    const lines = custom.split('\n');
+    const saludoLine = lines[0];
+    let i = 1;
+    while (i < lines.length && !lines[i].trim()) i++;
+    const frase = FRASES_SERVICIO[Math.floor(Math.random() * FRASES_SERVICIO.length)];
+    return [saludoLine, '', ...frase.split('\n'), '', ...lines.slice(i)].join('\n');
+  }
+  return `${textoPublicidadWhatsApp(titulo).trim()}\n\n${custom}`;
+}
+
+async function copiarTextoSeguro(texto: string): Promise<boolean> {
+  const t = (texto || '').trim();
+  if (!t) return false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(t);
+      return true;
+    }
+  } catch {
+    /* fallback abajo */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = t;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
   }
 }
 
 type LineaPub = { text: string; bold?: boolean; mute?: boolean; accent?: boolean; size?: 'title' | 'body' };
 
-function textoPublicidadLineas(tituloPromo?: string): LineaPub[] {
+function textoPublicidadLineas(_tituloPromo?: string): LineaPub[] {
   const frase = FRASES_SERVICIO[Math.floor(Math.random() * FRASES_SERVICIO.length)];
   const fraseParts = frase.split('\n');
-  const out: LineaPub[] = [
+  return [
     { text: saludoPublicidad(), bold: true, size: 'title', accent: true },
     { text: '' },
     ...fraseParts.map((t, i) => ({ text: t, bold: i === 0, size: 'body' as const })),
@@ -495,10 +855,6 @@ function textoPublicidadLineas(tituloPromo?: string): LineaPub[] {
     { text: '' },
     { text: 'Amorcas · Soluciones de Limpieza', mute: true, size: 'body' },
   ];
-  if (tituloPromo?.trim()) {
-    out.push({ text: `📌 ${tituloPromo.trim()}`, mute: true, size: 'body' });
-  }
-  return out;
 }
 
 function wrapCanvasLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
@@ -558,6 +914,26 @@ export function textoPublicidadWhatsApp(tituloPromo?: string): string {
     .join('\n');
 }
 
+async function shareFiles(files: File[], title: string): Promise<'compartido' | 'descargado' | 'no-soportado'> {
+  if (!files.length) return 'no-soportado';
+  const nav = navigator as Navigator & {
+    share?: (data: ShareData) => Promise<void>;
+    canShare?: (data: ShareData) => boolean;
+  };
+  if (typeof nav.share !== 'function') return 'no-soportado';
+  try {
+    const payload: ShareData = { files, title };
+    if (nav.canShare && !nav.canShare(payload)) return 'no-soportado';
+    await nav.share(payload);
+    return 'compartido';
+  } catch (e: unknown) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      return 'compartido';
+    }
+    return 'no-soportado';
+  }
+}
+
 async function shareFile(
   file: File,
   title: string,
@@ -570,14 +946,14 @@ async function shareFile(
 
   if (typeof nav.share === 'function') {
     try {
-      const payload: ShareData = { files: [file], title };
-      if (text?.trim()) payload.text = text;
-      const ok =
-        !nav.canShare ||
-        nav.canShare(payload) ||
-        nav.canShare({ files: [file] });
-      if (ok) {
-        await nav.share(payload);
+      const conTexto: ShareData = { files: [file], title };
+      if (text?.trim()) conTexto.text = text;
+      if (!nav.canShare || nav.canShare(conTexto)) {
+        await nav.share(conTexto);
+        return 'compartido';
+      }
+      if (!nav.canShare || nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], title });
         return 'compartido';
       }
     } catch (e: unknown) {
@@ -630,13 +1006,21 @@ function monoFit(ctx: CanvasRenderingContext2D, text: string, maxW: number): str
   return t + '…';
 }
 
-/** Recibo térmico estilo supermercado (nota de venta / ticket válido visualmente). */
+/** Recibo térmico estilo supermercado (nota de venta). */
 export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promise<Blob> {
+  const logo = await loadImage('/publicidad/amorcas-chingon.png').then(
+    (i) => i || loadImage('/amorcas-logo.png').then((j) => j || loadImage('/publicidad/amorcas-c.jpg'))
+  );
+
   const W = 540;
   const pad = 28;
   const n = Math.max(datos.lineas.length, 1);
   const rowH = 44;
-  const H = 320 + n * rowH + 220;
+  const LOGO_AR = 1152 / 896;
+  const logoW = logo ? 240 : 0;
+  const logoH = logo ? Math.round(logoW / LOGO_AR) : 0;
+  const headerExtra = logo ? logoH + 18 : 0;
+  const H = 260 + headerExtra + n * rowH + 140;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -651,19 +1035,25 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
   ctx.strokeRect(10.5, 10.5, W - 21, H - 21);
 
   const cx = W / 2;
-  let y = 48;
+  let y = 28;
+
+  if (logo) {
+    const lx = (W - logoW) / 2;
+    drawImageContain(ctx, logo, lx, y, logoW, logoH);
+    y += logoH + 14;
+  } else {
+    y = 48;
+    ctx.fillStyle = '#111';
+    ctx.textAlign = 'center';
+    ctx.font = '900 28px "Courier New", Courier, monospace';
+    ctx.fillText('AMORCAS', cx, y);
+    y += 26;
+  }
+
   ctx.fillStyle = '#111';
   ctx.textAlign = 'center';
-  ctx.font = '900 28px "Courier New", Courier, monospace';
-  ctx.fillText('AMORCAS', cx, y);
-  y += 26;
-  ctx.font = '700 15px "Courier New", Courier, monospace';
-  ctx.fillText('Soluciones de Limpieza', cx, y);
-  y += 22;
   ctx.font = '600 13px "Courier New", Courier, monospace';
   ctx.fillText(DIR_AMORCAS, cx, y);
-  y += 18;
-  ctx.fillText(`Tel. ${TEL_AMORCAS}`, cx, y);
   y += 18;
   ctx.fillText(`Horario: ${HORARIO_ATENCION}`, cx, y);
   y += 22;
@@ -691,8 +1081,8 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
 
   ctx.textAlign = 'left';
   ctx.font = '700 12px "Courier New", Courier, monospace';
-  ctx.fillText('CANT', pad, y);
-  ctx.fillText('DESCRIPCION', pad + 70, y);
+  ctx.fillText('CANTIDAD', pad, y);
+  ctx.fillText('DESCRIPCION', pad + 110, y);
   ctx.textAlign = 'right';
   ctx.fillText('IMPORTE', W - pad, y);
   y += 10;
@@ -706,8 +1096,8 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
     const left = uni ? `${cantTxt} ${uni}` : cantTxt;
     ctx.textAlign = 'left';
     ctx.font = '700 14px "Courier New", Courier, monospace';
-    ctx.fillText(monoFit(ctx, left, 62), pad, y);
-    ctx.fillText(monoFit(ctx, l.nombre, 280), pad + 70, y);
+    ctx.fillText(monoFit(ctx, left, 100), pad, y);
+    ctx.fillText(monoFit(ctx, l.nombre, 250), pad + 110, y);
     ctx.textAlign = 'right';
     ctx.font = '800 15px "Courier New", Courier, monospace';
     ctx.fillText(l.sinCobro ? '0.00' : money(l.total), W - pad, y);
@@ -734,32 +1124,6 @@ export async function generarTicketVentaTermico(datos: TicketVentaDatos): Promis
   y += 22;
   ctx.font = '600 12px "Courier New", Courier, monospace';
   ctx.fillText('Conserve este ticket como su nota de venta.', cx, y);
-  y += 18;
-  ctx.fillText('Documento válido para su registro / comprobante.', cx, y);
-  y += 28;
-
-  const barY = y;
-  const barH = 48;
-  const barX0 = pad + 40;
-  const barW = W - pad * 2 - 80;
-  let bx = barX0;
-  let seed = folio.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const rnd = () => {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    return seed / 0x7fffffff;
-  };
-  while (bx < barX0 + barW) {
-    const bw = 1 + Math.floor(rnd() * 3);
-    if (rnd() > 0.35) {
-      ctx.fillStyle = '#111';
-      ctx.fillRect(bx, barY, bw, barH);
-    }
-    bx += bw + 1;
-  }
-  y = barY + barH + 18;
-  ctx.fillStyle = '#111';
-  ctx.font = '600 12px "Courier New", Courier, monospace';
-  ctx.fillText(folio, cx, y);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(

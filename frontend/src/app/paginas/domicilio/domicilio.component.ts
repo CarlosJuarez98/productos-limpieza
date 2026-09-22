@@ -611,6 +611,8 @@ export class DomicilioComponent implements OnInit {
     try {
       const modo = await compartirTicketWhatsApp({
         cliente: p.cliente,
+        telefonoCliente: p.telefono,
+        fechaIso: p.fecha,
         fecha: formatFechaDmY(p.fecha),
         total: Number(p.total) || 0,
         nota: p.nota,
