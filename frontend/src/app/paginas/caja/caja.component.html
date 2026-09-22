@@ -268,7 +268,14 @@
   <form class="form-grid" (ngSubmit)="guardarMovimiento()">
     <label>
       Fecha
-      <app-fecha-dia [(ngModel)]="mov.fecha" name="movFecha" [required]="true" ariaLabel="Fecha del movimiento" />
+      <app-fecha-dia
+        [(ngModel)]="mov.fecha"
+        name="movFecha"
+        [required]="true"
+        [min]="fechaMinMov"
+        [max]="fechaMax"
+        ariaLabel="Fecha del movimiento"
+      />
     </label>
     <label>
       Tipo
@@ -412,7 +419,8 @@
         [(desde)]="config.fechaInicio"
         [(hasta)]="config.fechaFin"
         [bloquearDesde]="true"
-        [max]="hoyLocal()"
+        [min]="config.fechaInicio || null"
+        [max]="fechaMax"
         ariaLabel="Periodo de caja"
       />
     </label>
@@ -433,6 +441,9 @@
     <p class="muted hint corte-apartar-hint">
       Disponible para apartar:
       <strong>${{ paraApartarEstimado | number: '1.2-2' }}</strong>
+      @if (estadoDiferencia === 'faltante' && totalCalculadora > 0) {
+        <span class="hint-faltante"> (según lo contado; hay faltante)</span>
+      }
     </p>
     <button type="submit" [disabled]="!puedeGuardarPeriodo">
       {{ etiquetaBotonPeriodo }}

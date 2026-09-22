@@ -41,6 +41,11 @@ _migrate/node_modules/
 archivo-anual/
 backend/archivo-anual/
 
+# Galería Amorcas subida (manifiesto + archivos). La carpeta sí va en git.
+uploads/publicidad-galeria/*
+!uploads/publicidad-galeria/.gitkeep
+!uploads/publicidad-galeria/README.md
+
 # Basura de pruebas locales
 _b64.txt
 _caja_*.json

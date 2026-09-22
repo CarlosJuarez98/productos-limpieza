@@ -11,22 +11,55 @@
   <header class="bloque-head">
     <div class="bloque-titulos">
       <h3>Promos listas</h3>
-      <span class="badge-nueva">{{ packLabel }}</span>
     </div>
-    <button
-      type="button"
-      class="btn-generar"
-      (click)="generarMas()"
-      [disabled]="generando"
-    >
-      {{ generando ? 'Cambiando…' : 'Generar más' }}
-    </button>
+    <div class="bloque-acciones">
+      <button
+        type="button"
+        class="btn-guardar-sel"
+        (click)="agregarSeleccionadas()"
+        [disabled]="guardandoSeleccion || seleccionCount === 0"
+      >
+        {{
+          guardandoSeleccion
+            ? 'Guardando…'
+            : seleccionCount
+              ? `Agregar ${seleccionCount} a galería`
+              : 'Agregar a galería'
+        }}
+      </button>
+      <button
+        type="button"
+        class="btn-generar"
+        (click)="generarMas()"
+        [disabled]="generando"
+      >
+        {{ generando ? 'Generando…' : 'Generar más' }}
+      </button>
+    </div>
   </header>
   <div class="promo-grid" [class.cambiando]="generando">
     @for (p of promosNuevas; track p.id) {
-      <article class="promo-card ui-card" (click)="abrirPreview(p)">
-        <div class="thumb-wrap" [class.vertical]="p.src.includes('status')">
-          <img [src]="p.src" [alt]="p.titulo" loading="lazy" />
+      <article
+        class="promo-card ui-card"
+        [class.seleccionada]="p.seleccionada"
+        (click)="abrirPreview(p)"
+      >
+        <div
+          class="thumb-wrap"
+          [class.vertical]="p.vertical || p.src.includes('status')"
+          [style.background-image]="'url(' + p.src + ')'"
+        >
+          <img [src]="p.src" [alt]="p.titulo" loading="eager" decoding="sync" />
+          @if (p.blob) {
+            <label class="chip-sel" (click)="$event.stopPropagation()">
+              <input
+                type="checkbox"
+                [checked]="!!p.seleccionada"
+                (change)="toggleSeleccion(p, $event)"
+              />
+              Galería
+            </label>
+          }
           <span class="chip-ver">Ver</span>
         </div>
         <div class="promo-body">
@@ -48,14 +81,55 @@
 
 <section class="bloque">
   <header class="bloque-head">
-    <h3>Galería Amorcas</h3>
+    <div class="bloque-titulos">
+      <h3>Galería Amorcas</h3>
+      @if (cargandoGaleria) {
+        <span class="muted mini">Cargando…</span>
+      }
+    </div>
   </header>
+
+  <div class="galeria-upload ui-card">
+    <div class="upload-row">
+      <label class="campo">
+        Título (opcional)
+        <input type="text" [(ngModel)]="nuevoTitulo" name="nuevoTitulo" placeholder="Ej. Promo marzo" />
+      </label>
+      <label class="campo">
+        Nota (opcional)
+        <input type="text" [(ngModel)]="nuevoDesc" name="nuevoDesc" placeholder="Descripción corta" />
+      </label>
+      <label class="btn-agregar">
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          (change)="onElegirArchivo($event)"
+          [disabled]="subiendo"
+          hidden
+        />
+        {{ subiendo ? 'Subiendo…' : '+ Agregar imagen' }}
+      </label>
+    </div>
+  </div>
+
   <div class="promo-grid">
     @for (p of promosGaleria; track p.id) {
       <article class="promo-card ui-card" (click)="abrirPreview(p)">
-        <div class="thumb-wrap">
-          <img [src]="p.src" [alt]="p.titulo" loading="lazy" />
+        <div class="thumb-wrap" [style.background-image]="'url(' + p.src + ')'">
+          <img [src]="p.src" [alt]="p.titulo" loading="eager" decoding="sync" />
           <span class="chip-ver">Ver</span>
+          @if (p.eliminable) {
+            <button
+              type="button"
+              class="btn-borrar"
+              (click)="borrar(p, $event)"
+              [disabled]="borrandoId === p.id"
+              title="Quitar de la galería"
+              aria-label="Quitar de la galería"
+            >
+              {{ borrandoId === p.id ? '…' : '×' }}
+            </button>
+          }
         </div>
         <div class="promo-body">
           <h4>{{ p.titulo }}</h4>
@@ -70,6 +144,10 @@
           </button>
         </div>
       </article>
+    } @empty {
+      @if (!cargandoGaleria) {
+        <p class="muted">No hay imágenes en la galería. Agrega la primera.</p>
+      }
     }
   </div>
 </section>
@@ -78,20 +156,32 @@
   <div class="lightbox" (click)="cerrarPreview()" role="dialog" aria-modal="true">
     <div class="lightbox-panel" (click)="$event.stopPropagation()">
       <button type="button" class="lightbox-x" (click)="cerrarPreview()" aria-label="Cerrar">×</button>
-      <img [src]="preview.src" [alt]="preview.titulo" />
+      <img [src]="preview.src" [alt]="preview.titulo" decoding="async" />
       <div class="lightbox-foot">
         <div>
           <strong>{{ preview.titulo }}</strong>
           <p class="muted">{{ preview.descripcion }}</p>
         </div>
-        <button
-          type="button"
-          class="btn-whatsapp"
-          (click)="compartir(preview!)"
-          [disabled]="compartiendoId === preview.id"
-        >
-          WhatsApp
-        </button>
+        <div class="lightbox-acciones">
+          @if (preview.eliminable) {
+            <button
+              type="button"
+              class="btn-borrar-texto"
+              (click)="borrar(preview!, $event)"
+              [disabled]="borrandoId === preview.id"
+            >
+              Quitar
+            </button>
+          }
+          <button
+            type="button"
+            class="btn-whatsapp"
+            (click)="compartir(preview!)"
+            [disabled]="compartiendoId === preview.id"
+          >
+            WhatsApp
+          </button>
+        </div>
       </div>
     </div>
   </div>

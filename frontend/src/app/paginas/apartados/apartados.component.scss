@@ -222,194 +222,112 @@
   color: var(--muted);
 }
 
-.gasto-wrap {
-  margin-bottom: 0.45rem;
-  overflow-x: hidden;
+.gasto-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 0.55rem;
 }
 
-.gasto-lote {
-  width: 100%;
-  table-layout: fixed;
-  font-size: 0.85rem;
+.gasto-card {
+  border: 1px solid color-mix(in srgb, var(--line) 75%, #fff);
+  border-radius: 0.95rem;
+  background: linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 35%, #fff) 100%);
+  box-shadow: 0 6px 14px rgba(22, 40, 33, 0.04);
+  padding: 0.7rem 0.8rem 0.85rem;
 }
 
-@media (max-width: 767px) {
-  .gasto-wrap {
-    overflow-x: hidden;
-  }
-
-  .gasto-lote {
-    width: 100%;
-    min-width: 0;
-    table-layout: auto;
-    border-collapse: separate;
-    border-spacing: 0 0.55rem;
-  }
-
-  .gasto-lote thead {
-    display: none;
-  }
-
-  .gasto-lote tbody tr {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas:
-      'num cat del'
-      'monto monto monto'
-      'motivo motivo motivo';
-    gap: 0.4rem 0.45rem;
-    padding: 0.65rem 0.7rem;
-    border: 1px solid color-mix(in srgb, var(--line) 75%, #fff);
-    border-radius: 0.9rem;
-    background: linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 35%, #fff) 100%);
-    box-shadow: 0 6px 14px rgba(22, 40, 33, 0.04);
-  }
-
-  .gasto-lote th,
-  .gasto-lote td {
-    white-space: normal;
-    padding: 0;
-    font-size: 0.9rem;
-    width: auto !important;
-    display: block;
-    min-width: 0;
-  }
-
-  .gasto-lote td:nth-child(1) {
-    grid-area: num;
-    align-self: center;
-    font-weight: 700;
-    color: var(--accent);
-  }
-
-  .gasto-lote td:nth-child(2) {
-    grid-area: cat;
-  }
-
-  .gasto-lote td:nth-child(3) {
-    grid-area: monto;
-  }
-
-  .gasto-lote td:nth-child(4) {
-    grid-area: motivo;
-  }
-
-  .gasto-lote td.actions {
-    grid-area: del;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    padding: 0;
-  }
-
-  .gasto-lote td.actions .danger {
-    width: 2.35rem;
-    height: 2.35rem;
-    min-width: 2.35rem;
-    min-height: 2.35rem;
-  }
-
-  .gasto-lote select,
-  .gasto-lote input {
-    min-width: 0;
-    max-width: 100%;
-    width: 100%;
-    min-height: 2.55rem;
-  }
-
-  .gasto-lote .precio-input {
-    width: 100%;
-  }
+.gasto-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
 }
 
-.gasto-lote th,
-.gasto-lote td {
-  padding: 0.25rem 0.3rem;
-  vertical-align: middle;
+.gasto-card-num {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--accent);
 }
 
-.gasto-lote th:first-child,
-.gasto-lote td:first-child {
-  width: 1.6rem;
-}
-
-.gasto-lote th:nth-child(2),
-.gasto-lote td:nth-child(2) {
-  width: 8.75rem;
-}
-
-.gasto-lote th:nth-child(3),
-.gasto-lote td:nth-child(3) {
-  width: 5.5rem;
-}
-
-.gasto-lote th:last-child,
-.gasto-lote td:last-child {
-  width: 2.5rem;
-}
-
-.gasto-lote td.actions {
-  display: table-cell;
-  text-align: center;
-  vertical-align: middle;
-  padding: 0.25rem 0.2rem;
-}
-
-.gasto-lote td.actions .danger {
+.gasto-card-head .danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.85rem;
-  height: 1.85rem;
-  min-width: 1.85rem;
-  min-height: 1.85rem;
+  width: 2.1rem;
+  height: 2.1rem;
+  min-width: 2.1rem;
   padding: 0;
-  margin: 0 auto;
   line-height: 1;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
-  border-radius: 0.45rem;
+  border-radius: 0.5rem;
   background: #fff;
   color: var(--danger);
   border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--line));
 }
 
-.gasto-lote td.actions .danger:hover:not(:disabled) {
+.gasto-card-head .danger:hover:not(:disabled) {
   background: #fdeceb;
   border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
 }
 
-.gasto-lote select,
-.gasto-lote input {
-  width: 100%;
-  min-width: 0;
-  height: 2.15rem;
-  box-sizing: border-box;
-  padding: 0 0.55rem;
-  line-height: 2.15rem;
-  vertical-align: middle;
+.gasto-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(5.5rem, 0.55fr);
+  gap: 0.55rem 0.65rem;
 }
 
-.gasto-lote select {
+.gasto-card-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.gasto-card-motivo {
+  grid-column: 1 / -1;
+}
+
+.gasto-card-body select,
+.gasto-card-body input {
+  width: 100%;
+  min-width: 0;
+  height: 2.35rem;
+  box-sizing: border-box;
+  padding: 0 0.6rem;
+  border-radius: 0.55rem;
+}
+
+.gasto-card-body select {
   appearance: auto;
   padding-right: 1.5rem;
-  /* Centrado vertical del texto en Windows/Chrome */
   line-height: normal;
   padding-top: 0.35rem;
   padding-bottom: 0.35rem;
 }
 
-.gasto-lote .precio-input {
-  height: 2.15rem;
+.gasto-card-body .precio-input {
+  height: 2.35rem;
   display: flex;
   align-items: center;
   gap: 0.2rem;
 }
 
-.gasto-lote .precio-input input {
+.gasto-card-body .precio-input input {
   height: 100%;
-  padding: 0 0.4rem;
+  padding: 0 0.45rem;
   line-height: normal;
+}
+
+@media (max-width: 560px) {
+  .gasto-card-body {
+    grid-template-columns: 1fr;
+  }
 }
 
 .gasto-actions {

@@ -101,7 +101,7 @@ export class ConfirmDialogComponent implements OnInit, OnDestroy {
 
   get esEliminar(): boolean {
     const t = (this.req?.confirmarTexto || '').toLowerCase();
-    return t.includes('eliminar') || t.includes('borrar');
+    return t.includes('eliminar') || t.includes('borrar') || t.includes('quitar');
   }
 
   ngOnInit(): void {

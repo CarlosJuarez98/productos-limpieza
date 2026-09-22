@@ -1,13 +1,11 @@
 package com.productoslimpieza.service;
 
-import com.productoslimpieza.domain.CajaConfig;
 import com.productoslimpieza.domain.Persona;
 import com.productoslimpieza.domain.Producto;
 import com.productoslimpieza.domain.TipoMovimientoCaja;
 import com.productoslimpieza.domain.Traspaso;
 import com.productoslimpieza.domain.TraspasoAbono;
 import com.productoslimpieza.domain.TraspasoLinea;
-import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.PersonaRepository;
 import com.productoslimpieza.repo.ProductoRepository;
 import com.productoslimpieza.repo.TraspasoAbonoRepository;
@@ -41,7 +39,6 @@ public class TraspasoService {
   private final PersonaRepository personaRepo;
   private final InventarioService inventarioService;
   private final CajaService cajaService;
-  private final CajaConfigRepository cajaConfigRepo;
 
   public TraspasoService(
       TraspasoRepository traspasoRepo,
@@ -49,15 +46,13 @@ public class TraspasoService {
       ProductoRepository productoRepo,
       PersonaRepository personaRepo,
       InventarioService inventarioService,
-      CajaService cajaService,
-      CajaConfigRepository cajaConfigRepo) {
+      CajaService cajaService) {
     this.traspasoRepo = traspasoRepo;
     this.abonoRepo = abonoRepo;
     this.productoRepo = productoRepo;
     this.personaRepo = personaRepo;
     this.inventarioService = inventarioService;
     this.cajaService = cajaService;
-    this.cajaConfigRepo = cajaConfigRepo;
   }
 
   @Transactional
@@ -365,20 +360,13 @@ public class TraspasoService {
 
   /** Abonos viejos en efectivo (o creados sin backend actualizado) → ingreso en caja. */
   private void vincularAbonosSinCaja() {
-    LocalDate inicioPeriodo =
-        cajaConfigRepo
-            .findByTenantId(TenantContext.require())
-            .map(CajaConfig::getFechaInicio)
-            .orElse(null);
     LocalDate hoy = LocalDate.now(ZoneId.of("America/Mexico_City"));
     for (TraspasoAbono a : abonoRepo.findAllWithPersona()) {
       if (a.isPagoTarjeta()) continue;
       if (a.getMovimientoCajaId() != null) continue;
       if (a.getMonto() == null || a.getMonto().compareTo(BigDecimal.ZERO) <= 0) continue;
-      if (a.getFecha() == null) continue;
-      // No invocar caja si la fecha no entraría (evita rollback-only).
-      if (inicioPeriodo != null && a.getFecha().isBefore(inicioPeriodo)) continue;
-      if (a.getFecha().isAfter(hoy)) continue;
+      if (a.getFecha() == null || a.getFecha().isAfter(hoy)) continue;
+      if (!cajaService.aceptaFechaMovimiento(a.getFecha())) continue;
       String quien =
           a.getPersona() != null ? a.getPersona().getNombre() : a.getPersonaNombre();
       String motivo = motivoPagoTraspaso(quien, a.getNota(), false);

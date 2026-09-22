@@ -1,3 +1,13 @@
+.ok-msg {
+  color: var(--ok);
+  margin: 0 0 0.75rem;
+}
+
+.folio-tag {
+  font-weight: 800;
+  color: var(--accent, #0a2f5c);
+}
+
 /* Título, fecha, ticket y ventas del día: fijos al bajar las líneas. */
 .ventas-fijo {
   position: sticky;
@@ -367,6 +377,10 @@
   table-layout: fixed;
 }
 
+:host .hist-tabla col.c-folio {
+  width: 4.2rem;
+}
+
 :host .hist-tabla col.c-fecha {
   width: 7.4rem;
 }
@@ -392,12 +406,17 @@
 }
 
 :host .hist-tabla col.c-acc {
-  width: 5.2rem;
+  width: 7.2rem;
 }
 
 :host .hist-tabla th,
 :host .hist-tabla td {
   vertical-align: middle;
+}
+
+:host .hist-tabla .col-folio {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 :host .hist-tabla .col-fecha {

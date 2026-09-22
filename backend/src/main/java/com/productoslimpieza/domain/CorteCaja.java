@@ -30,6 +30,14 @@ public class CorteCaja extends TenantEntity {
   @Column(precision = 14, scale = 4)
   private BigDecimal totalNegocio;
 
+  /** Snapshot de ingresos del periodo cerrado (queda en el corte; el abierto arranca en 0). */
+  @Column(precision = 14, scale = 4)
+  private BigDecimal totalIngresos;
+
+  /** Snapshot de retiros del periodo cerrado. */
+  @Column(precision = 14, scale = 4)
+  private BigDecimal totalRetiros;
+
   /** Efectivo contado al cerrar (opcional). */
   @Column(precision = 14, scale = 4)
   private BigDecimal totalCalculadora;
@@ -79,6 +87,22 @@ public class CorteCaja extends TenantEntity {
 
   public void setTotalNegocio(BigDecimal totalNegocio) {
     this.totalNegocio = totalNegocio;
+  }
+
+  public BigDecimal getTotalIngresos() {
+    return totalIngresos;
+  }
+
+  public void setTotalIngresos(BigDecimal totalIngresos) {
+    this.totalIngresos = totalIngresos;
+  }
+
+  public BigDecimal getTotalRetiros() {
+    return totalRetiros;
+  }
+
+  public void setTotalRetiros(BigDecimal totalRetiros) {
+    this.totalRetiros = totalRetiros;
   }
 
   public BigDecimal getTotalCalculadora() {

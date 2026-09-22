@@ -30,6 +30,8 @@ public class ApiController {
   private final PedidoRegistroService pedidoRegistroService;
   private final AjusteInventarioService ajusteInventarioService;
   private final PedidoDomicilioService pedidoDomicilioService;
+  private final PublicidadGaleriaService publicidadGaleriaService;
+  private final PublicidadMediaService publicidadMediaService;
 
   public ApiController(
       VentaService ventaService,
@@ -47,7 +49,9 @@ public class ApiController {
       PedidoService pedidoService,
       PedidoRegistroService pedidoRegistroService,
       AjusteInventarioService ajusteInventarioService,
-      PedidoDomicilioService pedidoDomicilioService) {
+      PedidoDomicilioService pedidoDomicilioService,
+      PublicidadGaleriaService publicidadGaleriaService,
+      PublicidadMediaService publicidadMediaService) {
     this.ventaService = ventaService;
     this.entradaService = entradaService;
     this.inventarioService = inventarioService;
@@ -64,6 +68,8 @@ public class ApiController {
     this.pedidoRegistroService = pedidoRegistroService;
     this.ajusteInventarioService = ajusteInventarioService;
     this.pedidoDomicilioService = pedidoDomicilioService;
+    this.publicidadGaleriaService = publicidadGaleriaService;
+    this.publicidadMediaService = publicidadMediaService;
   }
 
   @GetMapping("/ventas")
@@ -71,6 +77,13 @@ public class ApiController {
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
     return ventaService.listar(desde, hasta);
+  }
+
+  @GetMapping("/ventas/folio/{folio}")
+  public List<VentaDto> ventasPorFolio(
+      @PathVariable Long folio,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
+    return ventaService.listarPorFolio(folio, fecha);
   }
 
   @GetMapping("/casa")
@@ -520,5 +533,50 @@ public class ApiController {
   @DeleteMapping("/inversion/{id}")
   public void eliminarInversion(@PathVariable Long id) {
     inversionService.eliminar(id);
+  }
+
+  @GetMapping("/publicidad/galeria")
+  public List<PublicidadGaleriaItemDto> publicidadGaleria() {
+    return publicidadGaleriaService.listar();
+  }
+
+  @PostMapping(value = "/publicidad/galeria", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+  public PublicidadGaleriaItemDto subirPublicidadGaleria(
+      @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+      @RequestParam(value = "titulo", required = false) String titulo,
+      @RequestParam(value = "descripcion", required = false) String descripcion)
+      throws java.io.IOException {
+    return publicidadGaleriaService.subir(file, titulo, descripcion);
+  }
+
+  @DeleteMapping("/publicidad/galeria/{id}")
+  public void eliminarPublicidadGaleria(@PathVariable String id) throws java.io.IOException {
+    publicidadGaleriaService.eliminar(id);
+  }
+
+  @GetMapping("/publicidad/galeria/archivo/{nombre}")
+  public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> archivoPublicidadGaleria(
+      @PathVariable String nombre) throws java.io.IOException {
+    var resource = publicidadGaleriaService.archivo(nombre);
+    return org.springframework.http.ResponseEntity.ok()
+        .header(
+            org.springframework.http.HttpHeaders.CONTENT_TYPE,
+            publicidadGaleriaService.contentType(nombre))
+        .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+        .body(resource);
+  }
+
+  /** Promos / arte de frontend/public/publicidad (MIME correcto para Chrome). */
+  @GetMapping("/publicidad/media/{nombre}")
+  public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> publicidadMedia(
+      @PathVariable String nombre) throws java.io.IOException {
+    var resource = publicidadMediaService.archivo(nombre);
+    return org.springframework.http.ResponseEntity.ok()
+        .header(
+            org.springframework.http.HttpHeaders.CONTENT_TYPE,
+            publicidadMediaService.contentType(nombre))
+        .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
+        .header("X-Content-Type-Options", "nosniff")
+        .body(resource);
   }
 }

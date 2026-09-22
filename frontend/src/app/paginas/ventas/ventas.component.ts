@@ -24,6 +24,7 @@ import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { alinearLineasCaptura, capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
+import { compartirTicketVenta } from '../../ticket-whatsapp.util';
 import { RouterLink } from '@angular/router';
 
 interface LineaVenta {
@@ -77,6 +78,7 @@ export class VentasComponent implements OnInit, OnDestroy {
   productos: InventarioItem[] = [];
   modos = MODOS_VENTA;
   error = '';
+  ok = '';
   filtro = '';
   /** Texto del buscador; el filtro de lista se aplica con debounce. */
   filtroTexto = '';
@@ -86,6 +88,8 @@ export class VentasComponent implements OnInit, OnDestroy {
   /** Historial: solo el día de la fecha de captura, o todo. */
   soloHoy = true;
   guardando = false;
+  /** Id de venta cuyo ticket se está generando. */
+  ticketVentaId: number | null = null;
   fecha = this.hoyLocal();
   fechaMin: string | null = null;
   fechaUltimoCorte: string | null = null;
@@ -186,7 +190,13 @@ export class VentasComponent implements OnInit, OnDestroy {
       base = base.filter((v) => v.fecha === this.fecha);
     }
     if (q) {
-      base = base.filter((v) => (v.productoNombre ?? '').toLowerCase().includes(q));
+      const folioQ = Number(q.replace(/^#/, ''));
+      base = base.filter((v) => {
+        const nom = (v.productoNombre ?? '').toLowerCase().includes(q);
+        const folioHit =
+          Number.isFinite(folioQ) && folioQ > 0 && v.folio != null && Number(v.folio) === folioQ;
+        return nom || folioHit || String(v.folio ?? '').includes(q);
+      });
     }
     this.filtradas = [...base].sort((a, b) => {
       const porFecha = b.fecha.localeCompare(a.fecha);
@@ -959,6 +969,9 @@ export class VentasComponent implements OnInit, OnDestroy {
     if (!ok) return;
 
     this.guardando = true;
+    this.error = '';
+    this.ok = '';
+
     this.api
       .crearVentasLote({
         fecha: this.fecha,
@@ -972,10 +985,15 @@ export class VentasComponent implements OnInit, OnDestroy {
         })),
       })
       .subscribe({
-        next: () => {
+        next: (creadas) => {
           this.guardando = false;
           this.drafts.clear(VentasComponent.DRAFT);
           this.resetLineas(capturaLineasVacias());
+          const folio = creadas?.[0]?.folio;
+          this.ok =
+            folio != null
+              ? `Venta guardada · Folio #${folio}`
+              : 'Venta guardada';
           this.cargar();
           setTimeout(() => {
             this.capturaPanel?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -989,6 +1007,56 @@ export class VentasComponent implements OnInit, OnDestroy {
           this.cargar();
         },
       });
+  }
+
+  async compartirTicketFolio(v: Venta): Promise<void> {
+    this.error = '';
+    this.ok = '';
+    this.ticketVentaId = v.id;
+    try {
+      let lineasApi: Venta[];
+      if (v.folio != null) {
+        lineasApi = await new Promise<Venta[]>((resolve, reject) => {
+          this.api.ventasPorFolio(v.folio!, v.fecha).subscribe({ next: resolve, error: reject });
+        });
+      } else {
+        lineasApi = [v];
+      }
+      const lineas = lineasApi.map((x) => ({
+        nombre: x.productoNombre || 'Producto',
+        cantidad: Number(x.cantidad) || 0,
+        unidad: x.tipoVenta === 'PIEZA' ? 'pza' : x.tipoVenta === 'PESOS' ? '$' : 'L',
+        total: Number(x.total) || 0,
+        sinCobro: x.tipoVenta === 'MUESTRA' || x.tipoVenta === 'CASA',
+      }));
+      const total =
+        Math.round(lineas.reduce((s, l) => s + (l.sinCobro ? 0 : l.total), 0) * 100) / 100;
+      const hayTarjeta = lineasApi.some(
+        (x) => !!x.pagoTarjeta && x.tipoVenta !== 'MUESTRA' && x.tipoVenta !== 'CASA'
+      );
+      const folioTxt = v.folio != null ? String(v.folio) : '';
+      const modo = await compartirTicketVenta({
+        fecha: formatFechaDmY(lineasApi[0]?.fecha || v.fecha),
+        folio: folioTxt,
+        lineas,
+        total,
+        pagoTarjeta: hayTarjeta,
+      });
+      const etiqueta = folioTxt ? `folio #${folioTxt}` : 'venta';
+      this.ok =
+        modo === 'compartido'
+          ? `Ticket ${etiqueta}: elige el chat`
+          : `Ticket ${etiqueta} descargado`;
+    } catch (e: unknown) {
+      this.error =
+        e && typeof e === 'object' && 'error' in e
+          ? ((e as { error?: { error?: string } }).error?.error || 'No se pudo generar el ticket')
+          : e instanceof Error
+            ? e.message
+            : 'No se pudo generar el ticket';
+    } finally {
+      this.ticketVentaId = null;
+    }
   }
 
   async eliminar(id: number): Promise<void> {

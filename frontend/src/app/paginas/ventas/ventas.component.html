@@ -247,6 +247,9 @@
   @if (error) {
     <p class="error">{{ error }}</p>
   }
+  @if (ok) {
+    <p class="ok-msg">{{ ok }}</p>
+  }
 </section>
 
 <section class="panel historial-panel" style="margin-top: 1rem" #listaHistorial id="ventas-hist-top" data-pag-top>
@@ -269,7 +272,7 @@
           [ngModel]="filtroTexto"
           (ngModelChange)="onFiltroTexto($event)"
           name="filtro"
-          placeholder="Nombre del producto..."
+          placeholder="Producto o folio..."
           tabindex="-1"
           (keydown.enter)="onBuscarEnter($event)"
         />
@@ -281,6 +284,7 @@
   <div class="table-wrap hist-tabla">
     <table>
       <colgroup>
+        <col class="c-folio" />
         <col class="c-fecha" />
         <col class="c-prod" />
         <col class="c-tipo" />
@@ -291,6 +295,7 @@
       </colgroup>
       <thead>
         <tr>
+          <th class="col-folio">Folio</th>
           <th class="col-fecha">Fecha</th>
           <th class="col-producto">Producto</th>
           <th class="col-tipo">Tipo</th>
@@ -303,6 +308,13 @@
       <tbody>
         @for (v of pagHist.paginaItems; track v.id) {
           <tr [id]="'venta-row-' + v.id">
+            <td class="col-folio">
+              @if (v.folio != null) {
+                <strong>#{{ v.folio }}</strong>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
             <td class="col-fecha" [class.fecha-naranja]="esRegistroCorte(v)">
               {{ v.fecha | fechaDmY }}
             </td>
@@ -322,20 +334,29 @@
               }
             </td>
             <td class="col-acciones actions">
+              <button
+                type="button"
+                class="icon-btn"
+                title="Ticket / WhatsApp"
+                [disabled]="ticketVentaId === v.id"
+                (click)="compartirTicketFolio(v)"
+              >
+                {{ ticketVentaId === v.id ? '…' : '🎫' }}
+              </button>
               <button type="button" class="icon-btn" title="Editar" (click)="editarVenta(v)">✎</button>
               <button type="button" class="danger" (click)="eliminar(v.id)" title="Eliminar">×</button>
             </td>
           </tr>
           @if (editandoId === v.id) {
             <tr class="fila-edicion" [id]="'edit-venta-desk-' + v.id">
-              <td colspan="7">
+              <td colspan="8">
                 <ng-container *ngTemplateOutlet="editVentaTpl; context: { sufijo: 'Desk' }" />
               </td>
             </tr>
           }
         } @empty {
           <tr>
-            <td colspan="7" class="muted">Sin ventas{{ soloHoy ? ' este día' : '' }}.</td>
+            <td colspan="8" class="muted">Sin ventas{{ soloHoy ? ' este día' : '' }}.</td>
           </tr>
         }
       </tbody>
@@ -349,6 +370,9 @@
         <div class="item-meta">
           <span [class.fecha-naranja]="esRegistroCorte(v)">{{ v.fecha | fechaDmY }}</span>
           <span class="item-meta-der">
+            @if (v.folio != null) {
+              <span class="item-tag folio-tag">Folio #{{ v.folio }}</span>
+            }
             <span class="item-tag">
               {{ v.tipoVentaLabel }} · {{ v.cantidad | number: '1.2-2' }}
             </span>
@@ -365,6 +389,16 @@
             }
           </strong>
           <div class="acciones">
+            <button
+              type="button"
+              class="icono"
+              title="Ticket / WhatsApp"
+              aria-label="Ticket"
+              [disabled]="ticketVentaId === v.id"
+              (click)="compartirTicketFolio(v)"
+            >
+              {{ ticketVentaId === v.id ? '…' : '🎫' }}
+            </button>
             <button
               type="button"
               class="icono"

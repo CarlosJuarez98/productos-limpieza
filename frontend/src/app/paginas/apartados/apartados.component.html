@@ -170,68 +170,72 @@
       </label>
       <span class="muted">Total: <strong>${{ totalGastosForm | number: '1.2-2' }}</strong></span>
     </div>
-    <div class="table-wrap gasto-wrap">
-      <table class="gasto-lote">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Subapartado</th>
-            <th>Monto</th>
-            <th>Motivo</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (g of gastos; track g.key; let i = $index) {
-            <tr>
-              <td class="muted">{{ i + 1 }}</td>
-              <td>
-                <select [(ngModel)]="g.categoria" [name]="'catGasto' + g.key">
-                  @for (r of rubros; track r.id) {
-                    <option [value]="r.codigo">{{ r.nombre }}</option>
-                  }
-                </select>
-              </td>
-              <td>
-                <div class="precio-input">
-                  <span class="peso">$</span>
-                  <input
-                    #gastoCampo
-                    type="text"
-                    inputmode="decimal"
-                    appClearable
-                    [(ngModel)]="g.ingreso"
-                    [name]="'montoGasto' + g.key"
-                    placeholder="0"
-                    (keydown)="onGastoNav($event)"
-                  />
-                </div>
-              </td>
-              <td>
+
+    <div class="gasto-cards">
+      @for (g of gastos; track g.key; let i = $index) {
+        <article class="gasto-card">
+          <header class="gasto-card-head">
+            <span class="gasto-card-num">Gasto {{ i + 1 }}</span>
+            @if (gastos.length > 1) {
+              <button
+                type="button"
+                class="danger"
+                (click)="quitarGasto(i)"
+                title="Quitar gasto"
+                aria-label="Quitar gasto"
+              >
+                ×
+              </button>
+            }
+          </header>
+          <div class="gasto-card-body">
+            <label>
+              Subapartado
+              <select [(ngModel)]="g.categoria" [name]="'catGasto' + g.key">
+                @for (r of rubros; track r.id) {
+                  <option [value]="r.codigo">{{ r.nombre }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              Monto
+              <div class="precio-input">
+                <span class="peso">$</span>
                 <input
                   #gastoCampo
+                  type="text"
+                  inputmode="decimal"
                   appClearable
-                  [(ngModel)]="g.motivo"
-                  [name]="'motivoGasto' + g.key"
-                  placeholder="Agua, Doctor..."
+                  [(ngModel)]="g.ingreso"
+                  [name]="'montoGasto' + g.key"
+                  placeholder="0"
                   (keydown)="onGastoNav($event)"
                 />
-              </td>
-              <td class="actions">
-                <button type="button" class="danger" (click)="quitarGasto(i)" title="Quitar fila">×</button>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
+              </div>
+            </label>
+            <label class="gasto-card-motivo">
+              Motivo
+              <input
+                #gastoCampo
+                appClearable
+                [(ngModel)]="g.motivo"
+                [name]="'motivoGasto' + g.key"
+                placeholder="Agua, Doctor..."
+                (keydown)="onGastoNav($event)"
+              />
+            </label>
+          </div>
+        </article>
+      }
     </div>
+
     <div class="reparto-actions gasto-actions fila-actions cta-bar-mobile">
       <button
         type="button"
         class="btn-agregar-linea"
         (click)="agregarGasto()"
-        title="Agregar fila"
-        aria-label="Agregar fila"
+        title="Agregar otro gasto"
+        aria-label="Agregar otro gasto"
       >
         +
       </button>

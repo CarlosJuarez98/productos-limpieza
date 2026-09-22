@@ -13,5 +13,7 @@ public record VentaDto(
     String tipoVentaLabel,
     BigDecimal cantidad,
     BigDecimal total,
-    boolean pagoTarjeta
+    boolean pagoTarjeta,
+    /** Folio del día (1, 2, 3…); null en ventas antiguas sin folio. */
+    Long folio
 ) {}

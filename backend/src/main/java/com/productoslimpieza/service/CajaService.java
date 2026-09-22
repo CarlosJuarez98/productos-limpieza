@@ -235,7 +235,8 @@ public class CajaService {
                 && corte.getTotalCalculadora().compareTo(BigDecimal.ZERO) > 0
             ? corte.getTotalCalculadora()
             : BigDecimal.ZERO;
-    return calc.max(caja);
+    // Si hubo contado, ese es el efectivo real (faltante/sobrante); si no, el teórico.
+    return calc.compareTo(BigDecimal.ZERO) > 0 ? calc : caja;
   }
 
   /** Completa / corrige paraApartar en cortes (contado − fondo). */
@@ -297,6 +298,10 @@ public class CajaService {
     BigDecimal totalCaja = guardado.getTotalCaja() != null ? guardado.getTotalCaja() : t.totalCaja;
     BigDecimal totalNegocio =
         guardado.getTotalNegocio() != null ? guardado.getTotalNegocio() : t.totalNegocio;
+    BigDecimal totalIngresos =
+        guardado.getTotalIngresos() != null ? guardado.getTotalIngresos() : t.ingresos;
+    BigDecimal totalRetiros =
+        guardado.getTotalRetiros() != null ? guardado.getTotalRetiros() : t.retiros;
     if (calculadora != null && guardado.getTotalCaja() != null) {
       diferencia = calculadora.subtract(guardado.getTotalCaja()).setScale(2, RoundingMode.HALF_UP);
     } else if (calculadora != null) {
@@ -322,8 +327,8 @@ public class CajaService {
         t.productos,
         t.recargas,
         t.servicios,
-        t.ingresos,
-        t.retiros,
+        totalIngresos,
+        totalRetiros,
         t.transferencias,
         t.retirosTx,
         t.apartadosProductos,
@@ -356,8 +361,8 @@ public class CajaService {
   }
 
   /**
-   * Registra un corte. Guarda snapshot del periodo cerrado y abre el nuevo
-   * con el fondo indicado (ahí se calcula para apartar = contado − ese fondo).
+   * Registra un corte. Guarda snapshot del periodo cerrado (incl. ingresos/retiros)
+   * y abre el nuevo con el fondo indicado; el periodo abierto arranca ingresos/retiros en 0.
    */
   @Transactional
   public CajaConfig marcarCorte(MarcarCorteRequest req) {
@@ -370,7 +375,7 @@ public class CajaService {
     }
 
     CajaConfig cfg = getOrCreateConfig();
-    LocalDate desde = cfg.getFechaInicio() != null ? cfg.getFechaInicio() : INICIO_HISTORICO;
+    LocalDate desde = inicioPeriodoParaCorte(corte);
     LocalDate hasta = corte;
     BigDecimal fondoCierre = req.fondoPeriodo() != null ? nz(req.fondoPeriodo()) : nz(cfg.getFondoInicial());
     Totales t = calcularTotales(desde, hasta, fondoCierre, exentoApartadosDesdeCorteAnterior(corte));
@@ -378,8 +383,7 @@ public class CajaService {
     CorteCaja c = corteRepo.findByFecha(corte).orElseGet(CorteCaja::new);
     c.setFecha(corte);
     c.setFondoPeriodo(fondoCierre);
-    c.setTotalCaja(t.totalCaja);
-    c.setTotalNegocio(t.totalNegocio);
+    aplicarSnapshotTotales(c, t);
     if (req.totalCalculadora() != null) {
       c.setTotalCalculadora(req.totalCalculadora().setScale(2, RoundingMode.HALF_UP));
     }
@@ -389,13 +393,14 @@ public class CajaService {
     LocalDate fin = hoy.isBefore(inicio) ? inicio : hoy;
     BigDecimal fondo = req.fondoInicial() != null ? req.fondoInicial() : FONDO_DEFAULT;
 
-    // Automático: contado − fondo que queda en caja (default $200).
+    // Automático: contado real − fondo que queda en caja (default $200).
+    // Con faltante manda la calculadora; sin contado, el total teórico.
     BigDecimal cajaTot = nz(t.totalCaja);
     BigDecimal calc =
         c.getTotalCalculadora() != null && c.getTotalCalculadora().compareTo(BigDecimal.ZERO) > 0
             ? c.getTotalCalculadora()
             : BigDecimal.ZERO;
-    BigDecimal contado = calc.max(cajaTot);
+    BigDecimal contado = calc.compareTo(BigDecimal.ZERO) > 0 ? calc : cajaTot;
     c.setParaApartar(contado.subtract(fondo).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP));
     corteRepo.save(c);
 
@@ -414,22 +419,11 @@ public class CajaService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha no puede ser posterior a hoy");
     }
     CajaConfig cfg = getOrCreateConfig();
-    LocalDate desde = cfg.getFechaInicio();
-    if (desde != null && req.fecha() != null && req.fecha().isBefore(desde)) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST,
-          "La fecha es anterior al inicio del periodo (" + desde + "). ¿Quisiste el periodo actual?");
-    }
-    // El periodo abierto llega al menos hasta hoy / fecha del movimiento.
-    LocalDate hoy = LocalDate.now(ZONA);
-    LocalDate fin = cfg.getFechaFin();
-    LocalDate necesario = req.fecha() != null && req.fecha().isAfter(hoy) ? hoy : (req.fecha() != null ? req.fecha() : hoy);
-    if (necesario.isBefore(hoy)) {
-      necesario = hoy;
-    }
-    if (fin == null || fin.isBefore(necesario)) {
-      cfg.setFechaFin(necesario);
-      configRepo.save(cfg);
+    LocalDate fecha = req.fecha();
+    boolean enPeriodoCerrado = fechaEnPeriodoCerrado(cfg, fecha);
+    if (!enPeriodoCerrado) {
+      validarFechaEnPeriodoAbierto(cfg, fecha);
+      ampliarFechaFinSiHaceFalta(cfg, fecha);
     }
 
     // Banco: saldo global (todas las fechas). No se filtra por periodo/corte.
@@ -444,11 +438,15 @@ public class CajaService {
     }
 
     MovimientoCaja m = new MovimientoCaja();
-    m.setFecha(req.fecha());
+    m.setFecha(fecha);
     m.setTipo(req.tipo());
     m.setMonto(req.monto());
     m.setMotivo(req.motivo());
-    return toDto(movimientoRepo.save(m));
+    MovimientoCajaDto dto = toDto(movimientoRepo.save(m));
+    if (enPeriodoCerrado) {
+      resnapshotCorteQueContiene(fecha);
+    }
+    return dto;
   }
 
   @Transactional
@@ -462,11 +460,11 @@ public class CajaService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La fecha no puede ser posterior a hoy");
     }
     CajaConfig cfg = getOrCreateConfig();
-    LocalDate desde = cfg.getFechaInicio();
-    if (desde != null && req.fecha() != null && req.fecha().isBefore(desde)) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST,
-          "La fecha es anterior al inicio del periodo (" + desde + "). ¿Quisiste el periodo actual?");
+    LocalDate fechaAnterior = m.getFecha();
+    LocalDate fecha = req.fecha() != null ? req.fecha() : fechaAnterior;
+    boolean enPeriodoCerrado = fechaEnPeriodoCerrado(cfg, fecha);
+    if (!enPeriodoCerrado) {
+      validarFechaEnPeriodoAbierto(cfg, fecha);
     }
     if (req.tipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
       BigDecimal saldoBanco = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
@@ -480,19 +478,31 @@ public class CajaService {
             "Saldo en banco insuficiente ($" + saldoBanco.setScale(2, RoundingMode.HALF_UP) + ")");
       }
     }
-    m.setFecha(req.fecha());
+    m.setFecha(fecha);
     m.setTipo(req.tipo() != null ? req.tipo() : m.getTipo());
     m.setMonto(req.monto());
     m.setMotivo(req.motivo());
-    return toDto(movimientoRepo.save(m));
+    MovimientoCajaDto dto = toDto(movimientoRepo.save(m));
+    if (fechaEnPeriodoCerrado(cfg, fechaAnterior)) {
+      resnapshotCorteQueContiene(fechaAnterior);
+    }
+    if (enPeriodoCerrado) {
+      resnapshotCorteQueContiene(fecha);
+    }
+    return dto;
   }
 
   @Transactional
   public void eliminarMovimiento(Long id) {
-    if (!movimientoRepo.existsById(id)) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Movimiento no encontrado");
+    MovimientoCaja m = movimientoRepo.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movimiento no encontrado"));
+    LocalDate fecha = m.getFecha();
+    CajaConfig cfg = getOrCreateConfig();
+    boolean cerrado = fechaEnPeriodoCerrado(cfg, fecha);
+    movimientoRepo.delete(m);
+    if (cerrado) {
+      resnapshotCorteQueContiene(fecha);
     }
-    movimientoRepo.deleteById(id);
   }
 
   private Totales calcularTotales(
@@ -698,6 +708,23 @@ public class CajaService {
    * Fin del periodo abierto: al menos hasta hoy, para que retiros/transferencias
    * del día se vean aunque la fecha fin del corte planeado se haya quedado atrás.
    */
+  /** True si la fecha cae en el periodo abierto o en un corte ya cerrado. */
+  @Transactional(readOnly = true)
+  public boolean aceptaFechaMovimiento(LocalDate fecha) {
+    if (fecha == null || fecha.isAfter(LocalDate.now(ZONA))) {
+      return false;
+    }
+    CajaConfig cfg = configRepo.findByTenantId(TenantContext.require()).orElse(null);
+    if (cfg == null) {
+      return true;
+    }
+    LocalDate inicioAbierto = cfg.getFechaInicio();
+    if (inicioAbierto == null || !fecha.isBefore(inicioAbierto)) {
+      return true;
+    }
+    return encontrarCorteQueContiene(fecha) != null;
+  }
+
   private LocalDate finPeriodoAbierto(CajaConfig cfg) {
     LocalDate hoy = LocalDate.now(ZONA);
     LocalDate fin = cfg.getFechaFin();
@@ -705,6 +732,97 @@ public class CajaService {
       return hoy;
     }
     return fin;
+  }
+
+  /** Inicio del periodo que cierra en {@code fechaCorte}: día siguiente al corte anterior. */
+  private LocalDate inicioPeriodoParaCorte(LocalDate fechaCorte) {
+    LocalDate anterior = null;
+    for (CorteCaja c : corteRepo.findAllByOrderByFechaAsc()) {
+      if (c.getFecha() == null) continue;
+      if (c.getFecha().equals(fechaCorte) || c.getFecha().isAfter(fechaCorte)) {
+        break;
+      }
+      anterior = c.getFecha();
+    }
+    if (anterior != null) {
+      return anterior.plusDays(1);
+    }
+    CajaConfig cfg = configRepo.findByTenantId(TenantContext.require()).orElse(null);
+    if (cfg != null && cfg.getFechaInicio() != null && !cfg.getFechaInicio().isAfter(fechaCorte)) {
+      return cfg.getFechaInicio();
+    }
+    return INICIO_HISTORICO;
+  }
+
+  private void aplicarSnapshotTotales(CorteCaja c, Totales t) {
+    c.setTotalCaja(t.totalCaja);
+    c.setTotalNegocio(t.totalNegocio);
+    c.setTotalIngresos(t.ingresos);
+    c.setTotalRetiros(t.retiros);
+  }
+
+  private void validarFechaEnPeriodoAbierto(CajaConfig cfg, LocalDate fecha) {
+    LocalDate desde = cfg.getFechaInicio();
+    if (desde != null && fecha != null && fecha.isBefore(desde)) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST,
+          "La fecha es anterior al inicio del periodo (" + desde
+              + "). Si el movimiento es de un corte ya cerrado, usa la fecha de ese periodo.");
+    }
+  }
+
+  private void ampliarFechaFinSiHaceFalta(CajaConfig cfg, LocalDate fecha) {
+    LocalDate hoy = LocalDate.now(ZONA);
+    LocalDate fin = cfg.getFechaFin();
+    LocalDate necesario = fecha != null && fecha.isAfter(hoy) ? hoy : (fecha != null ? fecha : hoy);
+    if (necesario.isBefore(hoy)) {
+      necesario = hoy;
+    }
+    if (fin == null || fin.isBefore(necesario)) {
+      cfg.setFechaFin(necesario);
+      configRepo.save(cfg);
+    }
+  }
+
+  /**
+   * Fecha anterior al periodo abierto pero dentro de algún corte ya guardado
+   * (p. ej. abono de traspaso que olvidaron registrar antes del corte).
+   */
+  private boolean fechaEnPeriodoCerrado(CajaConfig cfg, LocalDate fecha) {
+    if (fecha == null) return false;
+    LocalDate inicioAbierto = cfg.getFechaInicio();
+    if (inicioAbierto == null || !fecha.isBefore(inicioAbierto)) {
+      return false;
+    }
+    return encontrarCorteQueContiene(fecha) != null;
+  }
+
+  private CorteCaja encontrarCorteQueContiene(LocalDate fecha) {
+    if (fecha == null) return null;
+    List<CorteCaja> cortes = corteRepo.findAllByOrderByFechaAsc();
+    LocalDate anterior = null;
+    for (CorteCaja c : cortes) {
+      if (c.getFecha() == null) continue;
+      LocalDate desde = anterior != null ? anterior.plusDays(1) : INICIO_HISTORICO;
+      LocalDate hasta = c.getFecha();
+      if (!fecha.isBefore(desde) && !fecha.isAfter(hasta)) {
+        return c;
+      }
+      anterior = c.getFecha();
+    }
+    return null;
+  }
+
+  /** Recalcula totales teóricos del corte (no toca calculadora ni paraApartar). */
+  private void resnapshotCorteQueContiene(LocalDate fecha) {
+    CorteCaja c = encontrarCorteQueContiene(fecha);
+    if (c == null || c.getFecha() == null) return;
+    LocalDate hasta = c.getFecha();
+    LocalDate desde = inicioPeriodoParaCorte(hasta);
+    BigDecimal fondo = c.getFondoPeriodo() != null ? nz(c.getFondoPeriodo()) : FONDO_DEFAULT;
+    Totales t = calcularTotales(desde, hasta, fondo, BigDecimal.ZERO);
+    aplicarSnapshotTotales(c, t);
+    corteRepo.save(c);
   }
 
   private static BigDecimal nz(BigDecimal v) {

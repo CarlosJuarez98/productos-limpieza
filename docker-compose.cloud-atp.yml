@@ -24,12 +24,14 @@ services:
       APP_IMPORT_ON_STARTUP: "false"
       APP_ARCHIVO_ANUAL_ENABLED: "true"
       APP_ARCHIVO_ANUAL_PATH: /app/archivo-anual
+      APP_PUBLICIDAD_GALERIA_PATH: /app/uploads/publicidad-galeria
       SERVER_PORT: "8083"
       JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Doracle.net.tns_admin=/wallet"
       LOGGING_LEVEL_COM_PRODUCTOSLIMPIEZA: INFO
     volumes:
       - ./wallet:/wallet:ro
       - archivo-anual-data:/app/archivo-anual
+      - ./uploads/publicidad-galeria:/app/uploads/publicidad-galeria
     mem_limit: 768m
     restart: unless-stopped
 

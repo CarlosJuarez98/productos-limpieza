@@ -56,6 +56,8 @@ export interface Venta {
   cantidad: number;
   total: number;
   pagoTarjeta?: boolean;
+  /** Folio de ticket del día; null en ventas antiguas sin folio. */
+  folio?: number | null;
 }
 
 export interface Entrada {
@@ -455,6 +457,16 @@ export interface PedidoDomicilio {
   fechaEntrega: string | null;
   total: number;
   items: PedidoDomicilioItem[];
+}
+
+/** Galería Amorcas (publicidad editable). */
+export interface PublicidadGaleriaItem {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  src: string;
+  textoShare: string;
+  eliminable: boolean;
 }
 
 export const MODOS_VENTA: { value: ModoVenta; label: string }[] = [

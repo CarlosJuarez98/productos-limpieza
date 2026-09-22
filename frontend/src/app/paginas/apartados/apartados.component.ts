@@ -111,7 +111,7 @@ export class ApartadosComponent implements OnInit {
         this.caja = caja;
         this.syncMontosKeys();
         if (!this.gastos.length) {
-          this.gastos = [this.nuevaGasto(), this.nuevaGasto(), this.nuevaGasto()];
+          this.gastos = [this.nuevaGasto()];
         } else {
           const def = this.rubros[0]?.codigo ?? 'PRODUCTOS';
           for (const g of this.gastos) {
@@ -313,7 +313,7 @@ export class ApartadosComponent implements OnInit {
       return (tieneMonto && !tieneMotivo) || (!tieneMonto && tieneMotivo);
     });
     if (incompletas.length) {
-      this.error = 'Completa monto y motivo en cada fila usada (o déjala vacía)';
+      this.error = 'Completa monto y motivo en cada gasto usado (o déjalo vacío)';
       return;
     }
 
@@ -355,7 +355,7 @@ export class ApartadosComponent implements OnInit {
         next: () => {
           const total = Math.round(lineas.reduce((s, g) => s + Number(g.ingreso), 0) * 100) / 100;
           this.ok = `Se registraron ${lineas.length} gasto(s) por $${total.toFixed(2)}`;
-          this.gastos = [this.nuevaGasto(), this.nuevaGasto(), this.nuevaGasto()];
+          this.gastos = [this.nuevaGasto()];
           this.cargar();
         },
         error: (e) => (this.error = e.error?.error || 'Error al guardar gastos'),

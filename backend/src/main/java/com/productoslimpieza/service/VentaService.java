@@ -49,8 +49,9 @@ public class VentaService {
     this.cajaConfigRepo = cajaConfigRepo;
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public List<VentaDto> listar(LocalDate desde, LocalDate hasta) {
+    asignarFoliosFaltantes();
     List<Venta> ventas = (desde != null && hasta != null)
         ? ventaRepo.findByFechaBetweenOrderByFechaDescIdDesc(desde, hasta)
         : ventaRepo.findAllByOrderByFechaDescIdDesc();
@@ -66,6 +67,7 @@ public class VentaService {
   public VentaDto crear(VentaRequest req) {
     Venta v = new Venta();
     aplicar(v, req);
+    v.setFolio(siguienteFolioDelDia(req.fecha()));
     return toDto(ventaRepo.save(v));
   }
 
@@ -90,13 +92,59 @@ public class VentaService {
     }
 
     Map<Long, BigDecimal> preciosCache = new HashMap<>();
+    Long folio = siguienteFolioDelDia(req.fecha());
     List<Venta> aGuardar = new ArrayList<>(req.lineas().size());
     for (VentaLineaLoteRequest linea : req.lineas()) {
       Venta v = new Venta();
       aplicarLote(v, req.fecha(), linea, productos, preciosCache);
+      v.setFolio(folio);
       aGuardar.add(v);
     }
     return ventaRepo.saveAll(aGuardar).stream().map(this::toDto).toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<VentaDto> listarPorFolio(Long folio, LocalDate fecha) {
+    if (folio == null || folio <= 0) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Folio inválido");
+    }
+    LocalDate dia = fecha != null ? fecha : LocalDate.now(ZONA);
+    List<VentaDto> list =
+        ventaRepo.findByFolioAndFechaOrderByIdAsc(folio, dia).stream().map(this::toDto).toList();
+    if (list.isEmpty()) {
+      throw new ResponseStatusException(
+          HttpStatus.NOT_FOUND, "No hay ventas con folio " + folio + " del " + dia);
+    }
+    return list;
+  }
+
+  /** Folio del día: 1, 2, 3… reinicia cada fecha de venta. */
+  private Long siguienteFolioDelDia(LocalDate fecha) {
+    LocalDate dia = fecha != null ? fecha : LocalDate.now(ZONA);
+    Long max = ventaRepo.maxFolioDelDia(TenantContext.require(), dia);
+    long base = max != null ? max : 0L;
+    return base + 1L;
+  }
+
+  /** Asigna folio a ventas viejas sin folio (una por línea, por fecha). */
+  private void asignarFoliosFaltantes() {
+    List<Venta> sin = ventaRepo.findByFolioIsNullOrderByFechaAscIdAsc();
+    if (sin.isEmpty()) {
+      return;
+    }
+    LocalDate cur = null;
+    long next = 1L;
+    String tenant = TenantContext.require();
+    for (Venta v : sin) {
+      LocalDate f = v.getFecha();
+      if (cur == null || !cur.equals(f)) {
+        cur = f;
+        Long max = ventaRepo.maxFolioDelDia(tenant, cur);
+        next = (max != null ? max : 0L) + 1L;
+      }
+      v.setFolio(next++);
+    }
+    ventaRepo.saveAll(sin);
   }
 
   @Transactional
@@ -272,7 +320,8 @@ public class VentaService {
         v.getTipoVenta().toLabel(),
         v.getCantidad(),
         v.getTotal(),
-        v.isPagoTarjeta()
+        v.isPagoTarjeta(),
+        v.getFolio()
     );
   }
 }

@@ -119,6 +119,29 @@ export class CajaComponent implements OnInit, OnDestroy {
     return inicio ? this.sumarDias(inicio, -1) : '';
   }
 
+  /**
+   * Desde el día del último corte: permite corregir un ingreso/retiro olvidado
+   * del periodo recién cerrado (p. ej. pago de traspaso). El periodo nuevo sigue
+   * siendo desde fechaInicio; fechas del corte van al snapshot cerrado.
+   */
+  get fechaMinMov(): string | null {
+    const ultimo = this.fechaUltimoCorte;
+    if (ultimo) return ultimo;
+    return this.caja?.fechaInicio || this.config.fechaInicio || null;
+  }
+
+  /** No permitir fechas futuras en calendarios de caja. */
+  get fechaMax(): string {
+    return this.hoyLocal();
+  }
+
+  private asegurarFechaMovValida(): void {
+    const hoy = this.hoyLocal();
+    if (!this.mov.fecha || this.mov.fecha > hoy) this.mov.fecha = hoy;
+    const min = this.fechaMinMov;
+    if (min && this.mov.fecha < min) this.mov.fecha = min;
+  }
+
   /** Cortes de más reciente a más antiguo (BD). */
   get cortesAnteriores(): string[] {
     const list = [...(this.caja?.fechasCorte || [])];
@@ -243,11 +266,12 @@ export class CajaComponent implements OnInit, OnDestroy {
     return 200;
   }
 
-  /** Igual que el corte: max(contado, total caja) − fondo que dejas. */
+  /** Efectivo real a considerar: si hay contado, ese; si no, el total de caja. */
   get paraApartarEstimado(): number {
     const cajaTot = Number(this.caja?.totalCaja) || 0;
     const calc = this.totalCalculadora;
-    const contado = Math.max(calc > 0 ? calc : 0, cajaTot);
+    // Con faltante/sobrante manda lo contado; sin calculadora, el teórico.
+    const contado = calc > 0 ? calc : cajaTot;
     return Math.max(0, Math.round((contado - this.fondoSiguiente) * 100) / 100);
   }
 
@@ -273,11 +297,15 @@ export class CajaComponent implements OnInit, OnDestroy {
       next: (c) => {
         this.caja = c;
         this.ultimoCorte = c.fechaUltimoCorte || (c.fechaInicio ? this.sumarDias(c.fechaInicio, -1) : '');
+        const hoy = this.hoyLocal();
+        let fechaFin = c.fechaFin ?? hoy;
+        if (fechaFin > hoy) fechaFin = hoy;
         this.config = {
           fechaInicio: c.fechaInicio ?? '',
-          fechaFin: c.fechaFin ?? this.hoyLocal(),
+          fechaFin,
           fondoInicial: c.fondoInicial,
         };
+        this.asegurarFechaMovValida();
         this.syncPaginadores(!this.detalleCorte);
       },
       error: (e) => (this.error = e.error?.error || 'No se pudo cargar caja'),
@@ -369,6 +397,18 @@ export class CajaComponent implements OnInit, OnDestroy {
       this.error = 'Indica el monto del movimiento';
       return;
     }
+    const hoy = this.hoyLocal();
+    if (!this.mov.fecha || this.mov.fecha > hoy) {
+      this.error = 'La fecha no puede ser posterior a hoy';
+      this.mov.fecha = hoy;
+      return;
+    }
+    const min = this.fechaMinMov;
+    if (min && this.mov.fecha < min) {
+      this.error = `La fecha debe ser desde ${formatFechaDmY(min)} (día siguiente al último corte)`;
+      this.mov.fecha = min;
+      return;
+    }
     this.api
       .crearMovimientoCaja({
         fecha: this.mov.fecha,
@@ -385,6 +425,7 @@ export class CajaComponent implements OnInit, OnDestroy {
               : 'Movimiento guardado.';
           this.mov.monto = null;
           this.mov.motivo = '';
+          this.asegurarFechaMovValida();
           this.limpiarCorteSeleccionado();
           this.cargar();
         },

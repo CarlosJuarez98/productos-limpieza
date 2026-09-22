@@ -35,6 +35,13 @@ public class Venta extends TenantEntity {
   @Column(nullable = false)
   private boolean pagoTarjeta = false;
 
+  /**
+   * Folio de ticket del día (nota de venta). Varias líneas del mismo lote comparten folio.
+   * Reinicia en 1 cada fecha de venta.
+   */
+  @Column(name = "folio")
+  private Long folio;
+
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
   public LocalDate getFecha() { return fecha; }
@@ -49,4 +56,6 @@ public class Venta extends TenantEntity {
   public void setTotal(BigDecimal total) { this.total = total; }
   public boolean isPagoTarjeta() { return pagoTarjeta; }
   public void setPagoTarjeta(boolean pagoTarjeta) { this.pagoTarjeta = pagoTarjeta; }
+  public Long getFolio() { return folio; }
+  public void setFolio(Long folio) { this.folio = folio; }
 }

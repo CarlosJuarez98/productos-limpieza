@@ -10,7 +10,8 @@ public class SpaForwardController {
   @RequestMapping(value = {
       "/login",
       "/ventas", "/entradas", "/inventario", "/uso-casa", "/traspasos",
-      "/caja", "/apartados", "/inversion", "/precios", "/lista-precios", "/surtir"
+      "/caja", "/apartados", "/inversion", "/precios", "/lista-precios", "/surtir",
+      "/domicilio", "/publicidad"
   })
   public String forward() {
     return "forward:/index.html";

@@ -96,6 +96,17 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
       """)
   BigDecimal sumTotalTarjetaByTipos(@Param("tipos") List<TipoVenta> tipos);
 
+  List<Venta> findByFolioAndFechaOrderByIdAsc(Long folio, LocalDate fecha);
+
+  List<Venta> findByFolioIsNullOrderByFechaAscIdAsc();
+
+  /** Max folio del día (por tenant). Empieza en 1 cada fecha. */
+  @Query("""
+      select coalesce(max(v.folio), 0) from Venta v
+      where v.tenantId = :tenantId and v.fecha = :fecha
+      """)
+  Long maxFolioDelDia(@Param("tenantId") String tenantId, @Param("fecha") LocalDate fecha);
+
   long countByProducto(Producto producto);
 
   @Query("""

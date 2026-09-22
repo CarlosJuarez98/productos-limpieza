@@ -26,6 +26,7 @@ import {
   TraspasoAbono,
   TraspasosResumen,
   Venta,
+  PublicidadGaleriaItem,
 } from './modelos';
 
 @Injectable({ providedIn: 'root' })
@@ -59,6 +60,12 @@ export class ApiService {
 
   eliminarVenta(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/ventas/${id}`);
+  }
+
+  ventasPorFolio(folio: number, fecha?: string): Observable<Venta[]> {
+    let params = new HttpParams();
+    if (fecha) params = params.set('fecha', fecha);
+    return this.http.get<Venta[]>(`${this.base}/ventas/folio/${folio}`, { params });
   }
 
   entradas(): Observable<Entrada[]> {
@@ -419,5 +426,25 @@ export class ApiService {
 
   eliminarDomicilio(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/domicilios/${id}`);
+  }
+
+  publicidadGaleria(): Observable<PublicidadGaleriaItem[]> {
+    return this.http.get<PublicidadGaleriaItem[]>(`${this.base}/publicidad/galeria`);
+  }
+
+  subirPublicidadGaleria(
+    file: File,
+    titulo?: string,
+    descripcion?: string
+  ): Observable<PublicidadGaleriaItem> {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (titulo?.trim()) fd.append('titulo', titulo.trim());
+    if (descripcion?.trim()) fd.append('descripcion', descripcion.trim());
+    return this.http.post<PublicidadGaleriaItem>(`${this.base}/publicidad/galeria`, fd);
+  }
+
+  eliminarPublicidadGaleria(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/publicidad/galeria/${encodeURIComponent(id)}`);
   }
 }
