@@ -57,6 +57,40 @@
   }
 }
 
+.btn-generar-jarceria {
+  border-color: #7aa8d4;
+  background: #e8f2fb;
+  color: #0b4f8a;
+
+  &:hover:not(:disabled) {
+    background: #d4e8f8;
+  }
+}
+
+.chip-depto {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #e8f6ee;
+  color: #146c38;
+  border: 1px solid #9fbfab;
+
+  &.jarceria {
+    background: #e8f2fb;
+    color: #0b4f8a;
+    border-color: #7aa8d4;
+  }
+
+  &.mini {
+    margin: 0.15rem 0 0.35rem;
+    font-size: 0.68rem;
+  }
+}
+
 .btn-guardar-sel {
   border-color: #7aa8d4;
   background: #e8f2fb;
@@ -99,20 +133,26 @@
 .thumb-wrap {
   position: relative;
   aspect-ratio: 4 / 5;
-  background-color: #fff8f0;
-  background-size: contain;
+  background-color: #e8eee9;
+  background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   overflow: hidden;
   border-radius: 0.65rem 0.65rem 0 0;
+  /* Fuerza capa propia: evita thumbs en blanco en Chrome con object-fit + absolute */
+  transform: translateZ(0);
+  isolation: isolate;
 
   img {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
+    object-position: center;
     display: block;
+    z-index: 1;
+    background: transparent;
   }
 }
 
@@ -197,6 +237,7 @@
   position: absolute;
   right: 0.55rem;
   bottom: 0.55rem;
+  z-index: 2;
   background: rgba(11, 31, 58, 0.82);
   color: #fff;
   font-size: 0.72rem;
@@ -224,9 +265,10 @@
     font-size: 0.78rem;
     line-height: 1.35;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 5;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    word-break: break-word;
   }
 }
 
@@ -481,7 +523,7 @@
 
   .promo-body p.muted {
     font-size: 0.7rem;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 4;
   }
 
   .btn-whatsapp {

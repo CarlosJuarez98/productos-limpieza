@@ -4,6 +4,9 @@
  * stickers deco, pie de contacto. Precios van en el texto de WhatsApp.
  */
 
+/** Departamento de un lote de publicidad. */
+export type DeptoPromo = 'LIMPIEZA' | 'JARCERIA';
+
 export type PromoGenerada = {
   id: string;
   titulo: string;
@@ -12,6 +15,8 @@ export type PromoGenerada = {
   textoShare: string;
   blob: Blob;
   vertical?: boolean;
+  /** Departamento del lote (limpieza / jarcería). */
+  departamento?: DeptoPromo;
 };
 
 export type ProductoPromo = {
@@ -149,12 +154,46 @@ const TEMAS: TemaFlyer[] = [
     acentoTitulo: Brand.tealDeep,
     acentoSlogan: Brand.navy,
   },
+  {
+    titulo: 'Kit de limpieza',
+    categoria: 'JARCERIA',
+    grupo: 'jarceria',
+    headline: 'JARCERÍA\nAMORCAS',
+    slogan: 'LO QUE NECESITAS PARA DEJAR BRILLANTE.',
+    seccion: 'JARCERÍA:',
+    fondo: Brand.paper,
+    acentoTitulo: Brand.limeDeep,
+    acentoSlogan: Brand.navy,
+  },
+  {
+    titulo: 'Hogar listo',
+    categoria: 'JARCERIA',
+    grupo: 'jarceria',
+    headline: 'JARCERÍA Y HOGAR\nAMORCAS',
+    slogan: 'CUBETAS, CEPILLOS, FIBRAS Y MÁS.',
+    seccion: 'PARA TU CASA:',
+    fondo: Brand.soft,
+    acentoTitulo: Brand.navy,
+    acentoSlogan: Brand.tealDeep,
+  },
 ];
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => resolve(img.width > 0 && img.height > 0 ? img : null);
+    img.decoding = 'async';
+    const done = () => {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      resolve(w > 0 && h > 0 ? img : null);
+    };
+    img.onload = () => {
+      if (typeof img.decode === 'function') {
+        img.decode().then(done).catch(done);
+      } else {
+        done();
+      }
+    };
     img.onerror = () => resolve(null);
     img.src = src;
   });
@@ -186,7 +225,7 @@ function deptoDe(p: ProductoPromo): 'LIMPIEZA' | 'JARCERIA' {
   return p.vendePor === 'PIEZA' ? 'JARCERIA' : 'LIMPIEZA';
 }
 
-/** Elige productos del mismo grupo (jabones juntos, trastes juntos, etc.). */
+/** Elige productos del mismo departamento (sin mezclar limpieza ↔ jarcería). */
 function pickDesdeInventario(
   inv: ProductoPromo[],
   categoria: Categoria,
@@ -194,30 +233,24 @@ function pickDesdeInventario(
   grupo: GrupoTema
 ): PrecioItem[] {
   const activos = inv.filter((p) => Number(p.precioVentaHoy) > 0 && (p.nombre || '').trim());
-  let pool =
-    categoria === 'LIMPIEZA'
-      ? activos.filter((p) => deptoDe(p) === 'LIMPIEZA')
-      : categoria === 'JARCERIA'
-        ? activos.filter((p) => deptoDe(p) === 'JARCERIA')
-        : activos;
-  if (pool.length < 3) pool = activos;
+  const depto: DeptoPromo =
+    categoria === 'JARCERIA' ? 'JARCERIA' : 'LIMPIEZA';
+  let pool = activos.filter((p) => deptoDe(p) === depto);
+  // Si hay muy pocos del depto, igual no mezclar con el otro
+  if (!pool.length) return [];
 
   const key = KEY_GRUPO[grupo];
   const preferidos = pool.filter((p) => key.test(p.nombre));
   if (preferidos.length >= 3) {
     pool = preferidos;
   } else if (preferidos.length > 0) {
-    // Completar con del mismo depto, pero preferidos primero
     const resto = shuffle(pool.filter((p) => !preferidos.includes(p)));
     pool = [...shuffle(preferidos), ...resto];
-    return pool.slice(0, Math.min(cuantos, pool.length)).map((p) => ({
-      nombre: p.nombre.trim(),
-      precio: fmtPrecio(p),
-    }));
+  } else {
+    pool = shuffle(pool);
   }
 
-  const elegidos = shuffle(pool).slice(0, Math.min(cuantos, pool.length));
-  return elegidos.map((p) => ({
+  return pool.slice(0, Math.min(cuantos, pool.length)).map((p) => ({
     nombre: p.nombre.trim(),
     precio: fmtPrecio(p),
   }));
@@ -427,21 +460,42 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): s
   return rows;
 }
 
-function pickComposiciones(n: number, inv: ProductoPromo[]): Composicion[] {
-  const temas = shuffle([...TEMAS]);
+function pickComposiciones(
+  n: number,
+  inv: ProductoPromo[],
+  depto: DeptoPromo
+): Composicion[] {
+  const temasDepto = TEMAS.filter((t) => t.categoria === depto);
+  const temas = shuffle(temasDepto.length ? [...temasDepto] : [...TEMAS]);
   const out: Composicion[] = [];
   for (let i = 0; i < n; i++) {
     const tema = temas[i % temas.length];
-    const cuantos = 5 + Math.floor(Math.random() * 2); // 5–6, caben nombres completos
+    const cuantos = 4 + Math.floor(Math.random() * 2); // 4–5, caben enteros en el flyer
+    const precios = pickDesdeInventario(inv, tema.categoria, cuantos, tema.grupo);
+    if (!precios.length) continue;
     out.push({
       id: `gen-${Date.now().toString(36)}-${i}-${Math.random().toString(36).slice(2, 6)}`,
       tema,
       vertical: true,
-      precios: pickDesdeInventario(inv, tema.categoria, cuantos, tema.grupo),
+      precios,
       stickerKeys: stickersDe(tema.grupo),
     });
   }
-  return shuffle(out);
+  // Si faltan (poco inventario), reintentar con temas del depto
+  let guard = 0;
+  while (out.length < n && guard++ < n * 3) {
+    const tema = rand(temas);
+    const precios = pickDesdeInventario(inv, tema.categoria, 5, tema.grupo);
+    if (!precios.length) break;
+    out.push({
+      id: `gen-${Date.now().toString(36)}-x${guard}-${Math.random().toString(36).slice(2, 6)}`,
+      tema,
+      vertical: true,
+      precios,
+      stickerKeys: stickersDe(tema.grupo),
+    });
+  }
+  return shuffle(out).slice(0, n);
 }
 
 const FRASES_SERVICIO = [
@@ -516,7 +570,7 @@ function drawHeadlineShadowed(
   return lines.length * lh;
 }
 
-/** Dibuja icono PNG (WA / pin de Ropa) centrado; fallback canvas si falta. */
+/** Dibuja icono PNG (WA / pin) centrado; recorta padding transparente. */
 function drawIconImg(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement | null,
@@ -525,46 +579,84 @@ function drawIconImg(
   size: number,
   fallback: (c: CanvasRenderingContext2D, x: number, y: number, s: number) => void
 ): void {
-  if (img && (img.naturalWidth || img.width) > 0) {
-    const iw = img.naturalWidth || img.width;
-    const ih = img.naturalHeight || img.height;
-    const sc = Math.min(size / iw, size / ih);
-    const dw = Math.max(1, Math.round(iw * sc));
-    const dh = Math.max(1, Math.round(ih * sc));
-    ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+  if (!img || (img.naturalWidth || img.width) <= 0) {
+    fallback(ctx, cx, cy, size);
     return;
   }
-  fallback(ctx, cx, cy, size);
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  // Recorte al contenido opaco (evita PNG con marco enorme / negro)
+  const off = document.createElement('canvas');
+  off.width = iw;
+  off.height = ih;
+  const octx = off.getContext('2d', { willReadFrequently: true });
+  if (!octx) {
+    fallback(ctx, cx, cy, size);
+    return;
+  }
+  octx.clearRect(0, 0, iw, ih);
+  octx.drawImage(img, 0, 0);
+  const pix = octx.getImageData(0, 0, iw, ih);
+  const d = pix.data;
+  let minX = iw;
+  let minY = ih;
+  let maxX = 0;
+  let maxY = 0;
+  for (let y = 0; y < ih; y++) {
+    for (let x = 0; x < iw; x++) {
+      const a = d[(y * iw + x) * 4 + 3];
+      if (a < 24) continue;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+  const bw = maxX - minX + 1;
+  const bh = maxY - minY + 1;
+  if (bw < 8 || bh < 8) {
+    fallback(ctx, cx, cy, size);
+    return;
+  }
+  const sc = Math.min(size / bw, size / bh);
+  const dw = Math.max(1, Math.round(bw * sc));
+  const dh = Math.max(1, Math.round(bh * sc));
+  ctx.drawImage(img, minX, minY, bw, bh, cx - dw / 2, cy - dh / 2, dw, dh);
 }
 
-/** Fallback: burbuja naranja + auricular (mismo estilo que Ropa 1 / 2). */
+/** WhatsApp estilo Ropa (burbuja naranja rellena + teléfono claro). */
 function drawWhatsAppIconFallback(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
-  const r = size * 0.42;
+  const r = size * 0.46;
   const orange = '#F5A623';
+  const deep = '#E08900';
   ctx.save();
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  // Contorno burbuja
+  // Burbuja rellena + cola
   ctx.beginPath();
-  ctx.arc(cx, cy - size * 0.04, r, 0, Math.PI * 2);
-  ctx.moveTo(cx - r * 0.35, cy + r * 0.55);
-  ctx.quadraticCurveTo(cx - r * 0.85, cy + r * 1.05, cx - r * 0.95, cy + r * 1.15);
-  ctx.quadraticCurveTo(cx - r * 0.15, cy + r * 0.85, cx - r * 0.05, cy + r * 0.7);
-  ctx.strokeStyle = orange;
-  ctx.lineWidth = Math.max(4, size * 0.1);
-  ctx.stroke();
-  // Auricular
+  ctx.arc(cx, cy - size * 0.02, r, 0, Math.PI * 2);
+  ctx.moveTo(cx - r * 0.55, cy + r * 0.55);
+  ctx.quadraticCurveTo(cx - r * 0.95, cy + r * 1.05, cx - r * 0.75, cy + r * 0.95);
+  ctx.quadraticCurveTo(cx - r * 0.35, cy + r * 0.75, cx - r * 0.25, cy + r * 0.62);
+  ctx.closePath();
   ctx.fillStyle = orange;
-  ctx.beginPath();
-  ctx.ellipse(cx - r * 0.22, cy + r * 0.08, r * 0.18, r * 0.28, -0.55, 0, Math.PI * 2);
   ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(cx + r * 0.22, cy - r * 0.18, r * 0.18, r * 0.28, -0.55, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.lineWidth = Math.max(5, size * 0.12);
-  ctx.beginPath();
-  ctx.arc(cx, cy - r * 0.05, r * 0.32, 0.35, Math.PI * 0.95);
+  ctx.strokeStyle = deep;
+  ctx.lineWidth = Math.max(2, size * 0.035);
   ctx.stroke();
+  // Auricular blanco
+  ctx.strokeStyle = '#fff';
+  ctx.fillStyle = '#fff';
+  ctx.lineWidth = Math.max(5, size * 0.11);
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.08, cy - r * 0.02, r * 0.38, 0.45, Math.PI * 1.15);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(cx - r * 0.32, cy + r * 0.12, r * 0.16, r * 0.22, -0.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx + r * 0.18, cy - r * 0.22, r * 0.16, r * 0.22, -0.6, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -698,46 +790,71 @@ async function renderFlyer(
   let listX: number;
   let listMaxW: number;
   if (layout === 'lista-centro') {
-    listX = W * 0.24;
-    listMaxW = W * 0.54;
+    listX = W * 0.2;
+    listMaxW = W * 0.6;
   } else if (layout === 'lista-der') {
-    listX = W * 0.4;
-    listMaxW = W * 0.54;
+    listX = W * 0.36;
+    listMaxW = W * 0.58;
   } else {
     listX = margin;
-    listMaxW = W * 0.54;
+    listMaxW = W * 0.58;
   }
 
-  // Sección + nombres: letras grandes (navy del logo)
+  // Sección + nombres: ajustar tamaño para que TODOS quepan enteros (sin cortar)
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = Brand.navy;
-  const secSize = 42;
+  const secSize = 40;
   ctx.font = `900 ${secSize}px "Segoe UI", "Arial Black", sans-serif`;
   ctx.fillText(tema.seccion, listX, y);
-  y += secSize + 24;
+  y += secSize + 20;
 
-  const nameSize = 40;
-  const lineH = 50;
+  const footReserve = 200;
+  const listBottom = H - footReserve;
+  const names = precios.map((p) => `•  ${p.nombre.toUpperCase()}`);
+  let nameSize = 38;
+  let lineH = 48;
+  let gap = 8;
+
+  const measureBlock = (fontPx: number, lh: number, g: number) => {
+    ctx.font = `800 ${fontPx}px "Segoe UI", "Arial Black", sans-serif`;
+    let h = 0;
+    const blocks: string[][] = [];
+    for (const full of names) {
+      const rows = wrapLines(ctx, full, listMaxW);
+      blocks.push(rows);
+      h += rows.length * lh + g;
+    }
+    return { h, blocks };
+  };
+
+  let layoutNames = measureBlock(nameSize, lineH, gap);
+  while (y + layoutNames.h > listBottom && nameSize > 26) {
+    nameSize -= 2;
+    lineH = Math.round(nameSize * 1.25);
+    gap = Math.max(4, gap - 1);
+    layoutNames = measureBlock(nameSize, lineH, gap);
+  }
+  // Si aún no caben, quitar productos de abajo hasta que entren completos
+  while (layoutNames.blocks.length > 1 && y + layoutNames.h > listBottom) {
+    names.pop();
+    layoutNames = measureBlock(nameSize, lineH, gap);
+  }
+
   ctx.font = `800 ${nameSize}px "Segoe UI", "Arial Black", sans-serif`;
-  const footReserve = 180;
-  for (const p of precios) {
-    if (y > H - footReserve) break;
-    const full = `•  ${p.nombre.toUpperCase()}`;
-    const rows = wrapLines(ctx, full, listMaxW);
+  for (const rows of layoutNames.blocks) {
     for (const row of rows) {
-      if (y > H - footReserve) break;
       ctx.fillStyle = Brand.navyDeep;
       ctx.fillText(row, listX, y);
       y += lineH;
     }
-    y += 10;
+    y += gap;
   }
 
-  // Pie: iconos reales de Ropa (WA naranja + pin casita) + texto legible
+  // Pie: iconos WA + pin (PNG o fallback legible) + texto
   const footY = H - 132;
-  const iconSize = 88;
-  const footGap = 12;
+  const iconSize = 96;
+  const footGap = 14;
   const leftIconX = margin + iconSize / 2;
   const rightIconX = W - margin - iconSize / 2;
   drawIconImg(ctx, icons.wa, leftIconX, footY - 4, iconSize, drawWhatsAppIconFallback);
@@ -776,15 +893,16 @@ async function renderFlyer(
 
 /**
  * Genera un lote (default 5) formato Ropa/Trastes 4:5.
+ * Solo productos del departamento indicado (LIMPIEZA o JARCERIA).
  * Nombres en imagen; precios menudeo en el texto de WhatsApp.
  */
 export async function generarLotePublicidad(
   cantidad = 5,
-  inventario: ProductoPromo[] = []
+  inventario: ProductoPromo[] = [],
+  depto: DeptoPromo = 'LIMPIEZA'
 ): Promise<PromoGenerada[]> {
   const media = (name: string) =>
-    // Preferir estáticos del front (siempre en el JAR); API como respaldo
-    loadImage(`/publicidad/${name}?v=21`).then((i) => i || loadImage(`/api/publicidad/media/${name}?v=21`));
+    loadImage(`/publicidad/${name}?v=22`).then((i) => i || loadImage(`/api/publicidad/media/${name}?v=22`));
 
   const [logo, detergente, trastes, jarceria, burbujas, iconWa, iconPin] = await Promise.all([
     media('amorcas-chingon.png').then(
@@ -800,7 +918,7 @@ export async function generarLotePublicidad(
 
   const stickers: Stickers = { detergente, trastes, jarceria, burbujas };
   const icons = { wa: iconWa, pin: iconPin };
-  const comps = pickComposiciones(cantidad, inventario);
+  const comps = pickComposiciones(cantidad, inventario, depto);
   const out: PromoGenerada[] = [];
 
   for (const comp of comps) {
@@ -816,11 +934,15 @@ export async function generarLotePublicidad(
       textoShare: textoShareDe(comp.tema.titulo, comp.precios),
       blob,
       vertical: true,
+      departamento: depto,
     });
   }
-
   if (!out.length) {
-    throw new Error('No hay productos con precio de menudeo en inventario para armar las promos');
+    throw new Error(
+      depto === 'JARCERIA'
+        ? 'No hay productos de jarcería con precio para armar promos'
+        : 'No hay productos de limpieza con precio para armar promos'
+    );
   }
   return out;
 }

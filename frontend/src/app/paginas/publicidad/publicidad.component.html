@@ -36,6 +36,9 @@
       @if (loteLabel) {
         <span class="muted mini">Lote {{ loteLabel }}</span>
       }
+      <span class="chip-depto" [class.jarceria]="deptoLote === 'JARCERIA'">
+        {{ deptoLote === 'JARCERIA' ? 'Jarcería' : 'Limpieza' }}
+      </span>
     </div>
     <div class="bloque-acciones">
       <button
@@ -73,10 +76,18 @@
       <button
         type="button"
         class="btn-generar"
-        (click)="generarMas()"
+        (click)="generarMas('LIMPIEZA')"
         [disabled]="generando"
       >
-        {{ generando ? 'Generando…' : 'Generar 5 nuevas' }}
+        {{ generando ? 'Generando…' : 'Generar limpieza' }}
+      </button>
+      <button
+        type="button"
+        class="btn-generar btn-generar-jarceria"
+        (click)="generarMas('JARCERIA')"
+        [disabled]="generando"
+      >
+        {{ generando ? 'Generando…' : 'Generar jarcería' }}
       </button>
     </div>
   </header>
@@ -107,6 +118,11 @@
         </div>
         <div class="promo-body">
           <h4>{{ p.titulo }}</h4>
+          @if (p.departamento) {
+            <span class="chip-depto mini" [class.jarceria]="p.departamento === 'JARCERIA'">
+              {{ p.departamento === 'JARCERIA' ? 'Jarcería' : 'Limpieza' }}
+            </span>
+          }
           <p class="muted">{{ p.descripcion }}</p>
           <button
             type="button"
@@ -159,7 +175,13 @@
     @for (p of promosGaleria; track p.id) {
       <article class="promo-card ui-card" (click)="abrirPreview(p)">
         <div class="thumb-wrap" [style.background-image]="'url(' + p.src + ')'">
-          <img [src]="p.src" [alt]="p.titulo" loading="eager" decoding="sync" />
+          <img
+            [src]="p.src"
+            [alt]="p.titulo"
+            loading="eager"
+            decoding="async"
+            (error)="onGaleriaImgError($event, p)"
+          />
           <span class="chip-ver">Ver</span>
           @if (p.eliminable) {
             <button

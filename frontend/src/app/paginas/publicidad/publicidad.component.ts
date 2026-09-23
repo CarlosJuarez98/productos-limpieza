@@ -6,7 +6,7 @@ import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { InventarioItem, PublicidadGaleriaItem } from '../../modelos';
 import { compartirPublicidad, enviarTextoWhatsApp } from '../../ticket-whatsapp.util';
-import { generarLotePublicidad, PromoGenerada } from '../../promo-generador.util';
+import { generarLotePublicidad, PromoGenerada, DeptoPromo } from '../../promo-generador.util';
 
 type Promo = {
   id: string;
@@ -20,6 +20,7 @@ type Promo = {
   blob?: Blob;
   seleccionada?: boolean;
   guardando?: boolean;
+  departamento?: DeptoPromo;
 };
 
 const LOTE_SIZE = 5;
@@ -40,6 +41,8 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   enviandoTexto = false;
   preview: Promo | null = null;
   generando = false;
+  /** Departamento del lote visible (para el título / botones). */
+  deptoLote: DeptoPromo = 'LIMPIEZA';
   guardandoSeleccion = false;
 
   /** Lote visible (siempre 5 generadas). */
@@ -88,7 +91,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       }
     }
     this.cargarGaleria();
-    void this.generarMas();
+    void this.generarMas('LIMPIEZA');
   }
 
   ngOnDestroy(): void {
@@ -115,18 +118,41 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   }
 
   private fromApi(i: PublicidadGaleriaItem): Promo {
+    const raw = (i.src || '').trim();
+    // Cache-bust + normalizar rutas viejas /api/publicidad/media → /publicidad
+    let src = raw.replace(/^\/api\/publicidad\/media\//, '/publicidad/');
+    if (src.startsWith('/publicidad/') || src.startsWith('/api/publicidad/')) {
+      const sep = src.includes('?') ? '&' : '?';
+      src = `${src}${sep}v=23`;
+    }
     return {
       id: i.id,
       titulo: i.titulo,
       descripcion: i.descripcion || '',
-      src: i.src,
+      src,
       textoShare: i.textoShare || i.titulo,
       eliminable: i.eliminable,
     };
   }
 
-  /** Genera 5 nuevas aleatorias y las agrega al historial. */
-  async generarMas(): Promise<void> {
+  /** Si Chrome falla al pintar /publicidad/..., reintenta por API media. */
+  onGaleriaImgError(ev: Event, p: Promo): void {
+    const img = ev.target as HTMLImageElement;
+    const src = p.src || '';
+    if (src.includes('/publicidad/') && !src.includes('__retried=1')) {
+      const name = src.split('/publicidad/')[1]?.split('?')[0];
+      if (name) {
+        const next = `/api/publicidad/media/${name}?v=23&__retried=1`;
+        p.src = next;
+        img.src = next;
+        return;
+      }
+    }
+    img.style.display = 'none';
+  }
+
+  /** Genera 5 nuevas aleatorias del departamento y las agrega al historial. */
+  async generarMas(depto: DeptoPromo = 'LIMPIEZA'): Promise<void> {
     this.generando = true;
     this.error = '';
     this.ok = '';
@@ -154,14 +180,17 @@ export class PublicidadComponent implements OnInit, OnDestroy {
           precioVentaHoy: p.precioVentaHoy,
           vendePor: p.vendePor,
           departamento: p.departamento,
-        }))
+        })),
+        depto
       );
       const promos = lote.map((p) => this.fromGen(p));
       lote.forEach((p) => this.blobUrls.push(p.src));
       this.historialLotes.push(promos);
       this.indiceLote = this.historialLotes.length - 1;
       this.promosNuevas = promos;
-      this.ok = '5 promos con menudeo real · estilo Ropa / Trastes';
+      this.deptoLote = depto;
+      const label = depto === 'JARCERIA' ? 'jarcería' : 'limpieza';
+      this.ok = `${promos.length} promos de ${label} · menudeo real`;
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudieron generar las promos';
     } finally {
@@ -197,6 +226,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       blob: p.blob,
       eliminable: false,
       seleccionada: false,
+      departamento: p.departamento,
     };
   }
 
