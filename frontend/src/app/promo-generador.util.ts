@@ -1054,7 +1054,7 @@ const FRASES_SERVICIO = [
   '¡Ya abrimos! ✅🟢\nEstamos listos para servirles 🧼✨',
   'En servicio 🟢\nPase a visitarnos o pida a domicilio 🛵🏠',
   '¡Negocio abierto! 🚪✨\nLo esperamos o le llevamos su pedido 🏠.',
-  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WhatsApp 💬',
+  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WA_TAIL',
 ];
 
 function textoShareDe(_titulo: string, precios: PrecioItem[]): string {

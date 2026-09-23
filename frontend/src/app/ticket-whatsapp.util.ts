@@ -877,6 +877,8 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
     accent: boolean;
     mute: boolean;
     waIcon?: boolean;
+    /** Icono WA al final de la línea (después del texto). */
+    waTail?: boolean;
   };
   const rows: Row[] = [];
   const raw = texto.split('\n');
@@ -886,7 +888,7 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
       rows.push({ text: '', size: 18, bold: false, accent: false, mute: false });
       continue;
     }
-    // "WA_ICON 247-…" o "💬 WhatsApp 247-…" → fila con icono
+    // "WA_ICON 247-…" o "💬 WhatsApp 247-…" → fila con icono + número
     const waMatch = line.match(/^(?:WA_ICON|💬\s*WhatsApp)\s*(.+)$/i);
     if (waMatch) {
       rows.push({
@@ -896,6 +898,22 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
         accent: false,
         mute: false,
         waIcon: true,
+      });
+      continue;
+    }
+    // "… por WA_TAIL" o "… por WhatsApp 💬" → texto + icono al final
+    if (/\bWA_TAIL\b/i.test(line) || /por\s+WhatsApp\s*💬?\s*$/i.test(line)) {
+      const prefix = line
+        .replace(/\s*WA_TAIL\s*$/i, '')
+        .replace(/\s+WhatsApp\s*💬?\s*$/i, '')
+        .trimEnd();
+      rows.push({
+        text: prefix || 'Visítenos o escríbanos por',
+        size: 34,
+        bold: false,
+        accent: false,
+        mute: false,
+        waTail: true,
       });
       continue;
     }
@@ -920,9 +938,9 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
 
   let contentH = 0;
   for (const r of rows) {
-    if (!r.text && !r.waIcon) contentH += 22;
+    if (!r.text && !r.waIcon && !r.waTail) contentH += 22;
     else if (r.waIcon) contentH += Math.max(r.size, 52) + lineGap;
-    else contentH += r.size + lineGap;
+    else contentH += Math.max(r.size, r.waTail ? 40 : 0) + lineGap;
   }
   const H = Math.max(720, padY * 2 + contentH + 40);
   canvas.width = W;
@@ -938,7 +956,7 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
 
   let y = padY + 8;
   for (const r of rows) {
-    if (!r.text && !r.waIcon) {
+    if (!r.text && !r.waIcon && !r.waTail) {
       y += 22;
       continue;
     }
@@ -954,6 +972,20 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
       ctx.fillStyle = '#183060';
       ctx.fillText(r.text, x0 + iconS + 14, cy);
       y += iconS + lineGap;
+      continue;
+    }
+    if (r.waTail) {
+      const iconS = 36;
+      const x0 = padX + 12;
+      ctx.font = `${r.bold ? 800 : 600} ${r.size}px "Segoe UI", system-ui, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#183060';
+      const cy = y + Math.max(r.size, iconS) / 2;
+      ctx.fillText(r.text + ' ', x0, cy);
+      const tw = ctx.measureText(r.text + ' ').width;
+      drawWaIconMsg(ctx, x0 + tw + iconS / 2, cy, iconS, iconWa);
+      y += Math.max(r.size, iconS) + lineGap;
       continue;
     }
     ctx.font = `${r.bold ? 800 : 600} ${r.size}px "Segoe UI", system-ui, sans-serif`;
@@ -1011,7 +1043,9 @@ function textoSharePublicidad(titulo: string, textoDespues?: string): string {
 
 /** En portapapeles: WA_ICON → texto legible. */
 function textoParaPortapapeles(texto: string): string {
-  return (texto || '').replace(/^WA_ICON\s+/gm, '💬 WhatsApp ');
+  return (texto || '')
+    .replace(/^WA_ICON\s+/gm, '💬 WhatsApp ')
+    .replace(/\bWA_TAIL\b/g, 'WhatsApp 💬');
 }
 
 async function copiarTextoSeguro(texto: string): Promise<boolean> {
@@ -1089,7 +1123,7 @@ const FRASES_SERVICIO = [
   '¡Ya abrimos! ✅🟢\nEstamos listos para servirles 🧼✨',
   'En servicio 🟢\nPase a visitarnos o pida a domicilio 🛵🏠',
   '¡Negocio abierto! 🚪✨\nLo esperamos o le llevamos su pedido 🏠.',
-  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WhatsApp 💬',
+  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WA_TAIL',
 ];
 
 function horaMexico(): number {
