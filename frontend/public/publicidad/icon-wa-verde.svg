@@ -1,0 +1,15 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Burbuja -->
+  <circle cx="128" cy="118" r="102" fill="#25D366"/>
+  <!-- Cola -->
+  <path fill="#25D366" d="M78 178 C40 220 70 228 98 200 C88 192 82 184 78 178Z"/>
+  <!-- Auricular blanco (rotado ~-40°) -->
+  <g transform="translate(128,118) rotate(-40)">
+    <!-- Extremo inferior -->
+    <rect x="-55" y="10" width="30" height="48" rx="15" fill="#fff"/>
+    <!-- Extremo superior -->
+    <rect x="25" y="-58" width="30" height="48" rx="15" fill="#fff"/>
+    <!-- Puente -->
+    <path d="M-28 34 A46 46 0 0 0 32 -30" fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -667,9 +667,8 @@ export type ResultadoSharePublicidad = {
 };
 
 /**
- * Un solo toque: 1) foto del flyer, 2) imagen con el mensaje
- * (Buenos días / en servicio / precios). Así el orden queda correcto
- * y no hace falta un segundo botón — WhatsApp no permite texto suelto automático fiable.
+ * Envío en orden: 1) foto de la publicidad, 2) mensaje (Buenos días / precios).
+ * Primero comparte solo el flyer; al cerrar esa hoja, comparte el mensaje.
  */
 export async function compartirPublicidad(
   src: string,
@@ -692,16 +691,34 @@ export async function compartirPublicidad(
     `${titulo.replace(/\s+/g, '-').toLowerCase() || 'promo'}.png`,
     { type: blob.type || 'image/png' }
   );
-  const textoBlob = await renderTextoComoImagen(texto);
-  const textoFile = new File([textoBlob], 'amorcas-mensaje.png', { type: 'image/png' });
 
-  const multi = await shareFiles([flyerFile, textoFile], titulo || 'Amorcas');
-  if (multi === 'compartido') {
-    return { modo: 'compartido', texto, automatico: true };
+  // 1) Primero la foto
+  const foto = await shareFile(flyerFile, titulo || 'Amorcas', '');
+  if (foto === 'descargado') {
+    // Sin Web Share: descarga flyer + imagen del mensaje (usuario las sube en orden)
+    try {
+      const textoBlob = await renderTextoComoImagen(texto);
+      const textoFile = new File([textoBlob], 'amorcas-mensaje.png', { type: 'image/png' });
+      await shareFile(textoFile, 'Amorcas', '');
+      return { modo: 'descargado', texto, automatico: true };
+    } catch {
+      return { modo: 'descargado', texto, automatico: false };
+    }
   }
-  // Si el SO no acepta 2 archivos, manda solo la foto (texto queda en portapapeles + paso manual)
-  const solo = await shareFile(flyerFile, titulo || 'Amorcas', '');
-  return { modo: solo, texto, automatico: false };
+
+  // 2) Después el mensaje (misma cadena async tras cerrar el share de la foto)
+  try {
+    await new Promise((r) => setTimeout(r, 350));
+    const textoBlob = await renderTextoComoImagen(texto);
+    const textoFile = new File([textoBlob], 'amorcas-mensaje.png', { type: 'image/png' });
+    const msg = await shareFile(textoFile, 'Amorcas', texto);
+    if (msg === 'compartido') {
+      return { modo: 'compartido', texto, automatico: true };
+    }
+  } catch {
+    /* queda texto en portapapeles + botón manual */
+  }
+  return { modo: 'compartido', texto, automatico: false };
 }
 
 /**

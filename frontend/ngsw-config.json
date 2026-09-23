@@ -23,7 +23,10 @@
       "updateMode": "prefetch",
       "resources": {
         "files": [
-          "/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
+          "/assets/**",
+          "/favicon.png",
+          "/apple-touch-icon.png",
+          "/*.(svg|woff|woff2|ttf|otf)"
         ]
       }
     }

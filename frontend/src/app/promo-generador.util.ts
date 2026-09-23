@@ -35,6 +35,23 @@ type GrupoTema = 'lavado' | 'cocina' | 'suavizante' | 'aroma' | 'manos' | 'jarce
 
 type StickerKey = 'detergente' | 'trastes' | 'jarceria' | 'burbujas';
 
+/** Motivo visual ligado al producto (PNG o dibujo canvas). */
+type StickerMotivo =
+  | StickerKey
+  | 'guantes'
+  | 'fibra'
+  | 'escoba'
+  | 'trapeador'
+  | 'jalador'
+  | 'recogedor'
+  | 'cubeta'
+  | 'cepillo'
+  | 'esponja'
+  | 'suavizante'
+  | 'cloro'
+  | 'aroma'
+  | 'manos';
+
 type TemaFlyer = {
   titulo: string;
   categoria: Categoria;
@@ -51,7 +68,7 @@ type Composicion = {
   tema: TemaFlyer;
   vertical: boolean;
   precios: PrecioItem[];
-  stickerKeys: StickerKey[];
+  stickerMotivos: StickerMotivo[];
 };
 
 /** Paleta Amorcas extraída del logo (navy · teal · lima). */
@@ -216,7 +233,7 @@ const TEMAS: TemaFlyer[] = [
     titulo: 'Jarcería y hogar',
     categoria: 'JARCERIA',
     grupo: 'jarceria',
-    headline: 'JARCERÍA Y HOGAR\nAMORCAS',
+    headline: 'PRODUCTOS DE LIMPIEZA\nA GRANEL',
     slogan: '¡TODO PARA DEJAR TU CASA IMPECABLE!',
     fondo: Brand.sky,
     acentoTitulo: Brand.navy,
@@ -226,7 +243,7 @@ const TEMAS: TemaFlyer[] = [
     titulo: 'Equípate hoy',
     categoria: 'JARCERIA',
     grupo: 'jarceria',
-    headline: 'JARCERÍA Y HOGAR\nAMORCAS',
+    headline: 'PRODUCTOS DE LIMPIEZA\nA GRANEL',
     slogan: '¡DE LA ESCOBA AL TRAPEADOR, LO TENEMOS!',
     fondo: Brand.mint,
     acentoTitulo: Brand.tealDeep,
@@ -236,7 +253,7 @@ const TEMAS: TemaFlyer[] = [
     titulo: 'Kit de limpieza',
     categoria: 'JARCERIA',
     grupo: 'jarceria',
-    headline: 'JARCERÍA\nAMORCAS',
+    headline: 'PRODUCTOS DE LIMPIEZA\nA GRANEL',
     slogan: '¡LO ESENCIAL PARA UNA CASA QUE BRILLA!',
     fondo: Brand.paper,
     acentoTitulo: Brand.limeDeep,
@@ -332,24 +349,100 @@ function familiaDePrecios(precios: PrecioItem[], fallback: GrupoTema): GrupoTema
   return best;
 }
 
-/** Stickers acordes a la familia real de la lista (no genéricos). */
-function stickersDe(grupo: GrupoTema): StickerKey[] {
+/** Motivo visual según el nombre del producto (guantes → guantes, fibra → fibra…). */
+function motivoDeProducto(nombre: string): StickerMotivo {
+  const n = nombre || '';
+  if (/guante/i.test(n)) return 'guantes';
+  if (/fibra/i.test(n)) return 'fibra';
+  if (/escoba/i.test(n)) return 'escoba';
+  if (/trape|mechudo/i.test(n)) return 'trapeador';
+  if (/jalador/i.test(n)) return 'jalador';
+  if (/recogedor/i.test(n)) return 'recogedor';
+  if (/cubeta/i.test(n)) return 'cubeta';
+  if (/cepillo/i.test(n)) return 'cepillo';
+  if (/esponja|fibr[ao]\s*verde|scotch/i.test(n)) return 'esponja';
+  if (/downy|suavitel|suaviz/i.test(n)) return 'suavizante';
+  if (/jab[oó]n\s*manos|crema\s*manos/i.test(n)) return 'manos';
+  if (/axion|brazo|braso|desengr|teflon|vidrios/i.test(n)) return 'trastes';
+  if (/cloro|sosa|hipoclor|sarro|pastilla\s*de\s*cloro/i.test(n)) return 'cloro';
+  if (/aromatiz|fabuloso|^pino$|pinol|creolina|almorol/i.test(n)) return 'aroma';
+  if (/jab[oó]n|ariel|persil|zote|vanish|carisma|detercon|mas\s*color|\broma\b|deterg/i.test(n))
+    return 'detergente';
+  if (/trapo|pa[nñ]o/i.test(n)) return 'jarceria';
+  return 'burbujas';
+}
+
+/** Pool limpieza: formas bien distintas (no 5 botellas iguales). */
+const MOTIVOS_LIMPIEZA: StickerMotivo[] = [
+  'detergente',
+  'suavizante',
+  'cloro',
+  'aroma',
+  'manos',
+  'trastes',
+  'esponja',
+  'burbujas',
+  'guantes',
+  'cubeta',
+];
+
+/** Pool jarcería: utensilios distintos. */
+const MOTIVOS_JARCERIA: StickerMotivo[] = [
+  'escoba',
+  'trapeador',
+  'guantes',
+  'fibra',
+  'cubeta',
+  'cepillo',
+  'jalador',
+  'recogedor',
+  'esponja',
+];
+
+function fillersDeFamilia(grupo: GrupoTema): StickerMotivo[] {
   switch (grupo) {
     case 'lavado':
-      return ['detergente'];
+      return ['detergente', 'esponja', 'burbujas', 'suavizante', 'cloro', 'guantes', 'cubeta'];
     case 'suavizante':
-      return ['detergente'];
+      return ['suavizante', 'detergente', 'burbujas', 'esponja', 'manos', 'guantes'];
     case 'manos':
-      return ['burbujas'];
+      return ['manos', 'esponja', 'burbujas', 'trastes', 'guantes', 'detergente'];
     case 'aroma':
-      return ['burbujas'];
+      return ['aroma', 'cloro', 'burbujas', 'detergente', 'manos', 'esponja'];
     case 'cocina':
-      return ['trastes'];
+      return ['trastes', 'esponja', 'guantes', 'cloro', 'fibra', 'cubeta', 'burbujas'];
     case 'jarceria':
-      return ['jarceria'];
+      return [...MOTIVOS_JARCERIA];
     default:
-      return ['detergente'];
+      return shuffle([...MOTIVOS_LIMPIEZA]);
   }
+}
+
+/**
+ * Hasta 5 motivos distintos y con forma diferente.
+ * En limpieza no se rellena con utensilios de jarcería genéricos al revés:
+ * se usa el pool de botellas/esponja/burbujas bien diferenciadas.
+ */
+function stickersDesdeLista(precios: PrecioItem[], familia: GrupoTema): StickerMotivo[] {
+  const unique: StickerMotivo[] = [];
+  const add = (m: StickerMotivo) => {
+    if (unique.includes(m)) return;
+    unique.push(m);
+  };
+  for (const p of precios) {
+    add(motivoDeProducto(p.nombre));
+    if (unique.length >= 5) break;
+  }
+  for (const m of fillersDeFamilia(familia)) {
+    if (unique.length >= 5) break;
+    add(m);
+  }
+  const pool = familia === 'jarceria' ? MOTIVOS_JARCERIA : MOTIVOS_LIMPIEZA;
+  for (const m of shuffle([...pool])) {
+    if (unique.length >= 5) break;
+    add(m);
+  }
+  return shuffle(unique.slice(0, 5));
 }
 
 /** Quita fondo negro/blanco de stickers deco (como en Ropa / Trastes). */
@@ -430,6 +523,359 @@ function drawSticker(
   ctx.rotate((rotDeg * Math.PI) / 180);
   ctx.drawImage(cleaned, -cleaned.width / 2, -cleaned.height / 2);
   ctx.restore();
+}
+
+/**
+ * Un sticker = un motivo. No usa PNGs compuestos (jarcería/detergente/trastes
+ * traen varios utensilios y se veían como stickers repetidos).
+ */
+function drawMotivoSticker(
+  ctx: CanvasRenderingContext2D,
+  motivo: StickerMotivo,
+  cx: number,
+  cy: number,
+  size: number,
+  rotDeg: number,
+  pngs: Record<StickerKey, HTMLImageElement | null>
+): void {
+  if (motivo === 'burbujas' && pngs.burbujas) {
+    drawSticker(ctx, pngs.burbujas, cx, cy, size, rotDeg);
+    return;
+  }
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((rotDeg * Math.PI) / 180);
+  drawCanvasMotivo(ctx, motivo, size);
+  ctx.restore();
+}
+
+/** Iconos simples y coloridos por tipo de producto (centrados en 0,0). */
+function drawCanvasMotivo(ctx: CanvasRenderingContext2D, motivo: StickerMotivo, size: number): void {
+  const s = size;
+  ctx.save();
+  switch (motivo) {
+    case 'guantes': {
+      // Un solo guante (antes el par parecía sticker repetido)
+      ctx.fillStyle = '#F5D76E';
+      ctx.strokeStyle = '#C9A227';
+      ctx.lineWidth = s * 0.04;
+      ctx.beginPath();
+      ctx.ellipse(0, s * 0.06, s * 0.18, s * 0.3, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      for (let i = 0; i < 4; i++) {
+        const fx = -s * 0.12 + i * s * 0.08;
+        ctx.beginPath();
+        ctx.ellipse(fx, -s * 0.24, s * 0.038, s * 0.13, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'fibra': {
+      // Fibra verde típica
+      const w = s * 0.55;
+      const h = s * 0.38;
+      ctx.fillStyle = '#2E8B57';
+      ctx.strokeStyle = '#1B5E3A';
+      ctx.lineWidth = s * 0.03;
+      ctx.beginPath();
+      ctx.moveTo(-w / 2 + 8, -h / 2);
+      ctx.arcTo(w / 2, -h / 2, w / 2, h / 2, 8);
+      ctx.arcTo(w / 2, h / 2, -w / 2, h / 2, 8);
+      ctx.arcTo(-w / 2, h / 2, -w / 2, -h / 2, 8);
+      ctx.arcTo(-w / 2, -h / 2, w / 2, -h / 2, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 6; i++) {
+        const yy = -h / 2 + 6 + i * (h / 6);
+        ctx.beginPath();
+        ctx.moveTo(-w / 2 + 4, yy);
+        ctx.lineTo(w / 2 - 4, yy);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#FF6B4A';
+      ctx.fillRect(-w / 2, h / 2 - h * 0.22, w, h * 0.22);
+      break;
+    }
+    case 'escoba': {
+      ctx.fillStyle = '#C4A574';
+      ctx.fillRect(-s * 0.04, -s * 0.4, s * 0.08, s * 0.55);
+      ctx.fillStyle = '#E85D04';
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.28, s * 0.12);
+      ctx.lineTo(s * 0.28, s * 0.12);
+      ctx.lineTo(s * 0.22, s * 0.4);
+      ctx.lineTo(-s * 0.22, s * 0.4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#9A3B02';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      break;
+    }
+    case 'trapeador': {
+      ctx.fillStyle = '#8B6914';
+      ctx.fillRect(-s * 0.035, -s * 0.42, s * 0.07, s * 0.5);
+      ctx.fillStyle = '#5B8DEF';
+      for (let i = 0; i < 7; i++) {
+        const a = -0.7 + i * 0.22;
+        ctx.beginPath();
+        ctx.moveTo(0, s * 0.05);
+        ctx.quadraticCurveTo(Math.sin(a) * s * 0.25, s * 0.25, Math.sin(a) * s * 0.35, s * 0.42);
+        ctx.lineWidth = s * 0.045;
+        ctx.strokeStyle = i % 2 ? '#4A7AD4' : '#7BA3F0';
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'jalador': {
+      ctx.fillStyle = '#555';
+      ctx.fillRect(-s * 0.03, -s * 0.35, s * 0.06, s * 0.45);
+      ctx.fillStyle = '#2EC4B6';
+      ctx.fillRect(-s * 0.32, s * 0.08, s * 0.64, s * 0.12);
+      ctx.fillStyle = '#1A8A80';
+      ctx.fillRect(-s * 0.32, s * 0.18, s * 0.64, s * 0.06);
+      break;
+    }
+    case 'recogedor': {
+      ctx.fillStyle = '#E63946';
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.28, s * 0.05);
+      ctx.lineTo(s * 0.28, s * 0.05);
+      ctx.lineTo(s * 0.2, s * 0.35);
+      ctx.lineTo(-s * 0.2, s * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#C4A574';
+      ctx.fillRect(s * 0.08, -s * 0.35, s * 0.07, s * 0.42);
+      break;
+    }
+    case 'cubeta': {
+      ctx.fillStyle = '#457B9D';
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.22, -s * 0.1);
+      ctx.lineTo(s * 0.22, -s * 0.1);
+      ctx.lineTo(s * 0.18, s * 0.32);
+      ctx.lineTo(-s * 0.18, s * 0.32);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#1D3557';
+      ctx.lineWidth = s * 0.04;
+      ctx.beginPath();
+      ctx.arc(0, -s * 0.1, s * 0.22, Math.PI, 0);
+      ctx.stroke();
+      break;
+    }
+    case 'cepillo': {
+      ctx.fillStyle = '#F4A261';
+      ctx.fillRect(-s * 0.08, -s * 0.35, s * 0.16, s * 0.4);
+      ctx.fillStyle = '#E76F51';
+      ctx.fillRect(-s * 0.22, s * 0.05, s * 0.44, s * 0.18);
+      ctx.fillStyle = '#264653';
+      for (let i = 0; i < 8; i++) {
+        ctx.fillRect(-s * 0.2 + i * s * 0.055, s * 0.2, s * 0.03, s * 0.18);
+      }
+      break;
+    }
+    case 'esponja': {
+      ctx.fillStyle = '#F4D35E';
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.28 + 8, -s * 0.18);
+      ctx.arcTo(s * 0.28, -s * 0.18, s * 0.28, s * 0.18, 8);
+      ctx.arcTo(s * 0.28, s * 0.18, -s * 0.28, s * 0.18, 8);
+      ctx.arcTo(-s * 0.28, s * 0.18, -s * 0.28, -s * 0.18, 8);
+      ctx.arcTo(-s * 0.28, -s * 0.18, s * 0.28, -s * 0.18, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#E09F3E';
+      ctx.fillRect(-s * 0.28, s * 0.02, s * 0.56, s * 0.16);
+      break;
+    }
+    case 'suavizante': {
+      // Botella redondeada + flor (no se confunde con detergente)
+      ctx.fillStyle = '#9B5DE5';
+      ctx.beginPath();
+      ctx.ellipse(0, s * 0.08, s * 0.2, s * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#F15BB5';
+      ctx.beginPath();
+      ctx.ellipse(0, -s * 0.28, s * 0.1, s * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FEE440';
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.ellipse(Math.cos(a) * s * 0.12, -s * 0.02 + Math.sin(a) * s * 0.12, s * 0.04, s * 0.06, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'cloro': {
+      // Galón cuadrado amarillo (silueta distinta)
+      ctx.fillStyle = '#FFD60A';
+      ctx.fillRect(-s * 0.2, -s * 0.12, s * 0.4, s * 0.42);
+      ctx.fillStyle = '#003566';
+      ctx.fillRect(-s * 0.14, -s * 0.32, s * 0.28, s * 0.22);
+      ctx.fillStyle = '#001D3D';
+      ctx.font = `900 ${Math.round(s * 0.16)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Cl', 0, s * 0.1);
+      break;
+    }
+    case 'aroma': {
+      // Atomizador / spray
+      ctx.fillStyle = '#06D6A0';
+      ctx.fillRect(-s * 0.12, -s * 0.05, s * 0.24, s * 0.4);
+      ctx.fillStyle = '#118AB2';
+      ctx.fillRect(-s * 0.08, -s * 0.28, s * 0.16, s * 0.24);
+      ctx.fillStyle = '#073B4C';
+      ctx.fillRect(s * 0.08, -s * 0.32, s * 0.18, s * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(s * 0.26, -s * 0.29);
+      ctx.lineTo(s * 0.38, -s * 0.35);
+      ctx.lineTo(s * 0.38, -s * 0.23);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'manos': {
+      // Dispensador con bomba (silueta rectangular)
+      ctx.fillStyle = '#48CAE4';
+      ctx.fillRect(-s * 0.16, -s * 0.02, s * 0.32, s * 0.38);
+      ctx.fillStyle = '#0077B6';
+      ctx.fillRect(-s * 0.06, -s * 0.26, s * 0.12, s * 0.24);
+      ctx.fillStyle = '#023E8A';
+      ctx.fillRect(-s * 0.1, -s * 0.34, s * 0.2, s * 0.08);
+      ctx.beginPath();
+      ctx.arc(s * 0.14, -s * 0.3, s * 0.055, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'detergente': {
+      // Bidón con asa (perfil distinto a suavizante/cloro)
+      ctx.fillStyle = '#3A86FF';
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.2, s * 0.35);
+      ctx.lineTo(-s * 0.22, -s * 0.05);
+      ctx.lineTo(-s * 0.08, -s * 0.3);
+      ctx.lineTo(s * 0.12, -s * 0.3);
+      ctx.lineTo(s * 0.22, -s * 0.05);
+      ctx.lineTo(s * 0.2, s * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#FF006E';
+      ctx.fillRect(-s * 0.08, -s * 0.4, s * 0.18, s * 0.12);
+      // asa
+      ctx.strokeStyle = '#1B4F9C';
+      ctx.lineWidth = s * 0.05;
+      ctx.beginPath();
+      ctx.arc(-s * 0.22, s * 0.05, s * 0.1, -0.4, 1.2);
+      ctx.stroke();
+      break;
+    }
+    case 'trastes': {
+      // Botella squeeze + plato
+      ctx.fillStyle = '#2EC4B6';
+      ctx.beginPath();
+      ctx.ellipse(s * 0.08, s * 0.05, s * 0.14, s * 0.28, 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#FF9F1C';
+      ctx.fillRect(s * 0.02, -s * 0.35, s * 0.12, s * 0.16);
+      ctx.fillStyle = '#E8E8E8';
+      ctx.beginPath();
+      ctx.ellipse(-s * 0.18, s * 0.18, s * 0.16, s * 0.1, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#AAA';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      break;
+    }
+    case 'jarceria': {
+      ctx.fillStyle = '#E9C46A';
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.3, -s * 0.05);
+      ctx.lineTo(s * 0.25, -s * 0.15);
+      ctx.lineTo(s * 0.3, s * 0.2);
+      ctx.lineTo(-s * 0.25, s * 0.28);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#B08900';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      break;
+    }
+    case 'burbujas':
+    default: {
+      const cols = ['#90E0EF', '#48CAE4', '#00B4D8'];
+      const pts: [number, number, number][] = [
+        [0, 0, 0.16],
+        [-0.14, -0.1, 0.09],
+        [0.12, 0.08, 0.1],
+      ];
+      for (let i = 0; i < pts.length; i++) {
+        const [bx, by, br] = pts[i];
+        ctx.beginPath();
+        ctx.fillStyle = cols[i % cols.length];
+        ctx.arc(bx * s, by * s, s * br, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * Slots solo en columna derecha, entre slogan y pie.
+ * Nunca invaden lista de productos, título ni pie de contacto.
+ */
+function pickStickerSlots(
+  W: number,
+  H: number,
+  count: number,
+  safe: { xMin: number; xMax: number; yMin: number; yMax: number }
+): { x: number; y: number; s: number; rot: number }[] {
+  const maxS = Math.min(W * 0.13, (safe.xMax - safe.xMin) * 0.55, (safe.yMax - safe.yMin) * 0.28);
+  const candidates = [
+    { x: 0.82, y: 0.34, s: 0.11 },
+    { x: 0.9, y: 0.42, s: 0.1 },
+    { x: 0.78, y: 0.5, s: 0.1 },
+    { x: 0.88, y: 0.56, s: 0.11 },
+    { x: 0.8, y: 0.64, s: 0.1 },
+    { x: 0.92, y: 0.68, s: 0.09 },
+    { x: 0.85, y: 0.46, s: 0.1 },
+    { x: 0.76, y: 0.58, s: 0.09 },
+  ];
+  const pad = maxS * 0.55;
+  const valid = candidates.filter((c) => {
+    const x = W * c.x;
+    const y = H * c.y;
+    return (
+      x - pad >= safe.xMin &&
+      x + pad <= safe.xMax &&
+      y - pad >= safe.yMin &&
+      y + pad <= safe.yMax
+    );
+  });
+  const pool = valid.length >= count ? valid : candidates;
+  const picked = shuffle(pool).slice(0, count);
+  return picked.map((c) => {
+    let x = W * c.x;
+    let y = H * c.y;
+    const s = Math.min(W * c.s, maxS);
+    const half = s * 0.52;
+    x = Math.min(safe.xMax - half, Math.max(safe.xMin + half, x));
+    y = Math.min(safe.yMax - half, Math.max(safe.yMin + half, y));
+    return { x, y, s, rot: (Math.random() - 0.5) * 22 };
+  });
 }
 
 /** Quita el rectángulo blanco del PNG del logo. */
@@ -583,7 +1029,7 @@ function pickComposiciones(
       tema: { ...tema, slogan: sloganParaProductos(precios, familia) },
       vertical: true,
       precios,
-      stickerKeys: stickersDe(familia),
+      stickerMotivos: stickersDesdeLista(precios, familia),
     });
   };
   for (let i = 0; i < n; i++) {
@@ -650,6 +1096,56 @@ function saludo(): string {
 
 type Stickers = Record<StickerKey, HTMLImageElement | null>;
 
+/** Título fijo en todas las promos. */
+const HEADLINE_FIJO = 'PRODUCTOS DE LIMPIEZA\nA GRANEL';
+
+/** Colores del logo Amorcas (navy · teal · lima) para rotar letra a letra. */
+const LOGO_LETTER_COLORS = [
+  Brand.navy,
+  Brand.teal,
+  Brand.limeDeep,
+  Brand.tealDeep,
+  Brand.lime,
+  Brand.navyDeep,
+] as const;
+
+/**
+ * Título fijo con colorimetría del logo por palabra
+ * (sombra lima + brillo blanco + un color por palabra).
+ */
+function drawHeadlineLogoColors(
+  ctx: CanvasRenderingContext2D,
+  lines: string[],
+  x: number,
+  y: number,
+  size: number
+): number {
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = `900 ${size}px "Segoe UI", "Arial Black", Impact, sans-serif`;
+  const lh = size + 12;
+  const spaceW = ctx.measureText(' ').width;
+  let wordIdx = 0;
+  lines.forEach((ln, i) => {
+    const yy = y + i * lh;
+    let cx = x;
+    const words = ln.split(/\s+/).filter(Boolean);
+    words.forEach((word, wi) => {
+      const fill = LOGO_LETTER_COLORS[wordIdx % LOGO_LETTER_COLORS.length];
+      wordIdx++;
+      ctx.fillStyle = Brand.limeSoft;
+      ctx.fillText(word, cx + 3, yy + 3);
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillText(word, cx + 1.5, yy + 1.5);
+      ctx.fillStyle = fill;
+      ctx.fillText(word, cx, yy);
+      cx += ctx.measureText(word).width;
+      if (wi < words.length - 1) cx += spaceW;
+    });
+  });
+  return lines.length * lh;
+}
+
 function drawHeadlineShadowed(
   ctx: CanvasRenderingContext2D,
   lines: string[],
@@ -676,9 +1172,11 @@ function drawHeadlineShadowed(
 }
 
 /**
- * WhatsApp: recolorea icon-wa-pedido.png (forma correcta) de naranja→verde.
- * Fondo negro→transparente. Queda el logo reconocible (globo + auricular).
+ * WhatsApp fijo: PNG icon-wa-fijo.png. Si no carga, Path2D del glifo oficial (siempre igual).
  */
+const WA_PATH_16 =
+  'M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232';
+
 function drawWhatsAppIcon(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -687,100 +1185,20 @@ function drawWhatsAppIcon(
   img: HTMLImageElement | null
 ): void {
   if (img && (img.naturalWidth || img.width) > 0) {
-    const painted = recolorWaOrangeToGreen(img, size);
-    if (painted) {
-      ctx.drawImage(painted, cx - painted.width / 2, cy - painted.height / 2);
-      return;
-    }
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    const sc = Math.min(size / iw, size / ih);
+    const dw = Math.max(1, Math.round(iw * sc));
+    const dh = Math.max(1, Math.round(ih * sc));
+    ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+    return;
   }
-  drawWhatsAppFlat(ctx, cx, cy, size);
-}
-
-/** Naranja del PNG → verde WA; negro → transparente; blanco se queda. */
-function recolorWaOrangeToGreen(img: HTMLImageElement, size: number): HTMLCanvasElement | null {
-  const iw = img.naturalWidth || img.width;
-  const ih = img.naturalHeight || img.height;
-  if (!iw || !ih) return null;
-  const src = document.createElement('canvas');
-  src.width = iw;
-  src.height = ih;
-  const sctx = src.getContext('2d', { willReadFrequently: true });
-  if (!sctx) return null;
-  sctx.drawImage(img, 0, 0);
-  const pix = sctx.getImageData(0, 0, iw, ih);
-  const d = pix.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const r = d[i];
-    const g = d[i + 1];
-    const b = d[i + 2];
-    const a = d[i + 3];
-    if (a < 20 || (r < 40 && g < 40 && b < 40)) {
-      d[i + 3] = 0;
-      continue;
-    }
-    // Naranja / ámbar del asset → verde oficial
-    if (r > 140 && g > 40 && g < 210 && b < 140 && r > b) {
-      d[i] = 37;
-      d[i + 1] = 211;
-      d[i + 2] = 102;
-      d[i + 3] = 255;
-    }
-  }
-  sctx.putImageData(pix, 0, 0);
-  const out = document.createElement('canvas');
-  out.width = size;
-  out.height = size;
-  const o = out.getContext('2d');
-  if (!o) return null;
-  const sc = Math.min(size / iw, size / ih);
-  const dw = Math.round(iw * sc);
-  const dh = Math.round(ih * sc);
-  o.drawImage(src, (size - dw) / 2, (size - dh) / 2, dw, dh);
-  return out;
-}
-
-function drawWhatsAppFlat(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  size: number
-): void {
-  const r = size * 0.46;
+  // Respaldo idéntico al PNG (glifo Bootstrap WA), no se inventa ni varía
   ctx.save();
+  ctx.translate(cx - size / 2, cy - size / 2);
+  ctx.scale(size / 16, size / 16);
   ctx.fillStyle = '#25D366';
-  ctx.beginPath();
-  ctx.arc(cx, cy - size * 0.02, r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(cx - r * 0.4, cy + r * 0.45);
-  ctx.quadraticCurveTo(cx - r * 0.95, cy + r * 1.05, cx - r * 0.15, cy + r * 0.82);
-  ctx.quadraticCurveTo(cx - r * 0.55, cy + r * 0.6, cx - r * 0.4, cy + r * 0.45);
-  ctx.closePath();
-  ctx.fill();
-  ctx.translate(cx - size * 0.01, cy - size * 0.03);
-  ctx.rotate(-0.7);
-  ctx.fillStyle = '#fff';
-  ctx.strokeStyle = '#fff';
-  const pad = (x: number, y: number, w: number, h: number) => {
-    const rr = Math.min(w, h) * 0.48;
-    ctx.beginPath();
-    ctx.moveTo(x + rr, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rr);
-    ctx.arcTo(x + w, y + h, x, y + h, rr);
-    ctx.arcTo(x, y + h, x, y, rr);
-    ctx.arcTo(x, y, x + w, y, rr);
-    ctx.closePath();
-    ctx.fill();
-  };
-  const pw = r * 0.28;
-  const ph = r * 0.46;
-  pad(-r * 0.58, r * 0.08, pw, ph);
-  pad(r * 0.3, -r * 0.54, pw, ph);
-  ctx.lineWidth = r * 0.24;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.arc(0, 0, r * 0.44, 0.45, Math.PI - 0.45);
-  ctx.stroke();
+  ctx.fill(new Path2D(WA_PATH_16));
   ctx.restore();
 }
 
@@ -873,15 +1291,13 @@ async function renderFlyer(
   const { tema, precios } = comp;
   const margin = 48;
 
-  ctx.fillStyle = tema.fondo;
-  ctx.fillRect(0, 0, W, H);
-  // Sin destellos: tapaban título / slogan / nombres
+  drawFlyerBackground(ctx, W, H, tema);
 
   const logoW = 250;
   drawLogoTopRight(ctx, logo, W, margin, logoW);
 
-  // Título
-  const headLines = tema.headline.split('\n');
+  // Título fijo + letras con colorimetría del logo
+  const headLines = HEADLINE_FIJO.split('\n');
   const titleMaxW = W - margin * 2 - logoW * 0.45;
   ctx.save();
   ctx.font = `900 68px "Segoe UI", "Arial Black", Impact, sans-serif`;
@@ -889,7 +1305,7 @@ async function renderFlyer(
   ctx.restore();
   const size = tooWide ? 54 : 66;
   let y = margin + size + 4;
-  drawHeadlineShadowed(ctx, headLines, margin, y, size, 'left', tema.acentoTitulo);
+  drawHeadlineLogoColors(ctx, headLines, margin, y, size);
   y += headLines.length * (size + 12);
 
   // Aire claro título → slogan
@@ -899,8 +1315,10 @@ async function renderFlyer(
   ctx.textBaseline = 'alphabetic';
   const sloganSize = 30;
   ctx.font = `800 ${sloganSize}px "Segoe UI", "Arial Black", sans-serif`;
+  const sloganRows = wrapLines(ctx, `"${tema.slogan}"`, W - margin * 2 - 48);
+  const sloganBlockH = sloganRows.length * (sloganSize + 10);
+  drawSoftPanel(ctx, margin, y - sloganSize - 8, W - margin * 2, sloganBlockH + 28, 22);
   ctx.fillStyle = tema.acentoSlogan;
-  const sloganRows = wrapLines(ctx, `"${tema.slogan}"`, W - margin * 2 - 24);
   for (const row of sloganRows) {
     ctx.fillText(row, W / 2, y);
     y += sloganSize + 10;
@@ -908,24 +1326,11 @@ async function renderFlyer(
 
   // Aire slogan → productos
   y += 78;
+  const listTopY = y;
 
-  // Stickers a la derecha; se dibujan ANTES del texto para que no lo tapen
-  const stickerImgs = comp.stickerKeys
-    .map((k) => stickers[k])
-    .filter((x): x is HTMLImageElement => !!x);
-  const midY = Math.min(H * 0.66, y + 260);
-  ctx.save();
-  // Recorte: stickers solo en la mitad derecha
-  ctx.beginPath();
-  ctx.rect(W * 0.52, H * 0.2, W * 0.48, H * 0.55);
-  ctx.clip();
-  if (stickerImgs[0]) drawSticker(ctx, stickerImgs[0], W * 0.9, midY, 200, 6);
-  if (stickerImgs[1]) drawSticker(ctx, stickerImgs[1], W * 0.92, midY + 200, 120, -8);
-  ctx.restore();
-
-  // Lista a la izquierda: nunca invade el área del sticker ni sale del canvas
+  // Lista a la izquierda (medir primero para zona segura de stickers)
   const listX = margin + 12;
-  const listMaxW = W * 0.5;
+  const listMaxW = W * 0.52;
   const footReserve = 250;
   const listBottom = H - footReserve;
   const productNames = precios.map((p) => p.nombre.trim().toUpperCase());
@@ -963,6 +1368,22 @@ async function renderFlyer(
     layoutNames = measureBlock(nameSize, lineH, gap, textW);
   }
 
+  // Stickers solo a la derecha del texto, debajo del slogan y arriba del pie
+  const motivosUnicos = [...new Set(comp.stickerMotivos)].slice(0, 5);
+  const safe = {
+    xMin: margin + listMaxW + 28,
+    xMax: W - margin - 8,
+    yMin: listTopY - 20,
+    yMax: H - footReserve - 12,
+  };
+  const slots = pickStickerSlots(W, H, motivosUnicos.length, safe);
+  motivosUnicos.forEach((motivo, i) => {
+    const L = slots[i];
+    drawMotivoSticker(ctx, motivo, L.x, L.y, L.s, L.rot, stickers);
+  });
+
+  drawSoftPanel(ctx, margin - 4, listTopY - nameSize - 6, listMaxW + 36, layoutNames.h + 28, 20);
+
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   ctx.font = `800 ${nameSize}px "Segoe UI", "Arial Black", sans-serif`;
@@ -991,6 +1412,7 @@ async function renderFlyer(
   const footGap = 14;
   const leftIconX = margin + iconSize / 2;
   const rightIconX = W - margin - iconSize / 2;
+  drawSoftPanel(ctx, margin - 8, footY - 58, W - margin * 2 + 16, 150, 24);
   drawWhatsAppIcon(ctx, leftIconX, footY - 4, iconSize, icons.wa);
   drawIconImg(ctx, icons.pin, rightIconX, footY - 4, iconSize, drawLocationPinFallback);
 
@@ -1022,6 +1444,81 @@ async function renderFlyer(
   });
 }
 
+/** Fondo con degradado suave + formas solo a la derecha (no compiten con el texto). */
+function drawFlyerBackground(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  tema: TemaFlyer
+): void {
+  ctx.fillStyle = tema.fondo;
+  ctx.fillRect(0, 0, W, H);
+
+  const grad = ctx.createLinearGradient(0, 0, W * 0.35, H);
+  grad.addColorStop(0, 'rgba(255,255,255,0.72)');
+  grad.addColorStop(0.4, 'rgba(255,255,255,0.22)');
+  grad.addColorStop(1, hexAlpha(tema.acentoTitulo, 0.1));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.globalAlpha = 0.14;
+  const blobs: [number, number, number, string][] = [
+    [W * 0.82, H * 0.28, 160, tema.acentoTitulo],
+    [W * 0.92, H * 0.55, 200, Brand.lime],
+    [W * 0.78, H * 0.72, 140, Brand.teal],
+  ];
+  for (const [bx, by, br, color] of blobs) {
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  const bot = ctx.createLinearGradient(0, H * 0.72, 0, H);
+  bot.addColorStop(0, 'rgba(255,255,255,0)');
+  bot.addColorStop(1, 'rgba(255,255,255,0.35)');
+  ctx.fillStyle = bot;
+  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+}
+
+function hexAlpha(hex: string, a: number): string {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const n = parseInt(full, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/** Panel claro para que el texto se lea sobre el fondo. */
+function drawSoftPanel(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  ctx.save();
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.82)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(24,48,96,0.06)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
 /**
  * Genera un lote (default 5) formato Ropa/Trastes 4:5.
  * Solo productos del departamento indicado (LIMPIEZA o JARCERIA).
@@ -1033,7 +1530,7 @@ export async function generarLotePublicidad(
   depto: DeptoPromo = 'LIMPIEZA'
 ): Promise<PromoGenerada[]> {
   const media = (name: string) =>
-    loadImage(`/publicidad/${name}?v=38`).then((i) => i || loadImage(`/api/publicidad/media/${name}?v=38`));
+    loadImage(`/publicidad/${name}?v=44`).then((i) => i || loadImage(`/api/publicidad/media/${name}?v=44`));
 
   const [logo, detergente, trastes, jarceria, burbujas, iconWa, iconPin] = await Promise.all([
     media('amorcas-chingon.png').then(
@@ -1043,7 +1540,7 @@ export async function generarLotePublicidad(
     media('deco-trastes-jabon.png'),
     media('deco-jarceria.png'),
     media('deco-burbujas.png'),
-    media('icon-wa-pedido.png'),
+    media('icon-wa-fijo.png').then((i) => i || media('icon-wa-verde.png')),
     media('icon-pin-casa.png'),
   ]);
 

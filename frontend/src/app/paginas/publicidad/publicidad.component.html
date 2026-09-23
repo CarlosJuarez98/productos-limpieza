@@ -174,13 +174,12 @@
   <div class="promo-grid">
     @for (p of promosGaleria; track p.id) {
       <article class="promo-card ui-card" (click)="abrirPreview(p)">
-        <div class="thumb-wrap" [style.background-image]="'url(\'' + p.src + '\')'">
+        <div class="thumb-wrap" [style.background-image]="fondoGaleria(p.src)">
           <img
             [src]="p.src"
             [alt]="p.titulo"
             loading="eager"
             decoding="async"
-            (error)="onGaleriaImgError($event, p)"
           />
           <span class="chip-ver">Ver</span>
           @if (p.eliminable) {

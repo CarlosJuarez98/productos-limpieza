@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AutoHideDirective } from '../../auto-hide.directive';
@@ -76,9 +76,14 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   nuevoTitulo = '';
   nuevoDesc = '';
 
+  /** Cache-bust de galería (cambia al cargar la página). */
+  private galeriaBust = Date.now();
+  private galeriaBlobUrls: string[] = [];
+
   constructor(
     private api: ApiService,
-    private confirmDlg: ConfirmDialogService
+    private confirmDlg: ConfirmDialogService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -96,6 +101,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.limpiarTodosBlobs();
+    this.limpiarGaleriaBlobs();
   }
 
   private limpiarTodosBlobs(): void {
@@ -103,12 +109,20 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     this.blobUrls = [];
   }
 
+  private limpiarGaleriaBlobs(): void {
+    this.galeriaBlobUrls.forEach((u) => URL.revokeObjectURL(u));
+    this.galeriaBlobUrls = [];
+  }
+
   cargarGaleria(): void {
     this.cargandoGaleria = true;
+    this.galeriaBust = Date.now();
+    this.limpiarGaleriaBlobs();
     this.api.publicidadGaleria().subscribe({
       next: (items) => {
         this.promosGaleria = items.map((i) => this.fromApi(i));
         this.cargandoGaleria = false;
+        void this.hidratarGaleriaComoBlob(this.promosGaleria);
       },
       error: (e: unknown) => {
         this.cargandoGaleria = false;
@@ -117,38 +131,69 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** URL de media (API) sin query. */
+  private mediaUrl(raw: string): string {
+    const s = (raw || '').trim();
+    const estatica = s.match(/^\/(?:api\/publicidad\/media\/|publicidad\/)([^?]+)/);
+    if (estatica) return `/api/publicidad/media/${estatica[1]}`;
+    if (s.startsWith('/api/publicidad/galeria/archivo/')) return s.split('?')[0];
+    return s.split('?')[0];
+  }
+
   private fromApi(i: PublicidadGaleriaItem): Promo {
-    const raw = (i.src || '').trim();
-    // Cache-bust + normalizar rutas viejas /api/publicidad/media → /publicidad
-    let src = raw.replace(/^\/api\/publicidad\/media\//, '/publicidad/');
-    if (src.startsWith('/publicidad/') || src.startsWith('/api/publicidad/')) {
-      const sep = src.includes('?') ? '&' : '?';
-      src = `${src}${sep}v=25`;
-    }
+    const url = this.mediaUrl(i.src || '');
     return {
       id: i.id,
       titulo: i.titulo,
       descripcion: i.descripcion || '',
-      src,
+      src: url ? `${url}?v=${this.galeriaBust}` : '',
       textoShare: i.textoShare || i.titulo,
       eliminable: i.eliminable,
     };
   }
 
-  /** Si Chrome falla al pintar /publicidad/..., reintenta por API media. */
-  onGaleriaImgError(ev: Event, p: Promo): void {
-    const img = ev.target as HTMLImageElement;
-    const src = p.src || '';
-    if (src.includes('/publicidad/') && !src.includes('__retried=1')) {
-      const name = src.split('/publicidad/')[1]?.split('?')[0];
-      if (name) {
-        const next = `/api/publicidad/media/${name}?v=25&__retried=1`;
-        p.src = next;
-        img.src = next;
-        return;
-      }
-    }
-    img.style.display = 'none';
+  /**
+   * Chrome a veces no pinta <img src="/publicidad/..."> por caché rota.
+   * Bajamos el archivo con fetch(no-store) y lo mostramos como blob: — siempre visible.
+   */
+  private async hidratarGaleriaComoBlob(promos: Promo[]): Promise<void> {
+    await Promise.all(
+      promos.map(async (p) => {
+        const url = (p.src || '').split('?')[0];
+        if (!url || url.startsWith('blob:')) return;
+        const candidates = [url];
+        if (url.includes('/api/publicidad/media/')) {
+          candidates.push(url.replace('/api/publicidad/media/', '/publicidad/'));
+        } else if (url.startsWith('/publicidad/')) {
+          candidates.push(url.replace('/publicidad/', '/api/publicidad/media/'));
+        }
+        for (const u of candidates) {
+          try {
+            const res = await fetch(u, { credentials: 'same-origin', cache: 'no-store' });
+            if (!res.ok) continue;
+            const blob = await res.blob();
+            if (!blob.type.startsWith('image/') && blob.size < 1000) continue;
+            const obj = URL.createObjectURL(blob);
+            this.galeriaBlobUrls.push(obj);
+            p.src = obj;
+            this.cdr.markForCheck();
+            return;
+          } catch {
+            /* siguiente candidato */
+          }
+        }
+      })
+    );
+  }
+
+  /** Sin ocultar la imagen (antes display:none dejaba el cuadro gris). */
+  onGaleriaImgError(_ev: Event, _p: Promo): void {
+    /* hidratarGaleriaComoBlob ya reintenta; no esconder */
+  }
+
+  fondoGaleria(src: string | undefined): string {
+    if (!src) return 'none';
+    return `url("${src}")`;
   }
 
   /** Genera 5 nuevas aleatorias del departamento y las agrega al historial. */
@@ -252,7 +297,9 @@ export class PublicidadComponent implements OnInit, OnDestroy {
             error: reject,
           });
         });
-        this.promosGaleria = [this.fromApi(item), ...this.promosGaleria];
+        const nuevo = this.fromApi(item);
+        this.promosGaleria = [nuevo, ...this.promosGaleria];
+        void this.hidratarGaleriaComoBlob([nuevo]);
         p.seleccionada = false;
         okN++;
       } catch (e: unknown) {
@@ -294,7 +341,9 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     this.subiendo = true;
     this.api.subirPublicidadGaleria(file, this.nuevoTitulo, this.nuevoDesc).subscribe({
       next: (item) => {
-        this.promosGaleria = [this.fromApi(item), ...this.promosGaleria];
+        const nuevo = this.fromApi(item);
+        this.promosGaleria = [nuevo, ...this.promosGaleria];
+        void this.hidratarGaleriaComoBlob([nuevo]);
         this.nuevoTitulo = '';
         this.nuevoDesc = '';
         this.subiendo = false;
@@ -348,12 +397,12 @@ export class PublicidadComponent implements OnInit, OnDestroy {
         this.textoPendienteWa = '';
         this.ok =
           modo === 'compartido'
-            ? 'Listo: foto + mensaje (en ese orden) en un solo envío.'
-            : 'Descargadas 2 imágenes · súbelas a WhatsApp (flyer y luego el texto).';
+            ? 'Listo: primero la foto y luego el mensaje (Buenos días…).'
+            : 'Descargadas 2 imágenes · súbelas a WhatsApp: primero el flyer, luego el texto.';
       } else {
         this.textoPendienteWa = texto;
         this.ok =
-          'Tu celular no juntó las 2 imágenes. Foto enviada · toca «Enviar texto».';
+          'Foto enviada. Toca «Enviar texto» para mandar el mensaje (Buenos días…) después.';
       }
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudo compartir';
