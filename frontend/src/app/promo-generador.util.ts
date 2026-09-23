@@ -31,7 +31,7 @@ type PrecioItem = { nombre: string; precio: string };
 
 type Categoria = 'LIMPIEZA' | 'JARCERIA' | 'MIXTO';
 
-type GrupoTema = 'lavado' | 'cocina' | 'suavizante' | 'jarceria' | 'mixto';
+type GrupoTema = 'lavado' | 'cocina' | 'suavizante' | 'aroma' | 'manos' | 'jarceria' | 'mixto';
 
 type StickerKey = 'detergente' | 'trastes' | 'jarceria' | 'burbujas';
 
@@ -41,7 +41,6 @@ type TemaFlyer = {
   grupo: GrupoTema;
   headline: string;
   slogan: string;
-  seccion: string;
   fondo: string;
   acentoTitulo: string;
   acentoSlogan: string;
@@ -75,17 +74,82 @@ const CONTACTO = 'WhatsApp 247-120-6128 · Fracc. Los Álamos #121-C';
 const TEL = '247-120-6128';
 const DIR = 'FRACC. LOS ALAMOS #121-C';
 
-/** Agrupa productos parecidos (como Ropa = jabones, Trastes = cocina). */
+/** Familias estrictas (sin mezclar jabón de manos con suavizante, etc.). */
 const KEY_GRUPO: Record<GrupoTema, RegExp> = {
-  lavado:
-    /ariel|persil|zote|vanish|carisma|detercon|mas\s*color|jab[oó]n|deterg|roma|ace|blancox|clorox|fabuloso|pinol/i,
+  manos: /jab[oó]n\s*manos|crema\s*manos/i,
+  suavizante: /downy|suavitel|suaviz/i,
+  aroma: /aromatiz|fabuloso|^pino$|pinol|creolina|almorol/i,
+  lavado: /jab[oó]n\s*tipo|ariel|persil|zote|vanish|carisma|detercon|mas\s*color|\broma\b|deterg/i,
   cocina:
-    /axion|braso|sosa|cloro|trastes|desengr|lavatrastes|ajax|lim[oó]n|mr\.?\s*m[uú]sculo|quitasarro|sarro/i,
-  suavizante: /downy|suaviz|aroma|vainilla|coco|manos|crema|jabon\s*manos/i,
+    /axion|brazo|braso|cloro|desengr|sosa|sarro|vidrios|hipoclor|teflon|abrillantador|pastilla\s*de\s*cloro/i,
   jarceria:
     /escoba|trapo|fibra|jalador|recogedor|trapeador|cepillo|esponja|cubeta|trape|mechudo|pa[nñ]o|guante/i,
   mixto: /./,
 };
+
+/** Orden de clasificación: lo más específico primero. */
+const ORDEN_GRUPO: GrupoTema[] = ['manos', 'suavizante', 'aroma', 'lavado', 'cocina', 'jarceria'];
+
+function clasificarProducto(nombre: string): GrupoTema {
+  const n = nombre || '';
+  for (const g of ORDEN_GRUPO) {
+    if (KEY_GRUPO[g].test(n)) return g;
+  }
+  return 'mixto';
+}
+
+/** Un solo eslogan acorde a la familia real de los productos listados. */
+function sloganParaProductos(precios: PrecioItem[], grupo: GrupoTema): string {
+  const votos: Partial<Record<GrupoTema, number>> = {};
+  for (const p of precios) {
+    const g = clasificarProducto(p.nombre);
+    votos[g] = (votos[g] || 0) + 1;
+  }
+  let familia = grupo;
+  let best = 0;
+  for (const [g, n] of Object.entries(votos) as [GrupoTema, number][]) {
+    if (n > best && g !== 'mixto') {
+      best = n;
+      familia = g;
+    }
+  }
+
+  switch (familia) {
+    case 'aroma':
+      return rand([
+        '¡AROMA QUE LLENA TU CASA AL PRECIO DEL GRANEL!',
+        '¡TU HOGAR HUELE INCREÍBLE SIN GASTAR DE MÁS!',
+        '¡FRAGANCIA DE MARCA, LITRO A PRECIO AMORCAS!',
+      ]);
+    case 'suavizante':
+      return rand([
+        '¡ROPA SUAVE Y PERFUMADA AL PRECIO DEL GRANEL!',
+        '¡SUAVIDAD QUE DURA Y PRECIO QUE CONVIENE!',
+      ]);
+    case 'manos':
+      return rand([
+        '¡MANOS LIMPIAS Y SUAVES, LITRO A BUEN PRECIO!',
+        '¡JABÓN PARA MANOS A GRANEL: AHORRA CADA DÍA!',
+      ]);
+    case 'cocina':
+      return rand([
+        '¡DESENGRASA FUERTE Y AHORRA EN CADA LITRO!',
+        '¡TRASTES Y COCINA BRILLANTES SIN GASTAR DE MÁS!',
+      ]);
+    case 'lavado':
+      return rand([
+        '¡LAVA MÁS ROPA Y GASTA MENOS EN CADA LITRO!',
+        '¡JABÓN DE MARCA, PRECIO DE GRANEL!',
+      ]);
+    case 'jarceria':
+      return rand([
+        '¡TODO PARA DEJAR TU CASA IMPECABLE!',
+        '¡DE LA ESCOBA AL TRAPEADOR, LO TENEMOS!',
+      ]);
+    default:
+      return rand(['¡CALIDAD DE MARCA, PRECIO DE GRANEL!', '¡LLEVA SOLO LO QUE NECESITAS Y AHORRA!']);
+  }
+}
 
 const TEMAS: TemaFlyer[] = [
   {
@@ -93,8 +157,7 @@ const TEMAS: TemaFlyer[] = [
     categoria: 'LIMPIEZA',
     grupo: 'lavado',
     headline: 'PRODUCTOS DE LIMPIEZA\nA GRANEL',
-    slogan: 'LAVA MÁS, GASTA MENOS: LA INTELIGENCIA DE COMPRAR A GRANEL.',
-    seccion: 'JABÓN TIPO:',
+    slogan: '¡LAVA MÁS ROPA Y GASTA MENOS EN CADA LITRO!',
     fondo: Brand.paper,
     acentoTitulo: Brand.teal,
     acentoSlogan: Brand.navy,
@@ -104,8 +167,7 @@ const TEMAS: TemaFlyer[] = [
     categoria: 'LIMPIEZA',
     grupo: 'lavado',
     headline: 'PRODUCTOS DE LIMPIEZA\nA GRANEL',
-    slogan: 'LAVA MÁS, GASTA MENOS CON AMORCAS.',
-    seccion: 'JABÓN TIPO:',
+    slogan: '¡JABÓN DE MARCA, PRECIO DE GRANEL!',
     fondo: Brand.sky,
     acentoTitulo: Brand.limeDeep,
     acentoSlogan: Brand.navy,
@@ -115,30 +177,47 @@ const TEMAS: TemaFlyer[] = [
     categoria: 'LIMPIEZA',
     grupo: 'cocina',
     headline: 'PRODUCTOS DE LIMPIEZA\nA GRANEL',
-    slogan: 'LIMPIA, DESENGRASA Y AHORRA CON AMORCAS.',
-    seccion: 'PRODUCTOS PARA COCINA TIPO:',
+    slogan: '¡DESENGRASA FUERTE Y AHORRA EN CADA LITRO!',
     fondo: Brand.mint,
     acentoTitulo: Brand.navy,
     acentoSlogan: Brand.tealDeep,
+  },
+  {
+    titulo: 'Aromatizantes',
+    categoria: 'LIMPIEZA',
+    grupo: 'aroma',
+    headline: 'PRODUCTOS DE LIMPIEZA\nA GRANEL',
+    slogan: '¡AROMA QUE LLENA TU CASA AL PRECIO DEL GRANEL!',
+    fondo: Brand.soft,
+    acentoTitulo: Brand.teal,
+    acentoSlogan: Brand.navy,
   },
   {
     titulo: 'Suavizantes',
     categoria: 'LIMPIEZA',
     grupo: 'suavizante',
     headline: 'PRODUCTOS DE LIMPIEZA\nA GRANEL',
-    slogan: 'AROMA Y SUAVIDAD PARA TU ROPA.',
-    seccion: 'SUAVIZANTE TIPO:',
-    fondo: Brand.soft,
+    slogan: '¡ROPA SUAVE Y PERFUMADA AL PRECIO DEL GRANEL!',
+    fondo: Brand.paper,
+    acentoTitulo: Brand.limeDeep,
+    acentoSlogan: Brand.tealDeep,
+  },
+  {
+    titulo: 'Jabón de manos',
+    categoria: 'LIMPIEZA',
+    grupo: 'manos',
+    headline: 'PRODUCTOS DE LIMPIEZA\nA GRANEL',
+    slogan: '¡MANOS LIMPIAS Y SUAVES, LITRO A BUEN PRECIO!',
+    fondo: Brand.sky,
     acentoTitulo: Brand.teal,
-    acentoSlogan: Brand.limeDeep,
+    acentoSlogan: Brand.navy,
   },
   {
     titulo: 'Jarcería y hogar',
     categoria: 'JARCERIA',
     grupo: 'jarceria',
     headline: 'JARCERÍA Y HOGAR\nAMORCAS',
-    slogan: 'TODO PARA TU CASA, CERCA DE TI.',
-    seccion: 'JARCERÍA:',
+    slogan: '¡TODO PARA DEJAR TU CASA IMPECABLE!',
     fondo: Brand.sky,
     acentoTitulo: Brand.navy,
     acentoSlogan: Brand.teal,
@@ -148,8 +227,7 @@ const TEMAS: TemaFlyer[] = [
     categoria: 'JARCERIA',
     grupo: 'jarceria',
     headline: 'JARCERÍA Y HOGAR\nAMORCAS',
-    slogan: 'ESCOBAS, TRAPOS, FIBRAS Y MÁS.',
-    seccion: 'PARA TU HOGAR:',
+    slogan: '¡DE LA ESCOBA AL TRAPEADOR, LO TENEMOS!',
     fondo: Brand.mint,
     acentoTitulo: Brand.tealDeep,
     acentoSlogan: Brand.navy,
@@ -159,22 +237,10 @@ const TEMAS: TemaFlyer[] = [
     categoria: 'JARCERIA',
     grupo: 'jarceria',
     headline: 'JARCERÍA\nAMORCAS',
-    slogan: 'LO QUE NECESITAS PARA DEJAR BRILLANTE.',
-    seccion: 'JARCERÍA:',
+    slogan: '¡LO ESENCIAL PARA UNA CASA QUE BRILLA!',
     fondo: Brand.paper,
     acentoTitulo: Brand.limeDeep,
     acentoSlogan: Brand.navy,
-  },
-  {
-    titulo: 'Hogar listo',
-    categoria: 'JARCERIA',
-    grupo: 'jarceria',
-    headline: 'JARCERÍA Y HOGAR\nAMORCAS',
-    slogan: 'CUBETAS, CEPILLOS, FIBRAS Y MÁS.',
-    seccion: 'PARA TU CASA:',
-    fondo: Brand.soft,
-    acentoTitulo: Brand.navy,
-    acentoSlogan: Brand.tealDeep,
   },
 ];
 
@@ -225,7 +291,7 @@ function deptoDe(p: ProductoPromo): 'LIMPIEZA' | 'JARCERIA' {
   return p.vendePor === 'PIEZA' ? 'JARCERIA' : 'LIMPIEZA';
 }
 
-/** Elige productos del mismo departamento (sin mezclar limpieza ↔ jarcería). */
+/** Solo productos de la misma familia (nunca rellenar con otros). */
 function pickDesdeInventario(
   inv: ProductoPromo[],
   categoria: Categoria,
@@ -233,40 +299,56 @@ function pickDesdeInventario(
   grupo: GrupoTema
 ): PrecioItem[] {
   const activos = inv.filter((p) => Number(p.precioVentaHoy) > 0 && (p.nombre || '').trim());
-  const depto: DeptoPromo =
-    categoria === 'JARCERIA' ? 'JARCERIA' : 'LIMPIEZA';
-  let pool = activos.filter((p) => deptoDe(p) === depto);
-  // Si hay muy pocos del depto, igual no mezclar con el otro
-  if (!pool.length) return [];
+  const depto: DeptoPromo = categoria === 'JARCERIA' ? 'JARCERIA' : 'LIMPIEZA';
+  const delDepto = activos.filter((p) => deptoDe(p) === depto);
+  if (!delDepto.length) return [];
 
-  const key = KEY_GRUPO[grupo];
-  const preferidos = pool.filter((p) => key.test(p.nombre));
-  if (preferidos.length >= 3) {
-    pool = preferidos;
-  } else if (preferidos.length > 0) {
-    const resto = shuffle(pool.filter((p) => !preferidos.includes(p)));
-    pool = [...shuffle(preferidos), ...resto];
-  } else {
-    pool = shuffle(pool);
-  }
+  const delGrupo = delDepto.filter((p) => clasificarProducto(p.nombre) === grupo);
+  if (delGrupo.length < 2) return [];
 
-  return pool.slice(0, Math.min(cuantos, pool.length)).map((p) => ({
-    nombre: p.nombre.trim(),
-    precio: fmtPrecio(p),
-  }));
+  return shuffle(delGrupo)
+    .slice(0, Math.min(cuantos, delGrupo.length))
+    .map((p) => ({
+      nombre: p.nombre.trim(),
+      precio: fmtPrecio(p),
+    }));
 }
 
+function familiaDePrecios(precios: PrecioItem[], fallback: GrupoTema): GrupoTema {
+  const votos: Partial<Record<GrupoTema, number>> = {};
+  for (const p of precios) {
+    const g = clasificarProducto(p.nombre);
+    if (g === 'mixto') continue;
+    votos[g] = (votos[g] || 0) + 1;
+  }
+  let best = fallback;
+  let n = 0;
+  for (const [g, c] of Object.entries(votos) as [GrupoTema, number][]) {
+    if (c > n) {
+      n = c;
+      best = g;
+    }
+  }
+  return best;
+}
+
+/** Stickers acordes a la familia real de la lista (no genéricos). */
 function stickersDe(grupo: GrupoTema): StickerKey[] {
   switch (grupo) {
     case 'lavado':
+      return ['detergente'];
     case 'suavizante':
-      return ['detergente', 'burbujas'];
+      return ['detergente'];
+    case 'manos':
+      return ['burbujas'];
+    case 'aroma':
+      return ['burbujas'];
     case 'cocina':
-      return ['trastes', 'burbujas'];
+      return ['trastes'];
     case 'jarceria':
-      return ['jarceria', 'trastes'];
+      return ['jarceria'];
     default:
-      return shuffle(['detergente', 'trastes', 'jarceria'] as StickerKey[]).slice(0, 2);
+      return ['detergente'];
   }
 }
 
@@ -414,20 +496,25 @@ function drawLogoTopRight(
   return boxH;
 }
 
+/**
+ * Destellos solo en zona de stickers / bordes: nunca sobre título, slogan ni lista.
+ * (Columna izq. ~0–55% y franja superior/pie quedan libres.)
+ */
 function drawSparkles(ctx: CanvasRenderingContext2D, W: number, H: number): void {
-  const colors = [Brand.teal, Brand.lime, Brand.limeSoft, Brand.navy, Brand.drop, Brand.limeDeep];
+  const colors = [Brand.teal, Brand.lime, Brand.limeSoft, Brand.drop];
+  // Solo derecha / esquinas lejos del texto
   const pts = [
-    [W * 0.06, H * 0.18],
-    [W * 0.48, H * 0.1],
-    [W * 0.72, H * 0.22],
-    [W * 0.1, H * 0.42],
-    [W * 0.92, H * 0.38],
-    [W * 0.18, H * 0.68],
-    [W * 0.78, H * 0.72],
-    [W * 0.5, H * 0.78],
+    [W * 0.9, H * 0.16],
+    [W * 0.96, H * 0.32],
+    [W * 0.88, H * 0.48],
+    [W * 0.94, H * 0.62],
+    [W * 0.08, H * 0.88],
+    [W * 0.72, H * 0.86],
   ];
+  ctx.save();
+  ctx.globalAlpha = 0.28;
   for (const [x, y] of pts) {
-    const s = 10 + Math.random() * 12;
+    const s = 7 + Math.random() * 7;
     ctx.fillStyle = rand(colors);
     ctx.beginPath();
     for (let i = 0; i < 8; i++) {
@@ -441,22 +528,43 @@ function drawSparkles(ctx: CanvasRenderingContext2D, W: number, H: number): void
     ctx.closePath();
     ctx.fill();
   }
+  ctx.restore();
 }
 
 function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   if (!words.length) return [];
   const rows: string[] = [];
-  let cur = words[0];
-  for (let i = 1; i < words.length; i++) {
-    const trial = `${cur} ${words[i]}`;
+  let cur = '';
+  const pushWord = (w: string) => {
+    if (!cur) {
+      if (ctx.measureText(w).width <= maxW) {
+        cur = w;
+        return;
+      }
+      // Palabra más ancha que la columna: cortar por caracteres
+      let chunk = '';
+      for (const ch of w) {
+        const trial = chunk + ch;
+        if (ctx.measureText(trial).width <= maxW) chunk = trial;
+        else {
+          if (chunk) rows.push(chunk);
+          chunk = ch;
+        }
+      }
+      cur = chunk;
+      return;
+    }
+    const trial = `${cur} ${w}`;
     if (ctx.measureText(trial).width <= maxW) cur = trial;
     else {
       rows.push(cur);
-      cur = words[i];
+      cur = '';
+      pushWord(w);
     }
-  }
-  rows.push(cur);
+  };
+  for (const w of words) pushWord(w);
+  if (cur) rows.push(cur);
   return rows;
 }
 
@@ -468,32 +576,29 @@ function pickComposiciones(
   const temasDepto = TEMAS.filter((t) => t.categoria === depto);
   const temas = shuffle(temasDepto.length ? [...temasDepto] : [...TEMAS]);
   const out: Composicion[] = [];
-  for (let i = 0; i < n; i++) {
-    const tema = temas[i % temas.length];
-    const cuantos = 4 + Math.floor(Math.random() * 2); // 4–5, caben enteros en el flyer
-    const precios = pickDesdeInventario(inv, tema.categoria, cuantos, tema.grupo);
-    if (!precios.length) continue;
+  const pushComp = (tema: TemaFlyer, precios: PrecioItem[], i: number, tag: string) => {
+    const familia = familiaDePrecios(precios, tema.grupo);
     out.push({
-      id: `gen-${Date.now().toString(36)}-${i}-${Math.random().toString(36).slice(2, 6)}`,
-      tema,
+      id: `gen-${Date.now().toString(36)}-${tag}${i}-${Math.random().toString(36).slice(2, 6)}`,
+      tema: { ...tema, slogan: sloganParaProductos(precios, familia) },
       vertical: true,
       precios,
-      stickerKeys: stickersDe(tema.grupo),
+      stickerKeys: stickersDe(familia),
     });
+  };
+  for (let i = 0; i < n; i++) {
+    const tema = temas[i % temas.length];
+    const cuantos = 4 + Math.floor(Math.random() * 2); // 4–5
+    const precios = pickDesdeInventario(inv, tema.categoria, cuantos, tema.grupo);
+    if (!precios.length) continue;
+    pushComp(tema, precios, i, '');
   }
-  // Si faltan (poco inventario), reintentar con temas del depto
   let guard = 0;
   while (out.length < n && guard++ < n * 3) {
     const tema = rand(temas);
     const precios = pickDesdeInventario(inv, tema.categoria, 5, tema.grupo);
     if (!precios.length) break;
-    out.push({
-      id: `gen-${Date.now().toString(36)}-x${guard}-${Math.random().toString(36).slice(2, 6)}`,
-      tema,
-      vertical: true,
-      precios,
-      stickerKeys: stickersDe(tema.grupo),
-    });
+    pushComp(tema, precios, guard, 'x');
   }
   return shuffle(out).slice(0, n);
 }
@@ -562,15 +667,124 @@ function drawHeadlineShadowed(
     const yy = y + i * lh;
     ctx.fillStyle = Brand.limeSoft;
     ctx.fillText(ln, x + 3, yy + 3);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.fillText(ln, x + 1, yy + 1);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText(ln, x + 1.5, yy + 1.5);
     ctx.fillStyle = fill;
     ctx.fillText(ln, x, yy);
   });
   return lines.length * lh;
 }
 
-/** Dibuja icono PNG (WA / pin) centrado; recorta padding transparente. */
+/**
+ * WhatsApp: recolorea icon-wa-pedido.png (forma correcta) de naranja→verde.
+ * Fondo negro→transparente. Queda el logo reconocible (globo + auricular).
+ */
+function drawWhatsAppIcon(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  img: HTMLImageElement | null
+): void {
+  if (img && (img.naturalWidth || img.width) > 0) {
+    const painted = recolorWaOrangeToGreen(img, size);
+    if (painted) {
+      ctx.drawImage(painted, cx - painted.width / 2, cy - painted.height / 2);
+      return;
+    }
+  }
+  drawWhatsAppFlat(ctx, cx, cy, size);
+}
+
+/** Naranja del PNG → verde WA; negro → transparente; blanco se queda. */
+function recolorWaOrangeToGreen(img: HTMLImageElement, size: number): HTMLCanvasElement | null {
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  if (!iw || !ih) return null;
+  const src = document.createElement('canvas');
+  src.width = iw;
+  src.height = ih;
+  const sctx = src.getContext('2d', { willReadFrequently: true });
+  if (!sctx) return null;
+  sctx.drawImage(img, 0, 0);
+  const pix = sctx.getImageData(0, 0, iw, ih);
+  const d = pix.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i];
+    const g = d[i + 1];
+    const b = d[i + 2];
+    const a = d[i + 3];
+    if (a < 20 || (r < 40 && g < 40 && b < 40)) {
+      d[i + 3] = 0;
+      continue;
+    }
+    // Naranja / ámbar del asset → verde oficial
+    if (r > 140 && g > 40 && g < 210 && b < 140 && r > b) {
+      d[i] = 37;
+      d[i + 1] = 211;
+      d[i + 2] = 102;
+      d[i + 3] = 255;
+    }
+  }
+  sctx.putImageData(pix, 0, 0);
+  const out = document.createElement('canvas');
+  out.width = size;
+  out.height = size;
+  const o = out.getContext('2d');
+  if (!o) return null;
+  const sc = Math.min(size / iw, size / ih);
+  const dw = Math.round(iw * sc);
+  const dh = Math.round(ih * sc);
+  o.drawImage(src, (size - dw) / 2, (size - dh) / 2, dw, dh);
+  return out;
+}
+
+function drawWhatsAppFlat(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number
+): void {
+  const r = size * 0.46;
+  ctx.save();
+  ctx.fillStyle = '#25D366';
+  ctx.beginPath();
+  ctx.arc(cx, cy - size * 0.02, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.4, cy + r * 0.45);
+  ctx.quadraticCurveTo(cx - r * 0.95, cy + r * 1.05, cx - r * 0.15, cy + r * 0.82);
+  ctx.quadraticCurveTo(cx - r * 0.55, cy + r * 0.6, cx - r * 0.4, cy + r * 0.45);
+  ctx.closePath();
+  ctx.fill();
+  ctx.translate(cx - size * 0.01, cy - size * 0.03);
+  ctx.rotate(-0.7);
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#fff';
+  const pad = (x: number, y: number, w: number, h: number) => {
+    const rr = Math.min(w, h) * 0.48;
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+    ctx.fill();
+  };
+  const pw = r * 0.28;
+  const ph = r * 0.46;
+  pad(-r * 0.58, r * 0.08, pw, ph);
+  pad(r * 0.3, -r * 0.54, pw, ph);
+  ctx.lineWidth = r * 0.24;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.44, 0.45, Math.PI - 0.45);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Pin ubicación (rojo + casita); usa PNG de Ropa si está disponible. */
 function drawIconImg(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement | null,
@@ -579,92 +793,22 @@ function drawIconImg(
   size: number,
   fallback: (c: CanvasRenderingContext2D, x: number, y: number, s: number) => void
 ): void {
-  if (!img || (img.naturalWidth || img.width) <= 0) {
-    fallback(ctx, cx, cy, size);
+  if (img && (img.naturalWidth || img.width) > 0) {
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    const sc = Math.min(size / iw, size / ih);
+    const dw = Math.max(1, Math.round(iw * sc));
+    const dh = Math.max(1, Math.round(ih * sc));
+    ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
     return;
   }
-  const iw = img.naturalWidth || img.width;
-  const ih = img.naturalHeight || img.height;
-  // Recorte al contenido opaco (evita PNG con marco enorme / negro)
-  const off = document.createElement('canvas');
-  off.width = iw;
-  off.height = ih;
-  const octx = off.getContext('2d', { willReadFrequently: true });
-  if (!octx) {
-    fallback(ctx, cx, cy, size);
-    return;
-  }
-  octx.clearRect(0, 0, iw, ih);
-  octx.drawImage(img, 0, 0);
-  const pix = octx.getImageData(0, 0, iw, ih);
-  const d = pix.data;
-  let minX = iw;
-  let minY = ih;
-  let maxX = 0;
-  let maxY = 0;
-  for (let y = 0; y < ih; y++) {
-    for (let x = 0; x < iw; x++) {
-      const a = d[(y * iw + x) * 4 + 3];
-      if (a < 24) continue;
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
-    }
-  }
-  const bw = maxX - minX + 1;
-  const bh = maxY - minY + 1;
-  if (bw < 8 || bh < 8) {
-    fallback(ctx, cx, cy, size);
-    return;
-  }
-  const sc = Math.min(size / bw, size / bh);
-  const dw = Math.max(1, Math.round(bw * sc));
-  const dh = Math.max(1, Math.round(bh * sc));
-  ctx.drawImage(img, minX, minY, bw, bh, cx - dw / 2, cy - dh / 2, dw, dh);
-}
-
-/** WhatsApp estilo Ropa (burbuja naranja rellena + teléfono claro). */
-function drawWhatsAppIconFallback(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
-  const r = size * 0.46;
-  const orange = '#F5A623';
-  const deep = '#E08900';
-  ctx.save();
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  // Burbuja rellena + cola
-  ctx.beginPath();
-  ctx.arc(cx, cy - size * 0.02, r, 0, Math.PI * 2);
-  ctx.moveTo(cx - r * 0.55, cy + r * 0.55);
-  ctx.quadraticCurveTo(cx - r * 0.95, cy + r * 1.05, cx - r * 0.75, cy + r * 0.95);
-  ctx.quadraticCurveTo(cx - r * 0.35, cy + r * 0.75, cx - r * 0.25, cy + r * 0.62);
-  ctx.closePath();
-  ctx.fillStyle = orange;
-  ctx.fill();
-  ctx.strokeStyle = deep;
-  ctx.lineWidth = Math.max(2, size * 0.035);
-  ctx.stroke();
-  // Auricular blanco
-  ctx.strokeStyle = '#fff';
-  ctx.fillStyle = '#fff';
-  ctx.lineWidth = Math.max(5, size * 0.11);
-  ctx.beginPath();
-  ctx.arc(cx - r * 0.08, cy - r * 0.02, r * 0.38, 0.45, Math.PI * 1.15);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(cx - r * 0.32, cy + r * 0.12, r * 0.16, r * 0.22, -0.6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(cx + r * 0.18, cy - r * 0.22, r * 0.16, r * 0.22, -0.6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  fallback(ctx, cx, cy, size);
 }
 
 /** Fallback: pin rojo + casita blanca (Ropa 1 / 2). */
 function drawLocationPinFallback(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number): void {
   const s = size;
   ctx.save();
-  // Base oval
   ctx.beginPath();
   ctx.ellipse(cx, cy + s * 0.42, s * 0.28, s * 0.09, 0, 0, Math.PI * 2);
   ctx.fillStyle = '#E53935';
@@ -672,7 +816,6 @@ function drawLocationPinFallback(ctx: CanvasRenderingContext2D, cx: number, cy: 
   ctx.strokeStyle = '#1a1a1a';
   ctx.lineWidth = Math.max(2, s * 0.035);
   ctx.stroke();
-  // Pin
   ctx.beginPath();
   ctx.arc(cx, cy - s * 0.12, s * 0.36, Math.PI * 0.82, Math.PI * 2.18);
   ctx.lineTo(cx, cy + s * 0.42);
@@ -681,14 +824,12 @@ function drawLocationPinFallback(ctx: CanvasRenderingContext2D, cx: number, cy: 
   ctx.fill();
   ctx.strokeStyle = '#1a1a1a';
   ctx.stroke();
-  // Acento cyan bajo el pin
   ctx.beginPath();
   ctx.moveTo(cx - s * 0.22, cy + s * 0.18);
   ctx.quadraticCurveTo(cx, cy + s * 0.38, cx + s * 0.22, cy + s * 0.18);
   ctx.strokeStyle = '#4DD0E1';
   ctx.lineWidth = Math.max(3, s * 0.05);
   ctx.stroke();
-  // Disco blanco + casita
   ctx.beginPath();
   ctx.arc(cx, cy - s * 0.14, s * 0.2, 0, Math.PI * 2);
   ctx.fillStyle = '#fff';
@@ -707,14 +848,13 @@ function drawLocationPinFallback(ctx: CanvasRenderingContext2D, cx: number, cy: 
   ctx.lineTo(hx - hw, hy - hw * 0.05);
   ctx.closePath();
   ctx.fill();
-  // Chimenea
   ctx.fillRect(hx - hw * 0.55, hy - hw * 1.05, hw * 0.22, hw * 0.35);
   ctx.restore();
 }
 
 /**
- * Formato Ropa / Trastes: 1080×1350 (4:5, igual proporción que 2160×2700).
- * Logo arriba derecha, título, slogan, solo nombres, stickers, pie con WA + pin.
+ * Formato Ropa / Trastes: 1080×1350 (4:5).
+ * Título → espacio → slogan → espacio → productos (siempre dentro) → pie WA + pin.
  */
 async function renderFlyer(
   comp: Composicion,
@@ -731,159 +871,150 @@ async function renderFlyer(
   if (!ctx) throw new Error('Canvas no disponible');
 
   const { tema, precios } = comp;
-  const margin = 44;
-  const layout: 'lista-centro' | 'lista-izq' | 'lista-der' =
-    Math.random() < 0.34 ? 'lista-centro' : Math.random() < 0.5 ? 'lista-izq' : 'lista-der';
+  const margin = 48;
 
   ctx.fillStyle = tema.fondo;
   ctx.fillRect(0, 0, W, H);
-  drawSparkles(ctx, W, H);
+  // Sin destellos: tapaban título / slogan / nombres
 
-  const logoW = 270;
+  const logoW = 250;
   drawLogoTopRight(ctx, logo, W, margin, logoW);
 
-  // Título grande y legible (escala ~Ropa a 1080)
+  // Título
   const headLines = tema.headline.split('\n');
-  const titleMaxW = W - margin * 2 - logoW * 0.4;
+  const titleMaxW = W - margin * 2 - logoW * 0.45;
   ctx.save();
-  ctx.font = `900 72px "Segoe UI", "Arial Black", Impact, sans-serif`;
+  ctx.font = `900 68px "Segoe UI", "Arial Black", Impact, sans-serif`;
   const tooWide = headLines.some((ln) => ctx.measureText(ln).width > titleMaxW);
   ctx.restore();
-  const size = tooWide ? 58 : 72;
-  let y = margin + size + 8;
+  const size = tooWide ? 54 : 66;
+  let y = margin + size + 4;
   drawHeadlineShadowed(ctx, headLines, margin, y, size, 'left', tema.acentoTitulo);
-  y += headLines.length * (size + 14) + 20;
+  y += headLines.length * (size + 12);
+
+  // Aire claro título → slogan
+  y += 110;
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  const sloganSize = 32;
+  const sloganSize = 30;
   ctx.font = `800 ${sloganSize}px "Segoe UI", "Arial Black", sans-serif`;
   ctx.fillStyle = tema.acentoSlogan;
-  const sloganRows = wrapLines(ctx, `"${tema.slogan}"`, W - margin * 2 - 16);
+  const sloganRows = wrapLines(ctx, `"${tema.slogan}"`, W - margin * 2 - 24);
   for (const row of sloganRows) {
     ctx.fillText(row, W / 2, y);
-    y += sloganSize + 12;
+    y += sloganSize + 10;
   }
-  y += 18;
 
-  // Stickers (espacio para tipografía grande)
+  // Aire slogan → productos
+  y += 78;
+
+  // Stickers a la derecha; se dibujan ANTES del texto para que no lo tapen
   const stickerImgs = comp.stickerKeys
     .map((k) => stickers[k])
     .filter((x): x is HTMLImageElement => !!x);
+  const midY = Math.min(H * 0.66, y + 260);
+  ctx.save();
+  // Recorte: stickers solo en la mitad derecha
+  ctx.beginPath();
+  ctx.rect(W * 0.52, H * 0.2, W * 0.48, H * 0.55);
+  ctx.clip();
+  if (stickerImgs[0]) drawSticker(ctx, stickerImgs[0], W * 0.9, midY, 200, 6);
+  if (stickerImgs[1]) drawSticker(ctx, stickerImgs[1], W * 0.92, midY + 200, 120, -8);
+  ctx.restore();
 
-  const midY = H * 0.6;
-  if (layout === 'lista-centro') {
-    if (stickerImgs[0]) drawSticker(ctx, stickerImgs[0], W * 0.12, midY, 340, -8);
-    if (stickerImgs[1] || stickerImgs[0]) {
-      drawSticker(ctx, stickerImgs[1] || stickerImgs[0], W * 0.88, midY - 20, 320, 8);
-    }
-  } else if (layout === 'lista-der') {
-    if (stickerImgs[0]) drawSticker(ctx, stickerImgs[0], W * 0.18, midY, 380, -6);
-    if (stickerImgs[1] || stickerImgs[0]) {
-      drawSticker(ctx, stickerImgs[1] || stickerImgs[0], W * 0.22, midY + 220, 180, 10);
-    }
-  } else {
-    if (stickerImgs[0]) drawSticker(ctx, stickerImgs[0], W * 0.78, midY, 380, 4);
-    if (stickerImgs[1]) drawSticker(ctx, stickerImgs[1], W * 0.9, midY + 180, 170, -8);
-  }
-
-  let listX: number;
-  let listMaxW: number;
-  if (layout === 'lista-centro') {
-    listX = W * 0.2;
-    listMaxW = W * 0.6;
-  } else if (layout === 'lista-der') {
-    listX = W * 0.36;
-    listMaxW = W * 0.58;
-  } else {
-    listX = margin;
-    listMaxW = W * 0.58;
-  }
-
-  // Sección + nombres: ajustar tamaño para que TODOS quepan enteros (sin cortar)
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = Brand.navy;
-  const secSize = 40;
-  ctx.font = `900 ${secSize}px "Segoe UI", "Arial Black", sans-serif`;
-  ctx.fillText(tema.seccion, listX, y);
-  y += secSize + 20;
-
-  const footReserve = 200;
+  // Lista a la izquierda: nunca invade el área del sticker ni sale del canvas
+  const listX = margin + 12;
+  const listMaxW = W * 0.5;
+  const footReserve = 250;
   const listBottom = H - footReserve;
-  const names = precios.map((p) => `•  ${p.nombre.toUpperCase()}`);
-  let nameSize = 38;
-  let lineH = 48;
-  let gap = 8;
+  const productNames = precios.map((p) => p.nombre.trim().toUpperCase());
+  let nameSize = 36;
+  let lineH = 44;
+  let gap = 12;
+  const bulletGap = 16;
 
-  const measureBlock = (fontPx: number, lh: number, g: number) => {
+  const measureBlock = (fontPx: number, lh: number, g: number, textW: number) => {
     ctx.font = `800 ${fontPx}px "Segoe UI", "Arial Black", sans-serif`;
     let h = 0;
     const blocks: string[][] = [];
-    for (const full of names) {
-      const rows = wrapLines(ctx, full, listMaxW);
+    for (const full of productNames) {
+      const rows = wrapLines(ctx, full, textW);
       blocks.push(rows);
       h += rows.length * lh + g;
     }
     return { h, blocks };
   };
 
-  let layoutNames = measureBlock(nameSize, lineH, gap);
-  while (y + layoutNames.h > listBottom && nameSize > 26) {
+  const bulletR = () => Math.max(6, Math.round(nameSize * 0.2));
+  let textColX = listX + bulletR() * 2 + bulletGap;
+  let textW = Math.max(120, listMaxW - (textColX - listX));
+  let layoutNames = measureBlock(nameSize, lineH, gap, textW);
+  while (y + layoutNames.h > listBottom && nameSize > 24) {
     nameSize -= 2;
-    lineH = Math.round(nameSize * 1.25);
-    gap = Math.max(4, gap - 1);
-    layoutNames = measureBlock(nameSize, lineH, gap);
+    lineH = Math.round(nameSize * 1.22);
+    gap = Math.max(8, gap - 1);
+    textColX = listX + bulletR() * 2 + bulletGap;
+    textW = Math.max(120, listMaxW - (textColX - listX));
+    layoutNames = measureBlock(nameSize, lineH, gap, textW);
   }
-  // Si aún no caben, quitar productos de abajo hasta que entren completos
-  while (layoutNames.blocks.length > 1 && y + layoutNames.h > listBottom) {
-    names.pop();
-    layoutNames = measureBlock(nameSize, lineH, gap);
+  while (layoutNames.blocks.length > 2 && y + layoutNames.h > listBottom) {
+    productNames.pop();
+    layoutNames = measureBlock(nameSize, lineH, gap, textW);
   }
 
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
   ctx.font = `800 ${nameSize}px "Segoe UI", "Arial Black", sans-serif`;
+  const br = bulletR();
+  textColX = listX + br * 2 + bulletGap;
   for (const rows of layoutNames.blocks) {
-    for (const row of rows) {
-      ctx.fillStyle = Brand.navyDeep;
-      ctx.fillText(row, listX, y);
+    const firstY = y;
+    ctx.beginPath();
+    ctx.arc(listX + br, firstY - nameSize * 0.32, br, 0, Math.PI * 2);
+    ctx.fillStyle = Brand.lime;
+    ctx.fill();
+    ctx.strokeStyle = Brand.limeDeep;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    for (let i = 0; i < rows.length; i++) {
+      ctx.fillStyle = Brand.navy;
+      ctx.fillText(rows[i], textColX, y);
       y += lineH;
     }
     y += gap;
   }
 
-  // Pie: iconos WA + pin (PNG o fallback legible) + texto
-  const footY = H - 132;
+  // Pie: WhatsApp oficial + pin
+  const footY = H - 145;
   const iconSize = 96;
   const footGap = 14;
   const leftIconX = margin + iconSize / 2;
   const rightIconX = W - margin - iconSize / 2;
-  drawIconImg(ctx, icons.wa, leftIconX, footY - 4, iconSize, drawWhatsAppIconFallback);
+  drawWhatsAppIcon(ctx, leftIconX, footY - 4, iconSize, icons.wa);
   drawIconImg(ctx, icons.pin, rightIconX, footY - 4, iconSize, drawLocationPinFallback);
 
-  ctx.fillStyle = Brand.tealDeep;
   ctx.textBaseline = 'middle';
-  const footFont = (px: number) => {
+  const footFont = (px: number, color: string) => {
     ctx.font = `800 ${px}px "Segoe UI", "Arial Black", sans-serif`;
+    ctx.fillStyle = color;
   };
-  // Pedido (izquierda del icono → texto a la derecha)
-  footFont(24);
-  ctx.textAlign = 'left';
   const leftTextX = margin + iconSize + footGap;
-  ctx.fillText('Haz tu pedido:', leftTextX, footY - 26);
-  footFont(30);
-  ctx.fillText(TEL, leftTextX, footY + 10);
+  footFont(26, Brand.tealDeep);
+  ctx.textAlign = 'left';
+  ctx.fillText('Haz tu pedido:', leftTextX, footY - 28);
+  footFont(34, Brand.navy);
+  ctx.fillText(TEL, leftTextX, footY + 12);
 
-  // Ubicación (icono a la derecha → texto a la izquierda)
-  footFont(24);
-  ctx.textAlign = 'right';
   const rightTextX = W - margin - iconSize - footGap;
-  ctx.fillText('Estamos cerca de ti:', rightTextX, footY - 26);
-  footFont(26);
-  ctx.fillText(DIR, rightTextX, footY + 10);
+  footFont(26, Brand.tealDeep);
+  ctx.textAlign = 'right';
+  ctx.fillText('Estamos cerca de ti:', rightTextX, footY - 28);
+  footFont(28, Brand.navy);
+  ctx.fillText(DIR, rightTextX, footY + 12);
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = Brand.teal;
-  ctx.font = `700 24px "Segoe UI", sans-serif`;
+  footFont(26, Brand.teal);
   ctx.fillText('Contamos con servicio a domicilio (dentro del fracc.)', W / 2, footY + 56);
 
   return new Promise((resolve, reject) => {
@@ -902,7 +1033,7 @@ export async function generarLotePublicidad(
   depto: DeptoPromo = 'LIMPIEZA'
 ): Promise<PromoGenerada[]> {
   const media = (name: string) =>
-    loadImage(`/publicidad/${name}?v=22`).then((i) => i || loadImage(`/api/publicidad/media/${name}?v=22`));
+    loadImage(`/publicidad/${name}?v=38`).then((i) => i || loadImage(`/api/publicidad/media/${name}?v=38`));
 
   const [logo, detergente, trastes, jarceria, burbujas, iconWa, iconPin] = await Promise.all([
     media('amorcas-chingon.png').then(

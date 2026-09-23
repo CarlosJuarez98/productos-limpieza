@@ -133,35 +133,30 @@
 .thumb-wrap {
   position: relative;
   aspect-ratio: 4 / 5;
-  background-color: #e8eee9;
-  background-size: cover;
+  width: 100%;
+  min-height: 12rem;
+  background-color: #dfe8e2;
+  background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
   overflow: hidden;
   border-radius: 0.65rem 0.65rem 0 0;
-  /* Fuerza capa propia: evita thumbs en blanco en Chrome con object-fit + absolute */
-  transform: translateZ(0);
-  isolation: isolate;
 
   img {
     position: absolute;
     inset: 0;
+    z-index: 1;
+    display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center;
-    display: block;
-    z-index: 1;
     background: transparent;
   }
 }
 
 .thumb-wrap.vertical {
   aspect-ratio: 4 / 5;
-  max-height: none;
-  margin: 0;
-  width: 100%;
-  background-size: contain;
 }
 
 .badge-nueva {
@@ -210,24 +205,25 @@
 
 .chip-sel {
   position: absolute;
-  left: 0.55rem;
-  top: 0.55rem;
-  z-index: 2;
+  left: 0.45rem;
+  bottom: 0.45rem;
+  top: auto;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  background: rgba(255, 255, 255, 0.94);
+  gap: 0.3rem;
+  background: rgba(255, 255, 255, 0.96);
   color: #0b4f8a;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 800;
-  padding: 0.28rem 0.55rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 999px;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 
   input {
-    width: 0.95rem;
-    height: 0.95rem;
+    width: 0.9rem;
+    height: 0.9rem;
     accent-color: #1a7ac7;
     cursor: pointer;
   }
@@ -235,14 +231,14 @@
 
 .chip-ver {
   position: absolute;
-  right: 0.55rem;
-  bottom: 0.55rem;
-  z-index: 2;
+  right: 0.45rem;
+  bottom: 0.45rem;
+  z-index: 3;
   background: rgba(11, 31, 58, 0.82);
   color: #fff;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  padding: 0.25rem 0.55rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 999px;
 }
 

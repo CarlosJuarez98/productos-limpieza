@@ -101,9 +101,9 @@
         <div
           class="thumb-wrap"
           [class.vertical]="p.vertical || p.src.includes('status')"
-          [style.background-image]="'url(' + p.src + ')'"
+          [style.background-image]="'url(\'' + p.src + '\')'"
         >
-          <img [src]="p.src" [alt]="p.titulo" loading="eager" decoding="sync" />
+          <img [src]="p.src" [alt]="p.titulo" loading="eager" decoding="async" />
           @if (p.blob) {
             <label class="chip-sel" (click)="$event.stopPropagation()">
               <input
@@ -174,7 +174,7 @@
   <div class="promo-grid">
     @for (p of promosGaleria; track p.id) {
       <article class="promo-card ui-card" (click)="abrirPreview(p)">
-        <div class="thumb-wrap" [style.background-image]="'url(' + p.src + ')'">
+        <div class="thumb-wrap" [style.background-image]="'url(\'' + p.src + '\')'">
           <img
             [src]="p.src"
             [alt]="p.titulo"

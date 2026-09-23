@@ -123,7 +123,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     let src = raw.replace(/^\/api\/publicidad\/media\//, '/publicidad/');
     if (src.startsWith('/publicidad/') || src.startsWith('/api/publicidad/')) {
       const sep = src.includes('?') ? '&' : '?';
-      src = `${src}${sep}v=23`;
+      src = `${src}${sep}v=25`;
     }
     return {
       id: i.id,
@@ -142,7 +142,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     if (src.includes('/publicidad/') && !src.includes('__retried=1')) {
       const name = src.split('/publicidad/')[1]?.split('?')[0];
       if (name) {
-        const next = `/api/publicidad/media/${name}?v=23&__retried=1`;
+        const next = `/api/publicidad/media/${name}?v=25&__retried=1`;
         p.src = next;
         img.src = next;
         return;
@@ -189,8 +189,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       this.indiceLote = this.historialLotes.length - 1;
       this.promosNuevas = promos;
       this.deptoLote = depto;
-      const label = depto === 'JARCERIA' ? 'jarcería' : 'limpieza';
-      this.ok = `${promos.length} promos de ${label} · menudeo real`;
+      this.ok = '';
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudieron generar las promos';
     } finally {
