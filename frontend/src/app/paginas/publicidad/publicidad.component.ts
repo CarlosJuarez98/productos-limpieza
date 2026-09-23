@@ -38,6 +38,8 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   compartiendoId: string | null = null;
   /** Tras mandar la foto: texto listo para el 2º toque. */
   textoPendienteWa = '';
+  /** PNG de «Buenos días» listo para el 2º share (gesto del usuario). */
+  private mensajePendienteFile: File | null = null;
   enviandoTexto = false;
   preview: Promo | null = null;
   generando = false;
@@ -385,24 +387,29 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     this.error = '';
     this.ok = '';
     this.textoPendienteWa = '';
+    this.mensajePendienteFile = null;
     this.compartiendoId = p.id;
     try {
-      const { modo, texto, automatico } = await compartirPublicidad(
+      const { modo, texto, automatico, mensajeFile } = await compartirPublicidad(
         p.src,
         p.titulo,
         p.textoShare,
-        p.blob
+        p.blob,
+        // Galería guardada (sin blob de flyer): pie de pagos/horario; promos nuevas ya lo traen
+        { pieContacto: !p.blob }
       );
       if (automatico) {
         this.textoPendienteWa = '';
+        this.mensajePendienteFile = null;
         this.ok =
           modo === 'compartido'
-            ? 'Listo: primero la foto y luego el mensaje (Buenos días…).'
-            : 'Descargadas 2 imágenes · súbelas a WhatsApp: primero el flyer, luego el texto.';
+            ? 'Listo: las 2 imágenes (publicidad + Buenos días) en un solo envío.'
+            : 'Descargadas 2 imágenes · súbelas a WhatsApp juntas o en orden.';
       } else {
         this.textoPendienteWa = texto;
+        this.mensajePendienteFile = mensajeFile || null;
         this.ok =
-          'Foto enviada. Toca «Enviar texto» para mandar el mensaje (Buenos días…) después.';
+          'Foto enviada. Toca «Enviar Buenos días» si faltó la 2ª imagen.';
       }
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudo compartir';
@@ -413,15 +420,16 @@ export class PublicidadComponent implements OnInit, OnDestroy {
 
   async enviarTextoPendiente(): Promise<void> {
     const texto = this.textoPendienteWa.trim();
-    if (!texto || this.enviandoTexto) return;
+    if ((!texto && !this.mensajePendienteFile) || this.enviandoTexto) return;
     this.enviandoTexto = true;
     this.error = '';
     try {
-      const modo = await enviarTextoWhatsApp(texto);
+      const modo = await enviarTextoWhatsApp(texto, this.mensajePendienteFile || undefined);
       this.textoPendienteWa = '';
+      this.mensajePendienteFile = null;
       this.ok =
         modo === 'compartido'
-          ? 'Texto enviado a WhatsApp (después de la foto).'
+          ? 'Mensaje (Buenos días) enviado · elige el mismo chat.'
           : 'Se abrió WhatsApp con el texto · elígelo el mismo chat.';
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudo enviar el texto';
@@ -432,6 +440,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
 
   cancelarTextoPendiente(): void {
     this.textoPendienteWa = '';
+    this.mensajePendienteFile = null;
   }
 
   private msgError(e: unknown, fallback: string): string {

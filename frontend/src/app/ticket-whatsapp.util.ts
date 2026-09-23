@@ -664,17 +664,20 @@ export type ResultadoSharePublicidad = {
   texto: string;
   /** true si ya se mandó el texto como 2ª imagen (automático). */
   automatico: boolean;
+  /** Archivo del mensaje listo para el botón «Enviar Buenos días» si falló el 2º share. */
+  mensajeFile?: File;
 };
 
 /**
- * Envío en orden: 1) foto de la publicidad, 2) mensaje (Buenos días / precios).
- * Primero comparte solo el flyer; al cerrar esa hoja, comparte el mensaje.
+ * Envío automático: las 2 imágenes juntas (publicidad + Buenos días) en un solo compartir.
+ * WhatsApp las recibe como paquete; el orden del array es flyer primero, mensaje después.
  */
 export async function compartirPublicidad(
   src: string,
   titulo: string,
   textoDespues?: string,
-  blobPref?: Blob
+  blobPref?: Blob,
+  opts?: { pieContacto?: boolean }
 ): Promise<ResultadoSharePublicidad> {
   const texto = textoSharePublicidad(titulo, textoDespues);
   let blob = blobPref;
@@ -684,55 +687,60 @@ export async function compartirPublicidad(
     if (!res.ok) throw new Error('No se pudo cargar la imagen');
     blob = await res.blob();
   }
-  await copiarTextoSeguro(texto);
+  if (opts?.pieContacto) {
+    try {
+      blob = await anexarPieContactoPublicidad(blob);
+    } catch {
+      /* seguir con la imagen original */
+    }
+  }
+  await copiarTextoSeguro(textoParaPortapapeles(texto));
 
-  const flyerFile = new File(
-    [blob],
-    `${titulo.replace(/\s+/g, '-').toLowerCase() || 'promo'}.png`,
-    { type: blob.type || 'image/png' }
-  );
+  // Nombres 1- / 2- : WhatsApp ordena por nombre y "amorcas-buenos-días" salía antes que el flyer
+  const slug = (titulo.replace(/\s+/g, '-').toLowerCase() || 'promo').replace(/[^a-z0-9áéíóúñü\-]/gi, '');
+  const flyerFile = new File([blob], `1-publicidad-${slug}.png`, {
+    type: blob.type || 'image/png',
+  });
+  const textoBlob = await renderTextoComoImagen(texto);
+  const mensajeFile = new File([textoBlob], '2-buenos-dias-amorcas.png', { type: 'image/png' });
 
-  // 1) Primero la foto
+  // Paquete de 2: publicidad (1) + Buenos días (2)
+  const ambos = await shareFiles([flyerFile, mensajeFile], titulo || 'Amorcas');
+  if (ambos === 'compartido') {
+    return { modo: 'compartido', texto, automatico: true };
+  }
+  if (ambos === 'descargado') {
+    return { modo: 'descargado', texto, automatico: true, mensajeFile };
+  }
+
+  // Si el dispositivo no admite 2 archivos: foto y luego botón para el mensaje
   const foto = await shareFile(flyerFile, titulo || 'Amorcas', '');
   if (foto === 'descargado') {
-    // Sin Web Share: descarga flyer + imagen del mensaje (usuario las sube en orden)
-    try {
-      const textoBlob = await renderTextoComoImagen(texto);
-      const textoFile = new File([textoBlob], 'amorcas-mensaje.png', { type: 'image/png' });
-      await shareFile(textoFile, 'Amorcas', '');
-      return { modo: 'descargado', texto, automatico: true };
-    } catch {
-      return { modo: 'descargado', texto, automatico: false };
-    }
+    await shareFile(mensajeFile, 'Amorcas · Buenos días', '');
+    return { modo: 'descargado', texto, automatico: true, mensajeFile };
   }
 
-  // 2) Después el mensaje (misma cadena async tras cerrar el share de la foto)
-  try {
-    await new Promise((r) => setTimeout(r, 350));
-    const textoBlob = await renderTextoComoImagen(texto);
-    const textoFile = new File([textoBlob], 'amorcas-mensaje.png', { type: 'image/png' });
-    const msg = await shareFile(textoFile, 'Amorcas', texto);
-    if (msg === 'compartido') {
-      return { modo: 'compartido', texto, automatico: true };
-    }
-  } catch {
-    /* queda texto en portapapeles + botón manual */
-  }
-  return { modo: 'compartido', texto, automatico: false };
+  return { modo: 'compartido', texto, automatico: false, mensajeFile };
 }
 
 /**
- * Paso manual de respaldo (si el celular no admite 2 imágenes a la vez).
+ * Paso 2 manual (gesto del usuario): manda la imagen de Buenos días.
  */
-export async function enviarTextoWhatsApp(texto: string): Promise<'compartido' | 'abierto'> {
+export async function enviarTextoWhatsApp(
+  texto: string,
+  mensajeFilePref?: File
+): Promise<'compartido' | 'abierto'> {
   const t = (texto || '').trim();
-  if (!t) return 'abierto';
-  await copiarTextoSeguro(t);
+  if (!t && !mensajeFilePref) return 'abierto';
+  if (t) await copiarTextoSeguro(textoParaPortapapeles(t));
 
   try {
-    const textoBlob = await renderTextoComoImagen(t);
-    const textoFile = new File([textoBlob], 'amorcas-mensaje.png', { type: 'image/png' });
-    const modo = await shareFile(textoFile, 'Amorcas', t);
+    let file = mensajeFilePref;
+    if (!file) {
+      const textoBlob = await renderTextoComoImagen(t);
+      file = new File([textoBlob], 'amorcas-buenos-dias.png', { type: 'image/png' });
+    }
+    const modo = await shareFile(file, 'Amorcas · Buenos días', textoParaPortapapeles(t));
     if (modo === 'compartido') return 'compartido';
   } catch {
     /* fallback abajo */
@@ -743,7 +751,7 @@ export async function enviarTextoWhatsApp(texto: string): Promise<'compartido' |
     canShare?: (data: ShareData) => boolean;
   };
   try {
-    if (typeof nav.share === 'function') {
+    if (typeof nav.share === 'function' && t) {
       const payload: ShareData = { title: 'Amorcas', text: t };
       if (!nav.canShare || nav.canShare(payload)) {
         await nav.share(payload);
@@ -755,24 +763,121 @@ export async function enviarTextoWhatsApp(texto: string): Promise<'compartido' |
       return 'compartido';
     }
   }
-  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`;
-  window.open(url, '_blank', 'noopener,noreferrer');
+  if (t) {
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
   return 'abierto';
 }
 
+/** Franja inferior: pagos + horario (para fotos de galería ya guardadas). */
+async function anexarPieContactoPublicidad(blob: Blob): Promise<Blob> {
+  const img = await blobToImage(blob);
+  const W = img.naturalWidth || img.width;
+  const H = img.naturalHeight || img.height;
+  if (!W || !H) return blob;
+  const barH = Math.max(72, Math.round(H * 0.075));
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H + barH;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return blob;
+  ctx.drawImage(img, 0, 0, W, H);
+  const y0 = H;
+  const grad = ctx.createLinearGradient(0, y0, 0, y0 + barH);
+  grad.addColorStop(0, '#183060');
+  grad.addColorStop(1, '#102038');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, y0, W, barH);
+  ctx.fillStyle = '#FFE566';
+  ctx.font = `800 ${Math.round(barH * 0.32)}px "Segoe UI", "Arial Black", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('💳 Aceptamos tarjeta o efectivo', W / 2, y0 + barH * 0.38);
+  ctx.fillStyle = '#E8F6F8';
+  ctx.font = `700 ${Math.round(barH * 0.26)}px "Segoe UI", sans-serif`;
+  ctx.fillText(`🕘 Horario ${HORARIO_ATENCION}  ·  WhatsApp ${TEL_AMORCAS}`, W / 2, y0 + barH * 0.72);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('pie'))), 'image/png', 0.92);
+  });
+}
+
+function blobToImage(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('img'));
+    };
+    img.src = url;
+  });
+}
+
 /** Tarjeta PNG con el mensaje (legible, paleta Amorcas). */
+/** Glifo oficial WA (Bootstrap Icons) — mismo Path2D que el flyer. */
+const WA_PATH_16 =
+  'M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232';
+
+const WA_ICON_DATA_SVG =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 16 16"><path fill="#25D366" d="${WA_PATH_16}"/></svg>`
+  );
+
+function drawWaIconMsg(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  img: HTMLImageElement | null
+): void {
+  if (img && (img.naturalWidth || img.width) > 0) {
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    const sc = Math.min(size / iw, size / ih);
+    const dw = Math.max(1, Math.round(iw * sc));
+    const dh = Math.max(1, Math.round(ih * sc));
+    ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+    return;
+  }
+  ctx.save();
+  ctx.translate(cx - size / 2, cy - size / 2);
+  ctx.scale(size / 16, size / 16);
+  ctx.fillStyle = '#25D366';
+  ctx.fill(new Path2D(WA_PATH_16));
+  ctx.restore();
+}
+
 async function renderTextoComoImagen(texto: string): Promise<Blob> {
   const W = 1080;
   const padX = 56;
   const padY = 52;
   const maxW = W - padX * 2;
   const lineGap = 10;
+  // Data-URL primero (sin red); luego PNG/SVG del servidor
+  const iconWa =
+    (await loadImage(WA_ICON_DATA_SVG)) ||
+    (await loadImage('/publicidad/icon-wa-fijo.png?v=46')) ||
+    (await loadImage('/publicidad/icon-wa-fijo.svg?v=46')) ||
+    (await loadImage('/api/publicidad/media/icon-wa-fijo.png?v=46'));
 
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas no disponible');
 
-  type Row = { text: string; size: number; bold: boolean; accent: boolean; mute: boolean };
+  type Row = {
+    text: string;
+    size: number;
+    bold: boolean;
+    accent: boolean;
+    mute: boolean;
+    waIcon?: boolean;
+  };
   const rows: Row[] = [];
   const raw = texto.split('\n');
   for (let i = 0; i < raw.length; i++) {
@@ -781,11 +886,25 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
       rows.push({ text: '', size: 18, bold: false, accent: false, mute: false });
       continue;
     }
+    // "WA_ICON 247-…" o "💬 WhatsApp 247-…" → fila con icono
+    const waMatch = line.match(/^(?:WA_ICON|💬\s*WhatsApp)\s*(.+)$/i);
+    if (waMatch) {
+      rows.push({
+        text: waMatch[1].trim(),
+        size: 36,
+        bold: true,
+        accent: false,
+        mute: false,
+        waIcon: true,
+      });
+      continue;
+    }
     const esSaludo = i === 0 && /^Buen[oa]s |^¡Hola!/i.test(line);
     const esBullet = /^\s*[•*]/.test(line);
-    const esMeta = /^[🕘📍💬📌]/.test(line) || /^Amorcas/i.test(line);
+    const esMeta = /^[🕘📍💬📌💳]/.test(line) || /^Amorcas/i.test(line);
     const size = esSaludo ? 44 : esBullet ? 36 : esMeta ? 32 : 34;
-    const bold = esSaludo || esBullet || /^Ya |^¡Ya |^En servicio|^¡Negocio|^Atendiendo|^Precios|^Mira /i.test(line);
+    const bold =
+      esSaludo || esBullet || /^Ya |^¡Ya |^En servicio|^¡Negocio|^Atendiendo|^Precios|^Mira /i.test(line);
     ctx.font = `${bold ? 800 : 600} ${size}px "Segoe UI", system-ui, sans-serif`;
     const wrapped = wrapCanvasLines(ctx, line, maxW);
     for (const w of wrapped) {
@@ -801,7 +920,9 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
 
   let contentH = 0;
   for (const r of rows) {
-    contentH += r.text ? r.size + lineGap : 22;
+    if (!r.text && !r.waIcon) contentH += 22;
+    else if (r.waIcon) contentH += Math.max(r.size, 52) + lineGap;
+    else contentH += r.size + lineGap;
   }
   const H = Math.max(720, padY * 2 + contentH + 40);
   canvas.width = W;
@@ -817,8 +938,22 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
 
   let y = padY + 8;
   for (const r of rows) {
-    if (!r.text) {
+    if (!r.text && !r.waIcon) {
       y += 22;
+      continue;
+    }
+    if (r.waIcon) {
+      const iconS = 52;
+      const x0 = padX + 12;
+      const cx = x0 + iconS / 2;
+      const cy = y + iconS / 2;
+      drawWaIconMsg(ctx, cx, cy, iconS, iconWa);
+      ctx.font = `800 ${r.size}px "Segoe UI", system-ui, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#183060';
+      ctx.fillText(r.text, x0 + iconS + 14, cy);
+      y += iconS + lineGap;
       continue;
     }
     ctx.font = `${r.bold ? 800 : 600} ${r.size}px "Segoe UI", system-ui, sans-serif`;
@@ -836,28 +971,47 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
   });
 }
 
-/** Saludo + “ya estamos en servicio”; si hay texto de promo con precios, lo completa. */
+/** Saludo + servicio + horario/pagos; si hay texto de promo con precios, lo completa. */
 function textoSharePublicidad(titulo: string, textoDespues?: string): string {
   const custom = (textoDespues || '').trim();
   const tit = (titulo || '').trim();
+  const base = textoPublicidadWhatsApp(titulo).trim();
+  // Galería / frases cortas: mensaje completo (saludo, horario, pagos)
   if (!custom || custom === tit || custom.length < 48) {
-    return textoPublicidadWhatsApp(titulo).trim();
+    return base;
   }
   const tieneSaludo = /^Buen[oa]s (días|tardes|noches)/i.test(custom) || /^¡Hola!/i.test(custom);
   const tieneServicio =
     /Ya estamos|¡Ya abrimos|En servicio|¡Negocio abierto|Atendiendo con gusto/i.test(custom);
+  const tienePagos = /tarjeta|efectivo/i.test(custom);
+  const tieneHorario = /horario|9:00/i.test(custom);
+
+  let out = custom;
   if (tieneSaludo && tieneServicio) {
-    return custom;
-  }
-  if (tieneSaludo && !tieneServicio) {
+    // ok
+  } else if (tieneSaludo && !tieneServicio) {
     const lines = custom.split('\n');
     const saludoLine = lines[0];
     let i = 1;
     while (i < lines.length && !lines[i].trim()) i++;
     const frase = FRASES_SERVICIO[Math.floor(Math.random() * FRASES_SERVICIO.length)];
-    return [saludoLine, '', ...frase.split('\n'), '', ...lines.slice(i)].join('\n');
+    out = [saludoLine, '', ...frase.split('\n'), '', ...lines.slice(i)].join('\n');
+  } else {
+    out = `${base}\n\n${custom}`;
   }
-  return `${textoPublicidadWhatsApp(titulo).trim()}\n\n${custom}`;
+
+  const extras: string[] = [];
+  if (!tienePagos) extras.push('💳 Aceptamos pago con tarjeta o efectivo');
+  if (!tieneHorario) extras.push(`🕘 Horario de atención: ${HORARIO_ATENCION}`);
+  if (extras.length) {
+    out = `${out.trim()}\n\n${extras.join('\n')}`;
+  }
+  return out.trim();
+}
+
+/** En portapapeles: WA_ICON → texto legible. */
+function textoParaPortapapeles(texto: string): string {
+  return (texto || '').replace(/^WA_ICON\s+/gm, '💬 WhatsApp ');
 }
 
 async function copiarTextoSeguro(texto: string): Promise<boolean> {
@@ -899,9 +1053,11 @@ function textoPublicidadLineas(_tituloPromo?: string): LineaPub[] {
     { text: '' },
     ...fraseParts.map((t, i) => ({ text: t, bold: i === 0, size: 'body' as const })),
     { text: '' },
+    { text: `💳 Aceptamos pago con tarjeta o efectivo`, size: 'body' },
     { text: `🕘 Horario de atención: ${HORARIO_ATENCION}`, size: 'body' },
     { text: `📍 ${DIR_AMORCAS}`, size: 'body' },
-    { text: `💬 WhatsApp ${TEL_AMORCAS}`, size: 'body' },
+    // Marcador: en la imagen se dibuja el icono WA + número (no la palabra "WhatsApp")
+    { text: `WA_ICON ${TEL_AMORCAS}`, size: 'body' },
     { text: '' },
     { text: 'Amorcas · Soluciones de Limpieza', mute: true, size: 'body' },
   ];
@@ -964,13 +1120,20 @@ export function textoPublicidadWhatsApp(tituloPromo?: string): string {
     .join('\n');
 }
 
+/** Comparte varias imágenes en una sola hoja (paquete). */
 async function shareFiles(files: File[], title: string): Promise<'compartido' | 'descargado' | 'no-soportado'> {
   if (!files.length) return 'no-soportado';
   const nav = navigator as Navigator & {
     share?: (data: ShareData) => Promise<void>;
     canShare?: (data: ShareData) => boolean;
   };
-  if (typeof nav.share !== 'function') return 'no-soportado';
+  if (typeof nav.share !== 'function') {
+    // PC sin Web Share: descargar ambas en orden
+    for (const f of files) {
+      await shareFile(f, title, '');
+    }
+    return 'descargado';
+  }
   try {
     const payload: ShareData = { files, title };
     if (nav.canShare && !nav.canShare(payload)) return 'no-soportado';

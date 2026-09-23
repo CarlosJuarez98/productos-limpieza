@@ -10,8 +10,8 @@
 @if (textoPendienteWa) {
   <div class="wa-texto-bar" role="status">
     <div class="wa-texto-bar-copy">
-      <strong>Paso 2 · Enviar texto</strong>
-      <span class="muted">Solo si no se mandó solo (ya está copiado)</span>
+      <strong>Paso 2 · Enviar Buenos días</strong>
+      <span class="muted">Misma conversación de WhatsApp que la foto</span>
     </div>
     <div class="wa-texto-bar-acciones">
       <button type="button" class="btn-texto-omitir" (click)="cancelarTextoPendiente()">
@@ -23,7 +23,7 @@
         (click)="enviarTextoPendiente()"
         [disabled]="enviandoTexto"
       >
-        {{ enviandoTexto ? 'Abriendo…' : 'Enviar texto' }}
+        {{ enviandoTexto ? 'Abriendo…' : 'Enviar Buenos días' }}
       </button>
     </div>
   </div>

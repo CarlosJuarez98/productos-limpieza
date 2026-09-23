@@ -1072,9 +1072,10 @@ function textoShareDe(_titulo: string, precios: PrecioItem[]): string {
     '',
     'Y muchos productos más · a domicilio o en tienda.',
     '',
+    '💳 Aceptamos pago con tarjeta o efectivo',
     `🕘 Horario de atención: 9:00 am – 8:00 pm`,
     `📍 ${DIR}`,
-    `💬 WhatsApp ${TEL}`,
+    `WA_ICON ${TEL}`,
   ].join('\n');
 }
 
@@ -1331,7 +1332,7 @@ async function renderFlyer(
   // Lista a la izquierda (medir primero para zona segura de stickers)
   const listX = margin + 12;
   const listMaxW = W * 0.52;
-  const footReserve = 250;
+  const footReserve = 270;
   const listBottom = H - footReserve;
   const productNames = precios.map((p) => p.nombre.trim().toUpperCase());
   let nameSize = 36;
@@ -1406,15 +1407,15 @@ async function renderFlyer(
     y += gap;
   }
 
-  // Pie: WhatsApp oficial + pin
-  const footY = H - 145;
-  const iconSize = 96;
+  // Pie: WhatsApp + pin + pagos / horario
+  const footY = H - 158;
+  const iconSize = 92;
   const footGap = 14;
   const leftIconX = margin + iconSize / 2;
   const rightIconX = W - margin - iconSize / 2;
-  drawSoftPanel(ctx, margin - 8, footY - 58, W - margin * 2 + 16, 150, 24);
-  drawWhatsAppIcon(ctx, leftIconX, footY - 4, iconSize, icons.wa);
-  drawIconImg(ctx, icons.pin, rightIconX, footY - 4, iconSize, drawLocationPinFallback);
+  drawSoftPanel(ctx, margin - 8, footY - 62, W - margin * 2 + 16, 168, 24);
+  drawWhatsAppIcon(ctx, leftIconX, footY - 8, iconSize, icons.wa);
+  drawIconImg(ctx, icons.pin, rightIconX, footY - 8, iconSize, drawLocationPinFallback);
 
   ctx.textBaseline = 'middle';
   const footFont = (px: number, color: string) => {
@@ -1424,20 +1425,22 @@ async function renderFlyer(
   const leftTextX = margin + iconSize + footGap;
   footFont(26, Brand.tealDeep);
   ctx.textAlign = 'left';
-  ctx.fillText('Haz tu pedido:', leftTextX, footY - 28);
+  ctx.fillText('Haz tu pedido:', leftTextX, footY - 32);
   footFont(34, Brand.navy);
-  ctx.fillText(TEL, leftTextX, footY + 12);
+  ctx.fillText(TEL, leftTextX, footY + 6);
 
   const rightTextX = W - margin - iconSize - footGap;
   footFont(26, Brand.tealDeep);
   ctx.textAlign = 'right';
-  ctx.fillText('Estamos cerca de ti:', rightTextX, footY - 28);
+  ctx.fillText('Estamos cerca de ti:', rightTextX, footY - 32);
   footFont(28, Brand.navy);
-  ctx.fillText(DIR, rightTextX, footY + 12);
+  ctx.fillText(DIR, rightTextX, footY + 6);
 
   ctx.textAlign = 'center';
-  footFont(26, Brand.teal);
-  ctx.fillText('Contamos con servicio a domicilio (dentro del fracc.)', W / 2, footY + 56);
+  footFont(24, Brand.teal);
+  ctx.fillText('Contamos con servicio a domicilio (dentro del fracc.)', W / 2, footY + 48);
+  footFont(25, Brand.navy);
+  ctx.fillText('💳 Aceptamos tarjeta o efectivo  ·  🕘 9:00 am – 8:00 pm', W / 2, footY + 82);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se generó la promo'))), 'image/png', 0.94);
