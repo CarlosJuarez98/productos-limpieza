@@ -94,7 +94,9 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.GET, "/api/auth/me").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/publicidad/galeria/archivo/**").permitAll()
+            .requestMatchers(HttpMethod.HEAD, "/api/publicidad/galeria/archivo/**").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/publicidad/media/**").permitAll()
+            .requestMatchers(HttpMethod.HEAD, "/api/publicidad/media/**").permitAll()
             .requestMatchers("/api/**").authenticated()
             .anyRequest().permitAll())
         .exceptionHandling(ex -> ex

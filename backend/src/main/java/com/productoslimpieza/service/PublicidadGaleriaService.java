@@ -75,6 +75,45 @@ public class PublicidadGaleriaService {
     if (!Files.exists(manifestPath)) {
       escribirManifest(semillaInicial());
       log.info("Galería Amorcas: manifiesto inicial en {}", manifestPath);
+    } else {
+      migrarUrlsMediaEstaticas();
+    }
+  }
+
+  /**
+   * Manifiestos viejos apuntaban a {@code /api/publicidad/media/...} (404 en Docker).
+   * Las piezas base viven en el front: {@code /publicidad/...}.
+   */
+  private void migrarUrlsMediaEstaticas() throws IOException {
+    lock.lock();
+    try {
+      List<ManifestItem> items = leerManifest();
+      boolean changed = false;
+      List<ManifestItem> out = new ArrayList<>(items.size());
+      for (ManifestItem m : items) {
+        String src = m.staticSrc();
+        if (src != null && src.startsWith("/api/publicidad/media/")) {
+          String nombre = src.substring("/api/publicidad/media/".length());
+          out.add(
+              new ManifestItem(
+                  m.id(),
+                  m.titulo(),
+                  m.descripcion(),
+                  m.file(),
+                  "/publicidad/" + nombre,
+                  m.textoShare(),
+                  m.eliminable()));
+          changed = true;
+        } else {
+          out.add(m);
+        }
+      }
+      if (changed) {
+        escribirManifest(out);
+        log.info("Galería Amorcas: URLs /api/publicidad/media → /publicidad migradas");
+      }
+    } finally {
+      lock.unlock();
     }
   }
 
@@ -239,27 +278,27 @@ public class PublicidadGaleriaService {
   private static List<ManifestItem> semillaInicial() {
     String contacto = "WhatsApp 247-120-6128 · Fracc. Los Álamos #121-C";
     return List.of(
-        itemBase("chingon", "Amorcas chingón", "Logo / marca", "/api/publicidad/media/amorcas-chingon.png",
+        itemBase("chingon", "Amorcas chingón", "Logo / marca", "/publicidad/amorcas-chingon.png",
             "Amorcas — la química perfecta para tu hogar"),
-        itemBase("granel", "Beneficios a granel", "Promo a granel", "/api/publicidad/media/beneficios-granel.jpg",
+        itemBase("granel", "Beneficios a granel", "Promo a granel", "/publicidad/beneficios-granel.jpg",
             "¿Ya conoces nuestros productos a granel? Ahorra con Amorcas"),
-        itemBase("ropa1", "Ropa 1", "Limpieza de ropa", "/api/publicidad/media/ropa-1.jpg",
+        itemBase("ropa1", "Ropa 1", "Limpieza de ropa", "/publicidad/ropa-1.jpg",
             "Tu ropa limpia y con aroma… Amorcas te ayuda"),
-        itemBase("ropa2", "Ropa 2", "Limpieza de ropa", "/api/publicidad/media/ropa-2.jpg",
+        itemBase("ropa2", "Ropa 2", "Limpieza de ropa", "/publicidad/ropa-2.jpg",
             "Limpieza que se nota. Amorcas"),
-        itemBase("trastes", "Trastes", "Cocina y trastes", "/api/publicidad/media/trastes-1.jpg",
+        itemBase("trastes", "Trastes", "Cocina y trastes", "/publicidad/trastes-1.jpg",
             "Trastes brillantes sin esfuerzo — Amorcas"),
-        itemBase("coches", "Lavado de coches", "Autos", "/api/publicidad/media/lavado-coches.jpg",
+        itemBase("coches", "Lavado de coches", "Autos", "/publicidad/lavado-coches.jpg",
             "También para tu coche — Amorcas"),
-        itemBase("servicios", "Servicios y recargas", "Recargas y pagos", "/api/publicidad/media/servicios-recargas.jpg",
+        itemBase("servicios", "Servicios y recargas", "Recargas y pagos", "/publicidad/servicios-recargas.jpg",
             "En Amorcas también hay servicios y recargas"),
-        itemBase("tarjeta-f", "Tarjeta frente", contacto, "/api/publicidad/media/tarjeta-frente.jpg",
+        itemBase("tarjeta-f", "Tarjeta frente", contacto, "/publicidad/tarjeta-frente.jpg",
             "Amorcas · " + contacto),
-        itemBase("tarjeta-a", "Tarjeta atrás", "Presentación / sello", "/api/publicidad/media/tarjeta-atras.jpg",
+        itemBase("tarjeta-a", "Tarjeta atrás", "Presentación / sello", "/publicidad/tarjeta-atras.jpg",
             "Amorcas · Soluciones de Limpieza"),
-        itemBase("letras", "Logo letras azul", "Marca", "/api/publicidad/media/letras-fondo-azul.jpg",
+        itemBase("letras", "Logo letras azul", "Marca", "/publicidad/letras-fondo-azul.jpg",
             "Amorcas — la química perfecta para tu hogar"),
-        itemBase("amorcas-c", "Amorcas C", "Arte promocional", "/api/publicidad/media/amorcas-c.jpg", "Amorcas"));
+        itemBase("amorcas-c", "Amorcas C", "Arte promocional", "/publicidad/amorcas-c.jpg", "Amorcas"));
   }
 
   private static ManifestItem itemBase(

@@ -783,7 +783,8 @@ export async function generarLotePublicidad(
   inventario: ProductoPromo[] = []
 ): Promise<PromoGenerada[]> {
   const media = (name: string) =>
-    loadImage(`/api/publicidad/media/${name}?v=20`).then((i) => i || loadImage(`/publicidad/${name}?v=20`));
+    // Preferir estáticos del front (siempre en el JAR); API como respaldo
+    loadImage(`/publicidad/${name}?v=21`).then((i) => i || loadImage(`/api/publicidad/media/${name}?v=21`));
 
   const [logo, detergente, trastes, jarceria, burbujas, iconWa, iconPin] = await Promise.all([
     media('amorcas-chingon.png').then(
