@@ -7,6 +7,7 @@ import { PullRefreshService } from './pull-refresh.service';
 import { AuthService } from './auth.service';
 import { OfflineService } from './offline.service';
 import { ApiService } from './api.service';
+import { capturaTieneFocoEnCampo } from './paginacion.util';
 
 type NavIcon =
   | 'ventas'
@@ -344,6 +345,11 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
   private onTouchEnd = (): void => {
     if (!this.pullActivo) {
+      this.resetPull();
+      return;
+    }
+    // No refrescar si el usuario está escribiendo (teclado abierto).
+    if (capturaTieneFocoEnCampo()) {
       this.resetPull();
       return;
     }

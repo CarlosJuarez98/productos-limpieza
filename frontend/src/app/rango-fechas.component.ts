@@ -19,6 +19,7 @@ import {
   desplazarMes,
   mesTieneDiaPermitido,
 } from './calendario-limites.util';
+import { capturaTieneFocoEnCampo } from './paginacion.util';
 
 type Celda = {
   iso: string;
@@ -300,6 +301,7 @@ export class RangoFechasComponent implements OnDestroy {
 
   @HostListener('window:resize')
   onResize(): void {
+    if (capturaTieneFocoEnCampo()) return;
     if (this.abierto) this.reposicionar();
   }
 

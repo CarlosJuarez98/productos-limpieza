@@ -12,6 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventarioItem } from './modelos';
+import { capturaTieneFocoEnCampo } from './paginacion.util';
 
 @Component({
   selector: 'app-producto-autocomplete',
@@ -331,6 +332,8 @@ export class ProductoAutocompleteComponent implements OnChanges {
 
   @HostListener('window:resize')
   alResize(): void {
+    // Teclado Android: solo cambia altura; no mover la lista ni pelear con el foco.
+    if (capturaTieneFocoEnCampo()) return;
     if (this.abierto) this.actualizarDireccion();
   }
 
