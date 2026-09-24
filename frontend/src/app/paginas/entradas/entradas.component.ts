@@ -14,7 +14,7 @@ import { ProductoAltaFormComponent } from '../../producto-alta-form.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
-import { alinearLineasCaptura, capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
+import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreakpointCambio, capturaTieneFocoEnCampo, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
@@ -136,6 +136,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
   private nextKey = 1;
   private pullSub?: Subscription;
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
+  private capturaMovil = capturaEsMovil();
   fecha = this.hoyLocal();
   fechaMin: string | null = null;
   fechaUltimoCorte: string | null = null;
@@ -184,6 +185,10 @@ export class EntradasComponent implements OnInit, OnDestroy {
 
   @HostListener('window:resize')
   onResizeCaptura(): void {
+    if (capturaTieneFocoEnCampo()) return;
+    const { cambio, movil } = capturaBreakpointCambio(this.capturaMovil);
+    if (!cambio) return;
+    this.capturaMovil = movil;
     this.alinearLineasViewport();
   }
 

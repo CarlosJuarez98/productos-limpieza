@@ -16,7 +16,11 @@ export function capturaLineasVacias(movil = 1, escritorio = 2): number {
   return capturaEsMovil() ? movil : escritorio;
 }
 
-/** Conserva líneas con datos y rellena vacías hasta el mínimo del viewport. */
+/**
+ * Conserva líneas con datos y rellena vacías hasta el mínimo del viewport.
+ * Reusa las vacías existentes (mismas keys) para no destruir el input enfocado
+ * cuando Android dispara resize al abrir el teclado.
+ */
 export function alinearLineasCaptura<T>(
   lineas: T[],
   esVacia: (l: T) => boolean,
@@ -24,9 +28,41 @@ export function alinearLineasCaptura<T>(
 ): T[] {
   const objetivo = capturaLineasVacias();
   const llenas = lineas.filter((l) => !esVacia(l));
+  const vacias = lineas.filter((l) => esVacia(l));
   const out = [...llenas];
-  while (out.length < objetivo) out.push(crear());
-  return out.length ? out : [crear()];
+  let vi = 0;
+  while (out.length < objetivo) {
+    out.push(vi < vacias.length ? vacias[vi++] : crear());
+  }
+  // Misma cantidad y mismas refs → no reasignar (evita CD innecesario).
+  if (out.length === lineas.length && out.every((l, i) => l === lineas[i])) {
+    return lineas;
+  }
+  return out.length ? out : vacias[0] ? [vacias[0]] : [crear()];
+}
+
+/**
+ * true solo si cambió móvil↔PC. El teclado Android dispara resize por altura
+ * sin cambiar el breakpoint; realinear ahí mata el foco y cierra el teclado.
+ */
+export function capturaBreakpointCambio(prevMovil: boolean): {
+  cambio: boolean;
+  movil: boolean;
+} {
+  const movil = capturaEsMovil();
+  return { cambio: movil !== prevMovil, movil };
+}
+
+/** true si el usuario está escribiendo (no realinear / no pelear con el teclado). */
+export function capturaTieneFocoEnCampo(): boolean {
+  if (typeof document === 'undefined') return false;
+  const a = document.activeElement;
+  return (
+    a instanceof HTMLInputElement ||
+    a instanceof HTMLTextAreaElement ||
+    a instanceof HTMLSelectElement ||
+    (a instanceof HTMLElement && a.isContentEditable)
+  );
 }
 
 /** Estado de paginación sobre un arreglo ya filtrado. */

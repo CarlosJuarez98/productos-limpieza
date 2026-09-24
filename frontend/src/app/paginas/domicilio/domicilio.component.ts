@@ -18,7 +18,7 @@ import {
   PedidoDomicilio,
   TipoVenta,
 } from '../../modelos';
-import { alinearLineasCaptura, capturaLineasVacias } from '../../paginacion.util';
+import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreakpointCambio, capturaTieneFocoEnCampo } from '../../paginacion.util';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { compartirTicketWhatsApp } from '../../ticket-whatsapp.util';
 
@@ -80,6 +80,8 @@ export class DomicilioComponent implements OnInit {
   private nextKey = 1;
   private focusTimer: ReturnType<typeof setTimeout> | null = null;
   private idsPreparables = new Set<number>();
+  /** Evita realinear al abrir teclado (resize por altura). */
+  private capturaMovil = capturaEsMovil();
 
   /** Misma captura que Ventas (menudeo, mayoreo, pesos, etc.). */
   readonly modos = MODOS_VENTA;
@@ -98,6 +100,10 @@ export class DomicilioComponent implements OnInit {
 
   @HostListener('window:resize')
   onResizeCaptura(): void {
+    if (capturaTieneFocoEnCampo()) return;
+    const { cambio, movil } = capturaBreakpointCambio(this.capturaMovil);
+    if (!cambio) return;
+    this.capturaMovil = movil;
     this.alinearLineasViewport();
   }
 

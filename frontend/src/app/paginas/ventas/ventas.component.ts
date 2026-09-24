@@ -22,7 +22,7 @@ import { ProductoAutocompleteComponent } from '../../producto-autocomplete.compo
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
-import { alinearLineasCaptura, capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
+import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreakpointCambio, capturaTieneFocoEnCampo, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { compartirTicketVenta } from '../../ticket-whatsapp.util';
 import { RouterLink } from '@angular/router';
@@ -104,6 +104,7 @@ export class VentasComponent implements OnInit, OnDestroy {
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
   private focusTimer: ReturnType<typeof setTimeout> | null = null;
   private idsPreparables = new Set<number>();
+  private capturaMovil = capturaEsMovil();
 
   @ViewChild('capturaPanel') capturaPanel?: ElementRef<HTMLElement>;
   @ViewChild('listaHistorial') listaHistorial?: ElementRef<HTMLElement>;
@@ -167,6 +168,10 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   @HostListener('window:resize')
   onResizeCaptura(): void {
+    if (capturaTieneFocoEnCampo()) return;
+    const { cambio, movil } = capturaBreakpointCambio(this.capturaMovil);
+    if (!cambio) return;
+    this.capturaMovil = movil;
     this.alinearLineasViewport();
   }
 

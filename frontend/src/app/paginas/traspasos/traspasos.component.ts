@@ -11,7 +11,7 @@ import { ProductoAutocompleteComponent } from '../../producto-autocomplete.compo
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
-import { alinearLineasCaptura, capturaLineasVacias, PaginacionEstado } from '../../paginacion.util';
+import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreakpointCambio, capturaTieneFocoEnCampo, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { Traspaso, TraspasoAbono } from '../../modelos';
 import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
@@ -68,6 +68,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   private nextKey = 1;
   private pullSub?: Subscription;
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
+  private capturaMovil = capturaEsMovil();
   form = {
     fecha: this.hoyLocal(),
     personaId: null as number | null,
@@ -136,6 +137,10 @@ export class TraspasosComponent implements OnInit, OnDestroy {
 
   @HostListener('window:resize')
   onResizeViewport(): void {
+    if (capturaTieneFocoEnCampo()) return;
+    const { cambio, movil } = capturaBreakpointCambio(this.capturaMovil);
+    if (!cambio) return;
+    this.capturaMovil = movil;
     this.alinearLineasAlViewport();
   }
 

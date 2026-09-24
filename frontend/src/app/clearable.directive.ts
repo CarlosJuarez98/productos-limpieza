@@ -19,10 +19,10 @@ export class ClearableDirective implements OnDestroy {
     private el: ElementRef<HTMLInputElement>,
     private r: Renderer2
   ) {
-    queueMicrotask(() => {
-      this.ensureUi();
-      this.syncBtn();
-    });
+    // Sincrónico: si el wrap se crea en focus (microtask), mover el input
+    // enfocado en Android cierra el teclado al instante.
+    this.ensureUi();
+    this.syncBtn();
   }
 
   ngOnDestroy(): void {
@@ -52,6 +52,8 @@ export class ClearableDirective implements OnDestroy {
       return;
     }
 
+    const hadFocus = typeof document !== 'undefined' && document.activeElement === input;
+
     const wrap = this.r.createElement('div') as HTMLElement;
     this.r.addClass(wrap, 'clearable-wrap');
     parent.insertBefore(wrap, input);
@@ -78,6 +80,11 @@ export class ClearableDirective implements OnDestroy {
 
     this.mo = new MutationObserver(() => this.syncBtn());
     this.mo.observe(input, { attributes: true, attributeFilter: ['value'] });
+
+    if (hadFocus) {
+      // Reponer foco si el wrap se armó tarde (no debería, pero Android es sensible).
+      queueMicrotask(() => input.focus({ preventScroll: true }));
+    }
   }
 
   private syncBtn(): void {
@@ -95,7 +102,7 @@ export class ClearableDirective implements OnDestroy {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     this.syncBtn();
-    input.focus();
+    input.focus({ preventScroll: true });
   }
 
   private teardown(): void {
