@@ -18,6 +18,9 @@ import { capturaTieneFocoEnCampo } from './paginacion.util';
   selector: 'app-producto-autocomplete',
   standalone: true,
   imports: [CommonModule, FormsModule],
+  host: {
+    '[class.lista-abierta]': 'abierto && !!texto.trim()',
+  },
   template: `
     <div
       class="producto-ac"
@@ -83,6 +86,12 @@ import { capturaTieneFocoEnCampo } from './paginacion.util';
         display: block;
         width: 100%;
         min-width: 0;
+        position: relative;
+        z-index: 0;
+      }
+      /* Por encima del th sticky (Folio/Fecha) y de la siguiente tarjeta. */
+      :host.lista-abierta {
+        z-index: 45;
       }
       .producto-ac {
         position: relative;
@@ -91,9 +100,8 @@ import { capturaTieneFocoEnCampo } from './paginacion.util';
         width: 100%;
         min-width: 0;
       }
-      /* Solo con lista abierta: por encima de la siguiente tarjeta, no del encabezado fijo. */
       .producto-ac.abierto {
-        z-index: 2;
+        z-index: 45;
       }
       .producto-ac input {
         width: 100%;
