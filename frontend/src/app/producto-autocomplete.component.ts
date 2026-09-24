@@ -5,6 +5,7 @@ import {
   HostListener,
   Input,
   OnChanges,
+  OnDestroy,
   Output,
   SimpleChanges,
   ViewChild,
@@ -12,7 +13,6 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventarioItem } from './modelos';
-import { capturaTieneFocoEnCampo } from './paginacion.util';
 
 @Component({
   selector: 'app-producto-autocomplete',
@@ -57,7 +57,13 @@ import { capturaTieneFocoEnCampo } from './paginacion.util';
         >×</button>
       }
       @if (listaVisible) {
-        <ul class="sugerencias" [class.arriba]="abreArriba" role="listbox">
+        <ul
+          class="sugerencias"
+          [class.arriba]="abreArriba"
+          [class.fija]="listaFija"
+          [ngStyle]="listaFija ? estiloListaFija : null"
+          role="listbox"
+        >
           @for (p of filtrados; track p.id; let i = $index) {
             <li
               role="option"
@@ -159,6 +165,12 @@ import { capturaTieneFocoEnCampo } from './paginacion.util';
         border: 1px solid var(--line);
         border-radius: 0.4rem;
         box-shadow: 0 10px 24px rgba(22, 53, 40, 0.12);
+        /* fixed (móvil): escapa stacking del CTA / th Folio */
+        &.fija {
+          position: fixed;
+          right: auto;
+          z-index: 2000;
+        }
       }
       .sugerencias.arriba {
         top: auto;
@@ -191,7 +203,7 @@ import { capturaTieneFocoEnCampo } from './paginacion.util';
     `,
   ],
 })
-export class ProductoAutocompleteComponent implements OnChanges {
+export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   @Input() productos: InventarioItem[] = [];
   @Input() productoId: number | null = null;
   @Input() required = false;
@@ -212,15 +224,27 @@ export class ProductoAutocompleteComponent implements OnChanges {
   texto = '';
   abierto = false;
   abreArriba = false;
+  /** En móvil/tactil: posición fixed para no quedar bajo Folio/Guardar. */
+  listaFija = false;
+  estiloListaFija: Record<string, string> | null = null;
   /** Índice resaltado en la lista (-1 = ninguno). */
   indiceActivo = -1;
   /** Evita reabrir la lista al residual-focus tras elegir en móvil. */
   private bloqueoReabrir = false;
   private blurTimer: ReturnType<typeof setTimeout> | null = null;
+  private scrollBound = false;
+  private readonly onScrollCapture = (): void => {
+    if (this.listaVisible && this.listaFija) this.actualizarDireccion();
+  };
 
   /** Lista solo si hay búsqueda activa; no si ya quedó el producto exacto elegido. */
   get listaVisible(): boolean {
     return this.abierto && !!this.texto.trim() && !this.productoExactoSeleccionado();
+  }
+
+  ngOnDestroy(): void {
+    this.desligarScroll();
+    if (this.blurTimer != null) clearTimeout(this.blurTimer);
   }
 
   focus(): void {
@@ -322,6 +346,8 @@ export class ProductoAutocompleteComponent implements OnChanges {
     }
     this.abierto = true;
     this.actualizarDireccion();
+    this.ligarScroll();
+    setTimeout(() => this.actualizarDireccion(), 0);
   }
 
   onBlur(): void {
@@ -331,6 +357,9 @@ export class ProductoAutocompleteComponent implements OnChanges {
       if (ae && this.rootEl?.nativeElement.contains(ae)) return;
       this.abierto = false;
       this.cerrarSeleccion();
+      this.listaFija = false;
+      this.estiloListaFija = null;
+      this.desligarScroll();
     }, 160);
   }
 
@@ -341,6 +370,8 @@ export class ProductoAutocompleteComponent implements OnChanges {
     this.indiceActivo = -1;
     this.abierto = true;
     this.actualizarDireccion();
+    this.ligarScroll();
+    setTimeout(() => this.actualizarDireccion(), 0);
     const exacto = this.productos.find(
       (p) => p.nombre.toLowerCase() === value.trim().toLowerCase()
     );
@@ -361,7 +392,10 @@ export class ProductoAutocompleteComponent implements OnChanges {
     this.productoIdChange.emit(p.id);
     this.abierto = false;
     this.indiceActivo = -1;
+    this.listaFija = false;
+    this.estiloListaFija = null;
     this.bloqueoReabrir = true;
+    this.desligarScroll();
     // En móvil avanza a cantidad para que la lista no tape el siguiente campo.
     if (this.enterAvanza) {
       queueMicrotask(() => this.enterConfirmado.emit());
@@ -375,14 +409,27 @@ export class ProductoAutocompleteComponent implements OnChanges {
     if (!this.abierto) return;
     this.abierto = false;
     this.indiceActivo = -1;
+    this.listaFija = false;
+    this.estiloListaFija = null;
+    this.desligarScroll();
     this.cerrarSeleccion();
   }
 
   @HostListener('window:resize')
   alResize(): void {
-    // Teclado Android: solo cambia altura; no mover la lista ni pelear con el foco.
-    if (capturaTieneFocoEnCampo()) return;
     if (this.listaVisible) this.actualizarDireccion();
+  }
+
+  private ligarScroll(): void {
+    if (this.scrollBound || typeof document === 'undefined') return;
+    document.addEventListener('scroll', this.onScrollCapture, true);
+    this.scrollBound = true;
+  }
+
+  private desligarScroll(): void {
+    if (!this.scrollBound || typeof document === 'undefined') return;
+    document.removeEventListener('scroll', this.onScrollCapture, true);
+    this.scrollBound = false;
   }
 
   private productoExactoSeleccionado(): boolean {
@@ -403,11 +450,45 @@ export class ProductoAutocompleteComponent implements OnChanges {
     const el = this.inputEl?.nativeElement;
     if (!el) {
       this.abreArriba = false;
+      this.listaFija = false;
+      this.estiloListaFija = null;
       return;
     }
     const rect = el.getBoundingClientRect();
     const espacioAbajo = window.innerHeight - rect.bottom;
     this.abreArriba = espacioAbajo < 280 && rect.top > espacioAbajo;
+
+    // Fijo en tactil: escapa stacking de th Folio y botón Guardar.
+    const tactil =
+      typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    if (!tactil || !this.listaVisible) {
+      this.listaFija = false;
+      this.estiloListaFija = null;
+      return;
+    }
+
+    this.listaFija = true;
+    const maxH = Math.min(window.innerHeight * 0.45, 320);
+    const gap = 4;
+    if (this.abreArriba) {
+      const h = Math.max(120, Math.min(maxH, rect.top - 12));
+      this.estiloListaFija = {
+        left: `${Math.round(rect.left)}px`,
+        width: `${Math.round(rect.width)}px`,
+        top: 'auto',
+        bottom: `${Math.round(window.innerHeight - rect.top + gap)}px`,
+        maxHeight: `${Math.round(h)}px`,
+      };
+    } else {
+      const h = Math.max(120, Math.min(maxH, window.innerHeight - rect.bottom - 12));
+      this.estiloListaFija = {
+        left: `${Math.round(rect.left)}px`,
+        width: `${Math.round(rect.width)}px`,
+        top: `${Math.round(rect.bottom + gap)}px`,
+        bottom: 'auto',
+        maxHeight: `${Math.round(h)}px`,
+      };
+    }
   }
 
   private sincronizarDesdeId(): void {

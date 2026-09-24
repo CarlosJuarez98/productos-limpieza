@@ -811,16 +811,42 @@ th {
 }
 
 /*
- * Lista de productos abierta: la card tiene animation/transform (stacking context).
- * Sin elevar la card, el th sticky (Folio…) tapa las sugerencias.
+ * Lista de productos abierta:
+ * - elevar todo el panel de captura por encima del historial (th Folio sticky)
+ * - bajar el CTA Guardar (hermano DOM posterior) para que no tape la lista
  */
+.captura-panel:has(app-producto-autocomplete.lista-abierta),
+.captura-panel:has(.producto-ac.abierto),
+.panel:has(> .ticket app-producto-autocomplete.lista-abierta) {
+  position: relative;
+  z-index: 60;
+}
+
+.captura-panel:has(app-producto-autocomplete.lista-abierta) .ticket,
+.captura-panel:has(.producto-ac.abierto) .ticket {
+  position: relative;
+  z-index: 2;
+}
+
+.captura-panel:has(app-producto-autocomplete.lista-abierta) :is(.captura-actions, .lote-actions, .reparto-actions, .cta-bar-mobile),
+.captura-panel:has(.producto-ac.abierto) :is(.captura-actions, .lote-actions, .reparto-actions, .cta-bar-mobile) {
+  position: relative;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
 .linea-card:has(app-producto-autocomplete.lista-abierta),
 .linea-card:has(.producto-ac.abierto),
 .producto-campo:has(app-producto-autocomplete.lista-abierta),
-.producto-campo:has(.producto-ac.abierto),
-.campo:has(app-producto-autocomplete.lista-abierta) {
+.producto-campo:has(.producto-ac.abierto) {
   position: relative;
-  z-index: 45;
+  z-index: 3;
+}
+
+.historial-panel {
+  position: relative;
+  z-index: 1;
 }
 
 /* Celdas con color propio de columna: no las pinta el hover/estado de fila */
