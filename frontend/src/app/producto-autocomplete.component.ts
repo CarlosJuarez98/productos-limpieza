@@ -19,12 +19,12 @@ import { capturaTieneFocoEnCampo } from './paginacion.util';
   standalone: true,
   imports: [CommonModule, FormsModule],
   host: {
-    '[class.lista-abierta]': 'abierto && !!texto.trim()',
+    '[class.lista-abierta]': 'listaVisible',
   },
   template: `
     <div
       class="producto-ac"
-      [class.abierto]="abierto && !!texto.trim()"
+      [class.abierto]="listaVisible"
       #root
       (click)="$event.stopPropagation()"
     >
@@ -34,9 +34,10 @@ import { capturaTieneFocoEnCampo } from './paginacion.util';
         [ngModel]="texto"
         (ngModelChange)="onTexto($event)"
         (focus)="abrir()"
+        (blur)="onBlur()"
         (keydown)="onKeydown($event)"
         role="combobox"
-        [attr.aria-expanded]="abierto"
+        [attr.aria-expanded]="listaVisible"
         aria-autocomplete="list"
         [placeholder]="placeholder"
         [required]="required"
@@ -52,17 +53,17 @@ import { capturaTieneFocoEnCampo } from './paginacion.util';
           class="ac-clear"
           aria-label="Borrar"
           tabindex="-1"
-          (mousedown)="limpiar($event)"
+          (pointerdown)="limpiar($event)"
         >×</button>
       }
-      @if (abierto && texto.trim()) {
+      @if (listaVisible) {
         <ul class="sugerencias" [class.arriba]="abreArriba" role="listbox">
           @for (p of filtrados; track p.id; let i = $index) {
             <li
               role="option"
               [class.activo]="i === indiceActivo"
               [attr.aria-selected]="i === indiceActivo"
-              (mousedown)="elegir(p); $event.preventDefault()"
+              (pointerdown)="elegir(p); $event.preventDefault()"
               (mouseenter)="indiceActivo = i"
             >
               {{ p.nombre }}
@@ -199,7 +200,7 @@ export class ProductoAutocompleteComponent implements OnChanges {
   @Input() inputName = 'productoTexto';
   /** Extra en sugerencias: stock (inventario) o precio compra. */
   @Input() mostrarExtra: 'ninguno' | 'stock' | 'compra' = 'ninguno';
-  /** Si es true, Enter siempre avanza (no se va al buscador). */
+  /** Si es true, Enter / elegir avanza a cantidad. */
   @Input() enterAvanza = false;
   @Output() productoIdChange = new EventEmitter<number | null>();
   /** Enter con producto listo: el padre puede pasar a cantidad / siguiente fila. */
@@ -213,6 +214,14 @@ export class ProductoAutocompleteComponent implements OnChanges {
   abreArriba = false;
   /** Índice resaltado en la lista (-1 = ninguno). */
   indiceActivo = -1;
+  /** Evita reabrir la lista al residual-focus tras elegir en móvil. */
+  private bloqueoReabrir = false;
+  private blurTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Lista solo si hay búsqueda activa; no si ya quedó el producto exacto elegido. */
+  get listaVisible(): boolean {
+    return this.abierto && !!this.texto.trim() && !this.productoExactoSeleccionado();
+  }
 
   focus(): void {
     this.inputEl?.nativeElement?.focus({ preventScroll: true });
@@ -231,6 +240,7 @@ export class ProductoAutocompleteComponent implements OnChanges {
 
   limpiar(ev: Event): void {
     ev.preventDefault();
+    this.bloqueoReabrir = false;
     this.texto = '';
     this.productoId = null;
     this.productoIdChange.emit(null);
@@ -244,14 +254,14 @@ export class ProductoAutocompleteComponent implements OnChanges {
     if (ev.key === 'ArrowDown') {
       if (!this.texto.trim()) return;
       ev.preventDefault();
-      this.abrir();
+      this.abrir(true);
       if (list.length === 0) return;
       this.indiceActivo = this.indiceActivo < list.length - 1 ? this.indiceActivo + 1 : 0;
       this.scrollActivo();
       return;
     }
     if (ev.key === 'ArrowUp') {
-      if (!this.abierto || list.length === 0) return;
+      if (!this.listaVisible || list.length === 0) return;
       ev.preventDefault();
       this.indiceActivo = this.indiceActivo > 0 ? this.indiceActivo - 1 : list.length - 1;
       this.scrollActivo();
@@ -271,15 +281,15 @@ export class ProductoAutocompleteComponent implements OnChanges {
 
   onEnter(ev: Event): void {
     const ke = ev as KeyboardEvent;
-    if (this.abierto && this.filtrados.length > 0) {
+    if (this.listaVisible && this.filtrados.length > 0) {
       ke.preventDefault();
       const idx = this.indiceActivo >= 0 ? this.indiceActivo : 0;
       this.elegir(this.filtrados[idx]);
-      this.enterConfirmado.emit();
       return;
     }
     if (this.enterAvanza || this.productoId != null || this.texto.trim()) {
       ke.preventDefault();
+      this.abierto = false;
       this.cerrarSeleccion();
       this.enterConfirmado.emit();
     }
@@ -299,17 +309,38 @@ export class ProductoAutocompleteComponent implements OnChanges {
     }
   }
 
-  abrir(): void {
+  /** @param forzar ignora bloqueo / match exacto (flechas). */
+  abrir(forzar = false): void {
     if (this.disabled) return;
+    if (this.bloqueoReabrir) {
+      this.bloqueoReabrir = false;
+      return;
+    }
+    if (!forzar && this.productoExactoSeleccionado()) {
+      this.abierto = false;
+      return;
+    }
     this.abierto = true;
     this.actualizarDireccion();
   }
 
+  onBlur(): void {
+    if (this.blurTimer != null) clearTimeout(this.blurTimer);
+    this.blurTimer = setTimeout(() => {
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae && this.rootEl?.nativeElement.contains(ae)) return;
+      this.abierto = false;
+      this.cerrarSeleccion();
+    }, 160);
+  }
+
   onTexto(value: string): void {
     if (this.disabled) return;
+    this.bloqueoReabrir = false;
     this.texto = value;
     this.indiceActivo = -1;
-    this.abrir();
+    this.abierto = true;
+    this.actualizarDireccion();
     const exacto = this.productos.find(
       (p) => p.nombre.toLowerCase() === value.trim().toLowerCase()
     );
@@ -321,15 +352,24 @@ export class ProductoAutocompleteComponent implements OnChanges {
   }
 
   elegir(p: InventarioItem): void {
+    if (this.blurTimer != null) {
+      clearTimeout(this.blurTimer);
+      this.blurTimer = null;
+    }
     this.texto = p.nombre;
     this.productoId = p.id;
     this.productoIdChange.emit(p.id);
     this.abierto = false;
     this.indiceActivo = -1;
+    this.bloqueoReabrir = true;
+    // En móvil avanza a cantidad para que la lista no tape el siguiente campo.
+    if (this.enterAvanza) {
+      queueMicrotask(() => this.enterConfirmado.emit());
+    }
   }
 
-  @HostListener('document:click', ['$event'])
-  alClickFuera(ev: MouseEvent): void {
+  @HostListener('document:pointerdown', ['$event'])
+  alPointerFuera(ev: Event): void {
     const t = ev.target as HTMLElement | null;
     if (t?.closest?.('.producto-ac')) return;
     if (!this.abierto) return;
@@ -342,7 +382,13 @@ export class ProductoAutocompleteComponent implements OnChanges {
   alResize(): void {
     // Teclado Android: solo cambia altura; no mover la lista ni pelear con el foco.
     if (capturaTieneFocoEnCampo()) return;
-    if (this.abierto) this.actualizarDireccion();
+    if (this.listaVisible) this.actualizarDireccion();
+  }
+
+  private productoExactoSeleccionado(): boolean {
+    if (this.productoId == null || !this.texto.trim()) return false;
+    const p = this.productos.find((x) => x.id === this.productoId);
+    return !!p && p.nombre.trim().toLowerCase() === this.texto.trim().toLowerCase();
   }
 
   private scrollActivo(): void {
