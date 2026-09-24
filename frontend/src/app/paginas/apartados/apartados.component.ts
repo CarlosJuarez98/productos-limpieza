@@ -19,6 +19,17 @@ import { ClearableDirective } from '../../clearable.directive';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { enfocarInput, inputsVisiblesDe, navegarCampos, programarEnfoque } from '../../captura-focus.util';
 
+/** Línea de gasto: partes sumadas (+) + monto en captura. */
+interface GastoForm {
+  key: number;
+  categoria: string;
+  /** Montos ya confirmados con el botón +. */
+  partes: number[];
+  /** Monto que se está escribiendo (entra al total aunque no pulse +). */
+  montoActual: number | null;
+  motivo: string;
+}
+
 @Component({
   selector: 'app-apartados',
   standalone: true,
@@ -44,12 +55,7 @@ export class ApartadosComponent implements OnInit {
   fechaGasto = this.hoyLocal();
 
   private nextGastoKey = 1;
-  gastos: {
-    key: number;
-    categoria: string;
-    ingreso: number | null;
-    motivo: string;
-  }[] = [];
+  gastos: GastoForm[] = [];
 
   /** Montos a repartir por código de rubro (liquida corte). */
   montos: Record<string, number | null> = {};
@@ -307,8 +313,8 @@ export class ApartadosComponent implements OnInit {
     }
 
     const incompletas = this.gastos.filter((g) => {
-      const monto = Number(g.ingreso);
-      const tieneMonto = Number.isFinite(monto) && monto > 0;
+      const monto = this.totalMontoGasto(g);
+      const tieneMonto = monto > 0;
       const tieneMotivo = !!g.motivo?.trim();
       return (tieneMonto && !tieneMotivo) || (!tieneMonto && tieneMotivo);
     });
@@ -317,10 +323,7 @@ export class ApartadosComponent implements OnInit {
       return;
     }
 
-    const lineas = this.gastos.filter((g) => {
-      const monto = Number(g.ingreso);
-      return Number.isFinite(monto) && monto > 0 && !!g.motivo?.trim();
-    });
+    const lineas = this.gastos.filter((g) => this.totalMontoGasto(g) > 0 && !!g.motivo?.trim());
     if (!lineas.length) {
       this.error = 'Indica al menos un gasto';
       return;
@@ -328,7 +331,7 @@ export class ApartadosComponent implements OnInit {
 
     const uso: Record<string, number> = {};
     for (const g of lineas) {
-      uso[g.categoria] = (uso[g.categoria] || 0) + Number(g.ingreso);
+      uso[g.categoria] = (uso[g.categoria] || 0) + this.totalMontoGasto(g);
     }
     for (const [cat, pedRaw] of Object.entries(uso)) {
       const ped = Math.round(pedRaw * 100) / 100;
@@ -346,14 +349,14 @@ export class ApartadosComponent implements OnInit {
         fecha,
         lineas: lineas.map((g) => ({
           categoria: g.categoria,
-          ingreso: Number(g.ingreso),
+          ingreso: this.totalMontoGasto(g),
           tipo: 'GASTO',
           motivo: g.motivo.trim(),
         })),
       })
       .subscribe({
         next: () => {
-          const total = Math.round(lineas.reduce((s, g) => s + Number(g.ingreso), 0) * 100) / 100;
+          const total = Math.round(lineas.reduce((s, g) => s + this.totalMontoGasto(g), 0) * 100) / 100;
           this.ok = `Se registraron ${lineas.length} gasto(s) por $${total.toFixed(2)}`;
           this.gastos = [this.nuevaGasto()];
           this.cargar();
@@ -362,18 +365,44 @@ export class ApartadosComponent implements OnInit {
       });
   }
 
-  nuevaGasto(): {
-    key: number;
-    categoria: string;
-    ingreso: number | null;
-    motivo: string;
-  } {
+  nuevaGasto(): GastoForm {
     return {
       key: this.nextGastoKey++,
       categoria: this.rubros[0]?.codigo ?? 'PRODUCTOS',
-      ingreso: null,
+      partes: [],
+      montoActual: null,
       motivo: '',
     };
+  }
+
+  /** Suma partes confirmadas + lo que hay en el input. */
+  totalMontoGasto(g: GastoForm): number {
+    const sumPartes = g.partes.reduce((s, p) => s + p, 0);
+    const actual = Number(g.montoActual);
+    const extra = Number.isFinite(actual) && actual > 0 ? actual : 0;
+    return Math.round((sumPartes + extra) * 100) / 100;
+  }
+
+  detallePartes(g: GastoForm): string {
+    const bits = g.partes.map((p) => p.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
+    const actual = Number(g.montoActual);
+    if (Number.isFinite(actual) && actual > 0) {
+      bits.push(actual.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
+    }
+    return bits.join(' + ');
+  }
+
+  /** Confirma el monto del input como parte y deja el campo listo para otro. */
+  sumarMontoGasto(g: GastoForm): void {
+    const n = Number(g.montoActual);
+    if (!Number.isFinite(n) || n <= 0) return;
+    g.partes = [...g.partes, Math.round(n * 100) / 100];
+    g.montoActual = null;
+  }
+
+  quitarUltimaParte(g: GastoForm): void {
+    if (!g.partes.length) return;
+    g.partes = g.partes.slice(0, -1);
   }
 
   agregarGasto(): void {
@@ -389,14 +418,7 @@ export class ApartadosComponent implements OnInit {
   }
 
   get totalGastosForm(): number {
-    return (
-      Math.round(
-        this.gastos.reduce((s, g) => {
-          const n = Number(g.ingreso);
-          return s + (Number.isFinite(n) && n > 0 ? n : 0);
-        }, 0) * 100
-      ) / 100
-    );
+    return Math.round(this.gastos.reduce((s, g) => s + this.totalMontoGasto(g), 0) * 100) / 100;
   }
 
   registrarReparto(): void {

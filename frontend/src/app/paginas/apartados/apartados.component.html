@@ -189,7 +189,7 @@
             }
           </header>
           <div class="gasto-card-body">
-            <label>
+            <label class="gasto-campo-sub">
               Subapartado
               <select [(ngModel)]="g.categoria" [name]="'catGasto' + g.key">
                 @for (r of rubros; track r.id) {
@@ -197,21 +197,49 @@
                 }
               </select>
             </label>
-            <label>
+            <label class="gasto-campo-monto">
               Monto
-              <div class="precio-input">
-                <span class="peso">$</span>
-                <input
-                  #gastoCampo
-                  type="text"
-                  inputmode="decimal"
-                  appClearable
-                  [(ngModel)]="g.ingreso"
-                  [name]="'montoGasto' + g.key"
-                  placeholder="0"
-                  (keydown)="onGastoNav($event)"
-                />
+              <div class="monto-con-suma">
+                <div class="precio-input">
+                  <span class="peso">$</span>
+                  <input
+                    #gastoCampo
+                    type="text"
+                    inputmode="decimal"
+                    appClearable
+                    [(ngModel)]="g.montoActual"
+                    [name]="'montoGasto' + g.key"
+                    placeholder="0"
+                    (keydown)="onGastoNav($event)"
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="monto-sumar"
+                  (click)="sumarMontoGasto(g)"
+                  title="Sumar otro monto"
+                  aria-label="Sumar otro monto"
+                >
+                  +
+                </button>
               </div>
+              @if (totalMontoGasto(g) > 0) {
+                <span class="monto-auto">
+                  Total
+                  <strong>${{ totalMontoGasto(g) | number: '1.2-2' }}</strong>
+                  @if (g.partes.length) {
+                    <span class="monto-partes">({{ detallePartes(g) }})</span>
+                    <button
+                      type="button"
+                      class="monto-deshacer"
+                      (click)="quitarUltimaParte(g)"
+                      title="Quitar último monto sumado"
+                    >
+                      deshacer
+                    </button>
+                  }
+                </span>
+              }
             </label>
             <label class="gasto-card-motivo">
               Motivo

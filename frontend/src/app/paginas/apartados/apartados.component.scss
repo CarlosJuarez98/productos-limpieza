@@ -276,8 +276,9 @@
 
 .gasto-card-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(5.5rem, 0.55fr);
-  gap: 0.55rem 0.65rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.55rem 0.75rem;
+  align-items: start;
 }
 
 .gasto-card-body label {
@@ -294,39 +295,135 @@
 }
 
 .gasto-card-body select,
+.gasto-card-body .monto-con-suma,
+.gasto-card-body .precio-input {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  box-sizing: border-box;
+}
+
+.gasto-card-body select,
 .gasto-card-body input {
   width: 100%;
   min-width: 0;
-  height: 2.35rem;
+  height: 2.5rem;
   box-sizing: border-box;
   padding: 0 0.6rem;
   border-radius: 0.55rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  font: inherit;
 }
 
 .gasto-card-body select {
   appearance: auto;
   padding-right: 1.5rem;
-  line-height: normal;
-  padding-top: 0.35rem;
-  padding-bottom: 0.35rem;
+  line-height: 1.2;
 }
 
 .gasto-card-body .precio-input {
-  height: 2.35rem;
   display: flex;
   align-items: center;
   gap: 0.2rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 0.15rem 0 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: #fff;
 }
 
-.gasto-card-body .precio-input input {
+.gasto-card-body .precio-input .peso {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.gasto-card-body .precio-input input,
+.gasto-card-body .precio-input .clearable-wrap > input {
   height: 100%;
+  border: 0 !important;
+  background: transparent;
   padding: 0 0.45rem;
   line-height: normal;
+  box-shadow: none;
+}
+
+.gasto-card-body .precio-input .clearable-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.monto-con-suma {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.monto-sumar {
+  flex: 0 0 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+  border-radius: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.monto-sumar:hover {
+  background: color-mix(in srgb, var(--accent) 18%, #fff);
+  border-color: var(--accent);
+}
+
+.monto-auto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.monto-auto strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.monto-partes {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.monto-deshacer {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 @media (max-width: 560px) {
   .gasto-card-body {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   }
 }
 
