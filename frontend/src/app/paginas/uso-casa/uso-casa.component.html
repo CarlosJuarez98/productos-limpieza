@@ -8,306 +8,297 @@
 }
 
 <div class="uso-flow">
-<section class="panel chart-panel uso-chart">
-  <button type="button" class="panel-toggle" (click)="toggleChart()" [attr.aria-expanded]="chartAbierto">
-    <h3 class="panel-titulo">Consumo por producto</h3>
-    <span class="chev">{{ chartAbierto ? '▾' : '▸' }}</span>
-  </button>
-
-  @if (chartAbierto) {
-  <div class="panel-toggle-body">
-  <div class="chart-toolbar">
-    <div class="periodo-activo-bar">
-      <span class="periodo-activo-label">{{ etiquetaPeriodoActivo }}</span>
-      @if (periodoId !== 'actual') {
-        <button type="button" class="secondary" (click)="seleccionarPeriodo('actual')">
-          Periodo actual
-        </button>
-      }
-      @if (cortesDisponibles.length) {
-        <button
-          type="button"
-          class="secondary"
-          (click)="toggleCortes()"
-          [attr.aria-expanded]="mostrarCortes"
-          [attr.aria-label]="mostrarCortes ? 'Ocultar cortes' : 'Elegir otro corte'"
-        >
-          <span class="chev" aria-hidden="true">{{ mostrarCortes ? '▾' : '▸' }}</span>
-          Cortes
-        </button>
-      }
-    </div>
-  </div>
-
-  @if (mostrarCortes && cortesDisponibles.length) {
-    <div class="periodos-bar rail-x" role="group" aria-label="Cortes">
-      @for (p of cortesDisponibles; track p.id) {
-        <button
-          type="button"
-          class="periodo-chip chip ghost"
-          [class.activo]="periodoId === p.id"
-          (click)="seleccionarPeriodo(p.id)"
-          [attr.aria-pressed]="periodoId === p.id"
-          [title]="p.rango"
-        >
-          <span class="chip-titulo">{{ p.chip }}</span>
-          <span class="chip-rango">{{ p.rango }}</span>
-        </button>
-      }
-    </div>
-  }
-
-  <div class="stats compact-stats">
-    <div class="stat">
-      <span>Gastado ({{ labelPeriodo }})</span>
-      <strong>${{ totalImporte | number: '1.2-2' }}</strong>
-    </div>
-  </div>
-
-  @if (productosDelPeriodo.length) {
-    <div
-      class="chart-bars"
-      role="img"
-      [attr.aria-label]="'Consumo por producto en ' + labelPeriodo"
+  <section class="panel chart-panel uso-chart">
+    <button
+      type="button"
+      class="panel-toggle uso-toggle"
+      (click)="toggleChart()"
+      [attr.aria-expanded]="chartAbierto"
     >
-      @for (p of productosDelPeriodo; track p.nombre + p.unidad) {
-        <div
-          class="bar-row"
-          [title]="p.nombre + ': ' + p.cantidad + ' ' + p.unidad + ' · $' + (p.importe | number: '1.2-2')"
-        >
-          <div class="bar-head">
-            <span class="bar-label">{{ p.nombre }}</span>
-            <span class="bar-meta">
-              <span class="bar-valor">{{ p.cantidad | number: '1.0-2' }} {{ p.unidad }}</span>
-              <span class="bar-importe muted">${{ p.importe | number: '1.2-2' }}</span>
-            </span>
-          </div>
-          <div class="bar-track">
-            <span
-              class="bar-fill"
-              [style.width.%]="alturaBarra(p.cantidad)"
-              [style.background]="p.color"
-            ></span>
+      <span class="uso-toggle-main">
+        <h3 class="panel-titulo">Consumo</h3>
+        <span class="uso-toggle-meta muted">{{ etiquetaPeriodoCorta }}</span>
+      </span>
+      <span class="uso-toggle-end">
+        <strong class="uso-total">${{ totalImporte | number: '1.2-2' }}</strong>
+        <span class="chev" aria-hidden="true">{{ chartAbierto ? '▾' : '▸' }}</span>
+      </span>
+    </button>
+
+    @if (chartAbierto) {
+      <div class="panel-toggle-body uso-chart-body">
+        <div class="uso-toolbar">
+          <span class="uso-periodo">{{ labelPeriodo }}</span>
+          <div class="uso-toolbar-actions">
+            @if (periodoId !== 'actual') {
+              <button type="button" class="btn-mini ghost" (click)="seleccionarPeriodo('actual')">
+                Actual
+              </button>
+            }
+            @if (cortesDisponibles.length) {
+              <button
+                type="button"
+                class="btn-mini ghost"
+                (click)="toggleCortes()"
+                [attr.aria-expanded]="mostrarCortes"
+              >
+                Cortes {{ mostrarCortes ? '▾' : '▸' }}
+              </button>
+            }
           </div>
         </div>
-      }
-    </div>
-  } @else {
-    <p class="muted vacio-mes">Sin consumo en {{ labelPeriodo }}.</p>
-  }
-  </div>
-  }
-</section>
 
-<section class="panel historial-panel" style="margin-top: 1rem" id="uso-casa-hist-top" data-pag-top>
-  <h3 class="panel-titulo">Historial</h3>
-
-  <div class="table-wrap hist-tabla">
-    <table>
-      <thead>
-        <tr>
-          <th>Fecha</th>
-          <th>Producto</th>
-          <th>Cantidad</th>
-          <th>Importe</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (m of pagHist.paginaItems; track m.id) {
-          <tr [class.editando-fila]="editandoId === m.id">
-            <td>{{ m.fecha | fechaDmY }}</td>
-            <td>{{ m.productoNombre || '—' }}</td>
-            <td class="money">
-              {{ m.cantidad | number: '1.2-2' }} {{ unidadDe(m.productoId) }}
-            </td>
-            <td class="money">${{ importeDe(m) | number: '1.2-2' }}</td>
-            <td class="actions">
-              @if (editandoId !== m.id) {
-                <button
-                  type="button"
-                  class="icon-btn"
-                  title="Editar"
-                  aria-label="Editar"
-                  (click)="editar(m)"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                    />
-                  </svg>
-                </button>
-              }
-              <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
-            </td>
-          </tr>
-          @if (editandoId === m.id) {
-            <tr class="fila-edicion">
-              <td colspan="5">
-                <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
-                  <label>
-                    Fecha
-                    <app-fecha-dia
-                      [(ngModel)]="formEdit.fecha"
-                      name="editFecha"
-                      [max]="fechaMax"
-                      [required]="true"
-                      ariaLabel="Fecha"
-                    />
-                  </label>
-                  <label>
-                    Producto
-                    <app-producto-autocomplete
-                      [productos]="productos"
-                      [productoId]="formEdit.productoId"
-                      (productoIdChange)="formEdit.productoId = $event"
-                      [required]="true"
-                    />
-                  </label>
-                  <label>
-                    Cantidad
-                    <div class="cant-wrap">
-                      <input
-                        type="text"
-                        inputmode="decimal"
-                        appClearable
-                        [(ngModel)]="formEdit.cantidad"
-                        name="editCant"
-                        placeholder="0"
-                        required
-                      />
-                      <span class="unidad">{{ unidadDe(formEdit.productoId) }}</span>
-                    </div>
-                  </label>
-                  <div class="edicion-actions">
-                    <button type="submit" [disabled]="guardandoEdit">
-                      {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
-                    </button>
-                    <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
-                  </div>
-                </form>
-                @if (errorEdit) {
-                  <p class="error">{{ errorEdit }}</p>
-                }
-              </td>
-            </tr>
-          }
-        } @empty {
-          <tr>
-            <td colspan="5" class="muted">Sin movimientos en este periodo.</td>
-          </tr>
+        @if (mostrarCortes && cortesDisponibles.length) {
+          <div class="periodos-bar rail-x" role="group" aria-label="Cortes">
+            @for (p of cortesDisponibles; track p.id) {
+              <button
+                type="button"
+                class="periodo-chip"
+                [class.activo]="periodoId === p.id"
+                (click)="seleccionarPeriodo(p.id)"
+                [attr.aria-pressed]="periodoId === p.id"
+                [title]="p.rango"
+              >
+                {{ p.chip }}
+              </button>
+            }
+          </div>
         }
-      </tbody>
-    </table>
-  </div>
 
-  @if (editandoId != null) {
-    <div class="hist-edicion-movil">
-      <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
-        <label>
-          Fecha
-          <app-fecha-dia
-            [(ngModel)]="formEdit.fecha"
-            name="editFechaMovil"
-            [max]="fechaMax"
-            [required]="true"
-            ariaLabel="Fecha"
-          />
-        </label>
-        <label>
-          Producto
-          <app-producto-autocomplete
-            [productos]="productos"
-            [productoId]="formEdit.productoId"
-            (productoIdChange)="formEdit.productoId = $event"
-            [required]="true"
-          />
-        </label>
-        <label>
-          Cantidad
-          <div class="cant-wrap">
-            <input
-              type="text"
-              inputmode="decimal"
-              appClearable
-              [(ngModel)]="formEdit.cantidad"
-              name="editCantMovil"
-              placeholder="0"
-              required
-            />
-            <span class="unidad">{{ unidadDe(formEdit.productoId) }}</span>
+        @if (productosDelPeriodo.length) {
+          <div
+            class="chart-bars"
+            role="img"
+            [attr.aria-label]="'Consumo por producto en ' + labelPeriodo"
+          >
+            @for (p of productosDelPeriodo; track p.nombre + p.unidad) {
+              <div
+                class="bar-row"
+                [title]="p.nombre + ': ' + p.cantidad + ' ' + p.unidad + ' · $' + (p.importe | number: '1.2-2')"
+              >
+                <div class="bar-head">
+                  <span class="bar-label">{{ p.nombre }}</span>
+                  <span class="bar-meta">
+                    {{ p.cantidad | number: '1.0-2' }} {{ p.unidad }}
+                    <span class="muted">·</span>
+                    ${{ p.importe | number: '1.2-2' }}
+                  </span>
+                </div>
+                <div class="bar-track">
+                  <span
+                    class="bar-fill"
+                    [style.width.%]="alturaBarra(p.cantidad)"
+                    [style.background]="p.color"
+                  ></span>
+                </div>
+              </div>
+            }
           </div>
-        </label>
-        <div class="edicion-actions">
-          <button type="submit" [disabled]="guardandoEdit">
-            {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
-          </button>
-          <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
-        </div>
-      </form>
-      @if (errorEdit) {
-        <p class="error">{{ errorEdit }}</p>
-      }
-    </div>
-  }
-
-  <ul class="hist-cards">
-    @for (m of pagHist.paginaItems; track m.id; let idx = $index) {
-      <li [style.--i]="idx" [class.editando-card]="editandoId === m.id">
-        <div class="item-meta">
-          <span>{{ m.fecha | fechaDmY }}</span>
-          <span class="item-tag">{{ m.cantidad | number: '1.2-2' }} {{ unidadDe(m.productoId) }}</span>
-        </div>
-        <p class="item-motivo">{{ m.productoNombre || '—' }}</p>
-        <div class="item-fila">
-          <strong class="money">${{ importeDe(m) | number: '1.2-2' }}</strong>
-          <div class="acciones">
-            <button
-              type="button"
-              class="icono"
-              title="Editar"
-              aria-label="Editar"
-              (click)="editar(m)"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33h-.5v-.5l9.06-9.06.5.5L5.92 19.58zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="icono peligro"
-              title="Eliminar"
-              aria-label="Eliminar"
-              (click)="eliminar(m.id)"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M6 6l12 12M18 6L6 18"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </li>
-    } @empty {
-      <li class="vacio muted">Sin movimientos en este periodo.</li>
+        } @else {
+          <p class="muted vacio-mes">Sin consumo en este periodo.</p>
+        }
+      </div>
     }
-  </ul>
+  </section>
 
-  <app-paginador
-    [total]="pagHist.total"
-    [pagina]="pagHist.pagina"
-    [pageSize]="pagHist.pageSize"
-    ariaLabel="Páginas de historial uso en casa"
-    scrollAncla="#uso-casa-hist-top"
-    (prev)="pagHist.anterior()"
-    (next)="pagHist.siguiente()"
-  />
-</section>
+  <section class="panel historial-panel" id="uso-casa-hist-top" data-pag-top>
+    <button
+      type="button"
+      class="panel-toggle uso-toggle"
+      (click)="historialAbierto = !historialAbierto"
+      [attr.aria-expanded]="historialAbierto"
+    >
+      <span class="uso-toggle-main">
+        <h3 class="panel-titulo">Historial</h3>
+        <span class="uso-toggle-meta muted">{{ pagHist.total }} mov.</span>
+      </span>
+      <span class="chev" aria-hidden="true">{{ historialAbierto ? '▾' : '▸' }}</span>
+    </button>
+
+    @if (historialAbierto) {
+      <div class="panel-toggle-body">
+        <div class="table-wrap hist-tabla">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Importe</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of pagHist.paginaItems; track m.id) {
+                <tr [class.editando-fila]="editandoId === m.id">
+                  <td>{{ m.fecha | fechaDmY }}</td>
+                  <td>{{ m.productoNombre || '—' }}</td>
+                  <td class="money">
+                    {{ m.cantidad | number: '1.2-2' }} {{ unidadDe(m.productoId) }}
+                  </td>
+                  <td class="money">${{ importeDe(m) | number: '1.2-2' }}</td>
+                  <td class="actions">
+                    @if (editandoId !== m.id) {
+                      <button
+                        type="button"
+                        class="icon-btn"
+                        title="Editar"
+                        aria-label="Editar"
+                        (click)="editar(m)"
+                      >
+                        ✎
+                      </button>
+                    }
+                    <button type="button" class="danger" (click)="eliminar(m.id)" title="Eliminar">×</button>
+                  </td>
+                </tr>
+                @if (editandoId === m.id) {
+                  <tr class="fila-edicion">
+                    <td colspan="5">
+                      <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+                        <label>
+                          Fecha
+                          <app-fecha-dia
+                            [(ngModel)]="formEdit.fecha"
+                            name="editFecha"
+                            [max]="fechaMax"
+                            [required]="true"
+                            ariaLabel="Fecha"
+                          />
+                        </label>
+                        <label>
+                          Producto
+                          <app-producto-autocomplete
+                            [productos]="productos"
+                            [productoId]="formEdit.productoId"
+                            (productoIdChange)="formEdit.productoId = $event"
+                            [required]="true"
+                          />
+                        </label>
+                        <label>
+                          Cantidad
+                          <div class="cant-wrap">
+                            <input
+                              type="text"
+                              inputmode="decimal"
+                              appSoloNumeros
+                              appClearable
+                              [(ngModel)]="formEdit.cantidad"
+                              name="editCant"
+                              placeholder="0"
+                              required
+                            />
+                            <span class="unidad">{{ unidadDe(formEdit.productoId) }}</span>
+                          </div>
+                        </label>
+                        <div class="edicion-actions">
+                          <button type="submit" [disabled]="guardandoEdit">
+                            {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
+                          </button>
+                          <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
+                        </div>
+                      </form>
+                      @if (errorEdit) {
+                        <p class="error">{{ errorEdit }}</p>
+                      }
+                    </td>
+                  </tr>
+                }
+              } @empty {
+                <tr>
+                  <td colspan="5" class="muted">Sin movimientos en este periodo.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (editandoId != null) {
+          <div class="hist-edicion-movil">
+            <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+              <label>
+                Fecha
+                <app-fecha-dia
+                  [(ngModel)]="formEdit.fecha"
+                  name="editFechaMovil"
+                  [max]="fechaMax"
+                  [required]="true"
+                  ariaLabel="Fecha"
+                />
+              </label>
+              <label>
+                Producto
+                <app-producto-autocomplete
+                  [productos]="productos"
+                  [productoId]="formEdit.productoId"
+                  (productoIdChange)="formEdit.productoId = $event"
+                  [required]="true"
+                />
+              </label>
+              <label>
+                Cantidad
+                <div class="cant-wrap">
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    appSoloNumeros
+                    appClearable
+                    [(ngModel)]="formEdit.cantidad"
+                    name="editCantMovil"
+                    placeholder="0"
+                    required
+                  />
+                  <span class="unidad">{{ unidadDe(formEdit.productoId) }}</span>
+                </div>
+              </label>
+              <div class="edicion-actions">
+                <button type="submit" [disabled]="guardandoEdit">
+                  {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
+                </button>
+                <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
+              </div>
+            </form>
+            @if (errorEdit) {
+              <p class="error">{{ errorEdit }}</p>
+            }
+          </div>
+        }
+
+        <ul class="hist-cards">
+          @for (m of pagHist.paginaItems; track m.id; let idx = $index) {
+            <li [style.--i]="idx" [class.editando-card]="editandoId === m.id">
+              <div class="item-meta">
+                <span>{{ m.fecha | fechaDmY }}</span>
+                <span class="item-tag">{{ m.cantidad | number: '1.2-2' }} {{ unidadDe(m.productoId) }}</span>
+              </div>
+              <p class="item-motivo">{{ m.productoNombre || '—' }}</p>
+              <div class="item-fila">
+                <strong class="money">${{ importeDe(m) | number: '1.2-2' }}</strong>
+                <div class="acciones">
+                  <button type="button" class="icon-btn" title="Editar" aria-label="Editar" (click)="editar(m)">
+                    ✎
+                  </button>
+                  <button type="button" class="danger" title="Eliminar" aria-label="Eliminar" (click)="eliminar(m.id)">
+                    ×
+                  </button>
+                </div>
+              </div>
+            </li>
+          } @empty {
+            <li class="vacio muted">Sin movimientos en este periodo.</li>
+          }
+        </ul>
+
+        <app-paginador
+          [total]="pagHist.total"
+          [pagina]="pagHist.pagina"
+          [pageSize]="pagHist.pageSize"
+          ariaLabel="Páginas de historial uso en casa"
+          scrollAncla="#uso-casa-hist-top"
+          (prev)="pagHist.anterior()"
+          (next)="pagHist.siguiente()"
+        />
+      </div>
+    }
+  </section>
 </div>

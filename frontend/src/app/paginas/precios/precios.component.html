@@ -16,7 +16,20 @@
     </label>
   </div>
 
-  <h3 id="precios-actuales-top" data-pag-top>Precios actuales</h3>
+  <button
+    type="button"
+    class="panel-toggle"
+    id="precios-actuales-top"
+    data-pag-top
+    (click)="actualesAbierto = !actualesAbierto"
+    [attr.aria-expanded]="actualesAbierto"
+  >
+    <h3 class="panel-titulo">Precios actuales</h3>
+    <span class="chev" aria-hidden="true">{{ actualesAbierto ? '▾' : '▸' }}</span>
+  </button>
+
+  @if (actualesAbierto) {
+  <div class="panel-toggle-body">
   <div class="table-wrap hist-tabla">
     <table>
       <thead>
@@ -78,10 +91,25 @@
     (prev)="pagActuales.anterior()"
     (next)="pagActuales.siguiente()"
   />
+  </div>
+  }
 </section>
 
 <section class="panel" style="margin-top: 1rem">
-  <h3 id="precios-hist-top" data-pag-top>Historial</h3>
+  <button
+    type="button"
+    class="panel-toggle"
+    id="precios-hist-top"
+    data-pag-top
+    (click)="historialAbierto = !historialAbierto"
+    [attr.aria-expanded]="historialAbierto"
+  >
+    <h3 class="panel-titulo">Historial</h3>
+    <span class="chev" aria-hidden="true">{{ historialAbierto ? '▾' : '▸' }}</span>
+  </button>
+
+  @if (historialAbierto) {
+  <div class="panel-toggle-body">
   <div class="table-wrap hist-tabla">
     <table>
       <thead>
@@ -146,4 +174,6 @@
     (prev)="pagAnteriores.anterior()"
     (next)="pagAnteriores.siguiente()"
   />
+  </div>
+  }
 </section>

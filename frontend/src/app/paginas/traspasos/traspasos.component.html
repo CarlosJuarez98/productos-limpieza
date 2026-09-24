@@ -120,10 +120,6 @@
           />
         </label>
       }
-      <label>
-        Nota
-        <input appClearable [(ngModel)]="form.nota" name="nota" (ngModelChange)="programarBorrador()" />
-      </label>
       <label class="total-meta">
         Total
         <input [value]="'$' + (totalEstimado | number: '1.2-2')" disabled />
@@ -379,10 +375,6 @@
                 />
               </label>
             }
-            <label class="edit-nota">
-              Nota
-              <input appClearable [(ngModel)]="formEdit.nota" name="editNota" />
-            </label>
           </div>
 
           <div class="edit-lineas">

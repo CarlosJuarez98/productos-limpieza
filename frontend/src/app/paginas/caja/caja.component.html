@@ -450,11 +450,11 @@
     </button>
   </form>
   @if (cortesAnteriores.length) {
-    <div class="cortes-hist">
+    <div class="cortes-hist" id="caja-cortes-hist">
       <button
         type="button"
         class="secondary"
-        (click)="mostrarCortes = !mostrarCortes"
+        (click)="toggleCortesAnteriores()"
         [attr.aria-expanded]="mostrarCortes"
         [attr.aria-label]="mostrarCortes ? 'Ocultar cortes anteriores' : 'Ver cortes anteriores'"
       >
@@ -462,11 +462,13 @@
         Cortes anteriores
       </button>
       @if (mostrarCortes) {
-        <div class="cortes-lista">
+        <p class="muted hint cortes-lista-hint">Elige un corte:</p>
+        <div class="cortes-lista" id="caja-cortes-lista" role="listbox" aria-label="Fechas de corte">
           @for (f of cortesAnteriores; track f; let i = $index) {
             <button
               type="button"
               class="corte-chip"
+              [attr.data-corte]="f"
               [class.ultimo]="i === 0"
               [class.activo]="corteSeleccionado === f"
               (click)="consultarCorte(f)"
@@ -479,7 +481,7 @@
           <p class="muted hint">Cargando corte…</p>
         }
         @if (detalleCorte && !cargandoCorte) {
-          <div class="corte-detalle">
+          <div class="corte-detalle" id="caja-corte-detalle">
             <h4>
               Corte {{ detalleCorte.fechaCorte | fechaDmY }}
               <span class="muted">

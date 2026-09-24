@@ -18,6 +18,7 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { AutoHideDirective } from '../../auto-hide.directive';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 
 interface ProductoPeriodo {
   productoId: number | null;
@@ -66,6 +67,7 @@ const INICIO_HISTORICO = '2025-10-29';
     FechaDmYPipe,
     FechaDiaComponent,
     ClearableDirective,
+    SoloNumerosDirective,
     PaginadorComponent,
     AutoHideDirective,
   ],
@@ -86,6 +88,7 @@ export class UsoCasaComponent implements OnInit, OnDestroy {
   periodoId = 'actual';
   mostrarCortes = false;
   chartAbierto = true;
+  historialAbierto = false;
   editandoId: number | null = null;
   formEdit = {
     fecha: this.hoyLocal(),
@@ -197,6 +200,12 @@ export class UsoCasaComponent implements OnInit, OnDestroy {
     if (!p) return '';
     if (p.id === 'actual') return `Periodo actual · ${p.rango}`;
     return `Corte ${p.chip} · ${p.rango}`;
+  }
+
+  get etiquetaPeriodoCorta(): string {
+    const p = this.periodoActivo;
+    if (!p) return '';
+    return p.id === 'actual' ? 'Periodo actual' : `Corte ${p.chip}`;
   }
 
   seleccionarPeriodo(id: string): void {

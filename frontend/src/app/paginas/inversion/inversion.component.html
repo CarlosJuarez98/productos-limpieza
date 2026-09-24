@@ -69,7 +69,18 @@
 }
 
 <section class="panel" style="margin-top: 1rem" id="inv-inicial-top" data-pag-top>
-  <h3>Productos de la inversión inicial</h3>
+  <button
+    type="button"
+    class="panel-toggle"
+    (click)="productosInicialesAbierto = !productosInicialesAbierto"
+    [attr.aria-expanded]="productosInicialesAbierto"
+  >
+    <h3 class="panel-titulo">Productos de la inversión inicial</h3>
+    <span class="chev" aria-hidden="true">{{ productosInicialesAbierto ? '▾' : '▸' }}</span>
+  </button>
+
+  @if (productosInicialesAbierto) {
+  <div class="panel-toggle-body">
   <div class="table-wrap hist-tabla">
     <table>
       <thead>
@@ -157,10 +168,23 @@
     (prev)="pagProductos.anterior()"
     (next)="pagProductos.siguiente()"
   />
+  </div>
+  }
 </section>
 
 <section class="panel" style="margin-top: 1rem" id="inv-infra-top" data-pag-top>
-  <h3>Inversión en infraestructura</h3>
+  <button
+    type="button"
+    class="panel-toggle"
+    (click)="infraAbierto = !infraAbierto"
+    [attr.aria-expanded]="infraAbierto"
+  >
+    <h3 class="panel-titulo">Inversión en infraestructura</h3>
+    <span class="chev" aria-hidden="true">{{ infraAbierto ? '▾' : '▸' }}</span>
+  </button>
+
+  @if (infraAbierto) {
+  <div class="panel-toggle-body">
   <form class="form-grid form-infra" (ngSubmit)="guardarInfra()">
     <label>
       Concepto
@@ -173,6 +197,7 @@
         <input
           type="text"
           inputmode="decimal"
+          appSoloNumeros
           appClearable
           [(ngModel)]="form.monto"
           name="montoInfra"
@@ -252,4 +277,6 @@
     (prev)="pagInfra.anterior()"
     (next)="pagInfra.siguiente()"
   />
+  </div>
+  }
 </section>

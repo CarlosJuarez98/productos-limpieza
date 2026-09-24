@@ -137,6 +137,7 @@
               #montoApartar
               type="text"
               inputmode="decimal"
+              appSoloNumeros
               appClearable
               [ngModel]="montos[r.codigo]"
               (input)="onMontoInput(r.codigo, $event)"
@@ -199,20 +200,19 @@
             </label>
             <label class="gasto-campo-monto">
               Monto
-              <div class="monto-con-suma">
-                <div class="precio-input">
-                  <span class="peso">$</span>
-                  <input
-                    #gastoCampo
-                    type="text"
+              <div class="precio-input monto-con-suma">
+                <span class="peso">$</span>
+                <input
+                  #gastoCampo
+                  type="text"
                     inputmode="decimal"
+                    appSoloNumeros
                     appClearable
                     [(ngModel)]="g.montoActual"
-                    [name]="'montoGasto' + g.key"
-                    placeholder="0"
-                    (keydown)="onGastoNav($event)"
-                  />
-                </div>
+                  [name]="'montoGasto' + g.key"
+                  placeholder="0"
+                  (keydown)="onGastoNav($event)"
+                />
                 <button
                   type="button"
                   class="monto-sumar"
@@ -280,165 +280,189 @@
 </div>
 
 <section class="panel registros-panel">
-  <h3>Registros</h3>
-  <div class="registros-bloques">
-    @for (bloque of bloquesRegistros; track bloque.tipo) {
-      <div class="registro-bloque" [class.es-gasto]="bloque.tipo === 'GASTO'">
-        <header class="bloque-head">
-          <h4>{{ bloque.titulo }}</h4>
-          <strong class="bloque-total">${{ totalBloque(bloque.tipo) | number: '1.2-2' }}</strong>
-        </header>
+  <button
+    type="button"
+    class="panel-toggle"
+    (click)="toggleRegistros()"
+    [attr.aria-expanded]="registrosAbierto"
+  >
+    <h3 class="panel-titulo">Registros</h3>
+    <span class="chev" aria-hidden="true">{{ registrosAbierto ? '▾' : '▸' }}</span>
+  </button>
 
-        <div
-          class="chart-bars"
-          role="img"
-          [attr.aria-label]="bloque.titulo + ' por categoría'"
-        >
-          @for (cat of rubros; track cat.id) {
-            <div
-              class="bar-col"
-              [class.vacio]="totalColumna(cat.codigo, bloque.tipo) <= 0"
-            >
-              <span
-                class="bar-valor"
-                [class.oculto]="totalColumna(cat.codigo, bloque.tipo) <= 0"
+  @if (registrosAbierto) {
+    <div class="panel-toggle-body registros-bloques">
+      @for (bloque of bloquesRegistros; track bloque.tipo) {
+        <div class="registro-bloque" [class.es-gasto]="bloque.tipo === 'GASTO'">
+          <button
+            type="button"
+            class="panel-toggle bloque-toggle"
+            (click)="toggleBloqueRegistros(bloque.tipo)"
+            [attr.aria-expanded]="bloqueAbierto(bloque.tipo)"
+          >
+            <h4>{{ bloque.titulo }}</h4>
+            <span class="bloque-toggle-end">
+              <strong class="bloque-total">${{ totalBloque(bloque.tipo) | number: '1.2-2' }}</strong>
+              <span class="chev" aria-hidden="true">{{ bloqueAbierto(bloque.tipo) ? '▾' : '▸' }}</span>
+            </span>
+          </button>
+
+          @if (bloqueAbierto(bloque.tipo)) {
+            <div class="panel-toggle-body bloque-body">
+              <div
+                class="chart-bars"
+                role="img"
+                [attr.aria-label]="bloque.titulo + ' por categoría'"
               >
-                ${{ totalColumna(cat.codigo, bloque.tipo) | number: '1.0-0' }}
-              </span>
-              <span class="bar-track">
-                <span
-                  class="bar-fill"
-                  [class.gasto-fill]="bloque.tipo === 'GASTO'"
-                  [style.height.%]="alturaBarra(bloque.tipo, cat.codigo)"
-                ></span>
-              </span>
-              <span class="bar-label">{{ cat.nombre }}</span>
-            </div>
-          }
-        </div>
-
-        <div class="bloque-cols">
-          @for (cat of rubros; track cat.id) {
-            <div
-              class="registro-col"
-              [attr.id]="'apartado-' + cat.codigo + '-' + bloque.tipo"
-              data-pag-top
-            >
-              <h5>
-                {{ cat.nombre }}
-                <span class="saldo-inline"
-                  >${{ totalColumna(cat.codigo, bloque.tipo) | number: '1.2-2' }}</span
-                >
-              </h5>
-              <div class="table-wrap hist-tabla">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      @if (bloque.tipo === 'INGRESO') {
-                        <th>Ingreso</th>
-                      } @else {
-                        <th>Monto</th>
-                        <th>Motivo</th>
-                      }
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (a of pagMov(cat.codigo, bloque.tipo).paginaItems; track a.id) {
-                      <tr [class.editando-fila]="editandoId === a.id">
-                        <td>{{ a.fecha | fechaDmY }}</td>
-                        <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
-                        @if (bloque.tipo === 'GASTO') {
-                          <td class="motivo">{{ a.motivo }}</td>
-                        }
-                        <td class="actions">
-                          <button type="button" class="icon-btn" title="Editar" (click)="editar(a)">✎</button>
-                          <button type="button" class="danger" (click)="eliminar(a.id)" title="Eliminar">×</button>
-                        </td>
-                      </tr>
-                      @if (editandoId === a.id) {
-                        <tr class="fila-edicion">
-                          <td [attr.colspan]="bloque.tipo === 'GASTO' ? 4 : 3">
-                            <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
-                              <label>
-                                Fecha
-                                <app-fecha-dia
-                                  [(ngModel)]="formEdit.fecha"
-                                  [name]="'editFecha' + a.id"
-                                  [max]="hoyLocal()"
-                                  [required]="true"
-                                  ariaLabel="Fecha del movimiento"
-                                />
-                              </label>
-                              <label>
-                                Apartado
-                                <select [(ngModel)]="formEdit.categoria" [name]="'editCat' + a.id" required>
-                                  @for (r of rubros; track r.id) {
-                                    <option [value]="r.codigo">{{ r.nombre }}</option>
-                                  }
-                                </select>
-                              </label>
-                              <label>
-                                Monto
-                                <div class="precio-input">
-                                  <span class="peso">$</span>
-                                  <input
-                                    type="text"
-                                    inputmode="decimal"
-                                    appClearable
-                                    [(ngModel)]="formEdit.ingreso"
-                                    [name]="'editMonto' + a.id"
-                                    required
-                                  />
-                                </div>
-                              </label>
-                              @if (formEdit.tipo === 'GASTO') {
-                                <label>
-                                  Motivo
-                                  <input
-                                    appClearable
-                                    [(ngModel)]="formEdit.motivo"
-                                    [name]="'editMotivo' + a.id"
-                                  />
-                                </label>
-                              }
-                              <div class="reparto-actions">
-                                <button type="submit" [disabled]="guardandoEdit">Guardar</button>
-                                <button type="button" class="btn-mini ghost" (click)="cancelarEdicion()">
-                                  Cancelar
-                                </button>
-                              </div>
-                            </form>
-                            @if (errorEdit) {
-                              <p class="error">{{ errorEdit }}</p>
-                            }
-                          </td>
-                        </tr>
-                      }
-                    } @empty {
-                      <tr>
-                        <td [attr.colspan]="bloque.tipo === 'GASTO' ? 4 : 3" class="muted">
-                          Sin registros
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
+                @for (cat of rubros; track cat.id) {
+                  <div
+                    class="bar-col"
+                    [class.vacio]="totalColumna(cat.codigo, bloque.tipo) <= 0"
+                  >
+                    <span
+                      class="bar-valor"
+                      [class.oculto]="totalColumna(cat.codigo, bloque.tipo) <= 0"
+                    >
+                      ${{ totalColumna(cat.codigo, bloque.tipo) | number: '1.0-0' }}
+                    </span>
+                    <span class="bar-track">
+                      <span
+                        class="bar-fill"
+                        [class.gasto-fill]="bloque.tipo === 'GASTO'"
+                        [style.height.%]="alturaBarra(bloque.tipo, cat.codigo)"
+                      ></span>
+                    </span>
+                    <span class="bar-label">{{ cat.nombre }}</span>
+                  </div>
+                }
               </div>
-              <app-paginador
-                [total]="pagMov(cat.codigo, bloque.tipo).total"
-                [pagina]="pagMov(cat.codigo, bloque.tipo).pagina"
-                [pageSize]="pagMov(cat.codigo, bloque.tipo).pageSize"
-                [ariaLabel]="'Páginas ' + bloque.titulo + ' ' + cat.nombre"
-                [scrollAncla]="'#apartado-' + cat.codigo + '-' + bloque.tipo"
-                (prev)="pagMov(cat.codigo, bloque.tipo).anterior()"
-                (next)="pagMov(cat.codigo, bloque.tipo).siguiente()"
-              />
+
+              <div class="bloque-cols">
+                @for (cat of rubros; track cat.id) {
+                  <div
+                    class="registro-col"
+                    [attr.id]="'apartado-' + cat.codigo + '-' + bloque.tipo"
+                    data-pag-top
+                  >
+                    <h5>
+                      {{ cat.nombre }}
+                      <span class="saldo-inline"
+                        >${{ totalColumna(cat.codigo, bloque.tipo) | number: '1.2-2' }}</span
+                      >
+                    </h5>
+                    <div class="table-wrap hist-tabla">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Fecha</th>
+                            @if (bloque.tipo === 'INGRESO') {
+                              <th>Ingreso</th>
+                            } @else {
+                              <th>Monto</th>
+                              <th>Motivo</th>
+                            }
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (a of pagMov(cat.codigo, bloque.tipo).paginaItems; track a.id) {
+                            <tr [class.editando-fila]="editandoId === a.id">
+                              <td>{{ a.fecha | fechaDmY }}</td>
+                              <td class="money">${{ a.ingreso | number: '1.2-2' }}</td>
+                              @if (bloque.tipo === 'GASTO') {
+                                <td class="motivo">{{ a.motivo }}</td>
+                              }
+                              <td class="actions">
+                                <button type="button" class="icon-btn" title="Editar" (click)="editar(a)">✎</button>
+                                <button type="button" class="danger" (click)="eliminar(a.id)" title="Eliminar">×</button>
+                              </td>
+                            </tr>
+                            @if (editandoId === a.id) {
+                              <tr class="fila-edicion">
+                                <td [attr.colspan]="bloque.tipo === 'GASTO' ? 4 : 3">
+                                  <form class="form-grid form-edicion" (ngSubmit)="guardarEdicion()">
+                                    <label>
+                                      Fecha
+                                      <app-fecha-dia
+                                        [(ngModel)]="formEdit.fecha"
+                                        [name]="'editFecha' + a.id"
+                                        [max]="hoyLocal()"
+                                        [required]="true"
+                                        ariaLabel="Fecha del movimiento"
+                                      />
+                                    </label>
+                                    <label>
+                                      Apartado
+                                      <select [(ngModel)]="formEdit.categoria" [name]="'editCat' + a.id" required>
+                                        @for (r of rubros; track r.id) {
+                                          <option [value]="r.codigo">{{ r.nombre }}</option>
+                                        }
+                                      </select>
+                                    </label>
+                                    <label>
+                                      Monto
+                                      <div class="precio-input">
+                                        <span class="peso">$</span>
+                                        <input
+                                          type="text"
+                                          inputmode="decimal"
+                                          appSoloNumeros
+                                          appClearable
+                                          [(ngModel)]="formEdit.ingreso"
+                                          [name]="'editMonto' + a.id"
+                                          required
+                                        />
+                                      </div>
+                                    </label>
+                                    @if (formEdit.tipo === 'GASTO') {
+                                      <label>
+                                        Motivo
+                                        <input
+                                          appClearable
+                                          [(ngModel)]="formEdit.motivo"
+                                          [name]="'editMotivo' + a.id"
+                                        />
+                                      </label>
+                                    }
+                                    <div class="reparto-actions">
+                                      <button type="submit" [disabled]="guardandoEdit">Guardar</button>
+                                      <button type="button" class="btn-mini ghost" (click)="cancelarEdicion()">
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                  </form>
+                                  @if (errorEdit) {
+                                    <p class="error">{{ errorEdit }}</p>
+                                  }
+                                </td>
+                              </tr>
+                            }
+                          } @empty {
+                            <tr>
+                              <td [attr.colspan]="bloque.tipo === 'GASTO' ? 4 : 3" class="muted">
+                                Sin registros
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                    <app-paginador
+                      [total]="pagMov(cat.codigo, bloque.tipo).total"
+                      [pagina]="pagMov(cat.codigo, bloque.tipo).pagina"
+                      [pageSize]="pagMov(cat.codigo, bloque.tipo).pageSize"
+                      [ariaLabel]="'Páginas ' + bloque.titulo + ' ' + cat.nombre"
+                      [scrollAncla]="'#apartado-' + cat.codigo + '-' + bloque.tipo"
+                      (prev)="pagMov(cat.codigo, bloque.tipo).anterior()"
+                      (next)="pagMov(cat.codigo, bloque.tipo).siguiente()"
+                    />
+                  </div>
+                }
+              </div>
             </div>
           }
         </div>
-      </div>
-    }
-  </div>
+      }
+    </div>
+  }
 </section>

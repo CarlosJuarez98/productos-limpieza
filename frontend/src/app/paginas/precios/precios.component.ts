@@ -35,6 +35,8 @@ export class PreciosComponent implements OnInit, OnDestroy {
   preciosAnteriores: PrecioAnterior[] = [];
   pagActuales = new PaginacionEstado<PrecioActual>();
   pagAnteriores = new PaginacionEstado<PrecioAnterior>();
+  actualesAbierto = false;
+  historialAbierto = false;
   error = '';
   private filtroTimer: ReturnType<typeof setTimeout> | null = null;
 

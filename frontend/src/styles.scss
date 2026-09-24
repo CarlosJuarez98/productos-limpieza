@@ -112,7 +112,7 @@ button {
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
 }
 
-button:hover:not(:disabled):not(.icon-btn):not(.icono):not(.clearable-x):not(.panel-toggle):not(.lista-toggle):not(.pedido-cab):not(.secondary):not(.danger):not(.modo-chip):not(.seg-btn):not(.chip):not(.ghost):not(.btn-salir):not(.bn-more):not(.btn-agregar-linea):not(.stepper-btn):not(.quitar):not(.tarjeta-btn):not(.linkish):not(.btn-mini):not(.cal-dia):not(.cal-nav):not(.rango-trigger):not(.fecha-trigger) {
+button:hover:not(:disabled):not(.icon-btn):not(.icono):not(.clearable-x):not(.panel-toggle):not(.lista-toggle):not(.pedido-cab):not(.secondary):not(.danger):not(.modo-chip):not(.seg-btn):not(.chip):not(.ghost):not(.btn-salir):not(.bn-more):not(.btn-agregar-linea):not(.stepper-btn):not(.quitar):not(.tarjeta-btn):not(.linkish):not(.btn-mini):not(.cal-dia):not(.cal-nav):not(.rango-trigger):not(.fecha-trigger):not(.monto-sumar) {
   background: color-mix(in srgb, var(--accent) 82%, #fff);
   color: #fff;
   box-shadow: 0 6px 14px rgba(28, 101, 74, 0.14);
@@ -1656,7 +1656,7 @@ button.chip.ghost:hover {
 }
 
 @media (max-width: 767px) {
-  button:not(.icon-btn):not(.icono):not(.clearable-x):not(.btn-agregar-linea):not(.linkish):not(.panel-toggle):not(.btn-guardar-filas):not(.btn-cancelar-ticket):not(.cal-dia):not(.cal-nav):not(.rango-trigger):not(.fecha-trigger) {
+  button:not(.icon-btn):not(.icono):not(.clearable-x):not(.btn-agregar-linea):not(.linkish):not(.panel-toggle):not(.btn-guardar-filas):not(.btn-cancelar-ticket):not(.cal-dia):not(.cal-nav):not(.rango-trigger):not(.fecha-trigger):not(.monto-sumar) {
     min-height: 2.75rem;
   }
 

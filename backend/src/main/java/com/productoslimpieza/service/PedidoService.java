@@ -120,18 +120,24 @@ public class PedidoService {
       BigDecimal conColchon = base.multiply(factor);
       BigDecimal faltAnte = nz(faltantes.get(p.getId())).setScale(2, RoundingMode.HALF_UP);
       UnidadVenta unidad = p.getVendePor() != null ? p.getVendePor() : UnidadVenta.LITROS;
+      boolean enCero = stock.compareTo(BigDecimal.ZERO) <= 0;
 
       BigDecimal lote = loteCompraTipico(p);
-      // Solo listar si hace falta (stock bajo el objetivo con colchón).
+      // Listar si hace falta por ritmo/colchón, o si está en cero (aunque no haya ventas recientes).
       BigDecimal holgura = conColchon.add(faltAnte).subtract(stock);
-      if (holgura.compareTo(BigDecimal.ZERO) <= 0) {
+      if (!enCero && holgura.compareTo(BigDecimal.ZERO) <= 0) {
         continue;
       }
 
       // Pedir = Con colchón redondeado ↑↓ (14.4→14, 4.8→5). No resta stock.
       BigDecimal sugerido = redondearPedirCerrado(conColchon, unidad);
       if (sugerido.compareTo(BigDecimal.ZERO) <= 0) {
-        continue;
+        if (!enCero) {
+          continue;
+        }
+        // En cero sin ventas en la ventana: mínimo 1 para que salga y se descarte a mano.
+        sugerido = BigDecimal.ONE;
+        conColchon = BigDecimal.ONE.setScale(2, RoundingMode.HALF_UP);
       }
 
       lineas.add(
@@ -164,7 +170,8 @@ public class PedidoService {
     incorporarInsumosEnLineas(lineas, alertas, productos);
 
     lineas.sort(
-        Comparator.comparing(PedidoLineaDto::productoNombre, String.CASE_INSENSITIVE_ORDER));
+        Comparator.comparing((PedidoLineaDto l) -> nz(l.stockActual()))
+            .thenComparing(PedidoLineaDto::productoNombre, String.CASE_INSENSITIVE_ORDER));
 
     return new PedidoSugeridoDto(
         ini, fin, diasObs, diasCob, pct.setScale(2, RoundingMode.HALF_UP), lineas, alertas);

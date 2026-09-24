@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -16,6 +16,7 @@ import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { ClearableDirective } from '../../clearable.directive';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { enfocarInput, inputsVisiblesDe, navegarCampos, programarEnfoque } from '../../captura-focus.util';
 
@@ -33,7 +34,16 @@ interface GastoForm {
 @Component({
   selector: 'app-apartados',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe, FechaDiaComponent, PaginadorComponent, ClearableDirective, AutoHideDirective],
+  imports: [
+    CommonModule,
+    FormsModule,
+    FechaDmYPipe,
+    FechaDiaComponent,
+    PaginadorComponent,
+    ClearableDirective,
+    SoloNumerosDirective,
+    AutoHideDirective,
+  ],
   templateUrl: './apartados.component.html',
   styleUrl: './apartados.component.scss',
 })
@@ -64,6 +74,8 @@ export class ApartadosComponent implements OnInit {
   editandoRubroId: number | null = null;
   editandoRubroNombre = '';
   adminRubrosAbierto = false;
+  registrosAbierto = true;
+  bloqueRegistrosAbierto: Record<string, boolean> = { INGRESO: false, GASTO: false };
   editandoId: number | null = null;
   errorEdit = '';
   guardandoEdit = false;
@@ -486,6 +498,18 @@ export class ApartadosComponent implements OnInit {
     }
   }
 
+  toggleRegistros(): void {
+    this.registrosAbierto = !this.registrosAbierto;
+  }
+
+  bloqueAbierto(tipo: string): boolean {
+    return this.bloqueRegistrosAbierto[tipo] !== false;
+  }
+
+  toggleBloqueRegistros(tipo: string): void {
+    this.bloqueRegistrosAbierto[tipo] = !this.bloqueAbierto(tipo);
+  }
+
   empezarEditarRubro(r: ApartadoRubro): void {
     this.editandoRubroId = r.id;
     this.editandoRubroNombre = r.nombre;
@@ -559,6 +583,17 @@ export class ApartadosComponent implements OnInit {
     this.editandoId = null;
     this.errorEdit = '';
     this.guardandoEdit = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.editandoId != null) {
+      this.cancelarEdicion();
+      return;
+    }
+    if (this.editandoRubroId != null) {
+      this.cancelarEditarRubro();
+    }
   }
 
   guardarEdicion(): void {

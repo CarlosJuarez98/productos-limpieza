@@ -114,10 +114,6 @@
   padding: 0.3rem 0.45rem;
 }
 
-.edit-meta .edit-nota {
-  grid-column: 1 / -1;
-}
-
 .edit-lineas {
   display: flex;
   flex-direction: column;
@@ -238,10 +234,6 @@
 
   .edit-meta {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .edit-meta .edit-nota {
-    grid-column: auto;
   }
 }
 

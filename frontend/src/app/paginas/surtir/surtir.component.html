@@ -23,6 +23,9 @@
       {{ cargando ? 'Calculando…' : 'Levantar pedido' }}
     </button>
   </div>
+  <p class="hint">
+    Incluye productos en cero (aunque no hayan vendido) y mira ~6 meses de ventas. Quita con × lo que no quieras.
+  </p>
 
   <div class="filtro-chips colchon-chips" role="group" aria-label="Colchón del pedido">
     <span class="colchon-etiqueta">Colchón</span>
@@ -80,6 +83,7 @@
           <input
             type="text"
             inputmode="numeric"
+            appSoloNumeros="enteros"
             [(ngModel)]="altaCantidad"
             name="altaSurtirCant"
             placeholder="0"
@@ -157,6 +161,7 @@
                   <input
                     type="text"
                     inputmode="numeric"
+                    appSoloNumeros="enteros"
                     [(ngModel)]="l.pedir"
                     [name]="'pedirL' + l.productoId"
                     (change)="onPedirChange(l)"
@@ -218,6 +223,7 @@
                 <input
                   type="text"
                   inputmode="numeric"
+                  appSoloNumeros="enteros"
                   [(ngModel)]="l.pedir"
                   [name]="'pedirLM' + l.productoId"
                   (change)="onPedirChange(l)"
@@ -288,6 +294,7 @@
                   <input
                     type="text"
                     inputmode="numeric"
+                    appSoloNumeros="enteros"
                     [(ngModel)]="l.pedir"
                     [name]="'pedirP' + l.productoId"
                     (change)="onPedirChange(l)"
@@ -349,6 +356,7 @@
                 <input
                   type="text"
                   inputmode="numeric"
+                  appSoloNumeros="enteros"
                   [(ngModel)]="l.pedir"
                   [name]="'pedirPM' + l.productoId"
                   (change)="onPedirChange(l)"
@@ -446,6 +454,7 @@
                   <input
                     type="text"
                     inputmode="numeric"
+                    appSoloNumeros="enteros"
                     appClearable
                     [(ngModel)]="altaPedidoCantidad"
                     [name]="'altaPedCant' + p.id"
@@ -478,34 +487,56 @@
                       <td colspan="7">{{ g.titulo }}</td>
                     </tr>
                     @for (r of g.items; track r.itemId) {
-                    <tr [class.warn]="faltaDe(r) > 0.001">
+                    <tr [class.warn]="faltaDe(r) > 0.001" [class.editando-pedida]="editandoPedidaId === r.itemId">
                       <td>
                         {{ r.productoNombre }}
                         <span class="muted unidad">{{ r.unidad }}</span>
                       </td>
-                      <td class="money">{{ r.pedida | number: '1.0-2' }}</td>
-                      <td class="money col-pedir">
+                      <td class="money recibo-pedida">
+                        @if (editandoPedidaId === r.itemId) {
+                          <input
+                            type="text"
+                            class="recibo-num"
+                            inputmode="numeric"
+                            appSoloNumeros="enteros"
+                            [(ngModel)]="r.pedida"
+                            [name]="'ped' + r.itemId"
+                            [disabled]="guardandoPedidaId === r.itemId"
+                            (keydown)="onPedidaKey($event, r)"
+                            title="Enter guarda · Esc cancela"
+                          />
+                        } @else {
+                          {{ r.pedida | number: '1.0-2' }}
+                        }
+                      </td>
+                      <td class="money recibo-campo">
                         @if (p.estado !== 'CERRADO') {
                           <input
                             type="text"
+                            class="recibo-num"
                             inputmode="decimal"
+                            appSoloNumeros
                             appClearable
                             [(ngModel)]="r.recibida"
                             [name]="'rec' + r.itemId"
+                            (keydown.enter)="focusSiguienteCampo($event)"
                           />
                         } @else {
                           {{ r.recibida | number: '1.0-2' }}
                         }
                       </td>
-                      <td class="money col-pedir">
+                      <td class="money recibo-campo">
                         @if (p.estado !== 'CERRADO') {
                           <input
                             type="text"
+                            class="recibo-num"
                             inputmode="decimal"
+                            appSoloNumeros
                             appClearable
                             [(ngModel)]="r.totalPagado"
                             [name]="'tot' + r.itemId"
                             placeholder="$"
+                            (keydown.enter)="focusSiguienteCampo($event)"
                           />
                         } @else {
                           @if (r.totalPagado != null) {
@@ -524,8 +555,30 @@
                       </td>
                       <td class="money">{{ faltaDe(r) | number: '1.0-2' }}</td>
                       <td class="actions">
-                        @if (p.estado !== 'CERRADO' && r.recibidaInicial <= 0) {
-                          <button type="button" class="danger" title="Quitar" (click)="quitarItemPedido(r)">×</button>
+                        @if (p.estado !== 'CERRADO') {
+                          @if (editandoPedidaId === r.itemId) {
+                            <button
+                              type="button"
+                              class="icon-btn"
+                              title="Guardar (Enter)"
+                              (click)="guardarPedida(r)"
+                              [disabled]="guardandoPedidaId === r.itemId"
+                            >
+                              ✓
+                            </button>
+                          } @else {
+                            <button
+                              type="button"
+                              class="icon-btn"
+                              title="Editar lo pedido"
+                              (click)="empezarEditarPedida(r)"
+                            >
+                              ✎
+                            </button>
+                          }
+                          @if (r.recibidaInicial <= 0) {
+                            <button type="button" class="danger" title="Quitar" (click)="quitarItemPedido(r)">×</button>
+                          }
                         }
                       </td>
                     </tr>
@@ -538,7 +591,7 @@
               @for (g of recibosPorDepto; track g.titulo) {
                 <li class="depto-sep-card">{{ g.titulo }}</li>
                 @for (r of g.items; track r.itemId) {
-                <li [class.warn]="faltaDe(r) > 0.001">
+                <li [class.warn]="faltaDe(r) > 0.001" [class.editando-pedida]="editandoPedidaId === r.itemId">
                   <p class="item-motivo">
                     {{ r.productoNombre }}
                     <span class="muted unidad">{{ r.unidad }}</span>
@@ -546,7 +599,23 @@
                   <dl class="card-cols">
                     <div>
                       <dt>Pedido</dt>
-                      <dd>{{ r.pedida | number: '1.0-2' }}</dd>
+                      <dd>
+                        @if (editandoPedidaId === r.itemId) {
+                          <input
+                            type="text"
+                            class="recibo-num"
+                            inputmode="numeric"
+                            appSoloNumeros="enteros"
+                            [(ngModel)]="r.pedida"
+                            [name]="'pedM' + r.itemId"
+                            [disabled]="guardandoPedidaId === r.itemId"
+                            (keydown)="onPedidaKey($event, r)"
+                            title="Enter guarda · Esc cancela"
+                          />
+                        } @else {
+                          {{ r.pedida | number: '1.0-2' }}
+                        }
+                      </dd>
                     </div>
                     <div>
                       <dt>Falta</dt>
@@ -569,26 +638,54 @@
                       Recibido
                       <input
                         type="text"
+                        class="recibo-num"
                         inputmode="decimal"
+                        appSoloNumeros
                         appClearable
                         [(ngModel)]="r.recibida"
                         [name]="'recM' + r.itemId"
+                        (keydown.enter)="focusSiguienteCampo($event)"
                       />
                     </label>
                     <label>
                       Importe $
                       <input
                         type="text"
+                        class="recibo-num"
                         inputmode="decimal"
+                        appSoloNumeros
                         appClearable
                         [(ngModel)]="r.totalPagado"
                         [name]="'totM' + r.itemId"
                         placeholder="$"
+                        (keydown.enter)="focusSiguienteCampo($event)"
                       />
                     </label>
-                    @if (r.recibidaInicial <= 0) {
-                      <button type="button" class="danger" title="Quitar" (click)="quitarItemPedido(r)">×</button>
-                    }
+                    <div class="recibo-acc">
+                      @if (editandoPedidaId === r.itemId) {
+                        <button
+                          type="button"
+                          class="icon-btn"
+                          title="Guardar (Enter)"
+                          (click)="guardarPedida(r)"
+                          [disabled]="guardandoPedidaId === r.itemId"
+                        >
+                          ✓
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="icon-btn"
+                          title="Editar lo pedido"
+                          (click)="empezarEditarPedida(r)"
+                        >
+                          ✎
+                        </button>
+                      }
+                      @if (r.recibidaInicial <= 0) {
+                        <button type="button" class="danger" title="Quitar" (click)="quitarItemPedido(r)">×</button>
+                      }
+                    </div>
                   </div>
                   }
                 </li>
@@ -655,18 +752,31 @@
                 @for (a of p.abonos || []; track a.id) {
                   <li>
                     @if (editandoAbonoId === a.id) {
-                      <div class="alta-manual-fila">
+                      <div class="alta-manual-fila" (keydown)="onAbonoEditKey($event)">
                         <label class="campo">
                           Fecha
                           <app-fecha-dia [(ngModel)]="editAbono.fecha" [name]="'abF' + a.id" ariaLabel="Fecha del abono" />
                         </label>
                         <label class="campo">
                           Monto
-                          <input type="text" inputmode="decimal" appClearable [(ngModel)]="editAbono.monto" [name]="'abM' + a.id" />
+                          <input
+                            type="text"
+                            inputmode="decimal"
+                            appSoloNumeros
+                            appClearable
+                            [(ngModel)]="editAbono.monto"
+                            [name]="'abM' + a.id"
+                            (keydown.enter)="guardarAbonoEditado(); $event.preventDefault()"
+                          />
                         </label>
                         <label class="campo">
                           Nota
-                          <input type="text" [(ngModel)]="editAbono.nota" [name]="'abN' + a.id" />
+                          <input
+                            type="text"
+                            [(ngModel)]="editAbono.nota"
+                            [name]="'abN' + a.id"
+                            (keydown.enter)="guardarAbonoEditado(); $event.preventDefault()"
+                          />
                         </label>
                         <button type="button" (click)="guardarAbonoEditado()" [disabled]="guardandoAbono">Guardar</button>
                         <button type="button" class="secondary" (click)="cancelarEditarAbono()">Cancelar</button>
@@ -694,11 +804,13 @@
                   <input
                     type="text"
                     inputmode="decimal"
+                    appSoloNumeros
                     appClearable
                     [(ngModel)]="abonoNuevo.monto"
                     [name]="'abonoM' + p.id"
                     placeholder="$"
                     [class.input-warn]="!alcanzaAbonoNuevo() && num(abonoNuevo.monto) > 0"
+                    (keydown.enter)="registrarAbono(); $event.preventDefault()"
                   />
                 </label>
                 <label class="campo">

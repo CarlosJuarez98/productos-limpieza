@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -13,6 +13,7 @@ import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDiaComponent } from '../../fecha-dia.component';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 
 type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean; extra?: boolean };
 type ModoPeriodo = '4_semanas' | 'mes_pasado' | 'mes_actual' | 'custom';
@@ -35,7 +36,8 @@ type ReciboEdit = {
   itemId: number;
   productoId: number;
   productoNombre: string;
-  pedida: number;
+  pedida: number | null;
+  pedidaInicial: number;
   recibidaInicial: number;
   recibida: number | null;
   /** Importe que cobra el proveedor por lo recibido (unitario = importe ÷ recibido). */
@@ -49,7 +51,17 @@ type ReciboEdit = {
 @Component({
   selector: 'app-surtir',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClearableDirective, PaginadorComponent, FechaDmYPipe, AutoHideDirective, ProductoAutocompleteComponent, FechaDiaComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ClearableDirective,
+    SoloNumerosDirective,
+    PaginadorComponent,
+    FechaDmYPipe,
+    AutoHideDirective,
+    ProductoAutocompleteComponent,
+    FechaDiaComponent,
+  ],
   templateUrl: './surtir.component.html',
   styleUrl: './surtir.component.scss',
 })
@@ -72,6 +84,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
   /** Edición de cantidades recibidas del pedido expandido. */
   recibosEdit: ReciboEdit[] = [];
   guardandoRecepcion = false;
+  guardandoPedidaId: number | null = null;
+  editandoPedidaId: number | null = null;
   productos: InventarioItem[] = [];
   saldoProductos = 0;
   altaProductoId: number | null = null;
@@ -190,7 +204,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
     const partesDetalle: string[] = [];
     if (estado === 'urgente' || estado === 'pronto') {
-      partesDetalle.push('Levanta pedido con colchón para reponer ceros y bajos.');
+      partesDetalle.push('Levanta pedido: salen todos los ceros (quítalos con × si no aplican) y se mira ~6 meses de ventas.');
     } else if (estado === 'ok') {
       partesDetalle.push('Algunos productos salen lento: mira el stock, no el calendario.');
     }
@@ -392,20 +406,20 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.error = '';
     this.ok = '';
     this.cargando = true;
-    // Ventana fija interna solo para estimar consumo; la UI no pide fechas.
-    this.modoPeriodo = '4_semanas';
-    this.aplicarModoPeriodo();
+    // Ventana larga de ventas (6 meses) para no omitir productos lentos;
+    // cobertura ~1 mes de stock. Los ceros sin ventas también salen (mín. 1).
+    const hoyIso = this.hoyLocal();
+    this.hasta = hoyIso;
+    this.desde = this.sumarDias(hoyIso, -179);
+    this.diasCobertura = 28;
+    this.modoPeriodo = 'custom';
     const pct = this.ajustarColchon(this.porcentajeExtra);
     this.porcentajeExtra = pct;
-    const cob =
-      this.diasCobertura != null && Number.isFinite(Number(this.diasCobertura))
-        ? Number(this.diasCobertura)
-        : undefined;
     this.api
       .pedidoSugerido({
         desde: this.desde || undefined,
         hasta: this.hasta || undefined,
-        diasCobertura: cob,
+        diasCobertura: this.diasCobertura,
         porcentajeExtra: pct,
       })
       .subscribe({
@@ -419,7 +433,6 @@ export class SurtirComponent implements OnInit, OnDestroy {
             const pedir = this.pedirDesdeColchon(l);
             return {
               ...l,
-              // Pedir = Con colchón redondeado ↑↓
               sugerido: pedir,
               pedir,
               incluido: true,
@@ -427,7 +440,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
           });
           this.syncPag(true);
           this.cargando = false;
-          this.ok = 'Pedido calculado según stock y colchón.';
+          this.ok =
+            'Pedido listo: incluye productos en cero (quítalos con × si no los quieres) y ventas de ~6 meses.';
         },
         error: (e) => {
           this.error = e.error?.error || 'No se pudo calcular el pedido';
@@ -671,6 +685,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
     if (this.pedidoExpandidoId === id) {
       this.pedidoExpandidoId = null;
       this.recibosEdit = [];
+      this.editandoPedidaId = null;
       return;
     }
     this.pedidoExpandidoId = id;
@@ -684,8 +699,10 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.altaPedidoCantidad = null;
     this.abonoNuevo = { fecha: this.hoyLocal(), monto: null, nota: '' };
     this.editandoAbonoId = null;
+    this.editandoPedidaId = null;
     this.recibosEdit = (p?.items || []).map((i) => {
       const recibida = Number(i.cantidadRecibida);
+      const pedida = Number(i.cantidadPedida);
       const compra =
         i.precioCompra != null && Number.isFinite(Number(i.precioCompra))
           ? Number(i.precioCompra)
@@ -696,7 +713,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
         itemId: i.id,
         productoId: i.productoId,
         productoNombre: i.productoNombre,
-        pedida: Number(i.cantidadPedida),
+        pedida,
+        pedidaInicial: pedida,
         recibidaInicial: recibida,
         recibida,
         precioCompra: compra,
@@ -728,9 +746,10 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   marcarTodoRecibido(): void {
     for (const r of this.recibosEdit) {
-      r.recibida = r.pedida;
-      if (r.precioCompra != null && r.pedida > 0) {
-        r.totalPagado = Math.round(r.precioCompra * r.pedida * 100) / 100;
+      const pedida = Number(r.pedida) || 0;
+      r.recibida = pedida;
+      if (r.precioCompra != null && pedida > 0) {
+        r.totalPagado = Math.round(r.precioCompra * pedida * 100) / 100;
       }
     }
   }
@@ -785,7 +804,120 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   faltaDe(r: ReciboEdit): number {
-    return Math.max(0, r.pedida - (Number(r.recibida) || 0));
+    return Math.max(0, (Number(r.pedida) || 0) - (Number(r.recibida) || 0));
+  }
+
+  empezarEditarPedida(r: ReciboEdit): void {
+    this.editandoPedidaId = r.itemId;
+    r.pedida = r.pedidaInicial;
+    this.error = '';
+    setTimeout(() => this.focusPedidaInput(r.itemId));
+  }
+
+  cancelarEditarPedida(): void {
+    if (this.editandoPedidaId == null) return;
+    const r = this.recibosEdit.find((x) => x.itemId === this.editandoPedidaId);
+    if (r) r.pedida = r.pedidaInicial;
+    this.editandoPedidaId = null;
+  }
+
+  onPedidaKey(ev: KeyboardEvent, r: ReciboEdit): void {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      this.guardarPedida(r);
+      return;
+    }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      this.cancelarEditarPedida();
+    }
+  }
+
+  /** Enter en cantidad/importe: pasa al siguiente campo editable visible. */
+  focusSiguienteCampo(ev: Event): void {
+    const ke = ev as KeyboardEvent;
+    ke.preventDefault();
+    const actual = ke.target as HTMLElement;
+    const root = actual.closest('.pedido-detalle') || document;
+    const campos = Array.from(
+      root.querySelectorAll<HTMLInputElement>(
+        'input:not([disabled]):not([type=hidden]):not([readonly])'
+      )
+    ).filter((el) => el.offsetParent !== null || el.getClientRects().length > 0);
+    const i = campos.indexOf(actual as HTMLInputElement);
+    if (i >= 0 && i < campos.length - 1) {
+      campos[i + 1].focus();
+      campos[i + 1].select?.();
+    }
+  }
+
+  private focusPedidaInput(itemId: number): void {
+    const nodes = document.querySelectorAll<HTMLInputElement>(
+      `input[name="ped${itemId}"], input[name="pedM${itemId}"]`
+    );
+    for (const el of Array.from(nodes)) {
+      if (el.offsetParent !== null || el.getClientRects().length > 0) {
+        el.focus();
+        el.select();
+        return;
+      }
+    }
+    nodes[0]?.focus();
+    nodes[0]?.select();
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeGlobal(ev: KeyboardEvent): void {
+    if (this.editandoPedidaId != null) {
+      ev.preventDefault();
+      this.cancelarEditarPedida();
+      return;
+    }
+    if (this.editandoAbonoId != null) {
+      ev.preventDefault();
+      this.cancelarEditarAbono();
+    }
+  }
+
+  guardarPedida(r: ReciboEdit): void {
+    const p = this.pedidoExpandido();
+    if (!p || p.estado === 'CERRADO' || this.guardandoPedidaId != null) return;
+    const cant = Math.ceil(Number(r.pedida) || 0);
+    if (cant <= 0) {
+      this.error = 'Lo pedido debe ser mayor a 0 (o quita el producto con ×)';
+      r.pedida = r.pedidaInicial;
+      return;
+    }
+    if (cant === r.pedidaInicial) {
+      r.pedida = cant;
+      this.editandoPedidaId = null;
+      return;
+    }
+    const minRec = Number(r.recibidaInicial) || 0;
+    if (cant < minRec) {
+      this.error = `No puedes pedir menos de lo ya recibido (${minRec})`;
+      r.pedida = r.pedidaInicial;
+      return;
+    }
+    this.guardandoPedidaId = r.itemId;
+    this.error = '';
+    this.api.actualizarItemPedido(p.id, r.itemId, r.productoId, cant).subscribe({
+      next: (act) => {
+        this.guardandoPedidaId = null;
+        this.editandoPedidaId = null;
+        const item = act.items?.find((i) => i.id === r.itemId);
+        const nueva = item ? Number(item.cantidadPedida) : cant;
+        r.pedida = nueva;
+        r.pedidaInicial = nueva;
+        this.ok = `Corregido: ${r.productoNombre} → ${nueva}`;
+        this.reemplazarPedido(act, false);
+      },
+      error: (e) => {
+        this.guardandoPedidaId = null;
+        r.pedida = r.pedidaInicial;
+        this.error = e.error?.error || 'No se pudo corregir lo pedido';
+      },
+    });
   }
 
   async cerrarPedido(p: PedidoRegistrado): Promise<void> {
@@ -1026,6 +1158,13 @@ export class SurtirComponent implements OnInit, OnDestroy {
   empezarEditarAbono(a: PedidoAbono): void {
     this.editandoAbonoId = a.id;
     this.editAbono = { fecha: a.fecha, monto: Number(a.monto), nota: a.nota || '' };
+  }
+
+  onAbonoEditKey(ev: KeyboardEvent): void {
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      this.cancelarEditarAbono();
+    }
   }
 
   cancelarEditarAbono(): void {

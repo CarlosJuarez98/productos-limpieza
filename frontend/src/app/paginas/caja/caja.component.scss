@@ -495,12 +495,26 @@ input[readonly] {
   margin-top: 0.85rem;
 }
 
+.cortes-lista-hint {
+  margin: 0.55rem 0 0.35rem;
+  font-size: 0.82rem;
+}
+
 .cortes-lista {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
-  gap: 0.4rem 0.55rem;
-  margin-top: 0.65rem;
+  grid-template-columns: repeat(auto-fill, minmax(7.25rem, 1fr));
+  gap: 0.35rem 0.45rem;
+  margin-top: 0.25rem;
   max-width: 100%;
+  max-height: min(11.5rem, 32vh);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.35rem 0.15rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: #fafcfb;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .corte-chip {
@@ -527,14 +541,24 @@ input[readonly] {
 .corte-chip.activo {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.corte-chip.activo.ultimo {
+  background: var(--accent);
+  color: #fff;
 }
 
 .corte-detalle {
-  margin-top: 0.75rem;
+  margin-top: 0.65rem;
   padding: 0.75rem 0.85rem;
   border: 1px solid var(--line);
   border-radius: 0.55rem;
   background: #fafcfb;
+  scroll-margin-top: 0.5rem;
 }
 
 .corte-detalle h4 {

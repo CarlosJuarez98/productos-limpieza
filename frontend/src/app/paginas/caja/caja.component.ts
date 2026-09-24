@@ -148,7 +148,23 @@ export class CajaComponent implements OnInit, OnDestroy {
     return list.sort((a, b) => b.localeCompare(a));
   }
 
+  toggleCortesAnteriores(): void {
+    this.mostrarCortes = !this.mostrarCortes;
+    if (!this.mostrarCortes) return;
+    // Esperar a que pinte la lista y bajar para verla (el botón suele quedar al borde).
+    setTimeout(() => this.scrollACortesHist(), 0);
+    setTimeout(() => this.scrollACortesHist(), 80);
+    setTimeout(() => this.scrollACortesHist(), 200);
+  }
+
   consultarCorte(fecha: string): void {
+    // Segundo clic al mismo corte: oculta el detalle.
+    if (this.corteSeleccionado === fecha && this.detalleCorte) {
+      this.corteSeleccionado = null;
+      this.detalleCorte = null;
+      this.cargandoCorte = false;
+      return;
+    }
     this.corteSeleccionado = fecha;
     this.mostrarCortes = true;
     this.cargandoCorte = true;
@@ -157,13 +173,58 @@ export class CajaComponent implements OnInit, OnDestroy {
       next: (d) => {
         this.detalleCorte = d;
         this.cargandoCorte = false;
-        this.syncPaginadores(true);
+        this.syncPaginadores(false);
+        setTimeout(() => {
+          this.asegurarChipVisible(fecha);
+          this.scrollSiQuedaFuera('caja-corte-detalle');
+        }, 40);
+        setTimeout(() => this.scrollSiQuedaFuera('caja-corte-detalle'), 160);
       },
       error: (e) => {
         this.cargandoCorte = false;
         this.error = e.error?.error || 'No se pudo cargar el corte';
       },
     });
+  }
+
+  private scrollACortesHist(): void {
+    // Cabecera arriba del viewport → se ve el botón + «Elige un corte» + lista.
+    this.scrollMainA(document.getElementById('caja-cortes-hist'), 12);
+  }
+
+  /** Solo desplaza si el elemento queda fuera de la vista (no salta de más). */
+  private scrollSiQuedaFuera(id: string): void {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const main = document.querySelector('main') as HTMLElement | null;
+    const vistaTop = main?.getBoundingClientRect().top ?? 0;
+    const vistaBottom = main?.getBoundingClientRect().bottom ?? window.innerHeight;
+    const r = el.getBoundingClientRect();
+    if (r.top >= vistaTop + 8 && r.bottom <= vistaBottom - 8) return;
+    this.scrollMainA(el, 12);
+  }
+
+  private scrollMainA(el: HTMLElement | null, margen = 8): void {
+    if (!el) return;
+    const main = document.querySelector('main') as HTMLElement | null;
+    if (!main) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+      return;
+    }
+    const y =
+      el.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - margen;
+    main.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }
+
+  private asegurarChipVisible(fecha: string): void {
+    const lista = document.getElementById('caja-cortes-lista');
+    const chip = lista?.querySelector(`[data-corte="${fecha}"]`) as HTMLElement | null;
+    if (!lista || !chip) return;
+    const lr = lista.getBoundingClientRect();
+    const cr = chip.getBoundingClientRect();
+    if (cr.top < lr.top || cr.bottom > lr.bottom) {
+      chip.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    }
   }
 
   get mensajeDetalleCorte(): string {

@@ -652,7 +652,6 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   private hayBorradorUtil(): boolean {
     return (
       !!this.nombrePersonaCaptura() ||
-      !!this.form.nota.trim() ||
       this.lineas.some(
         (l) =>
           l.productoId != null || (l.cantidad != null && Number(l.cantidad) !== 0)

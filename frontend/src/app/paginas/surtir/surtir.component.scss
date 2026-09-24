@@ -434,6 +434,95 @@ th.col-pedir {
   font-variant-numeric: tabular-nums;
 }
 
+.card-cols dd input {
+  width: 100%;
+  max-width: 6.5rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.pedida-valor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.pedida-valor .icon-btn {
+  flex-shrink: 0;
+}
+
+.item-motivo .pedida-edit-movil {
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.editando-pedida .col-pedir input {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.pedido-detalle .recibo-pedida,
+.pedido-detalle .recibo-campo {
+  width: 5.75rem;
+  min-width: 5.75rem;
+  max-width: 6.5rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.pedido-detalle .recibo-num,
+.pedido-detalle .recibo-campo .clearable-wrap,
+.pedido-detalle .recibo-campo .clearable-wrap > input {
+  width: 100%;
+  max-width: 5.5rem;
+  margin-inline: auto;
+  box-sizing: border-box;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.pedido-detalle .recibo-pedida .recibo-num {
+  max-width: 4.25rem;
+  height: 2.15rem;
+  padding: 0 0.35rem;
+}
+
+.pedido-detalle .recibo-campo .clearable-wrap > input {
+  padding-right: 1.75rem !important;
+}
+
+.pedido-detalle .recibo-campo .clearable-x {
+  width: 1.55rem;
+  height: 1.55rem;
+  min-width: 1.55rem;
+  min-height: 1.55rem;
+  font-size: 1.05rem;
+  right: 0.05rem;
+}
+
+.editando-pedida .recibo-pedida .recibo-num {
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: var(--accent);
+}
+
+.recibo-acc {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  align-self: end;
+}
+
+.recibo-acc .icon-btn,
+.recibo-acc .danger {
+  width: 2.15rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  min-height: 2.15rem;
+}
+
 .pedir-movil {
   align-items: end;
   gap: 0.55rem;

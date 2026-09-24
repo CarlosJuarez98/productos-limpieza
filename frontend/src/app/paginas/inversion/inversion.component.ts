@@ -7,12 +7,20 @@ import { InversionItem, InversionResumen } from '../../modelos';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { ClearableDirective } from '../../clearable.directive';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { AutoHideDirective } from '../../auto-hide.directive';
 
 @Component({
   selector: 'app-inversion',
   standalone: true,
-  imports: [CommonModule, FormsModule, PaginadorComponent, ClearableDirective, AutoHideDirective],
+  imports: [
+    CommonModule,
+    FormsModule,
+    PaginadorComponent,
+    ClearableDirective,
+    SoloNumerosDirective,
+    AutoHideDirective,
+  ],
   templateUrl: './inversion.component.html',
   styleUrl: './inversion.component.scss',
 })
@@ -24,6 +32,8 @@ export class InversionComponent implements OnInit {
   pagInfra = new PaginacionEstado<InversionItem>();
   error = '';
   ok = '';
+  productosInicialesAbierto = false;
+  infraAbierto = false;
   editando: InversionItem | null = null;
   form = {
     tipo: 'INFRAESTRUCTURA' as 'PRODUCTO' | 'INFRAESTRUCTURA',
