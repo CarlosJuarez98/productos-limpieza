@@ -239,11 +239,21 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   private blurTimer: ReturnType<typeof setTimeout> | null = null;
   private scrollBound = false;
   private vvBound = false;
-  private readonly onScrollCapture = (): void => {
-    if (this.listaVisible && this.listaFija) this.actualizarDireccion();
+  private readonly onScrollCapture = (ev: Event): void => {
+    if (!this.listaVisible) return;
+    const t = ev.target;
+    // Scroll dentro de la lista de sugerencias: permitido.
+    if (t instanceof Element && t.closest('.sugerencias')) return;
+    // Scroll de la página/main: cerrar (si no, la lista “se va” con el scroll).
+    this.abierto = false;
+    this.indiceActivo = -1;
+    this.listaFija = false;
+    this.estiloListaFija = null;
+    this.desligarScroll();
+    this.cerrarSeleccion();
   };
   private readonly onVisualViewport = (): void => {
-    if (this.listaVisible) this.actualizarDireccion();
+    if (this.listaVisible && this.listaFija) this.actualizarDireccion();
   };
 
   /** Lista solo si hay búsqueda activa; no si ya quedó el producto exacto elegido. */
