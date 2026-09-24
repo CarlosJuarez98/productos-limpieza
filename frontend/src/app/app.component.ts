@@ -300,6 +300,13 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     if (ev.touches.length !== 1) return;
     if (this.masAbierto) return;
     this.resetPull();
+    const t = ev.target;
+    if (
+      t instanceof Element &&
+      t.closest('input, textarea, select, [contenteditable="true"], .sugerencias, [role="dialog"]')
+    ) {
+      return;
+    }
     if (!this.contenidoEnTope(ev.target)) return;
     this.pullInicioY = ev.touches[0].clientY;
     this.pullInicioX = ev.touches[0].clientX;

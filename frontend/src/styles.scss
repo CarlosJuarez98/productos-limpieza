@@ -1864,6 +1864,16 @@ button.chip.ghost:hover {
     grid-template-columns: 1fr !important;
   }
 
+  /*
+   * ≥16px en inputs: evita zoom iOS y en Android/Samsung el teclado “raro”
+   * cuando el viewport pelea con sticky + bottom-nav.
+   */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']):not([type='color']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
   .page-title {
     font-size: 1.05rem !important;
     margin-bottom: 0.35rem !important;

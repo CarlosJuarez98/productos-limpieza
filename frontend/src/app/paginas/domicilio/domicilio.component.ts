@@ -8,7 +8,7 @@ import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { AutoHideDirective } from '../../auto-hide.directive';
-import { elementoVisible } from '../../captura-focus.util';
+import { elementoVisible, esMovilTactil } from '../../captura-focus.util';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import {
@@ -494,12 +494,8 @@ export class DomicilioComponent implements OnInit {
     if (!el || !elementoVisible(el)) return false;
     el.focus({ preventScroll: true });
     // select() en móvil a veces cierra/reabre el teclado
-    if (!this.esMovilTactil()) el.select();
+    if (!esMovilTactil()) el.select();
     return true;
-  }
-
-  private esMovilTactil(): boolean {
-    return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   }
 
   private bodyDesdeForm() {

@@ -14,7 +14,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
-import { elementoVisible } from '../../captura-focus.util';
+import { elementoVisible, esMovilTactil } from '../../captura-focus.util';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { InventarioItem, MODOS_VENTA, ModoVenta, TipoVenta, Venta } from '../../modelos';
@@ -757,21 +757,27 @@ export class VentasComponent implements OnInit, OnDestroy {
     };
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
     this.cdr.detectChanges();
-    this.focusTimer = setTimeout(go, 60);
-    setTimeout(go, 220);
+    // Un solo intento en móvil: el segundo pelea con el teclado virtual
+    this.focusTimer = setTimeout(go, 50);
+    if (!esMovilTactil()) setTimeout(go, 220);
   }
 
   private scrollLineaVisible(index: number): void {
     const l = this.lineas[index];
     if (!l) return;
-    document.getElementById('linea-' + l.key)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const movil = esMovilTactil();
+    document.getElementById('linea-' + l.key)?.scrollIntoView({
+      block: movil ? 'nearest' : 'center',
+      behavior: movil ? 'auto' : 'smooth',
+    });
   }
 
   private focusById(id: string): boolean {
     const el = document.getElementById(id) as HTMLInputElement | null;
     if (!el || !elementoVisible(el)) return false;
     el.focus({ preventScroll: true });
-    el.select();
+    // select() en móvil a veces cierra/reabre el teclado
+    if (!esMovilTactil()) el.select();
     return true;
   }
 

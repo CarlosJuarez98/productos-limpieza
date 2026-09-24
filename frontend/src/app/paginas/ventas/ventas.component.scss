@@ -515,8 +515,14 @@
 
   .producto-campo app-producto-autocomplete,
   .producto-campo ::ng-deep .producto-ac input {
-    font-size: 0.95rem !important;
-    min-height: 2.25rem !important;
+    font-size: 16px !important;
+    min-height: 2.5rem !important;
+  }
+
+  .cant-wrap input,
+  .precio-input input {
+    font-size: 16px !important;
+    min-height: 2.5rem !important;
   }
 
   .linea-card {

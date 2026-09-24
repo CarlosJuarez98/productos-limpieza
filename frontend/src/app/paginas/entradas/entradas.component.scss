@@ -395,9 +395,9 @@ tr.bajo > td:not(.col-propia) {
 
   .producto-campo app-producto-autocomplete,
   .producto-campo ::ng-deep .producto-ac input {
-    font-size: 0.95rem;
-    min-height: 2.15rem;
-    height: 2.15rem;
+    font-size: 16px;
+    min-height: 2.5rem;
+    height: auto;
   }
 
   .linea-grid {
@@ -891,8 +891,8 @@ tr.editando-fila.bajo > td:not(.col-propia) {
 
   .producto-campo app-producto-autocomplete,
   .producto-campo ::ng-deep .producto-ac input {
-    font-size: 0.95rem !important;
-    min-height: 2.25rem !important;
+    font-size: 16px !important;
+    min-height: 2.5rem !important;
   }
 
   .campo,
@@ -904,6 +904,12 @@ tr.editando-fila.bajo > td:not(.col-propia) {
   .dato-fijo {
     min-height: 2.1rem !important;
     font-size: 0.9rem !important;
+  }
+
+  .precio-input input,
+  .linea-card input {
+    font-size: 16px !important;
+    min-height: 2.5rem !important;
   }
 
   .toolbar {
