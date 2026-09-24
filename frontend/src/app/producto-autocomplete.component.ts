@@ -44,6 +44,9 @@ import { InventarioItem } from './modelos';
         [disabled]="disabled"
         [readonly]="disabled"
         autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
         [name]="inputName"
         [class.con-clear]="texto.trim() && !disabled"
       />
@@ -159,8 +162,10 @@ import { InventarioItem } from './modelos';
         margin: 0;
         padding: 0.25rem 0;
         list-style: none;
-        max-height: min(50vh, 360px);
+        max-height: min(38vh, 260px);
         overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
         background: #fff;
         border: 1px solid var(--line);
         border-radius: 0.4rem;
@@ -233,8 +238,12 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   private bloqueoReabrir = false;
   private blurTimer: ReturnType<typeof setTimeout> | null = null;
   private scrollBound = false;
+  private vvBound = false;
   private readonly onScrollCapture = (): void => {
     if (this.listaVisible && this.listaFija) this.actualizarDireccion();
+  };
+  private readonly onVisualViewport = (): void => {
+    if (this.listaVisible) this.actualizarDireccion();
   };
 
   /** Lista solo si hay búsqueda activa; no si ya quedó el producto exacto elegido. */
@@ -345,9 +354,18 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
       return;
     }
     this.abierto = true;
-    this.actualizarDireccion();
+    this.prepararListaVisible();
+  }
+
+  /** Centra el input y coloca la lista dentro del viewport (sin scroll de página). */
+  private prepararListaVisible(): void {
+    const el = this.inputEl?.nativeElement;
+    if (el && this.esLayoutMovil()) {
+      el.scrollIntoView({ block: 'center', behavior: 'auto' });
+    }
     this.ligarScroll();
-    setTimeout(() => this.actualizarDireccion(), 0);
+    this.actualizarDireccion();
+    requestAnimationFrame(() => this.actualizarDireccion());
   }
 
   onBlur(): void {
@@ -369,9 +387,7 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     this.texto = value;
     this.indiceActivo = -1;
     this.abierto = true;
-    this.actualizarDireccion();
-    this.ligarScroll();
-    setTimeout(() => this.actualizarDireccion(), 0);
+    this.prepararListaVisible();
     const exacto = this.productos.find(
       (p) => p.nombre.toLowerCase() === value.trim().toLowerCase()
     );
@@ -421,15 +437,29 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   }
 
   private ligarScroll(): void {
-    if (this.scrollBound || typeof document === 'undefined') return;
-    document.addEventListener('scroll', this.onScrollCapture, true);
-    this.scrollBound = true;
+    if (typeof document === 'undefined') return;
+    if (!this.scrollBound) {
+      document.addEventListener('scroll', this.onScrollCapture, true);
+      this.scrollBound = true;
+    }
+    if (!this.vvBound && window.visualViewport) {
+      window.visualViewport.addEventListener('resize', this.onVisualViewport);
+      window.visualViewport.addEventListener('scroll', this.onVisualViewport);
+      this.vvBound = true;
+    }
   }
 
   private desligarScroll(): void {
-    if (!this.scrollBound || typeof document === 'undefined') return;
-    document.removeEventListener('scroll', this.onScrollCapture, true);
-    this.scrollBound = false;
+    if (typeof document === 'undefined') return;
+    if (this.scrollBound) {
+      document.removeEventListener('scroll', this.onScrollCapture, true);
+      this.scrollBound = false;
+    }
+    if (this.vvBound && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this.onVisualViewport);
+      window.visualViewport.removeEventListener('scroll', this.onVisualViewport);
+      this.vvBound = false;
+    }
   }
 
   private productoExactoSeleccionado(): boolean {
@@ -446,6 +476,23 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     }, 0);
   }
 
+  /** Viewport visible (resta teclado Android vía visualViewport). */
+  private viewportMetrics(): { top: number; bottom: number; height: number } {
+    const vv = window.visualViewport;
+    if (vv) {
+      return {
+        top: vv.offsetTop,
+        bottom: vv.offsetTop + vv.height,
+        height: vv.height,
+      };
+    }
+    return { top: 0, bottom: window.innerHeight, height: window.innerHeight };
+  }
+
+  private esLayoutMovil(): boolean {
+    return window.matchMedia('(max-width: 1024px)').matches;
+  }
+
   private actualizarDireccion(): void {
     const el = this.inputEl?.nativeElement;
     if (!el) {
@@ -454,24 +501,39 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
       this.estiloListaFija = null;
       return;
     }
-    const rect = el.getBoundingClientRect();
-    const espacioAbajo = window.innerHeight - rect.bottom;
-    this.abreArriba = espacioAbajo < 280 && rect.top > espacioAbajo;
+    if (!this.listaVisible) {
+      this.listaFija = false;
+      this.estiloListaFija = null;
+      return;
+    }
 
-    // Fijo en tactil: escapa stacking de th Folio y botón Guardar.
-    const tactil =
-      typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
-    if (!tactil || !this.listaVisible) {
+    const movil = this.esLayoutMovil();
+    const vp = this.viewportMetrics();
+    const rect = el.getBoundingClientRect();
+    const pad = 8;
+    const navReserve = movil ? 56 : 0; // bottom-nav
+    const espacioAbajo = vp.bottom - rect.bottom - pad - navReserve;
+    const espacioArriba = rect.top - vp.top - pad;
+
+    // Móvil: preferir lista ARRIBA (ya visible, sin scroll de página).
+    if (movil) {
+      this.abreArriba =
+        espacioArriba >= 120 && (espacioArriba >= espacioAbajo || espacioAbajo < 160);
+    } else {
+      this.abreArriba = espacioAbajo < 280 && espacioArriba > espacioAbajo;
+    }
+
+    if (!movil) {
       this.listaFija = false;
       this.estiloListaFija = null;
       return;
     }
 
     this.listaFija = true;
-    const maxH = Math.min(window.innerHeight * 0.45, 320);
     const gap = 4;
+    const tope = Math.min(vp.height * 0.38, 260);
     if (this.abreArriba) {
-      const h = Math.max(120, Math.min(maxH, rect.top - 12));
+      const h = Math.max(100, Math.min(tope, espacioArriba));
       this.estiloListaFija = {
         left: `${Math.round(rect.left)}px`,
         width: `${Math.round(rect.width)}px`,
@@ -480,7 +542,7 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
         maxHeight: `${Math.round(h)}px`,
       };
     } else {
-      const h = Math.max(120, Math.min(maxH, window.innerHeight - rect.bottom - 12));
+      const h = Math.max(100, Math.min(tope, espacioAbajo));
       this.estiloListaFija = {
         left: `${Math.round(rect.left)}px`,
         width: `${Math.round(rect.width)}px`,
