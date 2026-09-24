@@ -231,9 +231,17 @@
     grid-template-columns: 1fr !important;
   }
 
+  /* ≥16px: iOS no hace zoom al enfocar (teclado “bugueado”). */
+  .captura-panel input,
+  .producto-campo ::ng-deep .producto-ac input,
+  .precio-input input,
+  .entrega-dialog input {
+    font-size: 16px !important;
+    min-height: 2.5rem !important;
+  }
+
   .producto-campo ::ng-deep .producto-ac input {
-    font-size: 0.95rem !important;
-    min-height: 2.25rem !important;
+    min-height: 2.5rem !important;
   }
 
   .linea-card {

@@ -10,20 +10,20 @@
 @if (textoPendienteWa) {
   <div class="wa-texto-bar" role="status">
     <div class="wa-texto-bar-copy">
-      <strong>Paso 2 · Enviar Buenos días</strong>
-      <span class="muted">Misma conversación de WhatsApp que la foto</span>
+      <strong>En WhatsApp → «Añadir mensaje»</strong>
+      <span class="muted">Pega ahí el texto (ya está copiado). No lo envíes aparte.</span>
     </div>
     <div class="wa-texto-bar-acciones">
       <button type="button" class="btn-texto-omitir" (click)="cancelarTextoPendiente()">
-        Luego
+        Listo
       </button>
       <button
         type="button"
         class="btn-whatsapp btn-enviar-texto"
-        (click)="enviarTextoPendiente()"
+        (click)="copiarTextoPendiente()"
         [disabled]="enviandoTexto"
       >
-        {{ enviandoTexto ? 'Abriendo…' : 'Enviar Buenos días' }}
+        {{ enviandoTexto ? '…' : 'Copiar otra vez' }}
       </button>
     </div>
   </div>

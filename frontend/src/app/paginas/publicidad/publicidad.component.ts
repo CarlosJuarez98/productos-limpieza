@@ -5,7 +5,7 @@ import { AutoHideDirective } from '../../auto-hide.directive';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { InventarioItem, PublicidadGaleriaItem } from '../../modelos';
-import { compartirPublicidad, enviarTextoWhatsApp } from '../../ticket-whatsapp.util';
+import { compartirPublicidad } from '../../ticket-whatsapp.util';
 import { generarLotePublicidad, PromoGenerada, DeptoPromo } from '../../promo-generador.util';
 
 type Promo = {
@@ -390,7 +390,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     this.mensajePendienteFile = null;
     this.compartiendoId = p.id;
     try {
-      const { modo, texto, automatico, mensajeFile } = await compartirPublicidad(
+      const { modo, texto, automatico } = await compartirPublicidad(
         p.src,
         p.titulo,
         p.textoShare,
@@ -403,13 +403,12 @@ export class PublicidadComponent implements OnInit, OnDestroy {
         this.mensajePendienteFile = null;
         this.ok =
           modo === 'compartido'
-            ? 'Listo: las 2 imágenes (publicidad + Buenos días) en un solo envío.'
-            : 'Descargadas 2 imágenes · súbelas a WhatsApp juntas o en orden.';
+            ? 'Listo: foto con el texto en «Añadir mensaje».'
+            : 'Foto descargada · texto en portapapeles.';
       } else {
         this.textoPendienteWa = texto;
-        this.mensajePendienteFile = mensajeFile || null;
         this.ok =
-          'Foto enviada. Toca «Enviar Buenos días» si faltó la 2ª imagen.';
+          'Foto lista. En WhatsApp toca «Añadir mensaje» y pega (el texto ya está copiado).';
       }
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudo compartir';
@@ -418,21 +417,16 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     }
   }
 
-  async enviarTextoPendiente(): Promise<void> {
+  async copiarTextoPendiente(): Promise<void> {
     const texto = this.textoPendienteWa.trim();
-    if ((!texto && !this.mensajePendienteFile) || this.enviandoTexto) return;
+    if (!texto || this.enviandoTexto) return;
     this.enviandoTexto = true;
     this.error = '';
     try {
-      const modo = await enviarTextoWhatsApp(texto, this.mensajePendienteFile || undefined);
-      this.textoPendienteWa = '';
-      this.mensajePendienteFile = null;
-      this.ok =
-        modo === 'compartido'
-          ? 'Mensaje (Buenos días) enviado · elige el mismo chat.'
-          : 'Se abrió WhatsApp con el texto · elígelo el mismo chat.';
-    } catch (e: unknown) {
-      this.error = e instanceof Error ? e.message : 'No se pudo enviar el texto';
+      await navigator.clipboard.writeText(texto);
+      this.ok = 'Texto copiado. En WhatsApp: «Añadir mensaje» → pegar.';
+    } catch {
+      this.error = 'No se pudo copiar. Selecciona y copia el texto a mano.';
     } finally {
       this.enviandoTexto = false;
     }

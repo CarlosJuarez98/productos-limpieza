@@ -316,15 +316,11 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   /** Total del ticket en captura (aún no guardado). */
   get totalTicket(): number {
-    return (
-      Math.round(
-        this.lineas.reduce((s, l) => {
-          if (!this.tieneDatos(l) || l.productoId == null) return s;
-          const t = this.totalEstimado(l);
-          return s + (t != null ? t : 0);
-        }, 0) * 100
-      ) / 100
-    );
+    return this.lineas.reduce((s, l) => {
+      if (!this.tieneDatos(l) || l.productoId == null) return s;
+      const t = this.totalEstimado(l);
+      return s + (t != null ? t : 0);
+    }, 0);
   }
 
   get lineasConDatos(): number {
@@ -345,7 +341,7 @@ export class VentasComponent implements OnInit, OnDestroy {
       return costo > 0 ? `${base} · nos cuesta $${costo.toFixed(2)}` : base;
     }
     const base = pendientes.length <= 1 ? 'Guardar venta' : 'Guardar ventas';
-    return `${base} · $${this.totalTicket.toFixed(2)}`;
+    return `${base} · $${this.fmtCobro(this.totalTicket)}`;
   }
 
   /** Costo de compra de muestras/casa en el ticket (no se cobra, sí se pierde). */
@@ -491,28 +487,38 @@ export class VentasComponent implements OnInit, OnDestroy {
     return Math.round(cant * compra * 100) / 100;
   }
 
+  /** Cobro al cliente: solo enteros o .50 (13.10→13.50, 13.80→14). */
+  private pesoCobro(n: number): number {
+    const v = Math.round(n * 100) / 100;
+    const entero = Math.floor(v + 1e-9);
+    const frac = Math.round((v - entero) * 100) / 100;
+    if (frac === 0) return entero;
+    if (frac <= 0.5) return entero + 0.5;
+    return entero + 1;
+  }
+
   totalEstimado(l: LineaVenta): number | null {
     const cant = Number(l.cantidad);
     if (!Number.isFinite(cant) || cant <= 0) return null;
     const tipo = this.tipoVentaEfectivo(l);
 
     if (tipo === 'MUESTRA' || tipo === 'CASA') return 0;
-    if (tipo === 'PESOS') return Math.round(cant * 100) / 100;
+    if (tipo === 'PESOS') return this.pesoCobro(cant);
 
     if (tipo === 'MAYOREO') {
       if (this.tienePrecioManual(l)) {
-        return Math.round(Number(l.precioManual) * cant * 100) / 100;
+        return this.pesoCobro(Number(l.precioManual) * cant);
       }
       if (l.total != null && Number(l.total) > 0) {
-        return Math.round(Number(l.total) * 100) / 100;
+        return this.pesoCobro(Number(l.total));
       }
       const unitMay = this.precioUnitarioMayoreo(l);
-      return unitMay > 0 ? Math.round(unitMay * cant * 100) / 100 : null;
+      return unitMay > 0 ? this.pesoCobro(unitMay * cant) : null;
     }
 
     if (l.productoId == null) return null;
     const unit = this.precioLista(l);
-    return unit > 0 ? Math.round(unit * cant * 100) / 100 : null;
+    return unit > 0 ? this.pesoCobro(unit * cant) : null;
   }
 
   precioUnitarioMayoreo(l: LineaVenta): number {
@@ -526,6 +532,12 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   private fmtMoney(n: number): string {
     return n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  /** Muestra cobro: entero o .50 (sin otros centavos). */
+  private fmtCobro(n: number): string {
+    const v = this.pesoCobro(n);
+    return Number.isInteger(v) ? String(v) : v.toFixed(2);
   }
 
   /** Pista del precio unitario mayoreo (≥5 / ≥10). */
@@ -583,7 +595,7 @@ export class VentasComponent implements OnInit, OnDestroy {
     const unit = this.precioUnitarioMayoreo(l);
     const cant = Number(l.cantidad);
     if (unit > 0 && cant > 0) {
-      l.total = Math.round(unit * cant * 100) / 100;
+      l.total = this.pesoCobro(unit * cant);
     }
   }
 
@@ -631,7 +643,7 @@ export class VentasComponent implements OnInit, OnDestroy {
       return t != null ? t : null;
     }
     if (tipo === 'MAYOREO' && l.total != null && Number(l.total) > 0) {
-      return Number(l.total);
+      return this.pesoCobro(Number(l.total));
     }
     return null;
   }

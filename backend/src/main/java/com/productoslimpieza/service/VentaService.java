@@ -223,16 +223,16 @@ public class VentaService {
       LocalDate fecha,
       BigDecimal totalManual,
       Map<Long, BigDecimal> preciosCache) {
-    // CASA/MUESTRA normalmente $0; si hay monto manual (p. ej. Casa), se respeta.
+    // CASA/MUESTRA normalmente $0; si hay monto manual (p. ej. Casa), cobro en pesos/.50.
     if (tipo.totalEsCero()) {
       if (totalManual != null && totalManual.compareTo(BigDecimal.ZERO) > 0) {
-        return totalManual.setScale(2, RoundingMode.HALF_UP);
+        return pesoCobroCliente(totalManual);
       }
       return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
     if (tipo.totalEsManual()) {
       if (totalManual != null && totalManual.compareTo(BigDecimal.ZERO) > 0) {
-        return totalManual.setScale(2, RoundingMode.HALF_UP);
+        return pesoCobroCliente(totalManual);
       }
       if (producto == null) {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Producto requerido en mayoreo");
@@ -242,40 +242,58 @@ public class VentaService {
         throw new ResponseStatusException(
             HttpStatus.BAD_REQUEST, "Sin precio de mayoreo; indica el total cobrado");
       }
-      return cantidad.multiply(unitario).setScale(2, RoundingMode.HALF_UP);
+      return pesoCobroCliente(cantidad.multiply(unitario));
     }
     if (tipo.totalEsCantidad()) {
-      return cantidad.setScale(2, RoundingMode.HALF_UP);
+      // PESOS: la cantidad es el cobro
+      return pesoCobroCliente(cantidad);
     }
     if (producto == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Producto requerido para este tipo de venta");
     }
     if (tipo == TipoVenta.LITROS || tipo == TipoVenta.PIEZA) {
       BigDecimal precio = precioVigenteCache(producto, fecha, preciosCache);
-      return cantidad.multiply(precio).setScale(2, RoundingMode.HALF_UP);
+      return pesoCobroCliente(cantidad.multiply(precio));
     }
     if (totalManual != null && totalManual.compareTo(BigDecimal.ZERO) > 0) {
-      return totalManual.setScale(2, RoundingMode.HALF_UP);
+      return pesoCobroCliente(totalManual);
     }
     BigDecimal precio = precioVigenteCache(producto, fecha, preciosCache);
-    return cantidad.multiply(precio).setScale(2, RoundingMode.HALF_UP);
+    return pesoCobroCliente(cantidad.multiply(precio));
   }
 
   private BigDecimal precioUnitarioMayoreo(
       Producto producto, BigDecimal cantidad, Map<Long, BigDecimal> preciosCache) {
     BigDecimal cant = cantidad != null ? cantidad : BigDecimal.ZERO;
     if (cant.compareTo(new BigDecimal("10")) >= 0 && producto.getPrecioMayoreo10() != null) {
-      return pesoEntero(producto.getPrecioMayoreo10());
+      return pesoCobroCliente(producto.getPrecioMayoreo10());
     }
     if (cant.compareTo(new BigDecimal("5")) >= 0 && producto.getPrecioMayoreo5() != null) {
-      return pesoEntero(producto.getPrecioMayoreo5());
+      return pesoCobroCliente(producto.getPrecioMayoreo5());
     }
     return precioVigenteCache(producto, LocalDate.now(ZONA), preciosCache);
   }
 
-  private static BigDecimal pesoEntero(BigDecimal valor) {
-    if (valor == null) return null;
-    return valor.setScale(0, RoundingMode.HALF_UP);
+  /**
+   * Cobro al cliente: solo pesos enteros o .50 (sin otros centavos).
+   * Fracción 0 → entero; &lt; .50 → X.50; = .50 → X.50; &gt; .50 → X+1.
+   * Ej.: 13.10→13.50, 13.50→13.50, 13.80→14.
+   */
+  private static BigDecimal pesoCobroCliente(BigDecimal valor) {
+    if (valor == null) {
+      return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    }
+    BigDecimal v = valor.setScale(2, RoundingMode.HALF_UP);
+    BigDecimal entero = v.setScale(0, RoundingMode.FLOOR);
+    BigDecimal frac = v.subtract(entero);
+    if (frac.compareTo(BigDecimal.ZERO) == 0) {
+      return entero.setScale(2, RoundingMode.HALF_UP);
+    }
+    BigDecimal medio = new BigDecimal("0.50");
+    if (frac.compareTo(medio) <= 0) {
+      return entero.add(medio).setScale(2, RoundingMode.HALF_UP);
+    }
+    return entero.add(BigDecimal.ONE).setScale(2, RoundingMode.HALF_UP);
   }
 
   private BigDecimal precioVigenteCache(

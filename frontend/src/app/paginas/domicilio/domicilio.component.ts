@@ -376,30 +376,38 @@ export class DomicilioComponent implements OnInit {
     return Number(p.precioVentaHoy) || 0;
   }
 
+  /** Cobro al cliente: solo enteros o .50 (13.10→13.50, 13.80→14). */
+  private pesoCobro(n: number): number {
+    const v = Math.round(n * 100) / 100;
+    const entero = Math.floor(v + 1e-9);
+    const frac = Math.round((v - entero) * 100) / 100;
+    if (frac === 0) return entero;
+    if (frac <= 0.5) return entero + 0.5;
+    return entero + 1;
+  }
+
   totalEstimado(l: LineaDom): number | null {
     const cant = Number(l.cantidad);
     if (!Number.isFinite(cant) || cant <= 0) return null;
     const tipo = this.tipoVentaEfectivo(l);
     if (tipo === 'MUESTRA' || tipo === 'CASA') return 0;
-    if (tipo === 'PESOS') return Math.round(cant * 100) / 100;
+    if (tipo === 'PESOS') return this.pesoCobro(cant);
     if (tipo === 'MAYOREO') {
       if (this.tienePrecioManual(l)) {
-        return Math.round(Number(l.precioManual) * cant * 100) / 100;
+        return this.pesoCobro(Number(l.precioManual) * cant);
       }
       if (l.total != null && Number(l.total) > 0) {
-        return Math.round(Number(l.total) * 100) / 100;
+        return this.pesoCobro(Number(l.total));
       }
       const u = this.precioUnitarioMayoreo(l);
-      return u > 0 ? Math.round(u * cant * 100) / 100 : null;
+      return u > 0 ? this.pesoCobro(u * cant) : null;
     }
     const u = this.precioLista(l);
-    return u > 0 ? Math.round(u * cant * 100) / 100 : null;
+    return u > 0 ? this.pesoCobro(u * cant) : null;
   }
 
   get totalTicket(): number {
-    return (
-      Math.round(this.lineas.reduce((s, l) => s + (this.totalEstimado(l) || 0), 0) * 100) / 100
-    );
+    return this.lineas.reduce((s, l) => s + (this.totalEstimado(l) || 0), 0);
   }
 
   lineasValidas(): LineaDom[] {
@@ -468,25 +476,30 @@ export class DomicilioComponent implements OnInit {
         this.autosCaptura()[index]?.focus();
       }
       const l = this.lineas[index];
+      // nearest + auto: smooth scroll pelea con el teclado virtual en móvil
       if (l) {
         document.getElementById('dom-linea-' + l.key)?.scrollIntoView({
-          block: 'center',
-          behavior: 'smooth',
+          block: 'nearest',
+          behavior: 'auto',
         });
       }
     };
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
     this.cdr.detectChanges();
-    this.focusTimer = setTimeout(go, 60);
-    setTimeout(go, 220);
+    this.focusTimer = setTimeout(go, 50);
   }
 
   private focusById(id: string): boolean {
     const el = document.getElementById(id) as HTMLInputElement | null;
     if (!el || !elementoVisible(el)) return false;
     el.focus({ preventScroll: true });
-    el.select();
+    // select() en móvil a veces cierra/reabre el teclado
+    if (!this.esMovilTactil()) el.select();
     return true;
+  }
+
+  private esMovilTactil(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   }
 
   private bodyDesdeForm() {

@@ -1054,7 +1054,7 @@ const FRASES_SERVICIO = [
   '¡Ya abrimos! ✅🟢\nEstamos listos para servirles 🧼✨',
   'En servicio 🟢\nPase a visitarnos o pida a domicilio 🛵🏠',
   '¡Negocio abierto! 🚪✨\nLo esperamos o le llevamos su pedido 🏠.',
-  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WA_TAIL',
+  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WhatsApp 💬',
 ];
 
 function textoShareDe(_titulo: string, precios: PrecioItem[]): string {
@@ -1075,7 +1075,7 @@ function textoShareDe(_titulo: string, precios: PrecioItem[]): string {
     '💳 Aceptamos pago con tarjeta o efectivo',
     `🕘 Horario de atención: 9:00 am – 8:00 pm`,
     `📍 ${DIR}`,
-    `WA_ICON ${TEL}`,
+    `💬 WhatsApp ${TEL}`,
   ].join('\n');
 }
 
