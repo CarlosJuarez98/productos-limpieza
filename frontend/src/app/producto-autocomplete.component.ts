@@ -436,40 +436,23 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
 
   private prepararListaVisible(asegurarVista = false): void {
     const el = this.inputEl?.nativeElement;
-    if (asegurarVista && el && this.esLayoutMovil()) {
-      // Sube el input al tercio superior para abrir la lista ABAJO (no tapar colchón/CTA).
-      this.ignorarScrollHasta = Date.now() + 550;
-      this.scrollInputATercioSuperior(el);
+    if (asegurarVista && el && this.esLayoutMovil() && this.inputFueraDeVista(0.12)) {
+      // Solo si casi no se ve. No forzar scroll: pelea con enfocarCaptura / teclado.
+      this.ignorarScrollHasta = Date.now() + 400;
+      el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
     }
     this.ligarScroll();
     this.actualizarDireccion();
     this.programarReposicion();
     this.limpiarStickTimers();
-    // Paneles colapsables / teclado mueven el input sin disparar scroll.
-    for (const ms of [50, 120, 250, 450]) {
+    // Teclado / visualViewport: reanclar sin mover la página.
+    for (const ms of [80, 200, 400]) {
       this.stickTimers.push(
         setTimeout(() => {
           if (this.listaVisible) this.actualizarDireccion();
         }, ms)
       );
     }
-  }
-
-  /** Deja el input arriba del viewport usable para que quepa la lista debajo. */
-  private scrollInputATercioSuperior(el: HTMLInputElement): void {
-    const vp = this.viewportMetrics();
-    const rect = el.getBoundingClientRect();
-    const destino = vp.top + Math.min(vp.height * 0.26, 180);
-    // Solo mueve si hace falta (input bajo o sin hueco abajo para ~lista).
-    const huecoAbajo = vp.bottom - rect.bottom - 56;
-    if (rect.top <= destino + 24 && huecoAbajo >= 130) return;
-
-    const main = document.querySelector('main');
-    if (main instanceof HTMLElement) {
-      main.scrollTop += rect.top - destino;
-      return;
-    }
-    el.scrollIntoView({ block: 'start', behavior: 'auto' });
   }
 
   private programarReposicion(): void {

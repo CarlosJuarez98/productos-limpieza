@@ -773,7 +773,11 @@ export class VentasComponent implements OnInit, OnDestroy {
     const l = this.lineas[index];
     if (!l) return;
     const movil = esMovilTactil();
-    document.getElementById('linea-' + l.key)?.scrollIntoView({
+    const linea = document.getElementById('linea-' + l.key);
+    // Anclar al input Producto (no solo la tarjeta) para que el teclado no lo saque de vista.
+    const ancla =
+      (linea?.querySelector('app-producto-autocomplete input') as HTMLElement | null) || linea;
+    ancla?.scrollIntoView({
       block: movil ? 'nearest' : 'center',
       behavior: movil ? 'auto' : 'smooth',
     });

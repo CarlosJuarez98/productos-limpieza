@@ -486,7 +486,10 @@ export class DomicilioComponent implements OnInit {
       const l = this.lineas[index];
       // nearest + auto: smooth scroll pelea con el teclado virtual en móvil
       if (l) {
-        document.getElementById('dom-linea-' + l.key)?.scrollIntoView({
+        const linea = document.getElementById('dom-linea-' + l.key);
+        const ancla =
+          (linea?.querySelector('app-producto-autocomplete input') as HTMLElement | null) || linea;
+        ancla?.scrollIntoView({
           block: 'nearest',
           behavior: 'auto',
         });

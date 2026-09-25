@@ -44,8 +44,11 @@ export function scrollLineaPorAttr(attr: string, valor: string | number): void {
   const nodos = document.querySelectorAll<HTMLElement>(`[${attr}="${valor}"]`);
   for (const node of Array.from(nodos)) {
     if (!elementoVisible(node)) continue;
+    // Preferir el input producto dentro de la fila (móvil + teclado).
+    const ancla =
+      (node.querySelector('app-producto-autocomplete input') as HTMLElement | null) || node;
     // nearest + auto: smooth/center pelea con el teclado virtual en móvil
-    node.scrollIntoView({
+    ancla.scrollIntoView({
       block: esMovilTactil() ? 'nearest' : 'center',
       behavior: esMovilTactil() ? 'auto' : 'smooth',
     });
