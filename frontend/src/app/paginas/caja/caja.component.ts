@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -186,6 +186,19 @@ export class CajaComponent implements OnInit, OnDestroy {
         this.error = e.error?.error || 'No se pudo cargar el corte';
       },
     });
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.detalleCorte || this.corteSeleccionado) {
+      this.corteSeleccionado = null;
+      this.detalleCorte = null;
+      this.cargandoCorte = false;
+      return;
+    }
+    if (this.bancoHistAbierto) {
+      this.bancoHistAbierto = false;
+    }
   }
 
   private scrollACortesHist(): void {

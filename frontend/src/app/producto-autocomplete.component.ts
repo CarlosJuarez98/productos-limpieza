@@ -51,13 +51,15 @@ import { InventarioItem } from './modelos';
         [required]="required"
         [disabled]="disabled"
         [readonly]="disabled"
-        autocomplete="off"
+        autocomplete="new-password"
         autocorrect="off"
         autocapitalize="off"
         spellcheck="false"
         data-lpignore="true"
         data-1p-ignore="true"
+        data-form-type="other"
         [attr.name]="inputNameSafe"
+        [attr.autocomplete]="'new-password'"
         [class.con-clear]="texto.trim() && !disabled"
       />
       @if (texto.trim() && !disabled) {
@@ -435,9 +437,9 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   private prepararListaVisible(asegurarVista = false): void {
     const el = this.inputEl?.nativeElement;
     if (asegurarVista && el && this.esLayoutMovil()) {
-      // Centrar el input para poder abrir la lista ABAJO (UX natural).
-      this.ignorarScrollHasta = Date.now() + 500;
-      el.scrollIntoView({ block: 'center', behavior: 'auto' });
+      // Sube el input al tercio superior para abrir la lista ABAJO (no tapar colchón/CTA).
+      this.ignorarScrollHasta = Date.now() + 550;
+      this.scrollInputATercioSuperior(el);
     }
     this.ligarScroll();
     this.actualizarDireccion();
@@ -451,6 +453,23 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
         }, ms)
       );
     }
+  }
+
+  /** Deja el input arriba del viewport usable para que quepa la lista debajo. */
+  private scrollInputATercioSuperior(el: HTMLInputElement): void {
+    const vp = this.viewportMetrics();
+    const rect = el.getBoundingClientRect();
+    const destino = vp.top + Math.min(vp.height * 0.26, 180);
+    // Solo mueve si hace falta (input bajo o sin hueco abajo para ~lista).
+    const huecoAbajo = vp.bottom - rect.bottom - 56;
+    if (rect.top <= destino + 24 && huecoAbajo >= 130) return;
+
+    const main = document.querySelector('main');
+    if (main instanceof HTMLElement) {
+      main.scrollTop += rect.top - destino;
+      return;
+    }
+    el.scrollIntoView({ block: 'start', behavior: 'auto' });
   }
 
   private programarReposicion(): void {
@@ -562,8 +581,8 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     const gap = 4;
     const tope = Math.min(vp.height * 0.42, movil ? 260 : 360);
 
-    // Preferir ABAJO (pegada al input). Solo arriba si abajo no cabe.
-    this.abreArriba = espacioAbajo < 110 && espacioArriba > espacioAbajo + 24;
+    // Preferir ABAJO con fuerza: arriba solo si abajo casi no cabe.
+    this.abreArriba = espacioAbajo < 88 && espacioArriba > 160;
 
     let top: number | 'auto';
     let bottom: string;
