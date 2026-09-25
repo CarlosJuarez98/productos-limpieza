@@ -304,7 +304,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     const t = ev.target;
     if (
       t instanceof Element &&
-      t.closest('input, textarea, select, [contenteditable="true"], .sugerencias, [role="dialog"]')
+      t.closest('input, textarea, select, [contenteditable="true"], .sugerencias, .producto-ac-sugerencias, [role="dialog"]')
     ) {
       return;
     }
@@ -406,7 +406,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
 
     if (
       target.closest(
-        '.overlay, [role="dialog"], .cal-pop, app-confirm-dialog, .sugerencias, .mas-sheet'
+        '.overlay, [role="dialog"], .cal-pop, app-confirm-dialog, .sugerencias, .producto-ac-sugerencias, .mas-sheet'
       )
     ) {
       return;

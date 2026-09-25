@@ -844,6 +844,49 @@ th {
   z-index: 3;
 }
 
+/* Portal en body: lista de producto anclada al input (móvil/desktop). */
+.producto-ac-sugerencias {
+  position: fixed;
+  z-index: 5000;
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  box-shadow: 0 10px 24px rgba(22, 53, 40, 0.12);
+  box-sizing: border-box;
+}
+.producto-ac-sugerencias.arriba {
+  box-shadow: 0 -8px 24px rgba(22, 53, 40, 0.12);
+}
+.producto-ac-sugerencias li {
+  padding: 0.45rem 0.65rem;
+  cursor: pointer;
+  color: var(--text);
+}
+.producto-ac-sugerencias li:hover,
+.producto-ac-sugerencias li.activo {
+  background: #eef5f1;
+  color: var(--text);
+}
+.producto-ac-sugerencias li.vacio {
+  cursor: default;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.producto-ac-sugerencias li.vacio:hover {
+  background: transparent;
+}
+.producto-ac-sugerencias li .extra {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .historial-panel {
   position: relative;
   z-index: 1;
@@ -1477,7 +1520,8 @@ button.btn-agregar-linea:hover:not(:disabled) {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    /* none: evita containing block de position:fixed (listas de producto). */
+    transform: none;
   }
 }
 

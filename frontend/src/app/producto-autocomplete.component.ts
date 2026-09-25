@@ -1,6 +1,8 @@
 import {
+  ApplicationRef,
   Component,
   ElementRef,
+  EmbeddedViewRef,
   EventEmitter,
   HostListener,
   Input,
@@ -8,12 +10,18 @@ import {
   OnDestroy,
   Output,
   SimpleChanges,
+  TemplateRef,
   ViewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventarioItem } from './modelos';
 
+/**
+ * Autocomplete de producto.
+ * La lista se monta en document.body (portal) para que position:fixed
+ * no se rompa por transform de .linea-card / fade-up / overflow de main.
+ */
 @Component({
   selector: 'app-producto-autocomplete',
   standalone: true,
@@ -47,7 +55,9 @@ import { InventarioItem } from './modelos';
         autocorrect="off"
         autocapitalize="off"
         spellcheck="false"
-        [name]="inputName"
+        data-lpignore="true"
+        data-1p-ignore="true"
+        [attr.name]="inputNameSafe"
         [class.con-clear]="texto.trim() && !disabled"
       />
       @if (texto.trim() && !disabled) {
@@ -59,36 +69,37 @@ import { InventarioItem } from './modelos';
           (pointerdown)="limpiar($event)"
         >×</button>
       }
-      @if (listaVisible) {
-        <ul
-          class="sugerencias"
-          [class.arriba]="abreArriba"
-          [class.fija]="listaFija"
-          [ngStyle]="listaFija ? estiloListaFija : null"
-          role="listbox"
-        >
-          @for (p of filtrados; track p.id; let i = $index) {
-            <li
-              role="option"
-              [class.activo]="i === indiceActivo"
-              [attr.aria-selected]="i === indiceActivo"
-              (pointerdown)="elegir(p); $event.preventDefault()"
-              (mouseenter)="indiceActivo = i"
-            >
-              {{ p.nombre }}
-              @if (mostrarExtra === 'stock') {
-                <span class="extra">stock {{ p.stockActual | number: '1.0-2' }}</span>
-              }
-              @if (mostrarExtra === 'compra') {
-                <span class="extra">compra \${{ p.precioCompra | number: '1.2-2' }}</span>
-              }
-            </li>
-          } @empty {
-            <li class="vacio">Sin coincidencia en inventario</li>
-          }
-        </ul>
-      }
     </div>
+
+    <ng-template #listaTpl>
+      <ul
+        class="producto-ac-sugerencias"
+        [class.arriba]="abreArriba"
+        [ngStyle]="estiloLista"
+        role="listbox"
+        (pointerdown)="$event.preventDefault()"
+      >
+        @for (p of filtrados; track p.id; let i = $index) {
+          <li
+            role="option"
+            [class.activo]="i === indiceActivo"
+            [attr.aria-selected]="i === indiceActivo"
+            (pointerdown)="elegir(p); $event.preventDefault()"
+            (mouseenter)="indiceActivo = i"
+          >
+            {{ p.nombre }}
+            @if (mostrarExtra === 'stock') {
+              <span class="extra">stock {{ p.stockActual | number: '1.0-2' }}</span>
+            }
+            @if (mostrarExtra === 'compra') {
+              <span class="extra">compra \${{ p.precioCompra | number: '1.2-2' }}</span>
+            }
+          </li>
+        } @empty {
+          <li class="vacio">Sin coincidencia en inventario</li>
+        }
+      </ul>
+    </ng-template>
   `,
   styles: [
     `
@@ -99,7 +110,6 @@ import { InventarioItem } from './modelos';
         position: relative;
         z-index: 0;
       }
-      /* Por encima del th sticky (Folio/Fecha) y de la siguiente tarjeta. */
       :host.lista-abierta {
         z-index: 45;
       }
@@ -153,58 +163,6 @@ import { InventarioItem } from './modelos';
           min-height: 2.5rem;
         }
       }
-      .sugerencias {
-        position: absolute;
-        z-index: 50;
-        left: 0;
-        right: 0;
-        top: calc(100% + 2px);
-        margin: 0;
-        padding: 0.25rem 0;
-        list-style: none;
-        max-height: min(38vh, 260px);
-        overflow: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 0.4rem;
-        box-shadow: 0 10px 24px rgba(22, 53, 40, 0.12);
-        /* fixed (móvil): escapa stacking del CTA / th Folio */
-        &.fija {
-          position: fixed;
-          right: auto;
-          z-index: 2000;
-        }
-      }
-      .sugerencias.arriba {
-        top: auto;
-        bottom: calc(100% + 2px);
-        box-shadow: 0 -8px 24px rgba(22, 53, 40, 0.12);
-      }
-      .sugerencias li {
-        padding: 0.45rem 0.65rem;
-        cursor: pointer;
-        color: var(--text);
-      }
-      .sugerencias li:hover,
-      .sugerencias li.activo {
-        background: #eef5f1;
-        color: var(--text);
-      }
-      .sugerencias li.vacio {
-        cursor: default;
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-      .sugerencias li.vacio:hover {
-        background: transparent;
-      }
-      .sugerencias li .extra {
-        display: block;
-        font-size: 0.8rem;
-        color: var(--muted);
-      }
     `,
   ],
 })
@@ -215,54 +173,64 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   @Input() disabled = false;
   @Input() placeholder = 'Escribe el producto...';
   @Input() inputName = 'productoTexto';
-  /** Extra en sugerencias: stock (inventario) o precio compra. */
   @Input() mostrarExtra: 'ninguno' | 'stock' | 'compra' = 'ninguno';
-  /** Si es true, Enter / elegir avanza a cantidad. */
   @Input() enterAvanza = false;
   @Output() productoIdChange = new EventEmitter<number | null>();
-  /** Enter con producto listo: el padre puede pasar a cantidad / siguiente fila. */
   @Output() enterConfirmado = new EventEmitter<void>();
 
   @ViewChild('inputEl') inputEl?: ElementRef<HTMLInputElement>;
   @ViewChild('root') rootEl?: ElementRef<HTMLElement>;
+  @ViewChild('listaTpl', { static: true }) listaTpl?: TemplateRef<unknown>;
 
   texto = '';
   abierto = false;
   abreArriba = false;
-  /** En móvil/tactil: posición fixed para no quedar bajo Folio/Guardar. */
-  listaFija = false;
-  estiloListaFija: Record<string, string> | null = null;
-  /** Índice resaltado en la lista (-1 = ninguno). */
+  estiloLista: Record<string, string> | null = null;
   indiceActivo = -1;
-  /** Evita reabrir la lista al residual-focus tras elegir en móvil. */
+
   private bloqueoReabrir = false;
   private blurTimer: ReturnType<typeof setTimeout> | null = null;
   private scrollBound = false;
   private vvBound = false;
+  private ignorarScrollHasta = 0;
+  private posRaf: number | null = null;
+  private portalView: EmbeddedViewRef<unknown> | null = null;
+  private readonly nameNonce = Math.random().toString(36).slice(2, 8);
+
   private readonly onScrollCapture = (ev: Event): void => {
     if (!this.listaVisible) return;
     const t = ev.target;
-    // Scroll dentro de la lista de sugerencias: permitido.
-    if (t instanceof Element && t.closest('.sugerencias')) return;
-    // Scroll de la página/main: cerrar (si no, la lista “se va” con el scroll).
-    this.abierto = false;
-    this.indiceActivo = -1;
-    this.listaFija = false;
-    this.estiloListaFija = null;
-    this.desligarScroll();
-    this.cerrarSeleccion();
-  };
-  private readonly onVisualViewport = (): void => {
-    if (this.listaVisible && this.listaFija) this.actualizarDireccion();
+    if (t instanceof Element && t.closest('.producto-ac-sugerencias')) return;
+    if (Date.now() < this.ignorarScrollHasta) {
+      this.programarReposicion();
+      return;
+    }
+    if (this.inputFueraDeVista()) {
+      this.cerrarLista(true);
+      return;
+    }
+    this.programarReposicion();
   };
 
-  /** Lista solo si hay búsqueda activa; no si ya quedó el producto exacto elegido. */
+  private readonly onVisualViewport = (): void => {
+    if (this.listaVisible) this.programarReposicion();
+  };
+
   get listaVisible(): boolean {
     return this.abierto && !!this.texto.trim() && !this.productoExactoSeleccionado();
   }
 
+  /** Name aleatorio: evita sugerencias nativas del browser (Room/Rome…). */
+  get inputNameSafe(): string {
+    return `pac-${this.nameNonce}-${this.inputName || 'q'}`;
+  }
+
+  constructor(private appRef: ApplicationRef) {}
+
   ngOnDestroy(): void {
+    this.destruirPortal();
     this.desligarScroll();
+    if (this.posRaf != null) cancelAnimationFrame(this.posRaf);
     if (this.blurTimer != null) clearTimeout(this.blurTimer);
   }
 
@@ -287,8 +255,7 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     this.texto = '';
     this.productoId = null;
     this.productoIdChange.emit(null);
-    this.abierto = false;
-    this.indiceActivo = -1;
+    this.cerrarLista(false);
     this.focus();
   }
 
@@ -313,8 +280,7 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     if (ev.key === 'Escape') {
       if (!this.abierto) return;
       ev.preventDefault();
-      this.abierto = false;
-      this.indiceActivo = -1;
+      this.cerrarLista(false);
       return;
     }
     if (ev.key === 'Enter') {
@@ -332,8 +298,7 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     }
     if (this.enterAvanza || this.productoId != null || this.texto.trim()) {
       ke.preventDefault();
-      this.abierto = false;
-      this.cerrarSeleccion();
+      this.cerrarLista(true);
       this.enterConfirmado.emit();
     }
   }
@@ -352,7 +317,6 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     }
   }
 
-  /** @param forzar ignora bloqueo / match exacto (flechas). */
   abrir(forzar = false): void {
     if (this.disabled) return;
     if (this.bloqueoReabrir) {
@@ -360,22 +324,13 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
       return;
     }
     if (!forzar && this.productoExactoSeleccionado()) {
-      this.abierto = false;
+      this.cerrarLista(false);
       return;
     }
+    const ya = this.listaVisible;
     this.abierto = true;
-    this.prepararListaVisible();
-  }
-
-  /** Centra el input y coloca la lista dentro del viewport (sin scroll de página). */
-  private prepararListaVisible(): void {
-    const el = this.inputEl?.nativeElement;
-    if (el && this.esLayoutMovil()) {
-      el.scrollIntoView({ block: 'center', behavior: 'auto' });
-    }
-    this.ligarScroll();
-    this.actualizarDireccion();
-    requestAnimationFrame(() => this.actualizarDireccion());
+    this.sincronizarPortal();
+    this.prepararListaVisible(!ya);
   }
 
   onBlur(): void {
@@ -383,11 +338,8 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     this.blurTimer = setTimeout(() => {
       const ae = document.activeElement as HTMLElement | null;
       if (ae && this.rootEl?.nativeElement.contains(ae)) return;
-      this.abierto = false;
-      this.cerrarSeleccion();
-      this.listaFija = false;
-      this.estiloListaFija = null;
-      this.desligarScroll();
+      if (ae?.closest?.('.producto-ac-sugerencias')) return;
+      this.cerrarLista(true);
     }, 160);
   }
 
@@ -396,8 +348,10 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     this.bloqueoReabrir = false;
     this.texto = value;
     this.indiceActivo = -1;
+    const ya = this.listaVisible;
     this.abierto = true;
-    this.prepararListaVisible();
+    this.sincronizarPortal();
+    this.prepararListaVisible(!ya);
     const exacto = this.productos.find(
       (p) => p.nombre.toLowerCase() === value.trim().toLowerCase()
     );
@@ -416,13 +370,8 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     this.texto = p.nombre;
     this.productoId = p.id;
     this.productoIdChange.emit(p.id);
-    this.abierto = false;
-    this.indiceActivo = -1;
-    this.listaFija = false;
-    this.estiloListaFija = null;
     this.bloqueoReabrir = true;
-    this.desligarScroll();
-    // En móvil avanza a cantidad para que la lista no tape el siguiente campo.
+    this.cerrarLista(false);
     if (this.enterAvanza) {
       queueMicrotask(() => this.enterConfirmado.emit());
     }
@@ -431,19 +380,78 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   @HostListener('document:pointerdown', ['$event'])
   alPointerFuera(ev: Event): void {
     const t = ev.target as HTMLElement | null;
-    if (t?.closest?.('.producto-ac')) return;
+    if (t?.closest?.('.producto-ac') || t?.closest?.('.producto-ac-sugerencias')) return;
     if (!this.abierto) return;
-    this.abierto = false;
-    this.indiceActivo = -1;
-    this.listaFija = false;
-    this.estiloListaFija = null;
-    this.desligarScroll();
-    this.cerrarSeleccion();
+    this.cerrarLista(true);
   }
 
   @HostListener('window:resize')
   alResize(): void {
     if (this.listaVisible) this.actualizarDireccion();
+  }
+
+  private cerrarLista(aplicarSeleccion: boolean): void {
+    this.abierto = false;
+    this.indiceActivo = -1;
+    this.estiloLista = null;
+    this.abreArriba = false;
+    this.destruirPortal();
+    this.desligarScroll();
+    if (aplicarSeleccion) this.cerrarSeleccion();
+  }
+
+  private sincronizarPortal(): void {
+    if (!this.listaVisible) {
+      this.destruirPortal();
+      return;
+    }
+    if (this.portalView || !this.listaTpl) return;
+    this.portalView = this.listaTpl.createEmbeddedView({});
+    this.appRef.attachView(this.portalView);
+    for (const node of this.portalView.rootNodes) {
+      if (node instanceof Node) document.body.appendChild(node);
+    }
+    this.portalView.detectChanges();
+  }
+
+  private destruirPortal(): void {
+    if (!this.portalView) return;
+    this.appRef.detachView(this.portalView);
+    this.portalView.destroy();
+    this.portalView = null;
+  }
+
+  private prepararListaVisible(asegurarVista = false): void {
+    const el = this.inputEl?.nativeElement;
+    if (asegurarVista && el && this.esLayoutMovil() && this.inputFueraDeVista(0.35)) {
+      this.ignorarScrollHasta = Date.now() + 400;
+      el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    }
+    this.ligarScroll();
+    this.actualizarDireccion();
+    this.programarReposicion();
+    if (this.esLayoutMovil()) {
+      setTimeout(() => {
+        if (this.listaVisible) this.actualizarDireccion();
+      }, 120);
+    }
+  }
+
+  private programarReposicion(): void {
+    if (this.posRaf != null) cancelAnimationFrame(this.posRaf);
+    this.posRaf = requestAnimationFrame(() => {
+      this.posRaf = null;
+      if (this.listaVisible) this.actualizarDireccion();
+    });
+  }
+
+  private inputFueraDeVista(margenFrac = 0.05): boolean {
+    const el = this.inputEl?.nativeElement;
+    if (!el) return true;
+    const rect = el.getBoundingClientRect();
+    const vp = this.viewportMetrics();
+    const margen = vp.height * margenFrac;
+    return rect.bottom < vp.top + margen || rect.top > vp.bottom - margen;
   }
 
   private ligarScroll(): void {
@@ -480,13 +488,13 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
 
   private scrollActivo(): void {
     setTimeout(() => {
-      const root = this.rootEl?.nativeElement;
-      const activo = root?.querySelector('li.activo') as HTMLElement | null;
+      const activo = document.querySelector(
+        '.producto-ac-sugerencias li.activo'
+      ) as HTMLElement | null;
       activo?.scrollIntoView({ block: 'nearest' });
     }, 0);
   }
 
-  /** Viewport visible (resta teclado Android vía visualViewport). */
   private viewportMetrics(): { top: number; bottom: number; height: number } {
     const vv = window.visualViewport;
     if (vv) {
@@ -505,62 +513,52 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
 
   private actualizarDireccion(): void {
     const el = this.inputEl?.nativeElement;
-    if (!el) {
+    if (!el || !this.listaVisible) {
       this.abreArriba = false;
-      this.listaFija = false;
-      this.estiloListaFija = null;
+      this.estiloLista = null;
       return;
     }
-    if (!this.listaVisible) {
-      this.listaFija = false;
-      this.estiloListaFija = null;
-      return;
-    }
+
+    this.sincronizarPortal();
+    if (this.portalView) this.portalView.detectChanges();
 
     const movil = this.esLayoutMovil();
     const vp = this.viewportMetrics();
     const rect = el.getBoundingClientRect();
     const pad = 8;
-    const navReserve = movil ? 56 : 0; // bottom-nav
+    const navReserve = movil ? 56 : 0;
     const espacioAbajo = vp.bottom - rect.bottom - pad - navReserve;
     const espacioArriba = rect.top - vp.top - pad;
-
-    // Móvil: preferir lista ARRIBA (ya visible, sin scroll de página).
-    if (movil) {
-      this.abreArriba =
-        espacioArriba >= 120 && (espacioArriba >= espacioAbajo || espacioAbajo < 160);
-    } else {
-      this.abreArriba = espacioAbajo < 280 && espacioArriba > espacioAbajo;
-    }
-
-    if (!movil) {
-      this.listaFija = false;
-      this.estiloListaFija = null;
-      return;
-    }
-
-    this.listaFija = true;
     const gap = 4;
-    const tope = Math.min(vp.height * 0.38, 260);
+    const tope = Math.min(vp.height * 0.42, movil ? 260 : 360);
+
+    this.abreArriba =
+      espacioAbajo < (movil ? 140 : 280) && espacioArriba > espacioAbajo;
+
+    let top: number;
+    let maxH: number;
     if (this.abreArriba) {
-      const h = Math.max(100, Math.min(tope, espacioArriba));
-      this.estiloListaFija = {
-        left: `${Math.round(rect.left)}px`,
-        width: `${Math.round(rect.width)}px`,
-        top: 'auto',
-        bottom: `${Math.round(window.innerHeight - rect.top + gap)}px`,
-        maxHeight: `${Math.round(h)}px`,
-      };
+      maxH = Math.max(96, Math.min(tope, Math.max(espacioArriba, 96)));
+      top = Math.max(vp.top + pad, rect.top - gap - maxH);
+      maxH = Math.max(80, Math.min(maxH, rect.top - gap - top));
     } else {
-      const h = Math.max(100, Math.min(tope, espacioAbajo));
-      this.estiloListaFija = {
-        left: `${Math.round(rect.left)}px`,
-        width: `${Math.round(rect.width)}px`,
-        top: `${Math.round(rect.bottom + gap)}px`,
-        bottom: 'auto',
-        maxHeight: `${Math.round(h)}px`,
-      };
+      top = rect.bottom + gap;
+      maxH = Math.max(
+        96,
+        Math.min(tope, Math.max(espacioAbajo, 96), vp.bottom - navReserve - top - pad)
+      );
     }
+
+    this.estiloLista = {
+      position: 'fixed',
+      left: `${Math.round(rect.left)}px`,
+      width: `${Math.round(rect.width)}px`,
+      top: `${Math.round(top)}px`,
+      bottom: 'auto',
+      maxHeight: `${Math.round(maxH)}px`,
+      zIndex: '5000',
+    };
+    if (this.portalView) this.portalView.detectChanges();
   }
 
   private sincronizarDesdeId(): void {
