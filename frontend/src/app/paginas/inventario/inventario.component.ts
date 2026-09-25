@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { AjusteInventario, inferirDepartamento, InventarioItem, MargenConfig } from '../../modelos';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
@@ -61,6 +62,7 @@ const COLS_STORAGE = 'pl.inventario.columnas.v3';
     CommonModule,
     FormsModule,
     ClearableDirective,
+    SoloNumerosDirective,
     PaginadorComponent,
     FechaDmYPipe,
     FechaDiaComponent,
@@ -372,6 +374,15 @@ export class InventarioComponent implements OnInit, OnDestroy {
     this.errorAjuste = '';
     this.ajusteEnFila = false;
     if (volverAlProducto && id != null) this.scrollAProducto(id);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.editandoAjuste || this.ajusteEnFila) {
+      this.cancelarAjuste();
+      return;
+    }
+    if (this.editando) this.cancelar();
   }
 
   editarAjuste(a: AjusteInventario): void {

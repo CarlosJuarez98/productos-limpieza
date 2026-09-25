@@ -1,20 +1,26 @@
-import { Directive, HostListener, Input } from '@angular/core';
+import { Directive, ElementRef, HostListener, Input } from '@angular/core';
 
 /**
  * Restringe el input a números (enteros o decimales).
- * Uso: <input appSoloNumeros /> o <input appSoloNumeros="enteros" />
- * También: appSoloNumeros="decimal" (default).
+ *
+ * Uso explícito: <input appSoloNumeros /> o appSoloNumeros="enteros"
+ * Automático: cualquier input con inputmode="decimal" o "numeric"
+ * (numeric → enteros; decimal → permite punto/coma).
  */
 @Directive({
-  selector: 'input[appSoloNumeros]',
+  selector: 'input[appSoloNumeros], input[inputmode=decimal], input[inputmode=numeric]',
   standalone: true,
 })
 export class SoloNumerosDirective {
-  /** `enteros` = solo dígitos; vacío/`decimal` = dígitos + un punto o coma. */
-  @Input() appSoloNumeros: '' | 'enteros' | 'decimal' = 'decimal';
+  /** `enteros` | `decimal` | vacío (infiere de inputmode). */
+  @Input() appSoloNumeros: '' | 'enteros' | 'decimal' = '';
+
+  constructor(private el: ElementRef<HTMLInputElement>) {}
 
   private get enteros(): boolean {
-    return this.appSoloNumeros === 'enteros';
+    if (this.appSoloNumeros === 'enteros') return true;
+    if (this.appSoloNumeros === 'decimal') return false;
+    return this.el.nativeElement.getAttribute('inputmode') === 'numeric';
   }
 
   @HostListener('beforeinput', ['$event'])
@@ -46,7 +52,6 @@ export class SoloNumerosDirective {
 
   @HostListener('keydown', ['$event'])
   onKeydown(ev: KeyboardEvent): void {
-    // Bloquea teclas sueltas que no son control ni dígitos (teclados físicos).
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     const k = ev.key;
     if (k.length !== 1) return;

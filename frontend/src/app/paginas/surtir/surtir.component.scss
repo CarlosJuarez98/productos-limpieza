@@ -313,6 +313,13 @@
   font-weight: 800;
 }
 
+.item-tag.tag-sin-ventas {
+  background: color-mix(in srgb, #b45309 18%, transparent);
+  color: #92400e;
+  border: 1px solid color-mix(in srgb, #b45309 35%, transparent);
+  font-weight: 700;
+}
+
 .col-pedir {
   width: 11.5rem;
   min-width: 11.5rem;

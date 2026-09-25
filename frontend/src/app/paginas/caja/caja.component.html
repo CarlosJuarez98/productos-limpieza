@@ -249,7 +249,7 @@
     </div>
     <div class="calc-resumen">
       <div class="stat"><span>Contado</span><strong>${{ totalCalculadora | number: '1.2-2' }}</strong></div>
-      <div class="stat"><span>Esperado</span><strong>${{ (caja?.totalCaja || 0) | number: '1.2-2' }}</strong></div>
+      <div class="stat"><span>Esperado</span><strong>${{ (caja.totalCaja || 0) | number: '1.2-2' }}</strong></div>
       <div
         class="stat destacado"
         [class.ok]="estadoDiferencia === 'ok'"

@@ -7,6 +7,7 @@ import { of } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
 import { ClearableDirective } from '../../clearable.directive';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { Entrada, InventarioItem, Produccion, Receta, RecetaInsumo } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
@@ -87,6 +88,7 @@ type DraftEntradas = {
     FechaDmYPipe,
     FechaDiaComponent,
     ClearableDirective,
+    SoloNumerosDirective,
     PaginadorComponent,
     AutoHideDirective,
   ],
@@ -269,6 +271,25 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.prepVista = 'preparar';
     this.cancelarFormReceta();
     this.errorRecetas = '';
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.editandoEntradaId != null) {
+      this.cancelarEdicionEntrada();
+      return;
+    }
+    if (this.editandoPrepId != null) {
+      this.cancelarEdicionPrep();
+      return;
+    }
+    if (this.editandoRecetaId != null) {
+      this.cancelarFormReceta();
+      return;
+    }
+    if (this.recetasAbierta) {
+      this.cancelarEdicionRecetas();
+    }
   }
 
   private formRecetaVacio() {

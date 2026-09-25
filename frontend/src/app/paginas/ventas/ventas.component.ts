@@ -17,6 +17,7 @@ import { CapturaDraftService } from '../../captura-draft.service';
 import { elementoVisible, esMovilTactil } from '../../captura-focus.util';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { InventarioItem, MODOS_VENTA, ModoVenta, TipoVenta, Venta } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
@@ -66,6 +67,7 @@ type DraftVentas = {
     FechaDmYPipe,
     FechaDiaComponent,
     ClearableDirective,
+    SoloNumerosDirective,
     PaginadorComponent,
   ],
   templateUrl: './ventas.component.html',
@@ -837,6 +839,11 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.errorEdit = '';
     this.guardandoEdit = false;
     if (id != null) this.scrollAEdicion(id);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.editandoId != null) this.cancelarEdicion();
   }
 
   private scrollAEdicion(id: number): void {

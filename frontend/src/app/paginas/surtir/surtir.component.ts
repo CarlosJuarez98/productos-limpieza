@@ -454,6 +454,11 @@ export class SurtirComponent implements OnInit, OnDestroy {
    * Pedir inicial = Con colchón redondeado a entero cerrado (14.4→14, 4.8→5).
    * Siempre número entero al arrancar.
    */
+  /** En cero y sin movimiento en la ventana (~6 meses): sale con mín. 1 para descartar a mano. */
+  esCeroSinVentas(l: Pick<PedidoLinea, 'stockActual' | 'consumoObservado'>): boolean {
+    return (Number(l.stockActual) || 0) <= 0 && (Number(l.consumoObservado) || 0) <= 0;
+  }
+
   pedirDesdeColchon(l: Pick<PedidoLinea, 'consumoConColchon' | 'vendePor'>): number {
     return this.redondearPedirCerrado(Number(l.consumoConColchon) || 0);
   }

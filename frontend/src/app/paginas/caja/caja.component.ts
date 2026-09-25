@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { CajaResumen, CortePeriodo, MovimientoCaja, TipoMovimientoCaja } from '../../modelos';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { PullRefreshService } from '../../pull-refresh.service';
@@ -23,7 +24,7 @@ interface Denominacion {
 @Component({
   selector: 'app-caja',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, PaginadorComponent, AutoHideDirective, RangoFechasComponent, FechaDiaComponent],
+  imports: [CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, SoloNumerosDirective, PaginadorComponent, AutoHideDirective, RangoFechasComponent, FechaDiaComponent],
   templateUrl: './caja.component.html',
   styleUrl: './caja.component.scss',
 })

@@ -148,6 +148,9 @@
               @if (l.extra) {
                 <span class="item-tag">extra</span>
               }
+              @if (esCeroSinVentas(l)) {
+                <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
+              }
             </td>
             <td class="money col-stock">{{ l.stockActual | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
@@ -190,6 +193,9 @@
           {{ l.productoNombre }}
           @if (l.extra) {
             <span class="item-tag">extra</span>
+          }
+          @if (esCeroSinVentas(l)) {
+            <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
           }
         </p>
         <div class="item-meta">
@@ -281,6 +287,9 @@
               @if (l.extra) {
                 <span class="item-tag">extra</span>
               }
+              @if (esCeroSinVentas(l)) {
+                <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
+              }
             </td>
             <td class="money col-stock">{{ l.stockActual | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
@@ -323,6 +332,9 @@
           {{ l.productoNombre }}
           @if (l.extra) {
             <span class="item-tag">extra</span>
+          }
+          @if (esCeroSinVentas(l)) {
+            <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
           }
         </p>
         <div class="item-meta">

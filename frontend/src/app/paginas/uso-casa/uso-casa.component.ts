@@ -1,6 +1,7 @@
 import {
   ChangeDetectorRef,
   Component,
+  HostListener,
   OnDestroy,
   OnInit,
 } from '@angular/core';
@@ -361,6 +362,11 @@ export class UsoCasaComponent implements OnInit, OnDestroy {
     this.editandoId = null;
     this.errorEdit = '';
     this.guardandoEdit = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.editandoId != null) this.cancelarEdicion();
   }
 
   guardarEdicion(): void {

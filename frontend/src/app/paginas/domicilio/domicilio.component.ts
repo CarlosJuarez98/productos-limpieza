@@ -7,6 +7,7 @@ import { catchError } from 'rxjs/operators';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { elementoVisible, esMovilTactil } from '../../captura-focus.util';
 import { FechaDiaComponent } from '../../fecha-dia.component';
@@ -42,6 +43,7 @@ interface LineaDom {
     FechaDiaComponent,
     FechaDmYPipe,
     ClearableDirective,
+    SoloNumerosDirective,
     AutoHideDirective,
     ProductoAutocompleteComponent,
   ],
@@ -618,6 +620,11 @@ export class DomicilioComponent implements OnInit {
     this.nota = '';
     this.fecha = this.hoyLocal();
     this.resetLineas();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.editandoId != null) this.cancelarEdicion();
   }
 
   async compartirPedido(p: PedidoDomicilio): Promise<void> {

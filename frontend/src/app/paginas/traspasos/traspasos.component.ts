@@ -6,6 +6,7 @@ import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
+import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { InventarioItem, TraspasosResumen } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
@@ -45,6 +46,7 @@ type DraftTraspasos = {
     FechaDmYPipe,
     FechaDiaComponent,
     ClearableDirective,
+    SoloNumerosDirective,
     PaginadorComponent,
   ],
   templateUrl: './traspasos.component.html',
@@ -573,6 +575,17 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     this.editandoOriginal = null;
     this.errorEdit = '';
     this.guardandoEdit = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.editandoId != null) {
+      this.cancelarEdicion();
+      return;
+    }
+    if (this.editandoAbonoId != null) {
+      this.cancelarEditarAbono();
+    }
   }
 
   stockDisponibleEdit(productoId: number | null): number | null {
