@@ -192,10 +192,13 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   private blurTimer: ReturnType<typeof setTimeout> | null = null;
   private scrollBound = false;
   private vvBound = false;
+  private layoutObs: ResizeObserver | null = null;
   private ignorarScrollHasta = 0;
   private posRaf: number | null = null;
   private portalView: EmbeddedViewRef<unknown> | null = null;
   private readonly nameNonce = Math.random().toString(36).slice(2, 8);
+  private stickTimers: ReturnType<typeof setTimeout>[] = [];
+  private vistaAsegurada = false;
 
   private readonly onScrollCapture = (ev: Event): void => {
     if (!this.listaVisible) return;
@@ -230,6 +233,7 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   ngOnDestroy(): void {
     this.destruirPortal();
     this.desligarScroll();
+    this.limpiarStickTimers();
     if (this.posRaf != null) cancelAnimationFrame(this.posRaf);
     if (this.blurTimer != null) clearTimeout(this.blurTimer);
   }
@@ -327,10 +331,10 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
       this.cerrarLista(false);
       return;
     }
-    const ya = this.listaVisible;
     this.abierto = true;
     this.sincronizarPortal();
-    this.prepararListaVisible(!ya);
+    this.prepararListaVisible(!this.vistaAsegurada);
+    if (this.listaVisible) this.vistaAsegurada = true;
   }
 
   onBlur(): void {
@@ -348,10 +352,10 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     this.bloqueoReabrir = false;
     this.texto = value;
     this.indiceActivo = -1;
-    const ya = this.listaVisible;
     this.abierto = true;
     this.sincronizarPortal();
-    this.prepararListaVisible(!ya);
+    this.prepararListaVisible(!this.vistaAsegurada);
+    if (this.listaVisible) this.vistaAsegurada = true;
     const exacto = this.productos.find(
       (p) => p.nombre.toLowerCase() === value.trim().toLowerCase()
     );
@@ -395,9 +399,16 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     this.indiceActivo = -1;
     this.estiloLista = null;
     this.abreArriba = false;
+    this.vistaAsegurada = false;
     this.destruirPortal();
     this.desligarScroll();
+    this.limpiarStickTimers();
     if (aplicarSeleccion) this.cerrarSeleccion();
+  }
+
+  private limpiarStickTimers(): void {
+    for (const t of this.stickTimers) clearTimeout(t);
+    this.stickTimers = [];
   }
 
   private sincronizarPortal(): void {
@@ -423,17 +434,22 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
 
   private prepararListaVisible(asegurarVista = false): void {
     const el = this.inputEl?.nativeElement;
-    if (asegurarVista && el && this.esLayoutMovil() && this.inputFueraDeVista(0.35)) {
-      this.ignorarScrollHasta = Date.now() + 400;
-      el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    if (asegurarVista && el && this.esLayoutMovil()) {
+      // Centrar el input para poder abrir la lista ABAJO (UX natural).
+      this.ignorarScrollHasta = Date.now() + 500;
+      el.scrollIntoView({ block: 'center', behavior: 'auto' });
     }
     this.ligarScroll();
     this.actualizarDireccion();
     this.programarReposicion();
-    if (this.esLayoutMovil()) {
-      setTimeout(() => {
-        if (this.listaVisible) this.actualizarDireccion();
-      }, 120);
+    this.limpiarStickTimers();
+    // Paneles colapsables / teclado mueven el input sin disparar scroll.
+    for (const ms of [50, 120, 250, 450]) {
+      this.stickTimers.push(
+        setTimeout(() => {
+          if (this.listaVisible) this.actualizarDireccion();
+        }, ms)
+      );
     }
   }
 
@@ -465,6 +481,16 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
       window.visualViewport.addEventListener('scroll', this.onVisualViewport);
       this.vvBound = true;
     }
+    if (!this.layoutObs && typeof ResizeObserver !== 'undefined') {
+      this.layoutObs = new ResizeObserver(() => {
+        if (this.listaVisible) this.programarReposicion();
+      });
+      this.layoutObs.observe(document.documentElement);
+      const main = document.querySelector('main');
+      if (main) this.layoutObs.observe(main);
+      const input = this.inputEl?.nativeElement;
+      if (input) this.layoutObs.observe(input);
+    }
   }
 
   private desligarScroll(): void {
@@ -477,6 +503,10 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
       window.visualViewport.removeEventListener('resize', this.onVisualViewport);
       window.visualViewport.removeEventListener('scroll', this.onVisualViewport);
       this.vvBound = false;
+    }
+    if (this.layoutObs) {
+      this.layoutObs.disconnect();
+      this.layoutObs = null;
     }
   }
 
@@ -532,8 +562,8 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     const gap = 4;
     const tope = Math.min(vp.height * 0.42, movil ? 260 : 360);
 
-    this.abreArriba =
-      espacioAbajo < (movil ? 140 : 280) && espacioArriba > espacioAbajo;
+    // Preferir ABAJO (pegada al input). Solo arriba si abajo no cabe.
+    this.abreArriba = espacioAbajo < 110 && espacioArriba > espacioAbajo + 24;
 
     let top: number;
     let maxH: number;
