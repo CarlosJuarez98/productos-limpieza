@@ -565,14 +565,17 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     // Preferir ABAJO (pegada al input). Solo arriba si abajo no cabe.
     this.abreArriba = espacioAbajo < 110 && espacioArriba > espacioAbajo + 24;
 
-    let top: number;
+    let top: number | 'auto';
+    let bottom: string;
     let maxH: number;
     if (this.abreArriba) {
-      maxH = Math.max(96, Math.min(tope, Math.max(espacioArriba, 96)));
-      top = Math.max(vp.top + pad, rect.top - gap - maxH);
-      maxH = Math.max(80, Math.min(maxH, rect.top - gap - top));
+      // Anclar el borde inferior al input (bottom), no asumir altura del contenido.
+      maxH = Math.max(96, Math.min(tope, espacioArriba));
+      top = 'auto';
+      bottom = `${Math.round(window.innerHeight - rect.top + gap)}px`;
     } else {
       top = rect.bottom + gap;
+      bottom = 'auto';
       maxH = Math.max(
         96,
         Math.min(tope, Math.max(espacioAbajo, 96), vp.bottom - navReserve - top - pad)
@@ -583,8 +586,8 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
       position: 'fixed',
       left: `${Math.round(rect.left)}px`,
       width: `${Math.round(rect.width)}px`,
-      top: `${Math.round(top)}px`,
-      bottom: 'auto',
+      top: top === 'auto' ? 'auto' : `${Math.round(top)}px`,
+      bottom,
       maxHeight: `${Math.round(maxH)}px`,
       zIndex: '5000',
     };
