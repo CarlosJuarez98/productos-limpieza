@@ -2,6 +2,7 @@ package com.productoslimpieza.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
@@ -47,6 +49,9 @@ public class SecurityConfig {
   @Value("${app.auth.mama.password:1Mama23}")
   private String mamaPass;
 
+  @Value("${app.auth.overrides-file}")
+  private String overridesFile;
+
   @Value("${app.cors.allowed-origins}")
   private String allowedOrigins;
 
@@ -57,16 +62,25 @@ public class SecurityConfig {
 
   @Bean
   UserDetailsService userDetailsService(PasswordEncoder encoder) {
+    Map<String, String> overrides =
+        AuthPasswordOverrides.load(Path.of(overridesFile).toAbsolutePath().normalize());
+    String adminPlain =
+        AuthPasswordOverrides.resolvePassword(adminUser, adminPass, overrides);
+    String mamaPlain = AuthPasswordOverrides.resolvePassword(mamaUser, mamaPass, overrides);
     UserDetails admin = User.withUsername(adminUser.trim().toLowerCase())
-        .password(encoder.encode(adminPass))
+        .password(encoder.encode(adminPlain))
         .roles("ADMIN")
         .build();
-    // Mismos permisos y pantallas que admin; solo cambia el tenant de datos.
     UserDetails mama = User.withUsername(mamaUser.trim().toLowerCase())
-        .password(encoder.encode(mamaPass))
+        .password(encoder.encode(mamaPlain))
         .roles("ADMIN")
         .build();
     return new InMemoryUserDetailsManager(admin, mama);
+  }
+
+  @Bean
+  LoginRateLimitFilter loginRateLimitFilter() {
+    return new LoginRateLimitFilter();
   }
 
   @Bean
@@ -83,15 +97,18 @@ public class SecurityConfig {
   SecurityFilterChain filterChain(
       HttpSecurity http,
       ObjectMapper mapper,
-      SecurityContextRepository securityContextRepository) throws Exception {
+      SecurityContextRepository securityContextRepository,
+      LoginRateLimitFilter loginRateLimitFilter) throws Exception {
     http
         .cors(Customizer.withDefaults())
         .csrf(csrf -> csrf.disable())
+        .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
         .securityContext(sc -> sc.securityContextRepository(securityContextRepository))
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/auth/me").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/publicidad/galeria/archivo/**").permitAll()
             .requestMatchers(HttpMethod.HEAD, "/api/publicidad/galeria/archivo/**").permitAll()

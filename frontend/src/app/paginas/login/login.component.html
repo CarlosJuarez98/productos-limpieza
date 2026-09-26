@@ -30,6 +30,11 @@
       />
     </label>
 
+    <label class="recordar-row">
+      <input type="checkbox" name="recordar" [(ngModel)]="recordar" />
+      Recordarme 7 días
+    </label>
+
     @if (error) {
       <p class="error">{{ error }}</p>
     }

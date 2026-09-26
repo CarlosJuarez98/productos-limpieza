@@ -15,6 +15,7 @@ import { ClearableDirective } from '../../clearable.directive';
 export class LoginComponent {
   username = '';
   password = '';
+  recordar = false;
   error = '';
   cargando = false;
   sesionActual: string | null = null;
@@ -36,7 +37,7 @@ export class LoginComponent {
       return;
     }
     this.cargando = true;
-    this.auth.login(u, this.password).subscribe({
+    this.auth.login(u, this.password, this.recordar).subscribe({
       next: () => {
         this.cargando = false;
         void this.router.navigateByUrl('/ventas');

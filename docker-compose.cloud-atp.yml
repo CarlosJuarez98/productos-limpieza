@@ -25,6 +25,7 @@ services:
       APP_ARCHIVO_ANUAL_ENABLED: "true"
       APP_ARCHIVO_ANUAL_PATH: /app/archivo-anual
       APP_PUBLICIDAD_GALERIA_PATH: /app/uploads/publicidad-galeria
+      APP_AUTH_OVERRIDES_FILE: /app/data/auth-overrides.properties
       SERVER_PORT: "8083"
       JAVA_OPTS: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Doracle.net.tns_admin=/wallet"
       LOGGING_LEVEL_COM_PRODUCTOSLIMPIEZA: INFO
@@ -32,6 +33,7 @@ services:
       - ./wallet:/wallet:ro
       - archivo-anual-data:/app/archivo-anual
       - ./uploads/publicidad-galeria:/app/uploads/publicidad-galeria
+      - auth-data:/app/data
     mem_limit: 768m
     restart: unless-stopped
 
@@ -49,13 +51,16 @@ services:
       - backend
     networks:
       - default
-      # Acceso persistente a control-gastos-api (HTTPS gastos vía mismo Caddy)
+      # Acceso persistente a control-gastos-api y mesa-lista-api (mismo Caddy)
       - control_gastos
+      - mesa_lista
     restart: unless-stopped
 
 volumes:
   caddy_data:
   caddy_config:
+  auth-data:
+    name: productos-limpieza-auth-data
   archivo-anual-data:
     name: productos-limpieza-archivo-anual
 
@@ -63,4 +68,7 @@ networks:
   control_gastos:
     external: true
     name: control-gastos_default
+  mesa_lista:
+    external: true
+    name: mesa-lista_default
 

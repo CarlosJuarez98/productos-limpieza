@@ -109,13 +109,14 @@ export class AuthService {
     return this.meInflight$;
   }
 
-  login(username: string, password: string): Observable<void> {
+  login(username: string, password: string, recordar = false): Observable<void> {
     return this.http
-      .post<{ ok: boolean; username: string; displayName?: string }>(
-        `${this.base}/login`,
-        { username, password },
-        { withCredentials: true }
-      )
+      .post<{
+        ok: boolean;
+        username: string;
+        displayName?: string;
+        remainingSeconds?: number;
+      }>(`${this.base}/login`, { username, password, recordar }, { withCredentials: true })
       .pipe(
         tap((r) => {
           this.lastServerAt = Date.now();
@@ -123,11 +124,17 @@ export class AuthService {
             authenticated: true,
             username: r.username,
             displayName: r.displayName || displayNameOf(r.username),
-            remainingSeconds: 20 * 60,
+            remainingSeconds: r.remainingSeconds ?? (recordar ? 7 * 24 * 3600 : 20 * 60),
           });
         }),
         map(() => undefined)
       );
+  }
+
+  cambiarPassword(actual: string, nueva: string): Observable<void> {
+    return this.http
+      .put<{ ok: boolean }>(`${this.base}/password`, { actual, nueva }, { withCredentials: true })
+      .pipe(map(() => undefined));
   }
 
   logout(): Observable<void> {

@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { CommonModule, NgTemplateOutlet } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, Subscription } from 'rxjs';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
@@ -30,7 +31,15 @@ type NavLink = { path: string; label: string; short?: string; icon: NavIcon };
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ConfirmDialogComponent, NgTemplateOutlet],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    ConfirmDialogComponent,
+    NgTemplateOutlet,
+  ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
@@ -88,6 +97,12 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   sincronizando = false;
   offlineMsg = '';
   offlineBanner = false;
+
+  pwdDialogAbierto = false;
+  pwdActual = '';
+  pwdNueva = '';
+  pwdError = '';
+  pwdCargando = false;
 
   /** Pull-to-refresh (móvil). */
   pullDistancia = 0;
@@ -286,6 +301,50 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.auth.logout().subscribe({
       next: () => void this.router.navigateByUrl('/login'),
       error: () => void this.router.navigateByUrl('/login'),
+    });
+  }
+
+  abrirCambioPassword(): void {
+    this.pwdActual = '';
+    this.pwdNueva = '';
+    this.pwdError = '';
+    this.pwdDialogAbierto = true;
+    this.masAbierto = false;
+  }
+
+  cerrarCambioPassword(): void {
+    this.pwdDialogAbierto = false;
+    this.pwdActual = '';
+    this.pwdNueva = '';
+    this.pwdError = '';
+  }
+
+  enviarCambioPassword(): void {
+    this.pwdError = '';
+    if (!this.pwdActual || !this.pwdNueva) {
+      this.pwdError = 'Escribe la contraseña actual y la nueva';
+      return;
+    }
+    if (this.pwdNueva.length < 8) {
+      this.pwdError = 'La nueva contraseña debe tener al menos 8 caracteres';
+      return;
+    }
+    this.pwdCargando = true;
+    this.auth.cambiarPassword(this.pwdActual, this.pwdNueva).subscribe({
+      next: () => {
+        this.pwdCargando = false;
+        this.cerrarCambioPassword();
+      },
+      error: (err) => {
+        this.pwdCargando = false;
+        const body = err?.error;
+        const msg =
+          (typeof body === 'object' && body?.error) ||
+          (typeof body === 'string' ? body : null) ||
+          err?.message;
+        this.pwdError =
+          typeof msg === 'string' && msg.length < 160 ? msg : 'No se pudo cambiar la contraseña';
+      },
     });
   }
 
