@@ -789,20 +789,19 @@ input[readonly] {
     margin-left: 0;
   }
 
-  /* Cáscara sticky: top negativo = padding de main; capa propia para no ver el listado detrás */
+  /*
+   * Sticky del buscador: z-index bajo (dentro de main) para no pelear con bottom-nav / Más.
+   * Sin translateZ: en móvil el teclado + capa GPU dejaba el sticky encima del hamburguesa.
+   */
   .toolbar-sticky-shell {
     position: sticky;
     top: -0.5rem;
-    z-index: 50;
+    z-index: 5;
     margin: -0.5rem -0.6rem 0.75rem;
     padding: 0.55rem 0.6rem 0.65rem;
     background: #f7fbf8;
     border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
     isolation: isolate;
-    /* Capa de composición propia: evita que el listado pinte encima del fondo en huecos del flex */
-    transform: translateZ(0);
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
 
     &::before {
       content: '';
@@ -810,7 +809,7 @@ input[readonly] {
       inset: -1.25rem 0 0;
       background: #f7fbf8;
       z-index: 0;
-      pointer-events: auto;
+      pointer-events: none;
     }
   }
 

@@ -844,10 +844,12 @@ th {
   z-index: 3;
 }
 
-/* Portal en body: lista de producto anclada al input (móvil/desktop). */
+/* Portal en body: lista de producto anclada al input (móvil/desktop).
+ * Por debajo de Más/bottom sheet (200+) para que el hamburguesa no quede tapado
+ * si el teclado/lista siguen abiertos al cambiar de pantalla. */
 .producto-ac-sugerencias {
   position: fixed;
-  z-index: 5000;
+  z-index: 150;
   margin: 0;
   padding: 0.25rem 0;
   list-style: none;

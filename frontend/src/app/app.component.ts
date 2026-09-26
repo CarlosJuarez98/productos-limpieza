@@ -121,11 +121,24 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private readonly renewMs = 25_000;
   private onActividad = (): void => this.renovarSiHayActividad();
   private onVisibility = (): void => {
+    if (document.visibilityState === 'hidden') {
+      // Teclado abierto sin “Ir”: al salir/volver no deje sticky encima del menú.
+      this.blurCampoActivo();
+      return;
+    }
     if (document.visibilityState === 'visible') {
       this.lastRenew = 0;
       this.renovarSiHayActividad();
     }
   };
+
+  /** Cierra teclado móvil para que sticky/bottom-nav no se peleen. */
+  private blurCampoActivo(): void {
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && el !== document.body) {
+      el.blur();
+    }
+  }
 
   get sesionActiva(): boolean {
     return !!this.usuarioActual;
@@ -169,6 +182,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => {
         this.masAbierto = false;
+        this.blurCampoActivo();
         this.actualizarEsLogin(e.urlAfterRedirects || e.url);
         this.scrollActiveNavIntoView();
       });
@@ -289,7 +303,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   toggleMas(): void {
-    this.masAbierto = !this.masAbierto;
+    const abrir = !this.masAbierto;
+    if (abrir) this.blurCampoActivo();
+    this.masAbierto = abrir;
   }
 
   cerrarMas(): void {

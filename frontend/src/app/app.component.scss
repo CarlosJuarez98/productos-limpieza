@@ -317,7 +317,7 @@ main {
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 200;
   background: rgba(18, 32, 26, 0.4);
 }
 
@@ -327,7 +327,7 @@ main {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 31;
+  z-index: 201;
   max-height: min(88dvh, 36rem);
   overflow: auto;
   -webkit-overflow-scrolling: touch;
@@ -521,7 +521,9 @@ main {
     background: rgba(248, 251, 249, 0.96);
     backdrop-filter: blur(8px);
     box-shadow: 0 -4px 16px rgba(18, 42, 32, 0.06);
-    z-index: 20;
+    /* Por encima de stickies de página (Inventario buscador, etc.) */
+    position: relative;
+    z-index: 100;
   }
 
   .bottom-nav a,
@@ -623,7 +625,7 @@ main {
 .pwd-overlay {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 300;
   display: flex;
   align-items: center;
   justify-content: center;
