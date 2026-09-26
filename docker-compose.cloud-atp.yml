@@ -51,9 +51,10 @@ services:
       - backend
     networks:
       - default
-      # Acceso persistente a control-gastos-api y mesa-lista-api (mismo Caddy)
+      # Acceso persistente a APIs hermanas (mismo Caddy)
       - control_gastos
       - mesa_lista
+      - taximetro
     restart: unless-stopped
 
 volumes:
@@ -71,4 +72,7 @@ networks:
   mesa_lista:
     external: true
     name: mesa-lista_default
+  taximetro:
+    external: true
+    name: taximetro_default
 

@@ -25,9 +25,11 @@ tar -xf ~/productos-deploy.tar
 rm -f ~/productos-deploy.tar
 docker network inspect control-gastos_default >/dev/null 2>&1 || docker network create control-gastos_default
 docker network inspect mesa-lista_default >/dev/null 2>&1 || docker network create mesa-lista_default
+docker network inspect taximetro_default >/dev/null 2>&1 || docker network create taximetro_default
 docker compose -f docker-compose.cloud-atp.yml --env-file .env.cloud up -d --build
 docker network connect control-gastos_default productos-limpieza-caddy 2>/dev/null || true
 docker network connect mesa-lista_default productos-limpieza-caddy 2>/dev/null || true
+docker network connect taximetro_default productos-limpieza-caddy 2>/dev/null || true
 for i in 1 2 3 4 5 6 7 8 9 10 12 15; do
   if docker exec productos-limpieza-api wget -qO- http://127.0.0.1:8083/api/health 2>/dev/null | grep -q UP; then
     echo HEALTH_OK
