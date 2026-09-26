@@ -8,10 +8,10 @@
 }
 
 @if (error) {
-  <p class="error" appAutoHide (ocultar)="error = ''">{{ error }}</p>
+  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
 }
 @if (ok) {
-  <p class="ok" appAutoHide (ocultar)="ok = ''">{{ ok }}</p>
+  <p class="ok" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
 }
 
 <section class="panel captura-panel panel-anim">

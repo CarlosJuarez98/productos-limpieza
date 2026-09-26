@@ -16,6 +16,7 @@ import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
 import { elementoVisible, esMovilTactil } from '../../captura-focus.util';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { AutoHideDirective } from '../../auto-hide.directive';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { InventarioItem, MODOS_VENTA, ModoVenta, TipoVenta, Venta } from '../../modelos';
@@ -66,6 +67,7 @@ type DraftVentas = {
     ProductoAutocompleteComponent,
     FechaDmYPipe,
     FechaDiaComponent,
+    AutoHideDirective,
     ClearableDirective,
     SoloNumerosDirective,
     PaginadorComponent,
