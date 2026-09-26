@@ -1,4 +1,4 @@
-# Deploy código productos-limpieza a OCI (sin sync de datos).
+# Deploy codigo productos-limpieza a OCI (sin sync de datos).
 #   powershell -ExecutionPolicy Bypass -File .\scripts\deploy-nube.ps1
 
 param(
@@ -12,12 +12,13 @@ $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $SshOpts = @("-i", $SshKey, "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes")
 $tar = Join-Path $env:TEMP "productos-deploy.tar"
 
-Write-Host "== Deploy productos-limpieza (código) ==" -ForegroundColor Cyan
+Write-Host "== Deploy productos-limpieza (codigo) ==" -ForegroundColor Cyan
 Push-Location $Root
 tar -cf $tar backend/src frontend/src docker-compose.cloud-atp.yml Dockerfile Caddyfile
 Pop-Location
 scp @SshOpts $tar "${VmHost}:~/productos-deploy.tar"
-ssh @SshOpts $VmHost @"
+
+$remote = @"
 set -e
 cd $RemoteDir
 tar -xf ~/productos-deploy.tar
@@ -37,4 +38,7 @@ done
 echo HEALTH_TIMEOUT
 exit 1
 "@
+$remote = ($remote -replace "`r`n", "`n" -replace "`r", "`n")
+$remote | ssh @SshOpts $VmHost "bash -s"
+if ($LASTEXITCODE -ne 0) { throw "Deploy productos-limpieza fallo (exit $LASTEXITCODE)" }
 Write-Host "Listo." -ForegroundColor Green
