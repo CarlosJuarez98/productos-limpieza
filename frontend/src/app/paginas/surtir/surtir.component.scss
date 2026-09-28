@@ -205,6 +205,13 @@
   }
 }
 
+.panel-calcular {
+  margin-bottom: 1.5rem;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, #8aa194);
+  box-shadow: 0 8px 22px rgba(22, 40, 33, 0.06);
+}
+
 .panel-resultados {
   padding-bottom: 0.85rem;
 }
@@ -212,66 +219,82 @@
 .surtir-paso2 {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.65rem;
   margin-bottom: 0.85rem;
 }
 
-/* Barra fija del paso 2: plana (como inventario), sin tarjeta flotante. */
+/*
+ * Punto 2 sticky flush al tope (como Inventario): top negativo = sin hueco gris.
+ */
 .resultados-sticky-shell {
   position: sticky;
   top: -0.7rem;
-  z-index: 14;
-  margin: -0.15rem -0.15rem 0;
-  padding: 0.55rem 0.15rem 0.55rem;
-  background: #f7fbf8;
-  border: none;
-  border-radius: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
-  box-shadow: none;
+  z-index: 20;
+  margin: 0 0 0.65rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, #8aa194);
+  border-radius: 1.05rem;
+  box-shadow: 0 8px 22px rgba(22, 40, 33, 0.06);
   isolation: isolate;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: -1.35rem 0 0;
-    background: #f7fbf8;
-    z-index: 0;
-    pointer-events: none;
-  }
 }
 
-.resultados-toolbar {
+.resultados-toolbar,
+.resultados-sticky-shell .paso-toolbar,
+.resultados-sticky-shell .alta-manual-details {
   position: relative;
   z-index: 1;
 }
 
 .resultados-sticky-shell .alta-manual-details {
-  position: relative;
-  z-index: 1;
-  margin: 0.4rem 0 0;
-  padding: 0.2rem 0 0;
-  border: none;
-  border-top: 1px dashed color-mix(in srgb, var(--line) 70%, transparent);
-  border-radius: 0;
-  background: transparent;
+  margin: 0.45rem 0 0;
+  padding: 0.35rem 0.55rem 0.4rem;
+  border: 1px dashed color-mix(in srgb, var(--line) 80%, #fff);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--accent-soft) 22%, #fff);
 }
 
 .resultados-sticky-shell .alta-manual-details[open] {
-  padding-bottom: 0.15rem;
+  padding-bottom: 0.55rem;
 }
 
 .resultados-sticky-shell .alta-manual-details > summary {
-  padding: 0.35rem 0;
+  padding: 0.2rem 0;
   min-height: 0;
 }
 
 .resultados-sticky-shell .alta-manual-details[open] > summary {
-  margin-bottom: 0.4rem;
-  padding-bottom: 0.35rem;
+  margin-bottom: 0.45rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, #fff);
 }
 
 .surtir-paso2 > .lista-grupo {
+  position: relative;
+  z-index: 0;
   margin-top: 0;
+  /* Evita que fade-up/transform pinte filas encima del sticky */
+  animation: none !important;
+  transform: none !important;
+}
+
+.surtir-paso2 .hist-cards > li {
+  animation: none !important;
+  transform: none !important;
+}
+
+/* Los th globales son sticky top:0 y se asoman / reciben clics bajo el punto 2 */
+.surtir-paso2 th {
+  position: static;
+  top: auto;
+  z-index: auto;
+  box-shadow: none;
+}
+
+@media (min-width: 768px) {
+  .resultados-sticky-shell {
+    top: -0.7rem;
+  }
 }
 
 .surtir-cta {
@@ -1227,8 +1250,19 @@ table tr.bajo > td {
 
   .resultados-sticky-shell {
     top: -0.5rem;
-    margin: -0.35rem -0.65rem 0;
-    padding: 0.45rem 0.65rem 0.5rem;
+    margin: 0 0 0.55rem;
+    padding: 0.75rem 0.8rem;
+    border-radius: 1rem;
+  }
+
+  .resultados-sticky-shell .alta-manual-details {
+    margin-top: 0.4rem;
+    padding: 0.4rem 0.55rem;
+  }
+
+  .resultados-sticky-shell .alta-manual-details > summary {
+    min-height: 2.2rem;
+    align-items: center;
   }
 
   .paso-toolbar .bloque-titulo,
@@ -1296,16 +1330,6 @@ table tr.bajo > td {
     width: 100%;
     min-height: 3rem;
     border-radius: 999px;
-  }
-
-  .resultados-sticky-shell .alta-manual-details {
-    margin-top: 0.3rem;
-    padding-top: 0.15rem;
-  }
-
-  .resultados-sticky-shell .alta-manual-details > summary {
-    min-height: 2.2rem;
-    align-items: center;
   }
 
   .alta-manual-fila {
