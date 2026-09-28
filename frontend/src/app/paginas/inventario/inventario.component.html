@@ -236,7 +236,16 @@
                   <td class="money col-extra">${{ i.precioMayoreo10 | number: '1.0-0' }}</td>
                 }
                 @if (col('compra')) {
-                  <td class="money col-extra">${{ i.precioCompra | number: '1.2-2' }}</td>
+                  <td class="money col-extra col-compra">
+                    <span class="compra-principal">${{ i.precioCompra | number: '1.2-2' }}</span>
+                    @if (enListaArmar(i) && desgloseCompraBaston(i); as d) {
+                      @if (d.armado) {
+                        <span class="compra-desglose">cabeza ${{ d.cabeza | number: '1.2-2' }} · bastón ${{ d.baston | number: '1.2-2' }}</span>
+                      } @else {
+                        <span class="compra-desglose">sin armar · +bastón ${{ d.baston | number: '1.2-2' }} → ${{ d.lista | number: '1.2-2' }}</span>
+                      }
+                    }
+                  </td>
                 }
                 @if (col('minSug')) {
                   <td class="money col-sugerido col-extra">${{ i.precioMinimoSugerido | number: '1.0-0' }}</td>
@@ -482,7 +491,16 @@
               @if (col('compra')) {
                 <div>
                   <dt>Precio compra</dt>
-                  <dd>${{ i.precioCompra | number: '1.2-2' }}</dd>
+                  <dd class="compra-dd">
+                    <span class="compra-principal">${{ i.precioCompra | number: '1.2-2' }}</span>
+                    @if (enListaArmar(i) && desgloseCompraBaston(i); as d) {
+                      @if (d.armado) {
+                        <span class="compra-desglose">cabeza ${{ d.cabeza | number: '1.2-2' }} · bastón ${{ d.baston | number: '1.2-2' }}</span>
+                      } @else {
+                        <span class="compra-desglose">sin armar · +bastón ${{ d.baston | number: '1.2-2' }} → ${{ d.lista | number: '1.2-2' }}</span>
+                      }
+                    }
+                  </dd>
                 </div>
               }
               @if (col('m5')) {

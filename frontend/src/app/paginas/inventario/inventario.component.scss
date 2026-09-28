@@ -582,6 +582,27 @@ h3 {
   white-space: nowrap;
 }
 
+td.col-compra,
+.compra-dd {
+  vertical-align: top;
+}
+
+.compra-principal {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+.compra-desglose {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text, #1a2e24);
+  white-space: normal;
+  max-width: 12rem;
+}
+
 td.bajo-minimo,
 .bajo-minimo {
   color: var(--danger);

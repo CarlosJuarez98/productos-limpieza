@@ -281,6 +281,54 @@ export class InventarioComponent implements OnInit, OnDestroy {
     return this.items.filter((i) => i.esBaston || /bast[oó]n/i.test(i.nombre || ''));
   }
 
+  /** Solo productos marcados en la lista Armar (no el bastón ni el resto del inventario). */
+  enListaArmar(i: InventarioItem): boolean {
+    return !!i.usaBaston && !i.esBaston;
+  }
+
+  private resolverBastonDe(i: InventarioItem): InventarioItem | undefined {
+    if (!this.enListaArmar(i)) return undefined;
+    if (i.bastonProductoId != null) {
+      return this.items.find((x) => x.id === i.bastonProductoId);
+    }
+    return this.productosBaston[0];
+  }
+
+  /**
+   * Desglose cabeza/bastón solo para la lista Armar.
+   * Si todo el stock está pendiente, la compra aún es solo cabeza.
+   */
+  desgloseCompraBaston(i: InventarioItem): {
+    cabeza: number;
+    baston: number;
+    lista: number;
+    armado: boolean;
+  } | null {
+    if (!this.enListaArmar(i)) return null;
+    const baston = this.resolverBastonDe(i);
+    const costoB =
+      Math.round((Number(baston?.precioCompra) || 0) * (Number(i.bastonesPorUnidad) || 1) * 100) / 100;
+    if (costoB <= 0) return null;
+    const compra = Number(i.precioCompra) || 0;
+    const stock = Number(i.stockActual) || 0;
+    const pend = Number(i.pendienteArmar) || 0;
+    const soloCabeza = stock > 0 && pend >= stock;
+    if (soloCabeza) {
+      return {
+        cabeza: compra,
+        baston: costoB,
+        lista: Math.round((compra + costoB) * 100) / 100,
+        armado: false,
+      };
+    }
+    return {
+      cabeza: Math.max(0, Math.round((compra - costoB) * 100) / 100),
+      baston: costoB,
+      lista: compra,
+      armado: true,
+    };
+  }
+
   private hoyLocal(): string {
     const d = new Date();
     const y = d.getFullYear();
