@@ -643,16 +643,9 @@ public class PedidoRegistroService {
     a.setApartadoId(null);
   }
 
-  /** Tras guardar mercancía sin pago, activa el control de crédito (saldo pendiente). */
+  /** Tras guardar mercancía sin pago, el saldo queda a crédito; la fecha la elige el usuario en Surtir. */
   private void activarCreditoSiHayDeudaSinPagos(Long pedidoId) {
-    Pedido p = pedidoRepo.findById(pedidoId).orElse(null);
-    if (p == null) return;
-    BigDecimal total = nz(entradaRepo.sumTotalByPedidoId(pedidoId));
-    BigDecimal pagado = nz(abonoRepo.sumMontoByPedidoId(pedidoId));
-    if (total.subtract(pagado).compareTo(new BigDecimal("0.009")) <= 0) return;
-    if (p.getFechaLimitePago() != null) return;
-    p.setFechaLimitePago(LocalDate.now(ZONA));
-    pedidoRepo.save(p);
+    // Antes se forzaba fechaLimite = hoy; eso ocultaba el crédito real («puedo pagar hasta»).
   }
 
   /** Motivo del gasto según departamentos del pedido (recibidos; si no hay, todos). */

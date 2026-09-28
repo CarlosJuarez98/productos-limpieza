@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
+import { CapturaDraftService } from '../../captura-draft.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { inferirDepartamento, InventarioItem, PedidoAbono, PedidoLinea, PedidoRegistrado, PedidoSugerido } from '../../modelos';
+import { inferirDepartamento, Entrada, InventarioItem, PedidoAbono, PedidoLinea, PedidoRegistrado, PedidoSugerido } from '../../modelos';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { PullRefreshService } from '../../pull-refresh.service';
@@ -14,11 +15,13 @@ import { AutoHideDirective } from '../../auto-hide.directive';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
+import { enviarTextoWhatsApp } from '../../ticket-whatsapp.util';
 
 type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean; extra?: boolean };
 type ModoPeriodo = '4_semanas' | 'mes_pasado' | 'mes_actual' | 'custom';
 type GrupoPedido = 'LIMPIEZA' | 'JARCERIA';
 type FiltroDepto = 'todo' | 'limpieza' | 'jarceria';
+type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
 type TipSurtirEstado = 'urgente' | 'pronto' | 'ok' | 'sin_dato';
 type TipSurtir = {
   depto: GrupoPedido;
@@ -46,6 +49,26 @@ type ReciboEdit = {
   precioCompra: number | null;
   unidad: string;
   departamento: GrupoPedido;
+};
+type DraftSurtir = {
+  v: 1;
+  porcentajeExtra: number;
+  filtroDepto: FiltroDepto;
+  desde: string;
+  hasta: string;
+  diasCobertura: number | null;
+  modoPeriodo: ModoPeriodo;
+  ultimo: PedidoSugerido | null;
+  lineas: LineaEditable[];
+  pedidoExpandidoId: number | null;
+  recibos: {
+    itemId: number;
+    pedida: number | null;
+    recibida: number | null;
+    totalPagado: number | null;
+  }[];
+  fechaLimitePago: string;
+  abonoNuevo: { fecha: string; monto: number | null; nota: string };
 };
 
 @Component({
@@ -87,6 +110,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
   guardandoPedidaId: number | null = null;
   editandoPedidaId: number | null = null;
   productos: InventarioItem[] = [];
+  /** Historial de entradas (fecha desc) para comparar unitario vs última compra. */
+  entradas: Entrada[] = [];
   saldoProductos = 0;
   altaProductoId: number | null = null;
   altaCantidad: number | null = null;
@@ -98,21 +123,33 @@ export class SurtirComponent implements OnInit, OnDestroy {
   editandoAbonoId: number | null = null;
   editAbono = { fecha: '', monto: null as number | null, nota: '' };
   guardandoAbono = false;
+  compartiendoWhatsApp = false;
   pagLitros = new PaginacionEstado<LineaEditable>(12);
   pagPiezas = new PaginacionEstado<LineaEditable>(12);
   tipsSurtir: TipSurtir[] = [];
+  /** Listas del punto 2: se pueden contraer. */
+  limpiaAbierta = true;
+  jarceriaAbierta = true;
   private pullSub?: Subscription;
+  private static readonly DRAFT = 'surtir';
+  private draftTimer: ReturnType<typeof setTimeout> | null = null;
+  private fechaLimiteTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Recibos del borrador a aplicar cuando lleguen los pedidos. */
+  private draftRecepcionPendiente: DraftSurtir | null = null;
 
   constructor(
     private api: ApiService,
     private pullRefresh: PullRefreshService,
-    private confirmDlg: ConfirmDialogService
+    private confirmDlg: ConfirmDialogService,
+    private drafts: CapturaDraftService
   ) {}
 
   ngOnInit(): void {
     this.aplicarModoPeriodo();
+    this.restaurarBorradorSugerido();
     this.cargarPedidos();
     this.cargarSaldoProductos();
+    this.cargarEntradas();
     this.api.inventario().subscribe({
       next: (p) => {
         this.productos = p;
@@ -123,6 +160,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => {
       this.cargarPedidos();
       this.cargarSaldoProductos();
+      this.cargarEntradas();
       this.api.inventario().subscribe({
         next: (p) => {
           this.productos = p;
@@ -133,7 +171,23 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.persistirBorrador();
+    if (this.draftTimer != null) clearTimeout(this.draftTimer);
+    if (this.fechaLimiteTimer != null) clearTimeout(this.fechaLimiteTimer);
     this.pullSub?.unsubscribe();
+  }
+
+  @HostListener('window:pagehide')
+  @HostListener('document:visibilitychange')
+  onGuardarBorrador(): void {
+    this.persistirBorrador();
+  }
+
+  private cargarEntradas(): void {
+    this.api.entradas().subscribe({
+      next: (e) => (this.entradas = e || []),
+      error: () => (this.entradas = []),
+    });
   }
 
   cargarPedidos(): void {
@@ -141,6 +195,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
       next: (p) => {
         this.pedidos = p;
         this.recalcularTipsSurtir();
+        this.aplicarDraftRecepcionPendiente();
       },
       error: () => {
         this.pedidos = [];
@@ -442,6 +497,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
           this.cargando = false;
           this.ok =
             'Pedido listo: incluye productos en cero (quítalos con × si no los quieres) y ventas de ~6 meses.';
+          this.programarBorrador();
         },
         error: (e) => {
           this.error = e.error?.error || 'No se pudo calcular el pedido';
@@ -505,11 +561,13 @@ export class SurtirComponent implements OnInit, OnDestroy {
   onPedirChange(l: LineaEditable): void {
     l.pedir = this.normalizarPedir(Number(l.pedir), l.vendePor);
     this.syncPag();
+    this.programarBorrador();
   }
 
   /** Colchón del pedido: solo Sin / 10 / 20 / 30 / 40 / 50. */
   setColchon(pct: number): void {
     this.porcentajeExtra = this.ajustarColchon(pct);
+    this.programarBorrador();
   }
 
   esColchon(pct: number): boolean {
@@ -522,6 +580,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
     const paso = l.vendePor === 'PIEZA' ? delta : delta * 0.25;
     l.pedir = this.normalizarPedir(base + paso, l.vendePor);
     this.syncPag();
+    this.programarBorrador();
   }
 
   ajustarAltaCantidad(delta: number): void {
@@ -611,6 +670,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   setFiltroDepto(v: FiltroDepto): void {
     this.filtroDepto = v;
+    this.programarBorrador();
   }
 
   get mostrarLimpieza(): boolean {
@@ -619,6 +679,14 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   get mostrarJarceria(): boolean {
     return this.filtroDepto !== 'limpieza';
+  }
+
+  toggleGrupoLimpieza(): void {
+    this.limpiaAbierta = !this.limpiaAbierta;
+  }
+
+  toggleGrupoJarceria(): void {
+    this.jarceriaAbierta = !this.jarceriaAbierta;
   }
 
   private lineasARegistrar(): LineaEditable[] {
@@ -636,6 +704,70 @@ export class SurtirComponent implements OnInit, OnDestroy {
     if (this.filtroDepto === 'limpieza') return 'Registrar pedido de limpieza';
     if (this.filtroDepto === 'jarceria') return 'Registrar pedido de jarcería';
     return 'Registrar pedido';
+  }
+
+  /** Texto plano para el proveedor: nombre + cantidad (como lo manejan por WhatsApp). */
+  private textoPedidoLineas(
+    items: { nombre: string; cantidad: number; unidad: string }[],
+    titulo: string
+  ): string {
+    const lineas = items
+      .filter((i) => Number(i.cantidad) > 0)
+      .map((i) => {
+        const cant = Number(i.cantidad);
+        const c =
+          i.unidad === 'pza' || Number.isInteger(cant)
+            ? String(Math.round(cant))
+            : String(Math.round(cant * 100) / 100);
+        return `${i.nombre} ${c} ${i.unidad}`.trim();
+      });
+    if (!lineas.length) return '';
+    return `${titulo}\n\n${lineas.join('\n')}`;
+  }
+
+  private itemsDesdePedido(p: PedidoRegistrado): { nombre: string; cantidad: number; unidad: string }[] {
+    return (p.items || [])
+      .filter((i) => Number(i.cantidadPedida) > 0)
+      .map((i) => ({
+        nombre: i.productoNombre || 'Producto',
+        cantidad: Number(i.cantidadPedida) || 0,
+        unidad: i.vendePor === 'PIEZA' ? 'pza' : 'L',
+      }));
+  }
+
+  async enviarPedidoWhatsAppRegistrado(p: PedidoRegistrado, ev?: Event): Promise<void> {
+    ev?.stopPropagation();
+    if (p.estado === 'CERRADO') {
+      this.error = 'Este pedido ya está cerrado; no se envía al proveedor';
+      return;
+    }
+    const items = this.itemsDesdePedido(p);
+    if (!items.length) {
+      this.error = 'Este pedido no tiene cantidades';
+      return;
+    }
+    const titulo = `Pedido #${p.id} · ${this.fmtFechaDmY(p.fecha)}`;
+    await this.enviarPedidoWhatsApp(this.textoPedidoLineas(items, titulo));
+  }
+
+  private async enviarPedidoWhatsApp(texto: string): Promise<void> {
+    if (!texto.trim()) {
+      this.error = 'No hay productos para enviar';
+      return;
+    }
+    this.compartiendoWhatsApp = true;
+    this.error = '';
+    try {
+      const modo = await enviarTextoWhatsApp(texto);
+      this.ok =
+        modo === 'compartido'
+          ? 'Elige el chat del proveedor en WhatsApp'
+          : 'Texto listo: se abrió WhatsApp (también quedó copiado)';
+    } catch (e: unknown) {
+      this.error = e instanceof Error ? e.message : 'No se pudo abrir WhatsApp';
+    } finally {
+      this.compartiendoWhatsApp = false;
+    }
   }
 
   get totalLitros(): number {
@@ -677,6 +809,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
           this.registrando = false;
           this.ok = 'Pedido registrado. Abre el pedido y captura cuánto llegó.';
           this.vaciarSugerido();
+          this.drafts.clear(SurtirComponent.DRAFT);
           this.cargarPedidos();
         },
         error: (e) => {
@@ -691,10 +824,12 @@ export class SurtirComponent implements OnInit, OnDestroy {
       this.pedidoExpandidoId = null;
       this.recibosEdit = [];
       this.editandoPedidaId = null;
+      this.programarBorrador();
       return;
     }
     this.pedidoExpandidoId = id;
     this.armarDetalle(this.pedidos.find((x) => x.id === id));
+    this.programarBorrador();
   }
 
   private armarDetalle(p: PedidoRegistrado | undefined): void {
@@ -757,6 +892,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
         r.totalPagado = Math.round(r.precioCompra * pedida * 100) / 100;
       }
     }
+    this.programarBorrador();
   }
 
   /** Unitario = total pagado ÷ cantidad recibida. */
@@ -767,6 +903,64 @@ export class SurtirComponent implements OnInit, OnDestroy {
     if (r.totalPagado == null || String(r.totalPagado).trim() === '') return null;
     if (!Number.isFinite(total) || total < 0) return null;
     return Math.round((total / rec) * 100) / 100;
+  }
+
+  /** Última compra con precio (entradas ya vienen fecha desc). */
+  ultimaCompra(productoId: number | null): number | null {
+    if (productoId == null) return null;
+    const pedidoId = this.pedidoExpandidoId;
+    const previa = this.entradas.find(
+      (e) =>
+        e.productoId === productoId &&
+        e.precioProveedor != null &&
+        Number(e.precioProveedor) > 0 &&
+        (pedidoId == null || e.pedidoId == null || e.pedidoId !== pedidoId)
+    );
+    if (previa?.precioProveedor != null) return Number(previa.precioProveedor);
+    const inv = this.productos.find((p) => p.id === productoId);
+    const compra = inv != null ? Number(inv.precioCompra) : 0;
+    return compra > 0 ? compra : null;
+  }
+
+  cambioRecibo(r: ReciboEdit): CambioPrecio {
+    const actual = this.unitarioRecibo(r);
+    const anterior = this.ultimaCompra(r.productoId);
+    if (actual == null || anterior == null) return null;
+    const diff = Math.round((actual - anterior) * 100) / 100;
+    if (Math.abs(diff) < 0.005) return 'IGUAL';
+    return diff > 0 ? 'SUBIO' : 'BAJO';
+  }
+
+  diffAbsRecibo(r: ReciboEdit): number {
+    const actual = this.unitarioRecibo(r);
+    const anterior = this.ultimaCompra(r.productoId);
+    if (actual == null || anterior == null) return 0;
+    return Math.abs(Math.round((actual - anterior) * 100) / 100);
+  }
+
+  /** Suma de importes del proveedor en lo que estás capturando (recibido > 0). */
+  totalCuentaRecibo(): number {
+    let s = 0;
+    for (const r of this.recibosEdit) {
+      const rec = Number(r.recibida);
+      if (!Number.isFinite(rec) || rec <= 0) continue;
+      const tot = Number(r.totalPagado);
+      if (r.totalPagado == null || String(r.totalPagado).trim() === '') continue;
+      if (!Number.isFinite(tot) || tot < 0) continue;
+      s += tot;
+    }
+    return Math.round(s * 100) / 100;
+  }
+
+  get resumenCambioPrecios(): { subio: number; bajo: number } {
+    let subio = 0;
+    let bajo = 0;
+    for (const r of this.recibosEdit) {
+      const c = this.cambioRecibo(r);
+      if (c === 'SUBIO') subio++;
+      else if (c === 'BAJO') bajo++;
+    }
+    return { subio, bajo };
   }
 
   guardarRecepcion(): void {
@@ -791,15 +985,25 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.guardandoRecepcion = true;
     this.error = '';
     this.api
-      .registrarRecepcionPedido(this.pedidoExpandidoId, { lineas })
+      .registrarRecepcionPedido(this.pedidoExpandidoId, {
+        lineas,
+        fechaLimitePago: this.fechaLimitePago || null,
+      })
       .subscribe({
         next: (act) => {
           this.guardandoRecepcion = false;
-          this.ok = 'Mercancía guardada. Ahora revisa el pago abajo.';
+          this.ok = this.fechaLimitePago
+            ? `Mercancía guardada. Puedes pagar hasta el ${this.fmtFechaDmY(this.fechaLimitePago)}.`
+            : 'Mercancía guardada. Indica hasta cuándo puedes pagar (crédito) o registra un pago abajo.';
           this.reemplazarPedido(act, true);
           this.cargarPedidos();
           this.cargarSaldoProductos();
+          this.cargarEntradas();
+          this.api.inventario().subscribe({
+            next: (p) => (this.productos = p),
+          });
           this.vaciarSugerido();
+          this.programarBorrador();
         },
         error: (e) => {
           this.guardandoRecepcion = false;
@@ -1050,11 +1254,45 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.pagadoAhora = 0;
   }
 
+  /** Atajos: hoy + N días para crédito con el proveedor. */
+  ponerFechaLimiteEn(dias: number, p: PedidoRegistrado): void {
+    this.fechaLimitePago = this.sumarDias(this.hoyLocal(), dias);
+    this.onFechaLimiteChange(p);
+  }
+
+  quitarFechaLimite(p: PedidoRegistrado): void {
+    this.fechaLimitePago = '';
+    this.onFechaLimiteChange(p);
+  }
+
+  onFechaLimiteChange(p: PedidoRegistrado): void {
+    this.programarBorrador();
+    if (this.fechaLimiteTimer != null) clearTimeout(this.fechaLimiteTimer);
+    this.fechaLimiteTimer = setTimeout(() => {
+      this.fechaLimiteTimer = null;
+      this.guardarFechaLimite(p);
+    }, 350);
+  }
+
+  creditoVencido(p: PedidoRegistrado): boolean {
+    const f = p.fechaLimitePago || this.fechaLimitePago;
+    if (!f || this.saldoDe(p) <= 0.009) return false;
+    return f < this.hoyLocal();
+  }
+
+  private fmtFechaDmY(iso: string): string {
+    const [y, m, d] = iso.split('-');
+    if (!y || !m || !d) return iso;
+    return `${d}/${m}/${y}`;
+  }
+
   guardarFechaLimite(p: PedidoRegistrado): void {
     this.api.actualizarCreditoPedido(p.id, this.fechaLimitePago || null).subscribe({
       next: (act) => {
         this.reemplazarPedido(act);
-        this.ok = this.fechaLimitePago ? 'Fecha de pago guardada' : 'Sin fecha límite';
+        this.ok = this.fechaLimitePago
+          ? `Puedes pagar hasta el ${this.fmtFechaDmY(this.fechaLimitePago)}`
+          : 'Sin fecha límite de crédito';
       },
       error: (e) => (this.error = e.error?.error || 'No se pudo guardar la fecha'),
     });
@@ -1239,5 +1477,110 @@ export class SurtirComponent implements OnInit, OnDestroy {
       this.armarDetalle(act);
       this.pagadoAhora = keepPago;
     }
+  }
+
+  programarBorrador(): void {
+    if (this.draftTimer != null) clearTimeout(this.draftTimer);
+    this.draftTimer = setTimeout(() => this.persistirBorrador(), 200);
+  }
+
+  private hayBorradorUtil(): boolean {
+    if (this.lineas.some((l) => l.incluido && Number(l.pedir) > 0)) return true;
+    if (this.pedidoExpandidoId != null) return true;
+    if (this.recibosEdit.some((r) => Number(r.recibida) > 0 || (r.totalPagado != null && String(r.totalPagado) !== ''))) {
+      return true;
+    }
+    if (this.fechaLimitePago) return true;
+    if (this.abonoNuevo.monto != null && Number(this.abonoNuevo.monto) > 0) return true;
+    if ((this.abonoNuevo.nota || '').trim()) return true;
+    return false;
+  }
+
+  private persistirBorrador(): void {
+    if (!this.hayBorradorUtil()) {
+      this.drafts.clear(SurtirComponent.DRAFT);
+      return;
+    }
+    const draft: DraftSurtir = {
+      v: 1,
+      porcentajeExtra: this.porcentajeExtra,
+      filtroDepto: this.filtroDepto,
+      desde: this.desde,
+      hasta: this.hasta,
+      diasCobertura: this.diasCobertura,
+      modoPeriodo: this.modoPeriodo,
+      ultimo: this.ultimo,
+      lineas: this.lineas,
+      pedidoExpandidoId: this.pedidoExpandidoId,
+      recibos: this.recibosEdit.map((r) => ({
+        itemId: r.itemId,
+        pedida: r.pedida,
+        recibida: r.recibida,
+        totalPagado: r.totalPagado,
+      })),
+      fechaLimitePago: this.fechaLimitePago,
+      abonoNuevo: { ...this.abonoNuevo },
+    };
+    this.drafts.save(SurtirComponent.DRAFT, draft);
+  }
+
+  private restaurarBorradorSugerido(): void {
+    const draft = this.drafts.load<DraftSurtir>(SurtirComponent.DRAFT);
+    if (!draft || draft.v !== 1) return;
+    if (draft.lineas?.length) {
+      this.porcentajeExtra = this.ajustarColchon(Number(draft.porcentajeExtra) || 0);
+      this.filtroDepto = draft.filtroDepto || 'todo';
+      this.desde = draft.desde || this.desde;
+      this.hasta = draft.hasta || this.hasta;
+      this.diasCobertura = draft.diasCobertura ?? this.diasCobertura;
+      this.modoPeriodo = draft.modoPeriodo || this.modoPeriodo;
+      this.ultimo = draft.ultimo || null;
+      this.lineas = draft.lineas.map((l) => ({
+        ...l,
+        pedir: l.pedir ?? null,
+        incluido: l.incluido !== false,
+      }));
+      this.syncPag(true);
+    }
+    if (draft.pedidoExpandidoId != null || draft.recibos?.length) {
+      this.draftRecepcionPendiente = draft;
+    }
+    if (draft.fechaLimitePago) this.fechaLimitePago = draft.fechaLimitePago;
+    if (draft.abonoNuevo) {
+      this.abonoNuevo = {
+        fecha: draft.abonoNuevo.fecha || this.hoyLocal(),
+        monto: draft.abonoNuevo.monto ?? null,
+        nota: draft.abonoNuevo.nota || '',
+      };
+    }
+  }
+
+  private aplicarDraftRecepcionPendiente(): void {
+    const draft = this.draftRecepcionPendiente;
+    if (!draft?.pedidoExpandidoId) return;
+    const p = this.pedidos.find((x) => x.id === draft.pedidoExpandidoId);
+    if (!p) {
+      this.draftRecepcionPendiente = null;
+      return;
+    }
+    this.pedidoExpandidoId = p.id;
+    this.armarDetalle(p);
+    const byId = new Map((draft.recibos || []).map((r) => [r.itemId, r]));
+    for (const r of this.recibosEdit) {
+      const d = byId.get(r.itemId);
+      if (!d) continue;
+      if (d.pedida != null) r.pedida = d.pedida;
+      if (d.recibida != null) r.recibida = d.recibida;
+      if (d.totalPagado !== undefined) r.totalPagado = d.totalPagado;
+    }
+    if (draft.fechaLimitePago) this.fechaLimitePago = draft.fechaLimitePago;
+    if (draft.abonoNuevo) {
+      this.abonoNuevo = {
+        fecha: draft.abonoNuevo.fecha || this.hoyLocal(),
+        monto: draft.abonoNuevo.monto ?? null,
+        nota: draft.abonoNuevo.nota || '',
+      };
+    }
+    this.draftRecepcionPendiente = null;
   }
 }
