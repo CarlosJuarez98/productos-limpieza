@@ -8,13 +8,13 @@ Ver **`BRANCHES.md`**.
 
 - Desarrollo diario en la rama **`local`**.
 - Deploy a OCI desde la rama **`nube`**.
-- Al decir **"sube a la nube"**: merge `local` → `nube`, luego deploy de **código** (sin sync de datos).
+- Al decir **"sube / lleva a la nube"**: merge `local` → `nube` (**sin** deploy; tú corres `deploy-nube.bat`). Sin sync de datos.
 
 ## Flujo de trabajo (local primero)
 
 1. Trabajas solo en **local** (`oracle-productos-limpieza` + API/front).
 2. La nube **no se toca** hasta que lo pidas.
-3. Cuando indiques **“sube a la nube”**: se redespliega **código** si cambió (**sin** datos).
+3. Cuando indiques **“sube / lleva a la nube”**: merge a `nube`; **tú** despliegas con `deploy-nube.bat` (**sin** datos).
 4. Datos solo con **“sube datos”** / **“baja datos”** → `SYNC-DATOS.md`.
 5. URL pública HTTPS: `https://productos.163.192.146.143.sslip.io/`  
    El puerto **8083** ya no es público (solo `127.0.0.1` en la VM). No uses `http://IP:8083`.

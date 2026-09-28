@@ -18,7 +18,7 @@
 |-------|--------|-----------|
 | **Sube datos** | `scripts\sync-datos-completo.ps1` | Local → ATP (dump completo) |
 | **Baja datos** / **baja de la nube** | `scripts\sync-datos-desde-nube.ps1` | ATP → Local (dump completo) |
-| **Sube a la nube** | (código) | merge + deploy; **sin** sync de datos |
+| **Sube / lleva a la nube** | (código) | merge a `nube`; deploy = tu bat; **sin** sync de datos |
 
 Convenio de los 3 proyectos: `A:\Programas-java\SYNC-BIDIRECCIONAL.md`.
 
