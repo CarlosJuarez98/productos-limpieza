@@ -17,6 +17,11 @@ public record PedidoRecepcionRequest(
       @NotNull Long itemId,
       @NotNull BigDecimal cantidadRecibida,
       /** Precio unitario del proveedor; si viene, se usa en la entrada y actualiza compra. */
-      BigDecimal precioProveedor
+      BigDecimal precioProveedor,
+      /**
+       * Solo productos con usaBaston. false = llegó sin bastón → suma a pendienteArmar.
+       * null/true = trae bastón (o no aplica).
+       */
+      Boolean traeBastonIncluido
   ) {}
 }

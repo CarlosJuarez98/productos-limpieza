@@ -22,6 +22,7 @@ export const routes: Routes = [
   { path: 'domicilio', component: DomicilioComponent, canActivate: [authGuard] },
   { path: 'publicidad', component: PublicidadComponent, canActivate: [authGuard] },
   { path: 'entradas', component: EntradasComponent, canActivate: [authGuard] },
+  { path: 'armar', redirectTo: 'entradas', pathMatch: 'full' },
   { path: 'surtir', component: SurtirComponent, canActivate: [authGuard] },
   { path: 'inventario', component: InventarioComponent, canActivate: [authGuard] },
   { path: 'uso-casa', component: UsoCasaComponent, canActivate: [authGuard] },

@@ -1,0 +1,117 @@
+@if (!embebido) {
+  <h2 class="page-title">Armar</h2>
+}
+
+@if (error) {
+  <p class="error">{{ error }}</p>
+}
+@if (ok) {
+  <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
+}
+
+<section class="panel baston-panel">
+  <h3 class="panel-titulo">Bastones disponibles</h3>
+  @if (baston) {
+    <p class="baston-stock">
+      <strong>{{ baston.nombre }}</strong>
+      · stock <strong>{{ baston.stockActual | number: '1.0-2' }}</strong>
+      · compra ${{ baston.precioCompra | number: '1.2-2' }}
+    </p>
+  } @else {
+    <p class="muted">
+      Marca un producto como «bastón de madera» en Inventario (editar → checkbox).
+    </p>
+  }
+</section>
+
+<section class="panel">
+  <h3 class="panel-titulo">Productos que se arman</h3>
+
+  <div class="config-add">
+    <app-producto-autocomplete
+      [productos]="productosParaAgregar"
+      [productoId]="agregarId"
+      (productoIdChange)="agregarId = $event"
+      placeholder="Buscar producto…"
+    />
+    <button type="button" (click)="agregarALista()" [disabled]="guardandoId != null">
+      Agregar
+    </button>
+  </div>
+
+  @if (cargando) {
+    <p class="muted">Cargando…</p>
+  } @else {
+    <ul class="config-editable">
+      @for (p of configurados; track p.id) {
+        <li class="activo">
+          <div class="config-item">
+            <span class="check-armar-txt">
+              <strong>{{ p.nombre }}</strong>
+              <span class="muted">
+                · compra ${{ p.precioCompra | number: '1.2-2' }}
+                @if ((p.pendienteArmar || 0) > 0) {
+                  · <em class="warn-txt">{{ p.pendienteArmar | number: '1.0-0' }} pendientes</em>
+                }
+              </span>
+            </span>
+            <button
+              type="button"
+              class="danger config-quitar"
+              title="Quitar"
+              aria-label="Quitar"
+              [disabled]="guardandoId === p.id"
+              (click)="quitarDeLista(p)"
+            >
+              ×
+            </button>
+          </div>
+        </li>
+      } @empty {
+        <li class="muted vacio">Aún no hay productos en la lista. Búscalos arriba y pulsa Agregar.</li>
+      }
+    </ul>
+  }
+</section>
+
+<section class="panel">
+  <h3 class="panel-titulo">Pendientes de armar</h3>
+  @if (cargando) {
+    <p class="muted">Cargando…</p>
+  } @else if (!pendientes.length) {
+    <p class="muted">
+      No hay pendientes. Cuando en Surtir recibas un producto de la lista sin bastón, aparecen aquí.
+    </p>
+  } @else {
+    <ul class="armar-lista">
+      @for (p of pendientes; track p.id) {
+        <li>
+          <div class="armar-info">
+            <strong>{{ p.nombre }}</strong>
+            <span class="muted">
+              Pendientes: {{ p.pendienteArmar | number: '1.0-0' }}
+              · stock {{ p.stockActual | number: '1.0-2' }}
+              · {{ p.bastonesPorUnidad || 1 }} bastón/u
+            </span>
+          </div>
+          <div class="armar-acc">
+            <label>
+              Armar
+              <input
+                type="text"
+                class="armar-cant"
+                inputmode="numeric"
+                appSoloNumeros="enteros"
+                [(ngModel)]="cantidades[p.id]"
+                [name]="'arm' + p.id"
+              />
+            </label>
+            <button type="button" (click)="armar(p)" [disabled]="armandoId === p.id">
+              {{ armandoId === p.id ? '…' : 'Armar' }}
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>

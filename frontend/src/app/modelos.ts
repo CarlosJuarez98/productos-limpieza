@@ -97,6 +97,23 @@ export interface InventarioItem {
   vendePorLabel: string;
   departamento?: DepartamentoProducto;
   departamentoLabel?: string;
+  esBaston?: boolean;
+  usaBaston?: boolean;
+  bastonesPorUnidad?: number;
+  bastonProductoId?: number | null;
+  pendienteArmar?: number;
+  stockArmado?: number;
+}
+
+export interface ArmadoResultado {
+  productoId: number;
+  productoNombre: string;
+  cantidadArmada: number;
+  bastonesUsados: number;
+  bastonProductoId: number;
+  bastonNombre: string;
+  pendienteArmarRestante: number;
+  precioCompraActualizado: number;
 }
 
 export interface AjusteInventario {

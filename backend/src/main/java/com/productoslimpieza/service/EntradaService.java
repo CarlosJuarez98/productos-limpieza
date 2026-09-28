@@ -39,15 +39,18 @@ public class EntradaService {
   private final ProductoRepository productoRepo;
   private final CajaConfigRepository cajaConfigRepo;
   private final PedidoRegistroService pedidoRegistroService;
+  private final InventarioService inventarioService;
 
   public EntradaService(
       EntradaRepository entradaRepo,
       ProductoRepository productoRepo,
       CajaConfigRepository cajaConfigRepo,
-      PedidoRegistroService pedidoRegistroService) {
+      PedidoRegistroService pedidoRegistroService,
+      InventarioService inventarioService) {
     this.entradaRepo = entradaRepo;
     this.productoRepo = productoRepo;
     this.cajaConfigRepo = cajaConfigRepo;
+    this.inventarioService = inventarioService;
     this.pedidoRegistroService = pedidoRegistroService;
   }
 
@@ -224,8 +227,12 @@ public class EntradaService {
     if (actual != null && actual.compareTo(precioProveedor) == 0) {
       return;
     }
+    BigDecimal anterior = actual;
     producto.setPrecioCompra(precioProveedor);
     productoRepo.save(producto);
+    if (producto.isEsBaston()) {
+      inventarioService.recalcularCompraTrasCambioPrecioBaston(producto, anterior, precioProveedor);
+    }
   }
 
   private void aplicar(

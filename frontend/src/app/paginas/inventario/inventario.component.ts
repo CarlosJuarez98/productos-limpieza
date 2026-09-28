@@ -28,6 +28,10 @@ type FormProducto = {
   precioMayoreo10: number | null;
   vendePor: 'LITROS' | 'PIEZA';
   departamento: 'LIMPIEZA' | 'JARCERIA';
+  esBaston: boolean;
+  usaBaston: boolean;
+  bastonesPorUnidad: number | null;
+  bastonProductoId: number | null;
 };
 
 type FormAjuste = {
@@ -266,7 +270,15 @@ export class InventarioComponent implements OnInit, OnDestroy {
       precioMayoreo10: null,
       vendePor: 'LITROS',
       departamento: 'LIMPIEZA',
+      esBaston: false,
+      usaBaston: false,
+      bastonesPorUnidad: 1,
+      bastonProductoId: null,
     };
+  }
+
+  get productosBaston(): InventarioItem[] {
+    return this.items.filter((i) => i.esBaston || /bast[oó]n/i.test(i.nombre || ''));
   }
 
   private hoyLocal(): string {
@@ -573,6 +585,14 @@ export class InventarioComponent implements OnInit, OnDestroy {
     const m = Number(i.precioMinimoSugerido);
     if (!(v > 0) || !(m > 0)) return false;
     return v < Math.round(m) - 0.0001;
+  }
+
+  /** Menudeo estrictamente mayor al máximo sugerido. */
+  esMenudeoSobreMaximo(i: InventarioItem): boolean {
+    const v = Number(i.precioVentaHoy);
+    const m = Number(i.precioMaximoSugerido);
+    if (!(v > 0) || !(m > 0)) return false;
+    return v > Math.round(m) + 0.0001;
   }
 
   etiquetaUnidad(i: InventarioItem): string {
@@ -898,6 +918,10 @@ export class InventarioComponent implements OnInit, OnDestroy {
       precioVenta: f.precioVenta,
       vendePor: f.vendePor || 'LITROS',
       departamento: f.departamento || 'LIMPIEZA',
+      esBaston: !!f.esBaston,
+      usaBaston: !!f.usaBaston && !f.esBaston,
+      bastonesPorUnidad: f.usaBaston ? Number(f.bastonesPorUnidad) || 1 : 1,
+      bastonProductoId: f.usaBaston ? f.bastonProductoId : null,
     };
   }
 
@@ -994,6 +1018,10 @@ export class InventarioComponent implements OnInit, OnDestroy {
       precioMayoreo10: item.precioMayoreo10,
       vendePor: item.vendePor === 'PIEZA' ? 'PIEZA' : 'LITROS',
       departamento: inferirDepartamento(item.vendePor, item.nombre, item.departamento),
+      esBaston: !!item.esBaston,
+      usaBaston: !!item.usaBaston,
+      bastonesPorUnidad: Number(item.bastonesPorUnidad) || 1,
+      bastonProductoId: item.bastonProductoId ?? null,
     };
     this.error = '';
     this.cancelarAjuste();

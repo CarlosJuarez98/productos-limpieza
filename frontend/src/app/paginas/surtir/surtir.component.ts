@@ -6,7 +6,16 @@ import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { inferirDepartamento, Entrada, InventarioItem, PedidoAbono, PedidoLinea, PedidoRegistrado, PedidoSugerido } from '../../modelos';
+import {
+  inferirDepartamento,
+  Entrada,
+  InventarioItem,
+  MargenConfig,
+  PedidoAbono,
+  PedidoLinea,
+  PedidoRegistrado,
+  PedidoSugerido,
+} from '../../modelos';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { PullRefreshService } from '../../pull-refresh.service';
@@ -16,8 +25,15 @@ import { ProductoAutocompleteComponent } from '../../producto-autocomplete.compo
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { enviarTextoWhatsApp } from '../../ticket-whatsapp.util';
+import { firstValueFrom } from 'rxjs';
 
-type LineaEditable = PedidoLinea & { pedir: number | null; incluido: boolean; extra?: boolean };
+type LineaEditable = PedidoLinea & {
+  pedir: number | null;
+  incluido: boolean;
+  extra?: boolean;
+  /** Solo pedido: aún no existe en inventario; se da de alta al registrar el pedido (stock 0). */
+  pendienteCatalogo?: boolean;
+};
 type ModoPeriodo = '4_semanas' | 'mes_pasado' | 'mes_actual' | 'custom';
 type GrupoPedido = 'LIMPIEZA' | 'JARCERIA';
 type FiltroDepto = 'todo' | 'limpieza' | 'jarceria';
@@ -49,6 +65,18 @@ type ReciboEdit = {
   precioCompra: number | null;
   unidad: string;
   departamento: GrupoPedido;
+  /**
+   * Stub de +Nuevo: aún no tiene menudeo/mayoreo.
+   * Al recibir (>0) hay que completar precios → inventario usable.
+   */
+  completarAlta: boolean;
+  precioVenta: number | null;
+  precioMayoreo5: number | null;
+  precioMayoreo10: number | null;
+  /** Producto usa bastón: si false al recibir, suma a pendiente de armar. */
+  usaBaston: boolean;
+  /** true = llegó con bastón; false = sin bastón (pendiente armar). */
+  traeBastonIncluido: boolean;
 };
 type DraftSurtir = {
   v: 1;
@@ -66,6 +94,9 @@ type DraftSurtir = {
     pedida: number | null;
     recibida: number | null;
     totalPagado: number | null;
+    precioVenta?: number | null;
+    usaBaston?: boolean;
+    traeBastonIncluido?: boolean;
   }[];
   fechaLimitePago: string;
   abonoNuevo: { fecha: string; monto: number | null; nota: string };
@@ -115,6 +146,11 @@ export class SurtirComponent implements OnInit, OnDestroy {
   saldoProductos = 0;
   altaProductoId: number | null = null;
   altaCantidad: number | null = null;
+  altaNuevoProducto = false;
+  altaNuevoNombre = '';
+  altaNuevoVendePor: 'LITROS' | 'PIEZA' = 'LITROS';
+  altaNuevoDepto: 'LIMPIEZA' | 'JARCERIA' = 'LIMPIEZA';
+  private pendienteSeq = -1;
   altaPedidoProductoId: number | null = null;
   altaPedidoCantidad: number | null = null;
   pagadoAhora: number | null = null;
@@ -127,6 +163,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
   pagLitros = new PaginacionEstado<LineaEditable>(12);
   pagPiezas = new PaginacionEstado<LineaEditable>(12);
   tipsSurtir: TipSurtir[] = [];
+  /** % márgenes para min/máx y mayoreo al completar producto nuevo. */
+  private pct = { mayoreo5: 40, mayoreo10: 30, min: 46.5, max: 63 };
   /** Listas del punto 2: se pueden contraer. */
   limpiaAbierta = true;
   jarceriaAbierta = true;
@@ -150,6 +188,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.cargarPedidos();
     this.cargarSaldoProductos();
     this.cargarEntradas();
+    this.cargarMargenes();
     this.api.inventario().subscribe({
       next: (p) => {
         this.productos = p;
@@ -161,12 +200,24 @@ export class SurtirComponent implements OnInit, OnDestroy {
       this.cargarPedidos();
       this.cargarSaldoProductos();
       this.cargarEntradas();
+      this.cargarMargenes();
       this.api.inventario().subscribe({
         next: (p) => {
           this.productos = p;
           this.recalcularTipsSurtir();
         },
       });
+    });
+  }
+
+  private cargarMargenes(): void {
+    this.api.margenes().subscribe({
+      next: (m: MargenConfig) => {
+        this.pct.mayoreo5 = Number(m.porcentajeMayoreo5) || 40;
+        this.pct.mayoreo10 = Number(m.porcentajeMayoreo10) || 30;
+        this.pct.min = Number(m.porcentajeMin) || 46.5;
+        this.pct.max = Number(m.porcentajeMax) || 63;
+      },
     });
   }
 
@@ -511,7 +562,10 @@ export class SurtirComponent implements OnInit, OnDestroy {
    * Siempre número entero al arrancar.
    */
   /** En cero y sin movimiento en la ventana (~6 meses): sale con mín. 1 para descartar a mano. */
-  esCeroSinVentas(l: Pick<PedidoLinea, 'stockActual' | 'consumoObservado'>): boolean {
+  esCeroSinVentas(
+    l: Pick<PedidoLinea, 'stockActual' | 'consumoObservado' | 'productoId'> & { pendienteCatalogo?: boolean },
+  ): boolean {
+    if (l.pendienteCatalogo || l.productoId < 0) return false;
     return (Number(l.stockActual) || 0) <= 0 && (Number(l.consumoObservado) || 0) <= 0;
   }
 
@@ -586,7 +640,81 @@ export class SurtirComponent implements OnInit, OnDestroy {
   ajustarAltaCantidad(delta: number): void {
     const actual = Number(this.altaCantidad);
     const base = Number.isFinite(actual) ? actual : 0;
-    this.altaCantidad = Math.max(0, Math.ceil(base + delta));
+    const p = this.productoPorId(this.altaProductoId);
+    const paso = p?.vendePor === 'PIEZA' ? delta : delta * 0.25;
+    this.altaCantidad = this.normalizarPedir(base + paso, p?.vendePor);
+  }
+
+  onAltaManualToggle(ev: Event): void {
+    const el = ev.target as HTMLDetailsElement | null;
+    if (!el?.open) {
+      this.altaNuevoProducto = false;
+      this.altaNuevoNombre = '';
+    }
+  }
+
+  abrirAltaProductoNuevo(det?: HTMLDetailsElement): void {
+    this.altaNuevoProducto = !this.altaNuevoProducto;
+    if (this.altaNuevoProducto && det) det.open = true;
+    if (!this.altaNuevoProducto) this.altaNuevoNombre = '';
+  }
+
+  agregarProductoPendiente(): void {
+    this.error = '';
+    const nombre = this.altaNuevoNombre.trim();
+    const cant = this.normalizarPedir(Number(this.altaCantidad) || 0, this.altaNuevoVendePor);
+    if (!nombre) {
+      this.error = 'Escribe el nombre del producto nuevo';
+      return;
+    }
+    if (cant <= 0) {
+      this.error = 'Indica cuánto pedir';
+      return;
+    }
+    const yaCat = this.productos.find(
+      (p) => p.nombre.trim().toLowerCase() === nombre.toLowerCase(),
+    );
+    if (yaCat) {
+      this.error = 'Ese nombre ya está en inventario: búscalo arriba y agrégalo';
+      return;
+    }
+    const yaLinea = this.lineas.find(
+      (l) => l.incluido && l.productoNombre.trim().toLowerCase() === nombre.toLowerCase(),
+    );
+    if (yaLinea) {
+      yaLinea.pedir = this.normalizarPedir((Number(yaLinea.pedir) || 0) + cant, this.altaNuevoVendePor);
+      yaLinea.extra = true;
+      yaLinea.pendienteCatalogo = true;
+    } else {
+      this.lineas = [
+        ...this.lineas,
+        {
+          productoId: this.pendienteSeq--,
+          productoNombre: nombre,
+          vendePor: this.altaNuevoVendePor,
+          vendePorLabel: this.altaNuevoVendePor === 'PIEZA' ? 'Pieza' : 'Litros',
+          stockActual: 0,
+          consumoObservado: 0,
+          consumoBase: 0,
+          consumoConColchon: 0,
+          faltanteAnterior: 0,
+          sugerido: cant,
+          departamento: this.altaNuevoDepto,
+          pedir: cant,
+          incluido: true,
+          extra: true,
+          pendienteCatalogo: true,
+        },
+      ];
+    }
+    this.altaNuevoNombre = '';
+    this.altaCantidad = null;
+    this.altaNuevoProducto = false;
+    if (this.filtroDepto === 'limpieza' && this.altaNuevoDepto === 'JARCERIA') this.filtroDepto = 'jarceria';
+    else if (this.filtroDepto === 'jarceria' && this.altaNuevoDepto === 'LIMPIEZA') this.filtroDepto = 'limpieza';
+    this.syncPag(true);
+    this.programarBorrador();
+    this.ok = `Añadido al pedido (sin inventario aún): ${nombre}`;
   }
 
   private ajustarColchon(pct: number): number {
@@ -615,10 +743,68 @@ export class SurtirComponent implements OnInit, OnDestroy {
     return this.productos.find((x) => x.id === id);
   }
 
+  /** Bastón de madera del inventario (marcado esBaston o por nombre). */
+  get bastonInv(): InventarioItem | undefined {
+    return (
+      this.productos.find((p) => p.esBaston) ||
+      this.productos.find((p) => /bast[oó]n/i.test(p.nombre || ''))
+    );
+  }
+
+  /**
+   * Si en el pedido hay productos de la lista Armar y no alcanzan los bastones
+   * (stock + lo que ya pediste de bastón), sugiere cuántos surtir.
+   */
+  get avisoBaston(): {
+    nombre: string;
+    stock: number;
+    necesito: number;
+    faltan: number;
+  } | null {
+    const baston = this.bastonInv;
+    if (!baston || !this.lineas.some((l) => l.incluido && Number(l.pedir) > 0)) {
+      return null;
+    }
+    let pendientes = 0;
+    let paraPedido = 0;
+    for (const p of this.productos) {
+      if (!p.usaBaston || p.esBaston) continue;
+      if (p.bastonProductoId != null && p.bastonProductoId !== baston.id) continue;
+      pendientes += Math.max(0, Number(p.pendienteArmar) || 0) * (Number(p.bastonesPorUnidad) || 1);
+    }
+    for (const l of this.lineas) {
+      if (!l.incluido || !(Number(l.pedir) > 0)) continue;
+      if (l.productoId === baston.id) continue;
+      const p = this.productoPorId(l.productoId);
+      if (!p?.usaBaston) continue;
+      if (p.bastonProductoId != null && p.bastonProductoId !== baston.id) continue;
+      paraPedido += (Number(l.pedir) || 0) * (Number(p.bastonesPorUnidad) || 1);
+    }
+    const necesito = Math.ceil(pendientes + paraPedido);
+    if (necesito <= 0) return null;
+    const stock = Math.max(0, Number(baston.stockActual) || 0);
+    const lineaB = this.lineas.find((l) => l.incluido && l.productoId === baston.id);
+    const yaPedidos = Math.max(0, Number(lineaB?.pedir) || 0);
+    const faltan = Math.max(0, necesito - stock - yaPedidos);
+    if (faltan <= 0) return null;
+    return { nombre: baston.nombre, stock, necesito, faltan };
+  }
+
+  /** Agrega al pedido la cantidad sugerida de bastones que faltan. */
+  agregarBastonesSugeridos(): void {
+    const aviso = this.avisoBaston;
+    const baston = this.bastonInv;
+    if (!aviso || !baston || aviso.faltan <= 0) return;
+    this.altaProductoId = baston.id;
+    this.altaCantidad = aviso.faltan;
+    this.agregarManual();
+    this.ok = `Agregados ${aviso.faltan} «${baston.nombre}» al pedido (para armar)`;
+  }
+
   agregarManual(): void {
     this.error = '';
     const p = this.productoPorId(this.altaProductoId);
-    const cant = Math.ceil(Number(this.altaCantidad) || 0);
+    const cant = this.normalizarPedir(Number(this.altaCantidad) || 0, p?.vendePor);
     if (!p) {
       this.error = 'Elige un producto del inventario';
       return;
@@ -631,7 +817,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
     const ya = this.lineas.find((l) => l.productoId === p.id);
     if (ya) {
       ya.incluido = true;
-      ya.pedir = Math.ceil(Number(ya.pedir) || 0) + cant;
+      ya.pedir = this.normalizarPedir((Number(ya.pedir) || 0) + cant, p.vendePor);
       ya.extra = true;
       ya.departamento = depto;
       ya.vendePor = p.vendePor;
@@ -779,44 +965,67 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   async registrarPedido(): Promise<void> {
-    const items = this.lineasARegistrar().map((l) => ({
-      productoId: l.productoId,
-      cantidad: Number(l.pedir),
-    }));
-    if (!items.length) {
+    const aRegistrar = this.lineasARegistrar();
+    if (!aRegistrar.length) {
       this.error = 'No hay productos para registrar';
       return;
     }
+    const pendientes = aRegistrar.filter((l) => l.pendienteCatalogo || l.productoId < 0);
     const ok = await this.confirmDlg.ask(
-      `¿Registrar pedido con ${items.length} producto(s)? Quedará abierto para registrar lo recibido en Surtir.`,
+      pendientes.length
+        ? `¿Registrar pedido con ${aRegistrar.length} producto(s)?\n` +
+          `${pendientes.length} nuevo(s) se guardarán en catálogo con stock 0; el precio lo pones cuando llegue.`
+        : `¿Registrar pedido con ${aRegistrar.length} producto(s)? Quedará abierto para registrar lo recibido en Surtir.`,
       { confirmarTexto: 'Registrar' }
     );
     if (!ok) return;
     this.registrando = true;
     this.error = '';
     this.ok = '';
-    this.api
-      .crearPedido({
-        fecha: this.hoyLocal(),
-        periodoDesde: this.desde,
-        periodoHasta: this.hasta,
-        diasCobertura: this.diasCobertura,
-        porcentajeExtra: this.porcentajeExtra,
-        items,
-      })
-      .subscribe({
-        next: () => {
-          this.registrando = false;
-          this.ok = 'Pedido registrado. Abre el pedido y captura cuánto llegó.';
-          this.vaciarSugerido();
-          this.drafts.clear(SurtirComponent.DRAFT);
-          this.cargarPedidos();
-        },
-        error: (e) => {
-          this.registrando = false;
-          this.error = e.error?.error || 'No se pudo registrar el pedido';
-        },
-      });
+    try {
+      for (const l of pendientes) {
+        const creado = await firstValueFrom(
+          this.api.crearProducto({
+            nombre: l.productoNombre.trim(),
+            precioCompra: 0,
+            cantidadInicial: 0,
+            precioVenta: null,
+            precioMayoreo5: null,
+            precioMayoreo10: null,
+            vendePor: l.vendePor,
+            departamento: l.departamento || 'LIMPIEZA',
+          }),
+        );
+        l.productoId = creado.id;
+        l.pendienteCatalogo = false;
+        if (!this.productos.some((p) => p.id === creado.id)) {
+          this.productos = [...this.productos, creado];
+        }
+      }
+      const items = aRegistrar.map((l) => ({
+        productoId: l.productoId,
+        cantidad: Number(l.pedir),
+      }));
+      await firstValueFrom(
+        this.api.crearPedido({
+          fecha: this.hoyLocal(),
+          periodoDesde: this.desde,
+          periodoHasta: this.hasta,
+          diasCobertura: this.diasCobertura,
+          porcentajeExtra: this.porcentajeExtra,
+          items,
+        }),
+      );
+      this.registrando = false;
+      this.ok = 'Pedido registrado. Abre el pedido y captura cuánto llegó (ahí el precio real).';
+      this.vaciarSugerido();
+      this.drafts.clear(SurtirComponent.DRAFT);
+      this.cargarPedidos();
+    } catch (e: unknown) {
+      this.registrando = false;
+      const err = e as { error?: { error?: string } };
+      this.error = err?.error?.error || 'No se pudo registrar el pedido';
+    }
   }
 
   togglePedido(id: number): void {
@@ -843,12 +1052,17 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.recibosEdit = (p?.items || []).map((i) => {
       const recibida = Number(i.cantidadRecibida);
       const pedida = Number(i.cantidadPedida);
-      const compra =
+      const compraRaw =
         i.precioCompra != null && Number.isFinite(Number(i.precioCompra))
           ? Number(i.precioCompra)
           : null;
+      /** 0 = stub de producto nuevo: no sugerir total (el precio real se captura al recibir). */
+      const compra = compraRaw != null && compraRaw > 0 ? compraRaw : null;
       const cantParaTotal = recibida > 0 ? recibida : 1;
       const prod = this.productoPorId(i.productoId);
+      const sinMenudeo = !prod || !Number.isFinite(Number(prod.precioVentaHoy)) || Number(prod.precioVentaHoy) <= 0;
+      const stubCompra = compraRaw == null || compraRaw <= 0;
+      const completarAlta = sinMenudeo || (stubCompra && recibida <= 0);
       return {
         itemId: i.id,
         productoId: i.productoId,
@@ -865,6 +1079,13 @@ export class SurtirComponent implements OnInit, OnDestroy {
           i.productoNombre,
           prod?.departamento
         ),
+        completarAlta,
+        precioVenta: sinMenudeo ? null : Number(prod!.precioVentaHoy),
+        precioMayoreo5: Number(prod?.precioMayoreo5) > 0 ? Number(prod!.precioMayoreo5) : null,
+        precioMayoreo10: Number(prod?.precioMayoreo10) > 0 ? Number(prod!.precioMayoreo10) : null,
+        usaBaston: !!prod?.usaBaston,
+        /** Por defecto falta armar; si trae bastón, el usuario lo marca. */
+        traeBastonIncluido: false,
       };
     });
   }
@@ -875,6 +1096,12 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   get recibosJarceria(): ReciboEdit[] {
     return this.recibosEdit.filter((r) => r.departamento === 'JARCERIA');
+  }
+
+  setTraeBaston(r: ReciboEdit, trae: boolean): void {
+    if (r.traeBastonIncluido === trae) return;
+    r.traeBastonIncluido = trae;
+    this.programarBorrador();
   }
 
   get recibosPorDepto(): { titulo: string; items: ReciboEdit[] }[] {
@@ -891,6 +1118,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
       if (r.precioCompra != null && pedida > 0) {
         r.totalPagado = Math.round(r.precioCompra * pedida * 100) / 100;
       }
+      if (r.completarAlta) {
+        this.sincronizarMayoreoRecibo(r);
+      }
     }
     this.programarBorrador();
   }
@@ -903,6 +1133,65 @@ export class SurtirComponent implements OnInit, OnDestroy {
     if (r.totalPagado == null || String(r.totalPagado).trim() === '') return null;
     if (!Number.isFinite(total) || total < 0) return null;
     return Math.round((total / rec) * 100) / 100;
+  }
+
+  get hayCompletarAltaRecibo(): boolean {
+    return this.recibosEdit.some((r) => r.completarAlta);
+  }
+
+  menudeoPlaceholderRecibo(r: ReciboEdit): string {
+    const rango = this.rangoMinMaxRecibo(r);
+    if (!rango) return 'menudeo';
+    return `${rango.min}–${rango.max}`;
+  }
+
+  tituloMenudeoRecibo(r: ReciboEdit): string {
+    const rango = this.rangoMinMaxRecibo(r);
+    let t = 'Menudeo (precio de venta)';
+    if (rango) {
+      t += ` · sugerido ${rango.min}–${rango.max}`;
+      if (r.precioMayoreo5 != null && r.precioMayoreo10 != null) {
+        t += ` · mayoreo ≥5 $${r.precioMayoreo5} / ≥10 $${r.precioMayoreo10}`;
+      }
+    } else {
+      t += ' · pon importe para ver mín–máx';
+    }
+    return t;
+  }
+
+  rangoMinMaxRecibo(r: ReciboEdit): { min: number; max: number } | null {
+    const u = this.unitarioRecibo(r);
+    if (u == null || u <= 0) return null;
+    return {
+      min: Math.round(u * (1 + this.pct.min / 100)),
+      max: Math.round(u * (1 + this.pct.max / 100)),
+    };
+  }
+
+  onTotalReciboChange(r: ReciboEdit): void {
+    if (r.completarAlta) this.sincronizarMayoreoRecibo(r);
+    this.programarBorrador();
+  }
+
+  onRecibidaReciboChange(r: ReciboEdit): void {
+    if (r.completarAlta) this.sincronizarMayoreoRecibo(r);
+    this.programarBorrador();
+  }
+
+  onMenudeoReciboChange(r: ReciboEdit): void {
+    this.sincronizarMayoreoRecibo(r);
+    this.programarBorrador();
+  }
+
+  private sincronizarMayoreoRecibo(r: ReciboEdit): void {
+    const u = this.unitarioRecibo(r);
+    if (u == null || u <= 0) {
+      r.precioMayoreo5 = null;
+      r.precioMayoreo10 = null;
+      return;
+    }
+    r.precioMayoreo5 = Math.round(u * (1 + this.pct.mayoreo5 / 100));
+    r.precioMayoreo10 = Math.round(u * (1 + this.pct.mayoreo10 / 100));
   }
 
   /** Última compra con precio (entradas ya vienen fecha desc). */
@@ -963,53 +1252,96 @@ export class SurtirComponent implements OnInit, OnDestroy {
     return { subio, bajo };
   }
 
-  guardarRecepcion(): void {
+  async guardarRecepcion(): Promise<void> {
     if (this.pedidoExpandidoId == null) return;
     for (const r of this.recibosEdit) {
       const rec = Math.max(0, Number(r.recibida) || 0);
       if (rec <= 0) continue;
       const u = this.unitarioRecibo(r);
-      if (u == null || u < 0) {
+      if (u == null || u <= 0) {
         this.error = `Indica el importe del proveedor para «${r.productoNombre}».`;
         return;
       }
+      if (r.completarAlta) {
+        const venta = Number(r.precioVenta);
+        if (r.precioVenta == null || String(r.precioVenta).trim() === '' || !Number.isFinite(venta) || venta <= 0) {
+          this.error = `Producto nuevo «${r.productoNombre}»: indica el precio de menudeo (usa el rango mín–máx).`;
+          return;
+        }
+      }
     }
-    const lineas = this.recibosEdit.map((r) => {
-      const u = this.unitarioRecibo(r);
-      return {
-        itemId: r.itemId,
-        cantidadRecibida: Math.max(0, Number(r.recibida) || 0),
-        precioProveedor: u,
-      };
-    });
+    const aCompletar = this.recibosEdit.filter(
+      (r) => r.completarAlta && Math.max(0, Number(r.recibida) || 0) > 0,
+    );
     this.guardandoRecepcion = true;
     this.error = '';
-    this.api
-      .registrarRecepcionPedido(this.pedidoExpandidoId, {
-        lineas,
-        fechaLimitePago: this.fechaLimitePago || null,
-      })
-      .subscribe({
-        next: (act) => {
-          this.guardandoRecepcion = false;
-          this.ok = this.fechaLimitePago
-            ? `Mercancía guardada. Puedes pagar hasta el ${this.fmtFechaDmY(this.fechaLimitePago)}.`
-            : 'Mercancía guardada. Indica hasta cuándo puedes pagar (crédito) o registra un pago abajo.';
-          this.reemplazarPedido(act, true);
-          this.cargarPedidos();
-          this.cargarSaldoProductos();
-          this.cargarEntradas();
-          this.api.inventario().subscribe({
-            next: (p) => (this.productos = p),
-          });
-          this.vaciarSugerido();
-          this.programarBorrador();
-        },
-        error: (e) => {
-          this.guardandoRecepcion = false;
-          this.error = e.error?.error || 'No se pudo guardar el surtido';
-        },
+    try {
+      for (const r of aCompletar) {
+        const u = this.unitarioRecibo(r)!;
+        this.sincronizarMayoreoRecibo(r);
+        const prod = this.productoPorId(r.productoId);
+        const actualizado = await firstValueFrom(
+          this.api.actualizarProducto(r.productoId, {
+            nombre: r.productoNombre.trim(),
+            precioCompra: u,
+            cantidadInicial: prod?.cantidadInicial ?? 0,
+            precioVenta: Number(r.precioVenta),
+            precioMayoreo5: r.precioMayoreo5,
+            precioMayoreo10: r.precioMayoreo10,
+            vendePor: prod?.vendePor || (r.unidad === 'pza' ? 'PIEZA' : 'LITROS'),
+            departamento: r.departamento,
+            usaBaston: !!prod?.usaBaston || !!r.usaBaston,
+            esBaston: false,
+            bastonesPorUnidad: Number(prod?.bastonesPorUnidad) || 1,
+            bastonProductoId: prod?.bastonProductoId ?? null,
+          }),
+        );
+        const ix = this.productos.findIndex((p) => p.id === actualizado.id);
+        if (ix >= 0) this.productos[ix] = actualizado;
+        else this.productos = [...this.productos, actualizado];
+        r.completarAlta = false;
+        r.precioCompra = u;
+        r.usaBaston = !!actualizado.usaBaston;
+      }
+      const lineas = this.recibosEdit.map((r) => {
+        const u = this.unitarioRecibo(r);
+        return {
+          itemId: r.itemId,
+          cantidadRecibida: Math.max(0, Number(r.recibida) || 0),
+          precioProveedor: u,
+          traeBastonIncluido: r.usaBaston ? !!r.traeBastonIncluido : null,
+        };
       });
+      const act = await firstValueFrom(
+        this.api.registrarRecepcionPedido(this.pedidoExpandidoId, {
+          lineas,
+          fechaLimitePago: this.fechaLimitePago || null,
+        }),
+      );
+      this.guardandoRecepcion = false;
+      this.ok = this.fechaLimitePago
+        ? `Mercancía guardada. Puedes pagar hasta el ${this.fmtFechaDmY(this.fechaLimitePago)}.`
+        : 'Mercancía guardada. Indica hasta cuándo puedes pagar (crédito) o registra un pago abajo.';
+      if (aCompletar.length) {
+        this.ok +=
+          aCompletar.length === 1
+            ? ' Producto nuevo ya en inventario con precios.'
+            : ` ${aCompletar.length} productos nuevos ya en inventario con precios.`;
+      }
+      this.reemplazarPedido(act, true);
+      this.cargarPedidos();
+      this.cargarSaldoProductos();
+      this.cargarEntradas();
+      this.api.inventario().subscribe({
+        next: (p) => (this.productos = p),
+      });
+      this.vaciarSugerido();
+      this.programarBorrador();
+    } catch (e: unknown) {
+      this.guardandoRecepcion = false;
+      const err = e as { error?: { error?: string } };
+      this.error = err?.error?.error || 'No se pudo guardar el surtido';
+    }
   }
 
   faltaDe(r: ReciboEdit): number {
@@ -1344,14 +1676,28 @@ export class SurtirComponent implements OnInit, OnDestroy {
       this.error = 'Ya hay mercancía recibida; no se puede quitar.';
       return;
     }
-    const ok = await this.confirmDlg.ask(`¿Quitar «${r.productoNombre}» de este pedido?`, {
-      confirmarTexto: 'Quitar',
-    });
+    const ok = await this.confirmDlg.ask(
+      r.completarAlta
+        ? `¿Quitar «${r.productoNombre}»? No llegó: se borra también del catálogo (aún no tenía stock ni precios).`
+        : `¿Quitar «${r.productoNombre}» de este pedido?`,
+      { confirmarTexto: 'Quitar' },
+    );
     if (!ok) return;
+    const eraNuevo = r.completarAlta;
+    const productoId = r.productoId;
     this.api.eliminarItemPedido(p.id, r.itemId).subscribe({
-      next: (act) => {
+      next: async (act) => {
         this.ok = 'Producto quitado del pedido';
         this.reemplazarPedido(act, true);
+        if (eraNuevo && productoId > 0) {
+          try {
+            await firstValueFrom(this.api.eliminarProducto(productoId));
+            this.productos = this.productos.filter((x) => x.id !== productoId);
+            this.ok = 'Quitado del pedido y del catálogo (no llegó).';
+          } catch {
+            /* Si ya tiene historial, el backend lo desactiva; no bloquear. */
+          }
+        }
       },
       error: (e) => (this.error = e.error?.error || 'No se pudo quitar'),
     });
@@ -1517,6 +1863,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
         pedida: r.pedida,
         recibida: r.recibida,
         totalPagado: r.totalPagado,
+        precioVenta: r.precioVenta,
+        usaBaston: r.usaBaston,
+        traeBastonIncluido: r.traeBastonIncluido,
       })),
       fechaLimitePago: this.fechaLimitePago,
       abonoNuevo: { ...this.abonoNuevo },
@@ -1539,7 +1888,13 @@ export class SurtirComponent implements OnInit, OnDestroy {
         ...l,
         pedir: l.pedir ?? null,
         incluido: l.incluido !== false,
+        pendienteCatalogo: !!(l.pendienteCatalogo || (l.productoId != null && l.productoId < 0)),
       }));
+      const minId = this.lineas.reduce(
+        (m, l) => (l.productoId < 0 && l.productoId < m ? l.productoId : m),
+        0,
+      );
+      if (minId < 0) this.pendienteSeq = minId - 1;
       this.syncPag(true);
     }
     if (draft.pedidoExpandidoId != null || draft.recibos?.length) {
@@ -1572,6 +1927,12 @@ export class SurtirComponent implements OnInit, OnDestroy {
       if (d.pedida != null) r.pedida = d.pedida;
       if (d.recibida != null) r.recibida = d.recibida;
       if (d.totalPagado !== undefined) r.totalPagado = d.totalPagado;
+      if (d.precioVenta !== undefined && r.completarAlta) {
+        r.precioVenta = d.precioVenta;
+        this.sincronizarMayoreoRecibo(r);
+      }
+      if (d.usaBaston !== undefined) r.usaBaston = !!d.usaBaston;
+      if (d.traeBastonIncluido !== undefined) r.traeBastonIncluido = !!d.traeBastonIncluido;
     }
     if (draft.fechaLimitePago) this.fechaLimitePago = draft.fechaLimitePago;
     if (draft.abonoNuevo) {

@@ -404,12 +404,7 @@
       Fórmulas
     </button>
   </div>
-  <div class="recetas-bar desktop-only">
-    <button type="button" class="secondary btn-recetas" (click)="toggleRecetas()" [attr.aria-expanded]="recetasAbierta">
-      {{ recetasAbierta ? 'Ocultar fórmulas' : 'Editar fórmulas' }}
-    </button>
-  </div>
-  @if (recetasAbierta || prepVista === 'formulas') {
+  @if (prepVista === 'formulas') {
     <div class="recetas-editor prep-panel-anim">
       @if (recetas.length) {
         <div class="recetas-rail" aria-label="Fórmulas">
@@ -526,8 +521,22 @@
   }
 
   @if (prepVista === 'preparar') {
-  <form class="form-prep-card prep-panel-anim" (ngSubmit)="guardarPreparacion()">
-    <p class="prep-step-tit">¿Qué preparamos?</p>
+  <form class="form-prep-card prep-panel-anim prep-compact" (ngSubmit)="guardarPreparacion()">
+    <div class="prep-top">
+      <p class="prep-step-tit">¿Qué preparamos?</p>
+      <label class="prep-fecha-inline">
+        <span class="sr-only">Fecha</span>
+        <app-fecha-dia
+          [(ngModel)]="prep.fecha"
+          name="prepFecha"
+          [min]="fechaMin || null"
+          [max]="fechaMax"
+          [required]="true"
+          (ngModelChange)="programarBorrador()"
+          ariaLabel="Fecha de preparación"
+        />
+      </label>
+    </div>
 
     @if (productosPreparables.length) {
       <div class="prep-quick" aria-label="Elegir producto">
@@ -544,77 +553,95 @@
       </div>
     }
 
-    <div class="form-prep-grid">
-      <label class="prep-fecha">
-        Fecha
-        <app-fecha-dia
-          [(ngModel)]="prep.fecha"
-          name="prepFecha"
-          [min]="fechaMin || null"
-          [max]="fechaMax"
-          [required]="true"
-          (ngModelChange)="programarBorrador()"
-          ariaLabel="Fecha de preparación"
-        />
-      </label>
-      <label class="prep-campo-wide desktop-only">
-        Producto preparado
-        <app-producto-autocomplete
-          [productos]="productosPreparables"
-          [productoId]="prep.productoResultadoId"
-          (productoIdChange)="onResultadoChange($event)"
-          [required]="true"
-          placeholder="Productos con fórmula…"
-        />
-      </label>
-    </div>
+    <label class="prep-campo-wide desktop-only prep-prod-auto">
+      Producto preparado
+      <app-producto-autocomplete
+        [productos]="productosPreparables"
+        [productoId]="prep.productoResultadoId"
+        (productoIdChange)="onResultadoChange($event)"
+        [required]="true"
+        placeholder="Productos con fórmula…"
+      />
+    </label>
 
-    <div class="prep-hero-cant">
-      <span class="prep-hero-label">Litros a preparar</span>
-      <div class="prep-stepper">
-        <button type="button" class="stepper-btn" (click)="ajustarCantPrep(-1)" aria-label="Bajar 1 L">−</button>
-        <input
-          type="text"
-          inputmode="decimal"
-          appClearable
-          class="prep-hero-input"
-          [(ngModel)]="prep.cantidadResultado"
-          (ngModelChange)="onCantidadPrepChange()"
-          name="prepCantRes"
-          placeholder="0"
-          required
-          aria-label="Cantidad preparada en litros"
-        />
-        <button type="button" class="stepper-btn" (click)="ajustarCantPrep(1)" aria-label="Subir 1 L">+</button>
-      </div>
-      <div class="prep-stepper-quick">
-        <button type="button" class="chip ghost" (click)="ajustarCantPrep(5)">+5</button>
-        <button type="button" class="chip ghost" (click)="ajustarCantPrep(16)">+16</button>
-        <button type="button" class="chip ghost" (click)="prep.cantidadResultado = 16; onCantidadPrepChange()">16 L</button>
-      </div>
-    </div>
-
-    @if (prep.insumos.length) {
-      <div class="prep-mix-flow" [class.warn]="excedeStockInsumoPrep" [class.ok]="!excedeStockInsumoPrep">
-        <p class="prep-insumos-tit">Mezcla que se descuenta</p>
-        <ol class="prep-flow">
-          @for (i of prep.insumos; track i.productoInsumoId; let last = $last) {
-            <li class="prep-flow-item" [class.falta]="i.cantidad > stockDe(i.productoInsumoId) + 1e-9">
-              <span class="prep-flow-dot" aria-hidden="true"></span>
-              <div class="prep-flow-body">
-                <strong>{{ i.nombre }}</strong>
-                <span>{{ i.cantidad | number: '1.0-2' }} L · hay {{ stockDe(i.productoInsumoId) | number: '1.0-2' }} L</span>
-              </div>
-            </li>
-            @if (!last) {
-              <li class="prep-flow-join" aria-hidden="true">+</li>
-            }
+    <div class="prep-row">
+      <div class="prep-insumos-editores">
+        @for (i of insumosDeFormulaActiva; track i.productoInsumoId) {
+          <div class="prep-field">
+            <span class="prep-field-lab">{{ i.nombre }}</span>
+            <div class="prep-stepper prep-stepper-sm">
+              <button
+                type="button"
+                class="stepper-btn"
+                (click)="ajustarCantInsumoId(i.productoInsumoId, -1)"
+                aria-label="Bajar 1 L"
+              >−</button>
+              <input
+                type="text"
+                inputmode="decimal"
+                class="prep-hero-input"
+                [ngModel]="cantInsumoPrep(i.productoInsumoId)"
+                (ngModelChange)="setCantInsumoPrep(i.productoInsumoId, $event)"
+                [name]="'prepIns' + i.productoInsumoId"
+                placeholder="0"
+                [attr.aria-label]="'Litros de ' + i.nombre"
+              />
+              <button
+                type="button"
+                class="stepper-btn"
+                (click)="ajustarCantInsumoId(i.productoInsumoId, 1)"
+                aria-label="Subir 1 L"
+              >+</button>
+            </div>
+            <div class="prep-field-meta">
+              <button type="button" class="chip ghost" (click)="ajustarCantInsumoId(i.productoInsumoId, 5)">+5</button>
+              <button type="button" class="chip ghost" (click)="usarTodoInsumoId(i.productoInsumoId)">Todo</button>
+              <span
+                class="prep-stock-line"
+                [class.warn]="cantInsumoPrep(i.productoInsumoId) != null && Number(cantInsumoPrep(i.productoInsumoId)) > stockDe(i.productoInsumoId) + 1e-9"
+              >
+                hay {{ stockDe(i.productoInsumoId) | number: '1.0-2' }} L
+              </span>
+            </div>
+          </div>
+        } @empty {
+          @if (prep.productoResultadoId) {
+            <p class="muted prep-hint">Este producto no tiene insumos en la fórmula.</p>
+          } @else {
+            <p class="muted prep-hint">Elige un producto para ver los insumos.</p>
           }
-        </ol>
+        }
       </div>
-    } @else if (prep.productoResultadoId) {
-      <p class="muted prep-hint">Elige cantidad para ver los insumos.</p>
-    }
+
+      @if (insumosDeFormulaActiva.length) {
+        <span class="prep-arrow" aria-hidden="true">↔</span>
+      }
+
+      <div class="prep-field prep-out">
+        <span class="prep-field-lab">Litros a preparar</span>
+        <div class="prep-stepper prep-stepper-sm">
+          <button type="button" class="stepper-btn" (click)="ajustarCantPrep(-1)" aria-label="Bajar 1 L">−</button>
+          <input
+            type="text"
+            inputmode="decimal"
+            class="prep-hero-input"
+            [(ngModel)]="prep.cantidadResultado"
+            (ngModelChange)="onCantidadPrepChange()"
+            name="prepCantRes"
+            placeholder="0"
+            aria-label="Litros a preparar"
+          />
+          <button type="button" class="stepper-btn" (click)="ajustarCantPrep(1)" aria-label="Subir 1 L">+</button>
+        </div>
+        <div class="prep-field-meta">
+          <button type="button" class="chip ghost" (click)="ajustarCantPrep(5)">+5</button>
+          <button type="button" class="chip ghost" (click)="ajustarCantPrep(16)">+16</button>
+          @if (prep.cantidadAgua != null && Number(prep.cantidadAgua) > 0) {
+            <span class="prep-auto-agua muted">+ {{ prep.cantidadAgua | number: '1.0-2' }} L agua</span>
+          }
+        </div>
+      </div>
+    </div>
 
     <div class="prep-actions prep-cta">
       <button type="submit" [disabled]="excedeStockInsumoPrep || !prep.insumos.length">
@@ -704,6 +731,18 @@
   />
   }
   </div>
+  }
+</section>
+
+<section class="panel" style="margin-top: 1rem">
+  <button type="button" class="panel-toggle" (click)="toggleArmar()" [attr.aria-expanded]="armarAbierta">
+    <h3 class="panel-titulo">Armar (bastón)</h3>
+    <span class="chev">{{ armarAbierta ? '▾' : '▸' }}</span>
+  </button>
+  @if (armarAbierta) {
+    <div class="panel-toggle-body">
+      <app-armar [embebido]="true" />
+    </div>
   }
 </section>
 

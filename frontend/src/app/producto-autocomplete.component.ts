@@ -133,21 +133,25 @@ import { InventarioItem } from './modelos';
       }
       .ac-clear {
         position: absolute;
-        right: 0.15rem;
+        right: 0.2rem;
         top: 50%;
         transform: translateY(-50%);
-        width: 2rem;
-        height: 2rem;
-        min-width: 2rem;
-        min-height: 2rem;
+        width: 1.75rem;
+        height: 1.75rem;
+        min-width: 1.75rem;
+        min-height: 1.75rem;
+        max-width: 1.75rem;
+        max-height: 1.75rem;
+        margin: 0;
         border: 0;
         border-radius: 999px;
-        background: transparent;
-        color: var(--muted);
-        font-size: 1.35rem;
+        background: transparent !important;
+        color: #b42318 !important;
+        font-size: 1.2rem;
         font-weight: 700;
         line-height: 1;
-        padding: 0;
+        padding: 0 !important;
+        box-shadow: none !important;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
@@ -157,8 +161,10 @@ import { InventarioItem } from './modelos';
       }
       .ac-clear:hover,
       .ac-clear:active {
-        color: var(--text);
-        background: rgba(26, 43, 35, 0.1);
+        color: #912018 !important;
+        background: color-mix(in srgb, #b42318 12%, #fff) !important;
+        transform: translateY(-50%) !important;
+        box-shadow: none !important;
       }
       @media (max-width: 767px) {
         .producto-ac input {

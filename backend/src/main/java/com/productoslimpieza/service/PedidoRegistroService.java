@@ -48,18 +48,21 @@ public class PedidoRegistroService {
   private final EntradaRepository entradaRepo;
   private final PedidoAbonoRepository abonoRepo;
   private final ApartadoService apartadoService;
+  private final InventarioService inventarioService;
 
   public PedidoRegistroService(
       PedidoRepository pedidoRepo,
       ProductoRepository productoRepo,
       EntradaRepository entradaRepo,
       PedidoAbonoRepository abonoRepo,
-      ApartadoService apartadoService) {
+      ApartadoService apartadoService,
+      InventarioService inventarioService) {
     this.pedidoRepo = pedidoRepo;
     this.productoRepo = productoRepo;
     this.entradaRepo = entradaRepo;
     this.abonoRepo = abonoRepo;
     this.apartadoService = apartadoService;
+    this.inventarioService = inventarioService;
   }
 
   @Transactional(readOnly = true)
@@ -211,7 +214,9 @@ public class PedidoRegistroService {
         }
         e.setPedido(p);
         entradaRepo.save(e);
-        actualizarPrecioCompraSiCambio(item.getProducto(), precio);
+        actualizarPrecioCompraSiCambio(
+            item.getProducto(), precio, linea.traeBastonIncluido());
+        sumarPendienteArmarSiAplica(item.getProducto(), delta, linea.traeBastonIncluido());
       }
     }
     if (req.fechaLimitePago() != null) {
@@ -228,15 +233,50 @@ public class PedidoRegistroService {
     return obtener(pedidoId);
   }
 
-  private void actualizarPrecioCompraSiCambio(Producto producto, BigDecimal precioProveedor) {
+  /**
+   * Actualiza precio de compra del catálogo.
+   * Lista Armar: el precio del proveedor es la cabeza; si trae bastón (producto listo),
+   * compra = cabeza + costo del bastón (vigente). Si falta armar, queda solo la cabeza hasta Armar.
+   * Si el producto es el bastón y cambió de precio, recalcula compras de la lista Armar.
+   */
+  private void actualizarPrecioCompraSiCambio(
+      Producto producto, BigDecimal precioProveedor, Boolean traeBastonIncluido) {
     if (precioProveedor == null) {
       return;
     }
-    BigDecimal actual = producto.getPrecioCompra();
-    if (actual != null && actual.compareTo(precioProveedor) == 0) {
+    BigDecimal anterior = producto.getPrecioCompra();
+    BigDecimal nuevo = precioProveedor;
+    if (producto.isUsaBaston() && Boolean.TRUE.equals(traeBastonIncluido)) {
+      BigDecimal baston = inventarioService.costoBastonPorUnidad(producto);
+      if (baston.compareTo(BigDecimal.ZERO) > 0) {
+        nuevo = precioProveedor.add(baston).setScale(4, RoundingMode.HALF_UP);
+      }
+    }
+    if (anterior != null && anterior.compareTo(nuevo) == 0) {
       return;
     }
-    producto.setPrecioCompra(precioProveedor);
+    producto.setPrecioCompra(nuevo);
+    productoRepo.save(producto);
+    if (producto.isEsBaston()) {
+      inventarioService.recalcularCompraTrasCambioPrecioBaston(producto, anterior, nuevo);
+    }
+  }
+
+  /** Si el producto usa bastón y llegó sin él, suma a pendiente de armar. */
+  private void sumarPendienteArmarSiAplica(
+      Producto producto, BigDecimal delta, Boolean traeBastonIncluido) {
+    if (producto == null || !producto.isUsaBaston()) {
+      return;
+    }
+    if (delta == null || delta.compareTo(BigDecimal.ZERO) <= 0) {
+      return;
+    }
+    // Solo cuenta como pendiente si explícitamente NO trae bastón.
+    if (!Boolean.FALSE.equals(traeBastonIncluido)) {
+      return;
+    }
+    BigDecimal actual = producto.getPendienteArmar() != null ? producto.getPendienteArmar() : BigDecimal.ZERO;
+    producto.setPendienteArmar(actual.add(delta));
     productoRepo.save(producto);
   }
 

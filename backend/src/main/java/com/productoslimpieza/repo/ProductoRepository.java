@@ -18,6 +18,10 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
   List<Producto> findByActivoTrueOrderByNombreAsc();
   boolean existsByNombreIgnoreCase(String nombre);
 
+  Optional<Producto> findFirstByEsBastonTrueAndActivoTrueOrderByIdAsc();
+
+  List<Producto> findByUsaBastonTrueAndActivoTrueOrderByNombreAsc();
+
   /** Inversión por stock al dar de alta: cantidadInicial × precioCompra. */
   @Query("""
       select coalesce(sum(p.cantidadInicial * p.precioCompra), 0)

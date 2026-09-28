@@ -76,7 +76,18 @@
     </div>
 
     @if (ultimo || lineas.length) {
-      <details class="alta-manual-details">
+      @if (avisoBaston; as ab) {
+        <div class="aviso-baston" role="status">
+          <p>
+            Tienes <strong>{{ ab.stock }}</strong> bastones en stock y necesitas
+            <strong>{{ ab.necesito }}</strong>.
+          </p>
+          <button type="button" class="btn-aviso-baston" (click)="agregarBastonesSugeridos()">
+            Agregar {{ ab.faltan }} al pedido
+          </button>
+        </div>
+      }
+      <details class="alta-manual-details" #altaManualDet (toggle)="onAltaManualToggle($event)">
         <summary>
           <span class="alta-manual-tit">Agregar producto a mano</span>
         </summary>
@@ -93,25 +104,63 @@
               (productoIdChange)="altaProductoId = $event"
             />
           </label>
-          <label class="campo">
-            Pedir
+          <div class="campo">
+            <span class="campo-etiq">Pedir</span>
             <div class="pedir-stepper">
               <div class="pedir-stepper-core">
-                <button type="button" class="stepper-btn" (click)="ajustarAltaCantidad(-1)" aria-label="Bajar 1">−</button>
+                <button type="button" class="stepper-btn" (click)="ajustarAltaCantidad(-1); $event.stopPropagation()" aria-label="Bajar 1">−</button>
                 <input
                   type="text"
-                  inputmode="numeric"
-                  appSoloNumeros="enteros"
+                  inputmode="decimal"
+                  appSoloNumeros="decimal"
                   [(ngModel)]="altaCantidad"
                   name="altaSurtirCant"
                   placeholder="0"
                 />
-                <button type="button" class="stepper-btn" (click)="ajustarAltaCantidad(1)" aria-label="Subir 1">+</button>
+                <button type="button" class="stepper-btn" (click)="ajustarAltaCantidad(1); $event.stopPropagation()" aria-label="Subir 1">+</button>
               </div>
             </div>
-          </label>
+          </div>
           <button type="button" (click)="agregarManual()">Agregar</button>
+          <button type="button" class="secondary" (click)="abrirAltaProductoNuevo(altaManualDet)">
+            {{ altaNuevoProducto ? 'Cerrar nuevo' : '+ Nuevo' }}
+          </button>
         </div>
+        @if (altaNuevoProducto) {
+          <div class="alta-nuevo-en-surtir">
+            <p class="muted">
+              Solo nombre y cuánto pedir. Queda en el pedido como «nuevo».
+              Si llega, al guardar lo recibido pones importe, menudeo (mín–máx) y mayoreo → ahí sí entra al inventario completo.
+            </p>
+            <div class="alta-nuevo-fila">
+              <label class="campo producto-campo">
+                Nombre
+                <input
+                  type="text"
+                  appClearable
+                  [(ngModel)]="altaNuevoNombre"
+                  name="altaNuevoNom"
+                  placeholder="Ej. Fabuloso nuevo aroma…"
+                />
+              </label>
+              <label class="campo">
+                Se vende por
+                <select [(ngModel)]="altaNuevoVendePor" name="altaNuevoVp">
+                  <option value="LITROS">Litros</option>
+                  <option value="PIEZA">Pieza</option>
+                </select>
+              </label>
+              <label class="campo">
+                Departamento
+                <select [(ngModel)]="altaNuevoDepto" name="altaNuevoDep">
+                  <option value="LIMPIEZA">Limpieza</option>
+                  <option value="JARCERIA">Jarcería</option>
+                </select>
+              </label>
+              <button type="button" (click)="agregarProductoPendiente()">Añadir al pedido</button>
+            </div>
+          </div>
+        }
       </details>
     }
   </div>
@@ -148,13 +197,18 @@
         @for (l of pagLitros.paginaItems; track l.productoId) {
           <tr [class.warn]="l.faltanteAnterior > 0">
             <td>
-              {{ l.productoNombre }}
-              @if (l.extra) {
-                <span class="item-tag">extra</span>
-              }
-              @if (esCeroSinVentas(l)) {
-                <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
-              }
+              <div class="producto-con-tags">
+                <span class="producto-nom">{{ l.productoNombre }}</span>
+                @if (l.extra) {
+                  <span class="item-tag">extra</span>
+                }
+                @if (l.pendienteCatalogo || l.productoId < 0) {
+                  <span class="item-tag tag-pendiente">nuevo</span>
+                }
+                @if (esCeroSinVentas(l)) {
+                  <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
+                }
+              </div>
             </td>
             <td class="money col-stock">{{ l.stockActual | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
@@ -193,10 +247,13 @@
   <ul class="hist-cards">
     @for (l of pagLitros.paginaItems; track l.productoId; let idx = $index) {
       <li [style.--i]="idx">
-        <p class="item-motivo">
-          {{ l.productoNombre }}
+        <p class="item-motivo producto-con-tags">
+          <span class="producto-nom">{{ l.productoNombre }}</span>
           @if (l.extra) {
             <span class="item-tag">extra</span>
+          }
+          @if (l.pendienteCatalogo || l.productoId < 0) {
+            <span class="item-tag tag-pendiente">nuevo</span>
           }
           @if (esCeroSinVentas(l)) {
             <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
@@ -225,11 +282,11 @@
           </div>
         </dl>
         <div class="item-fila pedir-movil">
-          <label>
-            Pedir (L)
+          <div class="pedir-movil-campo">
+            <span class="campo-etiq">Pedir (L)</span>
             <div class="pedir-stepper">
               <div class="pedir-stepper-core">
-                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, -1)" aria-label="Bajar 1 L">−</button>
+                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, -1); $event.stopPropagation()" aria-label="Bajar 1 L">−</button>
                 <input
                   type="text"
                   inputmode="numeric"
@@ -238,10 +295,10 @@
                   [name]="'pedirLM' + l.productoId"
                   (change)="onPedirChange(l)"
                 />
-                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, 1)" aria-label="Subir 1 L">+</button>
+                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, 1); $event.stopPropagation()" aria-label="Subir 1 L">+</button>
               </div>
             </div>
-          </label>
+          </div>
           <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
         </div>
       </li>
@@ -297,13 +354,18 @@
         @for (l of pagPiezas.paginaItems; track l.productoId) {
           <tr [class.warn]="l.faltanteAnterior > 0">
             <td>
-              {{ l.productoNombre }}
-              @if (l.extra) {
-                <span class="item-tag">extra</span>
-              }
-              @if (esCeroSinVentas(l)) {
-                <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
-              }
+              <div class="producto-con-tags">
+                <span class="producto-nom">{{ l.productoNombre }}</span>
+                @if (l.extra) {
+                  <span class="item-tag">extra</span>
+                }
+                @if (l.pendienteCatalogo || l.productoId < 0) {
+                  <span class="item-tag tag-pendiente">nuevo</span>
+                }
+                @if (esCeroSinVentas(l)) {
+                  <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
+                }
+              </div>
             </td>
             <td class="money col-stock">{{ l.stockActual | number: '1.0-2' }}</td>
             <td class="money">{{ l.consumoObservado | number: '1.0-2' }}</td>
@@ -342,10 +404,13 @@
   <ul class="hist-cards">
     @for (l of pagPiezas.paginaItems; track l.productoId; let idx = $index) {
       <li [style.--i]="idx">
-        <p class="item-motivo">
-          {{ l.productoNombre }}
+        <p class="item-motivo producto-con-tags">
+          <span class="producto-nom">{{ l.productoNombre }}</span>
           @if (l.extra) {
             <span class="item-tag">extra</span>
+          }
+          @if (l.pendienteCatalogo || l.productoId < 0) {
+            <span class="item-tag tag-pendiente">nuevo</span>
           }
           @if (esCeroSinVentas(l)) {
             <span class="item-tag tag-sin-ventas" title="En cero y sin ventas en ~6 meses">sin ventas</span>
@@ -374,11 +439,11 @@
           </div>
         </dl>
         <div class="item-fila pedir-movil">
-          <label>
-            Pedir (pza)
+          <div class="pedir-movil-campo">
+            <span class="campo-etiq">Pedir (pza)</span>
             <div class="pedir-stepper">
               <div class="pedir-stepper-core">
-                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, -1)" aria-label="Bajar 1">−</button>
+                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, -1); $event.stopPropagation()" aria-label="Bajar 1">−</button>
                 <input
                   type="text"
                   inputmode="numeric"
@@ -387,10 +452,10 @@
                   [name]="'pedirPM' + l.productoId"
                   (change)="onPedirChange(l)"
                 />
-                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, 1)" aria-label="Subir 1">+</button>
+                <button type="button" class="stepper-btn" (click)="ajustarPedir(l, 1); $event.stopPropagation()" aria-label="Subir 1">+</button>
               </div>
             </div>
-          </label>
+          </div>
           <button type="button" class="danger" title="Quitar" (click)="quitar(l)">×</button>
         </div>
       </li>
@@ -525,10 +590,6 @@
 
             <div class="paso-bloque">
               <p class="alta-manual-tit">1. ¿Llegó la mercancía?</p>
-              <p class="muted hint-inline">
-                En <strong>Importe $</strong> pon lo que te cobró el proveedor por esa línea.
-                El unitario se calcula solo; verás si subió o bajó vs la última compra.
-              </p>
               <div class="cuenta-recibo">
                 <p class="total-cuenta">
                   Cuenta proveedor
@@ -546,7 +607,17 @@
                 }
               </div>
             <div class="table-wrap hist-tabla">
-              <table>
+              <table class="tabla-recibos">
+                <colgroup>
+                  <col class="col-prod" />
+                  <col class="col-num" />
+                  <col class="col-num" />
+                  <col class="col-num" />
+                  <col class="col-num" />
+                  <col class="col-num" />
+                  <col class="col-falta" />
+                  <col class="col-acc" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Producto</th>
@@ -554,7 +625,12 @@
                     <th class="money">Recibido</th>
                     <th class="money">Importe $</th>
                     <th class="money">Unitario</th>
-                    <th class="money">Última</th>
+                    <th
+                      class="money"
+                      [title]="hayCompletarAltaRecibo ? 'Última compra · en productos nuevos: menudeo' : 'Última compra'"
+                    >
+                      {{ hayCompletarAltaRecibo ? 'Últ. / Men.' : 'Última' }}
+                    </th>
                     <th class="money">Falta</th>
                     <th></th>
                   </tr>
@@ -569,10 +645,55 @@
                       [class.warn]="faltaDe(r) > 0.001 || cambioRecibo(r) === 'SUBIO'"
                       [class.bajo]="cambioRecibo(r) === 'BAJO'"
                       [class.editando-pedida]="editandoPedidaId === r.itemId"
+                      [class.recibo-nuevo]="r.completarAlta"
                     >
-                      <td>
-                        {{ r.productoNombre }}
-                        <span class="muted unidad">{{ r.unidad }}</span>
+                      <td class="celda-producto">
+                        <div class="producto-con-tags">
+                          <span class="producto-nom">
+                            {{ r.productoNombre }}
+                            <span class="muted unidad">{{ r.unidad }}</span>
+                          </span>
+                          @if (r.completarAlta) {
+                            <span class="item-tag tag-pendiente">nuevo</span>
+                          }
+                        </div>
+                        @if (r.usaBaston) {
+                          <div class="baston-opts" role="group" aria-label="¿Trae bastón?">
+                            @if (p.estado !== 'CERRADO') {
+                              <button
+                                type="button"
+                                class="btn-baston falta"
+                                [class.activo]="!r.traeBastonIncluido"
+                                [attr.aria-pressed]="!r.traeBastonIncluido"
+                                (click)="setTraeBaston(r, false)"
+                              >
+                                Falta armar
+                              </button>
+                              <button
+                                type="button"
+                                class="btn-baston trae"
+                                [class.activo]="r.traeBastonIncluido"
+                                [attr.aria-pressed]="r.traeBastonIncluido"
+                                (click)="setTraeBaston(r, true)"
+                              >
+                                Trae bastón
+                              </button>
+                            } @else if (!r.traeBastonIncluido) {
+                              <span class="item-tag tag-falta-armar">falta armar</span>
+                            } @else {
+                              <span class="item-tag tag-trae-baston">trae bastón</span>
+                            }
+                          </div>
+                        }
+                        @if (cambioRecibo(r) === 'SUBIO' || cambioRecibo(r) === 'BAJO') {
+                          <p class="precio-cambio-linea" [class.subio]="cambioRecibo(r) === 'SUBIO'" [class.bajo]="cambioRecibo(r) === 'BAJO'">
+                            @if (cambioRecibo(r) === 'SUBIO') {
+                              Precio subió ${{ diffAbsRecibo(r) | number: '1.2-2' }} vs última compra
+                            } @else {
+                              Precio bajó ${{ diffAbsRecibo(r) | number: '1.2-2' }} vs última compra
+                            }
+                          </p>
+                        }
                       </td>
                       <td class="money recibo-pedida">
                         @if (editandoPedidaId === r.itemId) {
@@ -598,10 +719,9 @@
                             class="recibo-num"
                             inputmode="decimal"
                             appSoloNumeros
-                            appClearable
                             [(ngModel)]="r.recibida"
                             [name]="'rec' + r.itemId"
-                            (ngModelChange)="programarBorrador()"
+                            (ngModelChange)="onRecibidaReciboChange(r)"
                             (keydown.enter)="focusSiguienteCampo($event)"
                           />
                         } @else {
@@ -615,11 +735,10 @@
                             class="recibo-num"
                             inputmode="decimal"
                             appSoloNumeros
-                            appClearable
                             [(ngModel)]="r.totalPagado"
                             [name]="'tot' + r.itemId"
                             placeholder="$"
-                            (ngModelChange)="programarBorrador()"
+                            (ngModelChange)="onTotalReciboChange(r)"
                             (keydown.enter)="focusSiguienteCampo($event)"
                           />
                         } @else {
@@ -630,37 +749,57 @@
                           }
                         }
                       </td>
-                      <td class="money unitario-celda">
-                        @if (unitarioRecibo(r) != null) {
-                          <span>${{ unitarioRecibo(r) | number: '1.2-2' }}</span>
-                          @switch (cambioRecibo(r)) {
-                            @case ('SUBIO') {
-                              <span
-                                class="icono-cambio subio"
-                                [title]="'Subió +$' + (diffAbsRecibo(r) | number: '1.2-2')"
-                                aria-label="Subió"
-                              >↑</span>
+                      <td class="money celda-unitario">
+                        <div class="precio-con-cambio">
+                          @if (unitarioRecibo(r) != null) {
+                            <span class="precio-val">${{ unitarioRecibo(r) | number: '1.2-2' }}</span>
+                            @switch (cambioRecibo(r)) {
+                              @case ('SUBIO') {
+                                <span
+                                  class="icono-cambio subio"
+                                  [title]="'Subió +$' + (diffAbsRecibo(r) | number: '1.2-2')"
+                                  aria-label="Subió"
+                                >↑</span>
+                              }
+                              @case ('IGUAL') {
+                                <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
+                              }
+                              @case ('BAJO') {
+                                <span
+                                  class="icono-cambio bajo"
+                                  [title]="'Bajó −$' + (diffAbsRecibo(r) | number: '1.2-2')"
+                                  aria-label="Bajó"
+                                >↓</span>
+                              }
+                              @default {
+                                <span class="icono-cambio-slot" aria-hidden="true"></span>
+                              }
                             }
-                            @case ('IGUAL') {
-                              <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
-                            }
-                            @case ('BAJO') {
-                              <span
-                                class="icono-cambio bajo"
-                                [title]="'Bajó −$' + (diffAbsRecibo(r) | number: '1.2-2')"
-                                aria-label="Bajó"
-                              >↓</span>
-                            }
+                          } @else {
+                            <span class="precio-val muted">—</span>
+                            <span class="icono-cambio-slot" aria-hidden="true"></span>
                           }
-                        } @else {
-                          <span class="muted">—</span>
-                        }
+                        </div>
                       </td>
-                      <td class="money muted">
-                        @if (ultimaCompra(r.productoId) != null) {
-                          ${{ ultimaCompra(r.productoId) | number: '1.2-2' }}
+                      <td class="money celda-ultima">
+                        @if (r.completarAlta && p.estado !== 'CERRADO') {
+                          <input
+                            type="text"
+                            class="recibo-num"
+                            inputmode="decimal"
+                            appSoloNumeros
+                            [(ngModel)]="r.precioVenta"
+                            [name]="'men' + r.itemId"
+                            [placeholder]="menudeoPlaceholderRecibo(r)"
+                            (ngModelChange)="onMenudeoReciboChange(r)"
+                            (keydown.enter)="focusSiguienteCampo($event)"
+                            [title]="tituloMenudeoRecibo(r)"
+                            aria-label="Menudeo"
+                          />
+                        } @else if (ultimaCompra(r.productoId) != null) {
+                          <span class="precio-val">${{ ultimaCompra(r.productoId) | number: '1.2-2' }}</span>
                         } @else {
-                          —
+                          <span class="precio-val muted">—</span>
                         }
                       </td>
                       <td class="money">{{ faltaDe(r) | number: '1.0-2' }}</td>
@@ -705,11 +844,54 @@
                   [class.warn]="faltaDe(r) > 0.001 || cambioRecibo(r) === 'SUBIO'"
                   [class.bajo]="cambioRecibo(r) === 'BAJO'"
                   [class.editando-pedida]="editandoPedidaId === r.itemId"
+                  [class.recibo-nuevo]="r.completarAlta"
                 >
-                  <p class="item-motivo">
-                    {{ r.productoNombre }}
-                    <span class="muted unidad">{{ r.unidad }}</span>
+                  <p class="item-motivo producto-con-tags">
+                    <span class="producto-nom">
+                      {{ r.productoNombre }}
+                      <span class="muted unidad">{{ r.unidad }}</span>
+                    </span>
+                    @if (r.completarAlta) {
+                      <span class="item-tag tag-pendiente">nuevo</span>
+                    }
                   </p>
+                  @if (r.usaBaston) {
+                    <div class="baston-opts" role="group" aria-label="¿Trae bastón?">
+                      @if (p.estado !== 'CERRADO') {
+                        <button
+                          type="button"
+                          class="btn-baston falta"
+                          [class.activo]="!r.traeBastonIncluido"
+                          [attr.aria-pressed]="!r.traeBastonIncluido"
+                          (click)="setTraeBaston(r, false)"
+                        >
+                          Falta armar
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-baston trae"
+                          [class.activo]="r.traeBastonIncluido"
+                          [attr.aria-pressed]="r.traeBastonIncluido"
+                          (click)="setTraeBaston(r, true)"
+                        >
+                          Trae bastón
+                        </button>
+                      } @else if (!r.traeBastonIncluido) {
+                        <span class="item-tag tag-falta-armar">falta armar</span>
+                      } @else {
+                        <span class="item-tag tag-trae-baston">trae bastón</span>
+                      }
+                    </div>
+                  }
+                  @if (cambioRecibo(r) === 'SUBIO' || cambioRecibo(r) === 'BAJO') {
+                    <p class="precio-cambio-linea" [class.subio]="cambioRecibo(r) === 'SUBIO'" [class.bajo]="cambioRecibo(r) === 'BAJO'">
+                      @if (cambioRecibo(r) === 'SUBIO') {
+                        Precio subió ${{ diffAbsRecibo(r) | number: '1.2-2' }} vs última compra
+                      } @else {
+                        Precio bajó ${{ diffAbsRecibo(r) | number: '1.2-2' }} vs última compra
+                      }
+                    </p>
+                  }
                   <dl class="card-cols">
                     <div>
                       <dt>Pedido</dt>
@@ -765,9 +947,23 @@
                       </dd>
                     </div>
                     <div>
-                      <dt>Última</dt>
+                      <dt>{{ r.completarAlta ? 'Menudeo' : 'Última' }}</dt>
                       <dd class="muted">
-                        @if (ultimaCompra(r.productoId) != null) {
+                        @if (r.completarAlta && p.estado !== 'CERRADO') {
+                          <input
+                            type="text"
+                            class="recibo-num"
+                            inputmode="decimal"
+                            appSoloNumeros
+                            appClearable
+                            [(ngModel)]="r.precioVenta"
+                            [name]="'menCard' + r.itemId"
+                            [placeholder]="menudeoPlaceholderRecibo(r)"
+                            (ngModelChange)="onMenudeoReciboChange(r)"
+                            (keydown.enter)="focusSiguienteCampo($event)"
+                            [title]="tituloMenudeoRecibo(r)"
+                          />
+                        } @else if (ultimaCompra(r.productoId) != null) {
                           ${{ ultimaCompra(r.productoId) | number: '1.2-2' }}
                         } @else {
                           —
@@ -787,7 +983,7 @@
                         appClearable
                         [(ngModel)]="r.recibida"
                         [name]="'recM' + r.itemId"
-                        (ngModelChange)="programarBorrador()"
+                        (ngModelChange)="onRecibidaReciboChange(r)"
                         (keydown.enter)="focusSiguienteCampo($event)"
                       />
                     </label>
@@ -802,7 +998,7 @@
                         [(ngModel)]="r.totalPagado"
                         [name]="'totM' + r.itemId"
                         placeholder="$"
-                        (ngModelChange)="programarBorrador()"
+                        (ngModelChange)="onTotalReciboChange(r)"
                         (keydown.enter)="focusSiguienteCampo($event)"
                       />
                     </label>

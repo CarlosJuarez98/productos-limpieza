@@ -67,9 +67,49 @@ public class TenantSchemaBootstrap implements ApplicationRunner {
     ensureCorteTenantFechaUnique();
     ensurePagoTarjetaColumn();
     ensureDepartamentoColumn();
+    ensureBastonColumns();
     ensureTraspasoAbonoMovimientoColumn();
     ensureTraspasoAbonoPagoTarjetaColumn();
     log.info("TenantSchemaBootstrap: listo");
+  }
+
+  /** Columnas de Armar (bastón) en PRODUCTOS — solo esquema, sin tocar datos de negocio. */
+  private void ensureBastonColumns() {
+    if (!tableExists("PRODUCTOS")) {
+      return;
+    }
+    addColumnIfMissing(
+        "PRODUCTOS",
+        "ES_BASTON",
+        "ALTER TABLE PRODUCTOS ADD ES_BASTON NUMBER(1) DEFAULT 0 NOT NULL");
+    addColumnIfMissing(
+        "PRODUCTOS",
+        "USA_BASTON",
+        "ALTER TABLE PRODUCTOS ADD USA_BASTON NUMBER(1) DEFAULT 0 NOT NULL");
+    addColumnIfMissing(
+        "PRODUCTOS",
+        "BASTONES_POR_UNIDAD",
+        "ALTER TABLE PRODUCTOS ADD BASTONES_POR_UNIDAD NUMBER(14,4) DEFAULT 1");
+    addColumnIfMissing(
+        "PRODUCTOS",
+        "BASTON_PRODUCTO_ID",
+        "ALTER TABLE PRODUCTOS ADD BASTON_PRODUCTO_ID NUMBER(19)");
+    addColumnIfMissing(
+        "PRODUCTOS",
+        "PENDIENTE_ARMAR",
+        "ALTER TABLE PRODUCTOS ADD PENDIENTE_ARMAR NUMBER(14,4) DEFAULT 0 NOT NULL");
+  }
+
+  private void addColumnIfMissing(String table, String column, String ddl) {
+    if (columnExists(table, column)) {
+      return;
+    }
+    try {
+      jdbc.execute(ddl);
+      log.info("Añadida columna {}.{}", table, column);
+    } catch (Exception e) {
+      log.warn("No se pudo añadir {}.{}: {}", table, column, e.getMessage());
+    }
   }
 
   private void ensureTraspasoAbonoMovimientoColumn() {

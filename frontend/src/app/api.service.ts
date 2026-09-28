@@ -6,6 +6,7 @@ import {
   Apartado,
   ApartadoRubro,
   ApartadosResumen,
+  ArmadoResultado,
   CajaResumen,
   CortePeriodo,
   Entrada,
@@ -122,6 +123,10 @@ export class ApiService {
 
   eliminarProducto(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/inventario/${id}`);
+  }
+
+  armarProducto(body: { productoId: number; cantidad: number }): Observable<ArmadoResultado> {
+    return this.http.post<ArmadoResultado>(`${this.base}/armar`, body);
   }
 
   ajustesInventario(): Observable<AjusteInventario[]> {

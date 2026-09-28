@@ -17,6 +17,7 @@ type NavIcon =
   | 'inventario'
   | 'entradas'
   | 'surtir'
+  | 'armar'
   | 'traspasos'
   | 'caja'
   | 'apartados'

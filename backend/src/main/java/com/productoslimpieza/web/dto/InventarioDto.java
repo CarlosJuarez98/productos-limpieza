@@ -23,5 +23,12 @@ public record InventarioDto(
     UnidadVenta vendePor,
     String vendePorLabel,
     DepartamentoProducto departamento,
-    String departamentoLabel
+    String departamentoLabel,
+    boolean esBaston,
+    boolean usaBaston,
+    BigDecimal bastonesPorUnidad,
+    Long bastonProductoId,
+    BigDecimal pendienteArmar,
+    /** stockActual − pendienteArmar (lo vendible ya armado). */
+    BigDecimal stockArmado
 ) {}

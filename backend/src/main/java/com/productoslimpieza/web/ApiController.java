@@ -29,6 +29,7 @@ public class ApiController {
   private final PedidoService pedidoService;
   private final PedidoRegistroService pedidoRegistroService;
   private final AjusteInventarioService ajusteInventarioService;
+  private final ArmadoService armadoService;
   private final PedidoDomicilioService pedidoDomicilioService;
   private final PublicidadGaleriaService publicidadGaleriaService;
   private final PublicidadMediaService publicidadMediaService;
@@ -49,6 +50,7 @@ public class ApiController {
       PedidoService pedidoService,
       PedidoRegistroService pedidoRegistroService,
       AjusteInventarioService ajusteInventarioService,
+      ArmadoService armadoService,
       PedidoDomicilioService pedidoDomicilioService,
       PublicidadGaleriaService publicidadGaleriaService,
       PublicidadMediaService publicidadMediaService) {
@@ -67,6 +69,7 @@ public class ApiController {
     this.pedidoService = pedidoService;
     this.pedidoRegistroService = pedidoRegistroService;
     this.ajusteInventarioService = ajusteInventarioService;
+    this.armadoService = armadoService;
     this.pedidoDomicilioService = pedidoDomicilioService;
     this.publicidadGaleriaService = publicidadGaleriaService;
     this.publicidadMediaService = publicidadMediaService;
@@ -179,6 +182,11 @@ public class ApiController {
   @DeleteMapping("/inventario/{id}")
   public void eliminarProducto(@PathVariable Long id) {
     inventarioService.eliminar(id);
+  }
+
+  @PostMapping("/armar")
+  public ArmadoDto armar(@Valid @RequestBody ArmadoRequest req) {
+    return armadoService.armar(req);
   }
 
   @GetMapping("/ajustes-inventario")

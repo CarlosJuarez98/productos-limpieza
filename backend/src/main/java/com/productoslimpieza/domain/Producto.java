@@ -43,6 +43,26 @@ public class Producto extends TenantEntity {
   @Column(nullable = false)
   private boolean activo = true;
 
+  /** Si true, este producto es el bastón de madera (insumo de armar). */
+  @Column(name = "es_baston", nullable = false)
+  private boolean esBaston = false;
+
+  /** Si true, al recibir sin bastón queda pendiente de armar. */
+  @Column(name = "usa_baston", nullable = false)
+  private boolean usaBaston = false;
+
+  /** Bastones necesarios por unidad al armar (normalmente 1). */
+  @Column(name = "bastones_por_unidad", precision = 14, scale = 4)
+  private BigDecimal bastonesPorUnidad = BigDecimal.ONE;
+
+  /** Producto bastón a descontar al armar (si null, se usa el marcado esBaston). */
+  @Column(name = "baston_producto_id")
+  private Long bastonProductoId;
+
+  /** Unidades en stock que aún no tienen bastón. */
+  @Column(name = "pendiente_armar", precision = 14, scale = 4, nullable = false)
+  private BigDecimal pendienteArmar = BigDecimal.ZERO;
+
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
   public String getNombre() { return nombre; }
@@ -61,4 +81,14 @@ public class Producto extends TenantEntity {
   public void setDepartamento(DepartamentoProducto departamento) { this.departamento = departamento; }
   public boolean isActivo() { return activo; }
   public void setActivo(boolean activo) { this.activo = activo; }
+  public boolean isEsBaston() { return esBaston; }
+  public void setEsBaston(boolean esBaston) { this.esBaston = esBaston; }
+  public boolean isUsaBaston() { return usaBaston; }
+  public void setUsaBaston(boolean usaBaston) { this.usaBaston = usaBaston; }
+  public BigDecimal getBastonesPorUnidad() { return bastonesPorUnidad; }
+  public void setBastonesPorUnidad(BigDecimal bastonesPorUnidad) { this.bastonesPorUnidad = bastonesPorUnidad; }
+  public Long getBastonProductoId() { return bastonProductoId; }
+  public void setBastonProductoId(Long bastonProductoId) { this.bastonProductoId = bastonProductoId; }
+  public BigDecimal getPendienteArmar() { return pendienteArmar; }
+  public void setPendienteArmar(BigDecimal pendienteArmar) { this.pendienteArmar = pendienteArmar; }
 }

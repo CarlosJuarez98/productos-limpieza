@@ -555,9 +555,42 @@ h3 {
   font-size: 0.9rem;
 }
 
+.check-baston {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.check-baston input {
+  width: auto;
+  margin: 0;
+}
+
+.tag-pendiente-armar {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #92400e;
+  background: color-mix(in srgb, #b45309 16%, transparent);
+  border: 1px solid color-mix(in srgb, #b45309 30%, transparent);
+  white-space: nowrap;
+}
+
 td.bajo-minimo,
 .bajo-minimo {
   color: var(--danger);
+  font-weight: 700;
+}
+
+td.sobre-maximo,
+.sobre-maximo {
+  color: #b45309;
   font-weight: 700;
 }
 
@@ -1001,6 +1034,10 @@ input[readonly] {
 
   .hist-cards .bajo-minimo {
     color: var(--danger);
+  }
+
+  .hist-cards .sobre-maximo {
+    color: #b45309;
   }
 
   .hist-cards .ganancia-alta {

@@ -168,6 +168,7 @@ public class PedidoService {
       alertas = alertasInsumos(prevIni, prevFin, escalaPrev, factor, productos, recetasPorResultado);
     }
     incorporarInsumosEnLineas(lineas, alertas, productos);
+    incorporarBastonEnLineas(lineas, productos);
 
     lineas.sort(
         Comparator.comparing((PedidoLineaDto l) -> nz(l.stockActual()))
@@ -175,6 +176,89 @@ public class PedidoService {
 
     return new PedidoSugeridoDto(
         ini, fin, diasObs, diasCob, pct.setScale(2, RoundingMode.HALF_UP), lineas, alertas);
+  }
+
+  /**
+   * Si el pedido incluye productos de la lista Armar y no hay bastones suficientes (stock + ya
+   * pedidas + pendientes de armar), agrega o sube la línea del bastón.
+   */
+  private void incorporarBastonEnLineas(List<PedidoLineaDto> lineas, Map<Long, Producto> productos) {
+    Producto baston =
+        productoRepo.findFirstByEsBastonTrueAndActivoTrueOrderByIdAsc().orElse(null);
+    if (baston == null || !baston.isActivo()) {
+      return;
+    }
+    BigDecimal necesidad = BigDecimal.ZERO;
+    for (Producto p : productos.values()) {
+      if (!p.isActivo() || !p.isUsaBaston()) {
+        continue;
+      }
+      if (!usaEsteBaston(p, baston)) {
+        continue;
+      }
+      necesidad =
+          necesidad.add(nz(p.getPendienteArmar()).multiply(InventarioService.bastonesPorUnidad(p)));
+    }
+    for (PedidoLineaDto l : lineas) {
+      if (l.productoId().equals(baston.getId())) {
+        continue;
+      }
+      Producto p = productos.get(l.productoId());
+      if (p == null || !p.isUsaBaston() || !usaEsteBaston(p, baston)) {
+        continue;
+      }
+      necesidad = necesidad.add(nz(l.sugerido()).multiply(InventarioService.bastonesPorUnidad(p)));
+    }
+    if (necesidad.compareTo(BigDecimal.ZERO) <= 0) {
+      return;
+    }
+    BigDecimal stock = inventarioService.stockActual(baston);
+    BigDecimal yaPedidos = BigDecimal.ZERO;
+    int idxBaston = -1;
+    for (int i = 0; i < lineas.size(); i++) {
+      if (lineas.get(i).productoId().equals(baston.getId())) {
+        idxBaston = i;
+        yaPedidos = nz(lineas.get(i).sugerido());
+        break;
+      }
+    }
+    BigDecimal faltan = necesidad.subtract(stock).subtract(yaPedidos);
+    if (faltan.compareTo(BigDecimal.ZERO) <= 0) {
+      return;
+    }
+    UnidadVenta unidad = baston.getVendePor() != null ? baston.getVendePor() : UnidadVenta.PIEZA;
+    BigDecimal pedirExtra = redondearPedirCerrado(faltan, unidad);
+    if (pedirExtra.compareTo(BigDecimal.ZERO) <= 0) {
+      pedirExtra = faltan.setScale(0, RoundingMode.CEILING);
+    }
+    BigDecimal pedirTotal = yaPedidos.add(pedirExtra);
+    BigDecimal conColchon = pedirTotal.setScale(2, RoundingMode.HALF_UP);
+    PedidoLineaDto lineaBaston =
+        new PedidoLineaDto(
+            baston.getId(),
+            baston.getNombre(),
+            unidad.name(),
+            unidad.toLabel(),
+            stock,
+            BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+            BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+            conColchon,
+            BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+            pedirTotal,
+            loteCompraTipico(baston),
+            departamentoDe(baston).name());
+    if (idxBaston >= 0) {
+      lineas.set(idxBaston, lineaBaston);
+    } else {
+      lineas.add(lineaBaston);
+    }
+  }
+
+  private static boolean usaEsteBaston(Producto p, Producto baston) {
+    if (p.getBastonProductoId() != null) {
+      return p.getBastonProductoId().equals(baston.getId());
+    }
+    return baston.isEsBaston();
   }
 
   private void incorporarInsumosEnLineas(

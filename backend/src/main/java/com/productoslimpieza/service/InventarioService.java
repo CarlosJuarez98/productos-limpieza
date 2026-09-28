@@ -152,6 +152,7 @@ public class InventarioService {
         previo.setVendePor(req.vendePor());
       }
       previo.setDepartamento(resolverDepartamento(req, previo.getVendePor(), nombre));
+      aplicarFlagsBaston(previo, req);
       aplicarMayoreoDesdeCompra(previo, margen);
       previo = productoRepo.save(previo);
       if (req.precioVenta() != null) {
@@ -169,6 +170,7 @@ public class InventarioService {
     p.setVendePor(vendePor);
     p.setDepartamento(resolverDepartamento(req, vendePor, nombre));
     p.setActivo(true);
+    aplicarFlagsBaston(p, req);
     aplicarMayoreoDesdeCompra(p, margen);
     p = productoRepo.save(p);
     LocalDate fecha = req.fechaVigenciaPrecio() != null ? req.fechaVigenciaPrecio() : null;
@@ -196,6 +198,7 @@ public class InventarioService {
       }
     });
     MargenConfig margen = margenService.getConfig();
+    BigDecimal compraAnterior = p.getPrecioCompra();
     p.setNombre(req.nombre().trim());
     if (req.precioCompra() != null) {
       p.setPrecioCompra(req.precioCompra());
@@ -209,6 +212,7 @@ public class InventarioService {
     if (req.departamento() != null) {
       p.setDepartamento(req.departamento());
     }
+    aplicarFlagsBaston(p, req);
     // Precios mayoreo manuales; si no vienen y cambió compra, recalcular desde márgenes
     if (req.precioMayoreo5() != null || req.precioMayoreo10() != null) {
       if (req.precioMayoreo5() != null) {
@@ -221,6 +225,9 @@ public class InventarioService {
       aplicarMayoreoDesdeCompra(p, margen);
     }
     p = productoRepo.save(p);
+    if (p.isEsBaston() && req.precioCompra() != null) {
+      recalcularCompraTrasCambioPrecioBaston(p, compraAnterior, p.getPrecioCompra());
+    }
     if (req.precioVenta() != null) {
       LocalDate fecha = req.fechaVigenciaPrecio() != null
           ? req.fechaVigenciaPrecio()
@@ -379,7 +386,13 @@ public class InventarioService {
         vendePor,
         vendePor.toLabel(),
         depto,
-        depto.toLabel());
+        depto.toLabel(),
+        p.isEsBaston(),
+        p.isUsaBaston(),
+        p.getBastonesPorUnidad() != null ? p.getBastonesPorUnidad() : BigDecimal.ONE,
+        p.getBastonProductoId(),
+        nz(p.getPendienteArmar()),
+        stock.subtract(nz(p.getPendienteArmar())).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP));
   }
 
   private static Map<Long, BigDecimal> toMap(List<Object[]> rows) {
@@ -429,6 +442,120 @@ public class InventarioService {
       return req.departamento();
     }
     return DepartamentoProducto.inferir(vendePor, nombre);
+  }
+
+  /**
+   * Bastón configurado para un producto de la lista Armar (usaBaston), o el marcado esBaston.
+   */
+  public Producto resolverBaston(Producto p) {
+    if (p.getBastonProductoId() != null) {
+      Producto b =
+          productoRepo
+              .findById(p.getBastonProductoId())
+              .orElseThrow(
+                  () ->
+                      new ResponseStatusException(
+                          HttpStatus.BAD_REQUEST, "No está configurado el producto bastón"));
+      TenantGuard.assertOwned(b);
+      return b;
+    }
+    return productoRepo
+        .findFirstByEsBastonTrueAndActivoTrueOrderByIdAsc()
+        .orElseThrow(
+            () ->
+                new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Marca un producto como «bastón» en Inventario o elige cuál usa cada escoba/jalador"));
+  }
+
+  /** Costo del bastón (× bastones por unidad) para un producto de la lista Armar. */
+  public BigDecimal costoBastonPorUnidad(Producto p) {
+    if (p == null || !p.isUsaBaston()) {
+      return BigDecimal.ZERO;
+    }
+    BigDecimal porUnidad = bastonesPorUnidad(p);
+    Producto baston = resolverBaston(p);
+    return nz(baston.getPrecioCompra()).multiply(porUnidad).setScale(4, RoundingMode.HALF_UP);
+  }
+
+  /**
+   * Si sube/baja el precio del bastón, actualiza la compra de productos de la lista Armar que ya
+   * incluyen bastón (listos o mixtos). Los que están 100% pendientes (solo cabeza) no se tocan.
+   */
+  public void recalcularCompraTrasCambioPrecioBaston(
+      Producto baston, BigDecimal precioAnterior, BigDecimal precioNuevo) {
+    if (baston == null || precioAnterior == null || precioNuevo == null) {
+      return;
+    }
+    if (precioAnterior.compareTo(precioNuevo) == 0) {
+      return;
+    }
+    Long bastonId = baston.getId();
+    Long defaultBastonId =
+        productoRepo.findFirstByEsBastonTrueAndActivoTrueOrderByIdAsc().map(Producto::getId).orElse(null);
+    for (Producto p : productoRepo.findByUsaBastonTrueAndActivoTrueOrderByNombreAsc()) {
+      Long usado =
+          p.getBastonProductoId() != null ? p.getBastonProductoId() : defaultBastonId;
+      if (usado == null || !usado.equals(bastonId)) {
+        continue;
+      }
+      BigDecimal stock = stockActual(p);
+      BigDecimal pend = nz(p.getPendienteArmar());
+      // Todo el stock es cabeza pendiente → compra aún no lleva bastón.
+      if (stock.compareTo(BigDecimal.ZERO) > 0 && pend.compareTo(stock) == 0) {
+        continue;
+      }
+      BigDecimal por = bastonesPorUnidad(p);
+      BigDecimal oldCosto = precioAnterior.multiply(por);
+      BigDecimal newCosto = precioNuevo.multiply(por);
+      BigDecimal compra = nz(p.getPrecioCompra());
+      BigDecimal cabeza = compra.subtract(oldCosto);
+      if (cabeza.compareTo(BigDecimal.ZERO) < 0) {
+        // Parece solo-cabeza; no forzar. Al armar se suma el bastón vigente.
+        continue;
+      }
+      p.setPrecioCompra(cabeza.add(newCosto).setScale(4, RoundingMode.HALF_UP));
+      productoRepo.save(p);
+    }
+  }
+
+  public static BigDecimal bastonesPorUnidad(Producto p) {
+    if (p.getBastonesPorUnidad() != null && p.getBastonesPorUnidad().compareTo(BigDecimal.ZERO) > 0) {
+      return p.getBastonesPorUnidad();
+    }
+    return BigDecimal.ONE;
+  }
+
+  private void aplicarFlagsBaston(Producto p, ProductoRequest req) {
+    if (req.esBaston() != null) {
+      p.setEsBaston(req.esBaston());
+      if (req.esBaston()) {
+        p.setUsaBaston(false);
+        p.setBastonProductoId(null);
+      }
+    }
+    if (req.usaBaston() != null) {
+      p.setUsaBaston(req.usaBaston());
+      if (!req.usaBaston()) {
+        p.setBastonProductoId(null);
+      }
+    }
+    if (req.bastonesPorUnidad() != null && req.bastonesPorUnidad().compareTo(BigDecimal.ZERO) > 0) {
+      p.setBastonesPorUnidad(req.bastonesPorUnidad());
+    }
+    if (p.getBastonesPorUnidad() == null || p.getBastonesPorUnidad().compareTo(BigDecimal.ZERO) <= 0) {
+      p.setBastonesPorUnidad(BigDecimal.ONE);
+    }
+    if (req.bastonProductoId() != null) {
+      p.setBastonProductoId(req.bastonProductoId());
+    }
+    if (p.isUsaBaston() && p.isEsBaston()) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Un producto no puede ser bastón y usar bastón a la vez");
+    }
+    if (p.isUsaBaston() && p.getBastonProductoId() != null && p.getBastonProductoId().equals(p.getId())) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El bastón no puede ser el mismo producto");
+    }
   }
 
   private static BigDecimal nz(BigDecimal v) {

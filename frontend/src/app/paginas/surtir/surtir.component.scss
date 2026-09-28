@@ -524,6 +524,33 @@
   color: var(--text, #142433);
 }
 
+.producto-con-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  min-width: 0;
+}
+
+.producto-con-tags .producto-nom {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.producto-con-tags .item-tag {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 0.12rem 0.45rem;
+  border-radius: 0.35rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  overflow-wrap: normal;
+}
+
 .item-tag.col-stock {
   font-weight: 800;
 }
@@ -532,7 +559,12 @@
   background: color-mix(in srgb, #b45309 18%, transparent);
   color: #92400e;
   border: 1px solid color-mix(in srgb, #b45309 35%, transparent);
-  font-weight: 700;
+}
+
+.item-tag.tag-pendiente {
+  background: color-mix(in srgb, #2563eb 14%, transparent);
+  color: #1d4ed8;
+  border: 1px solid color-mix(in srgb, #2563eb 30%, transparent);
 }
 
 .col-pedir {
@@ -636,6 +668,46 @@ th.col-pedir {
   margin: 0.35rem 0;
 }
 
+.aviso-baston {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid color-mix(in srgb, #b45309 35%, transparent);
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, #b45309 8%, #fff);
+  color: #7c2d12;
+}
+
+.aviso-baston p {
+  margin: 0;
+  flex: 1 1 14rem;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.aviso-baston strong {
+  font-weight: 700;
+}
+
+.btn-aviso-baston {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #9a3412;
+  border-radius: 0.45rem;
+  background: #9a3412;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-aviso-baston:hover {
+  background: #7c2d12;
+}
+
 .card-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -686,42 +758,285 @@ th.col-pedir {
 
 .pedido-detalle .recibo-pedida,
 .pedido-detalle .recibo-campo {
-  width: 5.75rem;
-  min-width: 5.75rem;
-  max-width: 6.5rem;
+  width: auto;
+  min-width: 0;
+  max-width: none;
   text-align: center;
   vertical-align: middle;
 }
 
-.pedido-detalle .recibo-num,
-.pedido-detalle .recibo-campo .clearable-wrap,
-.pedido-detalle .recibo-campo .clearable-wrap > input {
+.pedido-detalle .table-wrap.hist-tabla {
+  overflow-x: hidden !important;
+}
+
+.pedido-detalle .tabla-recibos {
+  table-layout: fixed;
   width: 100%;
-  max-width: 5.5rem;
-  margin-inline: auto;
+  border-collapse: collapse;
+}
+
+.pedido-detalle .tabla-recibos col.col-prod {
+  width: auto;
+}
+
+.pedido-detalle .tabla-recibos col.col-num {
+  width: 6.75rem;
+}
+
+.pedido-detalle .tabla-recibos col.col-falta {
+  width: 4.25rem;
+}
+
+.pedido-detalle .tabla-recibos col.col-acc {
+  width: 4.75rem;
+}
+
+.pedido-detalle .tabla-recibos th,
+.pedido-detalle .tabla-recibos td {
+  vertical-align: middle;
+  padding: 0.5rem 0.45rem;
+  overflow: hidden;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.pedido-detalle .tabla-recibos th.money,
+.pedido-detalle .tabla-recibos td.money {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pedido-detalle .tabla-recibos th.money:nth-child(2),
+.pedido-detalle .tabla-recibos th.money:nth-child(3),
+.pedido-detalle .tabla-recibos th.money:nth-child(4),
+.pedido-detalle .tabla-recibos td.recibo-pedida,
+.pedido-detalle .tabla-recibos td.recibo-campo {
+  text-align: center;
+}
+
+.pedido-detalle .tabla-recibos td.celda-producto {
+  text-align: left;
+  padding-left: 0.55rem;
+}
+
+.pedido-detalle .tabla-recibos .producto-con-tags {
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.pedido-detalle .tabla-recibos .producto-nom {
+  display: inline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.pedido-detalle .tabla-recibos .producto-nom .unidad {
+  margin-left: 0.25rem;
+  white-space: nowrap;
+}
+
+.pedido-detalle .tabla-recibos .item-tag {
+  flex-shrink: 0;
+}
+
+.pedido-detalle .tabla-recibos td.actions {
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.pedido-detalle .tabla-recibos td.celda-unitario,
+.pedido-detalle .tabla-recibos td.celda-ultima {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+
+.pedido-detalle .tabla-recibos td.celda-ultima {
+  color: var(--muted);
+}
+
+.pedido-detalle .precio-con-cambio {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.45rem;
+  align-items: center;
+  column-gap: 0.3rem;
+  width: 100%;
+  min-height: 1.45rem;
+}
+
+.pedido-detalle .precio-con-cambio .precio-val,
+.pedido-detalle .tabla-recibos td.celda-ultima .precio-val {
+  display: block;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.pedido-detalle .precio-con-cambio .icono-cambio,
+.pedido-detalle .precio-con-cambio .icono-cambio-slot {
+  width: 1.45rem;
+  height: 1.45rem;
+  justify-self: end;
+}
+
+.pedido-detalle .precio-con-cambio .icono-cambio-slot {
+  display: block;
+}
+
+.pedido-detalle .tabla-recibos td.recibo-campo,
+.pedido-detalle .tabla-recibos td.recibo-pedida,
+.pedido-detalle .tabla-recibos td.celda-ultima {
+  position: relative;
+}
+
+.pedido-detalle .tabla-recibos .recibo-num {
+  display: block;
+  width: 100%;
+  max-width: 5.1rem;
+  height: 2.15rem;
+  margin: 0 auto;
   box-sizing: border-box;
   text-align: center;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+  padding: 0 0.4rem;
 }
 
-.pedido-detalle .recibo-pedida .recibo-num {
+.pedido-detalle .tabla-recibos td.celda-ultima .recibo-num {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.pedido-detalle .tabla-recibos td.recibo-pedida .recibo-num {
   max-width: 4.25rem;
-  height: 2.15rem;
-  padding: 0 0.35rem;
 }
 
-.pedido-detalle .recibo-campo .clearable-wrap > input {
-  padding-right: 1.75rem !important;
+.pedido-detalle .tabla-recibos .recibo-num:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 0;
+  position: relative;
+  z-index: 1;
 }
 
-.pedido-detalle .recibo-campo .clearable-x {
-  width: 1.55rem;
-  height: 1.55rem;
-  min-width: 1.55rem;
-  min-height: 1.55rem;
-  font-size: 1.05rem;
-  right: 0.05rem;
+.check-trae-baston {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #92400e;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.check-trae-baston input {
+  width: auto;
+  margin: 0;
+  accent-color: #b45309;
+}
+
+.baston-opts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: #eef1ef;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, #fff);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.btn-baston {
+  min-height: 1.9rem;
+  padding: 0.3rem 0.75rem !important;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  background: transparent !important;
+  color: #5b6b63 !important;
+}
+
+.btn-baston:hover:not(:disabled) {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-baston.falta.activo {
+  background: #9a3412 !important;
+  color: #fff !important;
+  border-color: #7c2d12 !important;
+}
+
+.btn-baston.trae.activo {
+  background: #14532d !important;
+  color: #fff !important;
+  border-color: #166534 !important;
+}
+
+.btn-baston.falta:not(.activo):hover:not(:disabled) {
+  background: color-mix(in srgb, #9a3412 14%, #fff) !important;
+  color: #9a3412 !important;
+}
+
+.btn-baston.trae:not(.activo):hover:not(:disabled) {
+  background: color-mix(in srgb, #14532d 14%, #fff) !important;
+  color: #14532d !important;
+}
+
+.tag-falta-armar {
+  background: #9a3412 !important;
+  color: #fff !important;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.tag-trae-baston {
+  background: #14532d !important;
+  color: #fff !important;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.precio-cambio-linea {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.precio-cambio-linea.subio {
+  color: #b42318;
+}
+
+.precio-cambio-linea.bajo {
+  color: #027a48;
+}
+
+.pedido-detalle .tabla-recibos td.celda-producto {
+  overflow: visible;
+}
+
+.pedido-detalle .tabla-recibos td.celda-producto .baston-opts {
+  margin-top: 0.4rem;
 }
 
 .editando-pedida .recibo-pedida .recibo-num {
@@ -916,6 +1231,61 @@ th.col-pedir {
   align-items: end;
 }
 
+.alta-nuevo-en-surtir {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed color-mix(in srgb, var(--line) 70%, #fff);
+}
+
+.alta-nuevo-en-surtir > .muted {
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.alta-nuevo-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.55rem;
+}
+
+.alta-nuevo-fila .campo {
+  flex: 1 1 8rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.alta-nuevo-fila .producto-campo {
+  flex: 2 1 12rem;
+}
+
+.pedido-recibos-tabla td,
+.hist-tabla.pedido-detalle td,
+.pedido-detalle .hist-tabla td {
+  vertical-align: middle;
+}
+
+tr.recibo-nuevo td.celda-producto .producto-nom {
+  font-weight: 600;
+}
+
+.pista-rango {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.hist-cards .pista-rango {
+  margin: 0.15rem 0 0.35rem;
+  padding: 0 0.15rem;
+}
+
 .alta-manual-fila .campo {
   flex: 1 1 10rem;
   min-width: 0;
@@ -925,6 +1295,20 @@ th.col-pedir {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--muted);
+}
+
+.campo-etiq {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pedir-movil-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .alta-manual-fila .producto-campo {
@@ -1108,6 +1492,11 @@ th.col-pedir {
 }
 
 .unitario-celda {
+  white-space: nowrap;
+}
+
+.unitario-celda .precio-con-cambio,
+dd.unitario-celda {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;

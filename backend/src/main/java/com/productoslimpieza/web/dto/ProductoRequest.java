@@ -15,5 +15,9 @@ public record ProductoRequest(
     BigDecimal precioMayoreo5,
     BigDecimal precioMayoreo10,
     UnidadVenta vendePor,
-    DepartamentoProducto departamento
+    DepartamentoProducto departamento,
+    Boolean esBaston,
+    Boolean usaBaston,
+    BigDecimal bastonesPorUnidad,
+    Long bastonProductoId
 ) {}
