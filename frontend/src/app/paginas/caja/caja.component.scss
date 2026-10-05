@@ -8,30 +8,38 @@
   flex-direction: column;
 }
 
+/* Orden: vendido/totales → banco → calculadora → resto (móvil y escritorio). */
+.order-totales {
+  order: 1;
+}
+
+.order-banco {
+  order: 2;
+}
+
+.order-calc {
+  order: 3;
+}
+
+.order-efectivo {
+  order: 4;
+}
+
+.order-mov {
+  order: 5;
+}
+
+.order-periodo {
+  order: 6;
+}
+
 @media (max-width: 767px) {
   .order-calc {
-    order: 1;
-    margin-top: 0 !important;
+    margin-top: 1rem !important;
   }
 
   .order-totales {
-    order: 2;
-  }
-
-  .order-mov {
-    order: 3;
-  }
-
-  .order-efectivo {
-    order: 4;
-  }
-
-  .order-banco {
-    order: 5;
-  }
-
-  .order-periodo {
-    order: 6;
+    margin-top: 0 !important;
   }
 
   .calc-denoms {

@@ -16,6 +16,7 @@ import { FechaDiaComponent } from '../../fecha-dia.component';
 import { compararNombreNatural } from '../../nombre-natural.util';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { OfflineService } from '../../offline.service';
+import { precioConMargenArriba } from '../../captura-focus.util';
 
 type FormProducto = {
   nombre: string;
@@ -656,13 +657,13 @@ export class InventarioComponent implements OnInit, OnDestroy {
   private sugeridoMin(compra: number | null): number {
     const c = Number(compra) || 0;
     if (c <= 0) return 0;
-    return Math.round(c * (1 + Number(this.pct.min) / 100));
+    return precioConMargenArriba(c, Number(this.pct.min));
   }
 
   private sugeridoMax(compra: number | null): number {
     const c = Number(compra) || 0;
     if (c <= 0) return 0;
-    return Math.round(c * (1 + Number(this.pct.max) / 100));
+    return precioConMargenArriba(c, Number(this.pct.max));
   }
 
   get sugeridoPlaceholder(): string {
@@ -778,10 +779,11 @@ export class InventarioComponent implements OnInit, OnDestroy {
   }
 
   private calcularMayoreo(f: FormProducto): void {
+    // Mayoreo se arma con % sobre compra; el menudeo es el precio de venta (rango mín/máx).
     const c = Number(f.precioCompra) || 0;
     if (c <= 0) return;
-    f.precioMayoreo5 = Math.round(c * (1 + Number(this.pct.mayoreo5) / 100));
-    f.precioMayoreo10 = Math.round(c * (1 + Number(this.pct.mayoreo10) / 100));
+    f.precioMayoreo5 = precioConMargenArriba(c, Number(this.pct.mayoreo5));
+    f.precioMayoreo10 = precioConMargenArriba(c, Number(this.pct.mayoreo10));
   }
 
   cargar(): void {

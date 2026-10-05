@@ -26,6 +26,7 @@ import { FechaDiaComponent } from '../../fecha-dia.component';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { enviarTextoWhatsApp } from '../../ticket-whatsapp.util';
 import { firstValueFrom } from 'rxjs';
+import { precioConMargenArriba } from '../../captura-focus.util';
 
 type LineaEditable = PedidoLinea & {
   pedir: number | null;
@@ -1163,8 +1164,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
     const u = this.unitarioRecibo(r);
     if (u == null || u <= 0) return null;
     return {
-      min: Math.round(u * (1 + this.pct.min / 100)),
-      max: Math.round(u * (1 + this.pct.max / 100)),
+      min: precioConMargenArriba(u, this.pct.min),
+      max: precioConMargenArriba(u, this.pct.max),
     };
   }
 
@@ -1190,8 +1191,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
       r.precioMayoreo10 = null;
       return;
     }
-    r.precioMayoreo5 = Math.round(u * (1 + this.pct.mayoreo5 / 100));
-    r.precioMayoreo10 = Math.round(u * (1 + this.pct.mayoreo10 / 100));
+    r.precioMayoreo5 = precioConMargenArriba(u, this.pct.mayoreo5);
+    r.precioMayoreo10 = precioConMargenArriba(u, this.pct.mayoreo10);
   }
 
   /** Última compra con precio (entradas ya vienen fecha desc). */

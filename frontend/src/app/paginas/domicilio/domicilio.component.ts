@@ -9,7 +9,7 @@ import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { AutoHideDirective } from '../../auto-hide.directive';
-import { elementoVisible, esMovilTactil } from '../../captura-focus.util';
+import { elementoVisible, esMovilTactil, scrollEnMain } from '../../captura-focus.util';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import {
@@ -268,7 +268,7 @@ export class DomicilioComponent implements OnInit {
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
     this.cdr.detectChanges();
-    this.enfocarCaptura(this.lineas.length - 1, 'producto');
+    requestAnimationFrame(() => this.enfocarCaptura(this.lineas.length - 1, 'producto'));
   }
 
   quitarLinea(i: number): void {
@@ -484,20 +484,17 @@ export class DomicilioComponent implements OnInit {
         this.autosCaptura()[index]?.focus();
       }
       const l = this.lineas[index];
-      // nearest + auto: smooth scroll pelea con el teclado virtual en móvil
       if (l) {
         const linea = document.getElementById('dom-linea-' + l.key);
         const ancla =
           (linea?.querySelector('app-producto-autocomplete input') as HTMLElement | null) || linea;
-        ancla?.scrollIntoView({
-          block: 'nearest',
-          behavior: 'auto',
-        });
+        scrollEnMain(ancla);
       }
     };
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
     this.cdr.detectChanges();
     this.focusTimer = setTimeout(go, 50);
+    if (!esMovilTactil()) setTimeout(go, 220);
   }
 
   private focusById(id: string): boolean {

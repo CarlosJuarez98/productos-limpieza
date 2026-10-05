@@ -1,3 +1,7 @@
+/**
+ * Utilidades compartidas de captura (focus / scroll / márgenes en pesos enteros).
+ */
+
 /** Control realmente a la vista (ignora la tabla oculta en móvil). */
 export function elementoVisible(el: HTMLElement | null | undefined): boolean {
   if (!el || !el.isConnected) return false;
@@ -7,6 +11,63 @@ export function elementoVisible(el: HTMLElement | null | undefined): boolean {
 
 export function esMovilTactil(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+}
+
+/** Contenedor de scroll de la app (evita pelear con body overflow:hidden). */
+export function mainScrollEl(): HTMLElement | null {
+  return (
+    (document.querySelector('main.app-main') as HTMLElement | null) ||
+    (document.querySelector('.app-shell main') as HTMLElement | null) ||
+    (document.querySelector('main') as HTMLElement | null)
+  );
+}
+
+/** Altura de barras sticky en la parte superior del main (p. ej. `.ventas-fijo`). */
+export function stickyTopInset(main?: HTMLElement | null): number {
+  const root = main ?? mainScrollEl();
+  if (!root) return 0;
+  const mainTop = root.getBoundingClientRect().top;
+  let inset = 0;
+  root.querySelectorAll<HTMLElement>('.ventas-fijo, .dom-fijo, .captura-sticky-top').forEach((el) => {
+    const st = getComputedStyle(el).position;
+    if (st !== 'sticky' && st !== 'fixed') return;
+    const r = el.getBoundingClientRect();
+    if (r.height < 2) return;
+    // Solo barras pegadas arriba del área visible.
+    if (Math.abs(r.top - mainTop) > 8) return;
+    inset = Math.max(inset, r.bottom - mainTop);
+  });
+  return inset;
+}
+
+/**
+ * Lleva un elemento a la vista scrolleando el main (no el body).
+ * En móvil ancla arriba (bajo stickies) para que se vea la card al pulsar «+».
+ */
+export function scrollEnMain(
+  el: HTMLElement | null | undefined,
+  opts?: { offset?: number; belowSticky?: boolean }
+): void {
+  if (!el) return;
+  const main = mainScrollEl();
+  let offset = opts?.offset;
+  if (offset == null) {
+    offset = esMovilTactil() ? 8 : 24;
+    if (opts?.belowSticky !== false) {
+      offset += stickyTopInset(main);
+    }
+  }
+  if (main) {
+    const mainRect = main.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const y = main.scrollTop + (r.top - mainRect.top) - offset;
+    main.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+    return;
+  }
+  el.scrollIntoView({
+    block: esMovilTactil() ? 'start' : 'center',
+    behavior: 'auto',
+  });
 }
 
 /** Un intento en móvil (el segundo pelea con el teclado); dos en escritorio (DOM nuevo). */
@@ -43,17 +104,24 @@ export function enfocarPorAttr(attr: string, valor: string | number): boolean {
 export function scrollLineaPorAttr(attr: string, valor: string | number): void {
   const nodos = document.querySelectorAll<HTMLElement>(`[${attr}="${valor}"]`);
   for (const node of Array.from(nodos)) {
-    if (!elementoVisible(node)) continue;
-    // Preferir el input producto dentro de la fila (móvil + teclado).
+    if (!elementoVisible(node) && !node.isConnected) continue;
     const ancla =
       (node.querySelector('app-producto-autocomplete input') as HTMLElement | null) || node;
-    // nearest + auto: smooth/center pelea con el teclado virtual en móvil
-    ancla.scrollIntoView({
-      block: esMovilTactil() ? 'nearest' : 'center',
-      behavior: esMovilTactil() ? 'auto' : 'smooth',
-    });
+    scrollEnMain(ancla);
     return;
   }
+}
+
+export function precioConMargenEntero(base: number, pct: number): number {
+  const b = Number(base);
+  const p = Number(pct);
+  if (!Number.isFinite(b) || b <= 0 || !Number.isFinite(p)) return 0;
+  return Math.round(b * (1 + p / 100));
+}
+
+/** @deprecated usar precioConMargenEntero */
+export function precioConMargenArriba(base: number, pct: number): number {
+  return precioConMargenEntero(base, pct);
 }
 
 export function inputsVisiblesDe(

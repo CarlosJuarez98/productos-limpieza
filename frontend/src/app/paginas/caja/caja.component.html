@@ -241,6 +241,7 @@
             [(ngModel)]="d.cantidad"
             [name]="'den' + d.valor"
             placeholder="0"
+            (ngModelChange)="onDenominacionChange()"
             (keydown)="onDenNav($event)"
           />
           <em class="money">${{ totalLinea(d) | number: '1.2-2' }}</em>

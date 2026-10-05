@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Sesión deslizante de 20 minutos. Si hay petición con sesión viva, se renueva;
- * si pasan 20 min sin uso, se invalida.
+ * Tope absoluto desde el login. Con «Recordarme» envuelve la respuesta para que
+ * PLSESSID salga con Max-Age (hasta 7 días) aunque Tomcat la emita sin él.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 20)
@@ -45,13 +45,21 @@ public class AbsoluteSessionTimeoutFilter extends OncePerRequestFilter {
             /* ya invalidada */
           }
           SecurityContextHolder.clearContext();
-        } else {
-          int inactiveSec = (int) Math.min(Integer.MAX_VALUE, timeoutMs / 1000L);
+          SessionCookieSupport.clear(request, response);
+          filterChain.doFilter(request, response);
+          return;
+        }
+        int inactiveSec = (int) Math.min(Integer.MAX_VALUE, timeoutMs / 1000L);
+        try {
           session.setMaxInactiveInterval(inactiveSec);
+        } catch (IllegalStateException ignored) {
+          /* invalidada en paralelo */
         }
       }
     }
-    filterChain.doFilter(request, response);
+
+    HttpServletResponse out = SessionCookieSupport.wrapForRecordar(request, response);
+    filterChain.doFilter(request, out);
   }
 
   public static long timeoutMs(HttpSession session) {

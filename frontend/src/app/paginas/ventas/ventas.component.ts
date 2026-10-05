@@ -14,7 +14,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
-import { elementoVisible, esMovilTactil } from '../../captura-focus.util';
+import { elementoVisible, esMovilTactil, scrollEnMain } from '../../captura-focus.util';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { ClearableDirective } from '../../clearable.directive';
@@ -706,7 +706,20 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.lineas.push(this.nuevaLinea());
     this.programarBorrador();
     this.cdr.detectChanges();
-    this.enfocarCaptura(this.lineas.length - 1, 'producto');
+    const idx = this.lineas.length - 1;
+    // Quitar foco del «+»: el anclaje de scroll del navegador deja la vista abajo.
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    // Esperar un frame para que la card exista; en móvil reafirmar tras teclado/layout.
+    requestAnimationFrame(() => {
+      this.scrollLineaVisible(idx);
+      this.enfocarCaptura(idx, 'producto');
+    });
+    if (esMovilTactil()) {
+      setTimeout(() => this.scrollLineaVisible(idx), 260);
+      setTimeout(() => this.scrollLineaVisible(idx), 420);
+    }
   }
 
   onFechaEnter(_ev?: Event): void {
@@ -755,6 +768,8 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
     const go = () => {
+      // Primero la card a la vista; luego foco (preventScroll) para que el teclado no baje todo.
+      this.scrollLineaVisible(index);
       if (campo === 'cantidad') {
         if (!this.focusById('cant-' + (this.lineas[index]?.key ?? ''))) {
           this.autosCaptura()[index]?.focus();
@@ -762,27 +777,24 @@ export class VentasComponent implements OnInit, OnDestroy {
       } else {
         this.autosCaptura()[index]?.focus();
       }
-      this.scrollLineaVisible(index);
+      if (esMovilTactil()) {
+        requestAnimationFrame(() => this.scrollLineaVisible(index));
+      }
     };
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
     this.cdr.detectChanges();
-    // Un solo intento en móvil: el segundo pelea con el teclado virtual
+    // Móvil: un intento; si la card es nueva, un segundo tras pintar.
     this.focusTimer = setTimeout(go, 50);
-    if (!esMovilTactil()) setTimeout(go, 220);
+    setTimeout(go, esMovilTactil() ? 180 : 220);
   }
 
   private scrollLineaVisible(index: number): void {
     const l = this.lineas[index];
     if (!l) return;
-    const movil = esMovilTactil();
     const linea = document.getElementById('linea-' + l.key);
-    // Anclar al input Producto (no solo la tarjeta) para que el teclado no lo saque de vista.
-    const ancla =
-      (linea?.querySelector('app-producto-autocomplete input') as HTMLElement | null) || linea;
-    ancla?.scrollIntoView({
-      block: movil ? 'nearest' : 'center',
-      behavior: movil ? 'auto' : 'smooth',
-    });
+    if (!linea) return;
+    // Card completa (no solo el input): queda bajo el sticky de fecha/totales.
+    scrollEnMain(linea, { belowSticky: true });
   }
 
   private focusById(id: string): boolean {

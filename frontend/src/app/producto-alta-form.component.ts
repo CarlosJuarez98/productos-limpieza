@@ -5,6 +5,7 @@ import { ApiService } from './api.service';
 import { ClearableDirective } from './clearable.directive';
 import { SoloNumerosDirective } from './solo-numeros.directive';
 import { InventarioItem, MargenConfig } from './modelos';
+import { precioConMargenArriba } from './captura-focus.util';
 
 type FormAlta = {
   nombre: string;
@@ -88,8 +89,8 @@ export class ProductoAltaFormComponent implements OnInit {
   get menudeoPlaceholder(): string {
     const u = this.unitario;
     if (u == null || u <= 0) return 'Según unitario';
-    const min = Math.round(u * (1 + this.pct.min / 100));
-    const max = Math.round(u * (1 + this.pct.max / 100));
+    const min = precioConMargenArriba(u, this.pct.min);
+    const max = precioConMargenArriba(u, this.pct.max);
     return `mín $${min} – máx $${max}`;
   }
 
@@ -151,8 +152,8 @@ export class ProductoAltaFormComponent implements OnInit {
   private calcularMayoreo(): void {
     const c = Number(this.form.precioCompra) || 0;
     if (c <= 0) return;
-    this.form.precioMayoreo5 = Math.round(c * (1 + this.pct.mayoreo5 / 100));
-    this.form.precioMayoreo10 = Math.round(c * (1 + this.pct.mayoreo10 / 100));
+    this.form.precioMayoreo5 = precioConMargenArriba(c, this.pct.mayoreo5);
+    this.form.precioMayoreo10 = precioConMargenArriba(c, this.pct.mayoreo10);
   }
 
   private vacio(): FormAlta {

@@ -12,4 +12,5 @@
    - **sin** deploy automático — tú corres `deploy-nube.bat` o `SUBIR-A-LA-NUBE.bat`
    - **sin** sync de datos (local = pruebas; nube = datos reales)
 3. Datos solo con **"sube datos"** / **"baja datos"** → ver `SYNC-DATOS.md` y `A:\Programas-java\SYNC-BIDIRECCIONAL.md`.
+   - Atajo global baja: `A:\Programas-java\BAJAR-DATOS-DE-LA-NUBE.bat` (o `baja-datos.bat` en el repo).
 4. No hagas cambios solo-nube en `local` salvo configs compartidas (proxy + `/api` relativo).

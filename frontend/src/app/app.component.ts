@@ -185,6 +185,11 @@ export class AppComponent implements AfterViewInit, OnDestroy {
         this.masAbierto = false;
         this.blurCampoActivo();
         this.actualizarEsLogin(e.urlAfterRedirects || e.url);
+        // Todas las pantallas empiezan arriba (móvil conserva scroll de la anterior).
+        this.resetScrollAlInicio();
+        queueMicrotask(() => this.resetScrollAlInicio());
+        setTimeout(() => this.resetScrollAlInicio(), 50);
+        setTimeout(() => this.resetScrollAlInicio(), 200);
         this.scrollActiveNavIntoView();
       });
     this.authSub = this.auth.authChanges$.subscribe((m) => {
@@ -365,11 +370,30 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  /** Al cambiar de ruta, el contenido siempre arranca desde arriba. */
+  private resetScrollAlInicio(): void {
+    const main = this.mainRef?.nativeElement ?? this.mainEl;
+    if (main) {
+      main.scrollTop = 0;
+      // Áreas internas con scroll propio (tablas / historiales).
+      main.querySelectorAll<HTMLElement>('.table-wrap, .hist-cards, .ticket, .hist-tabla').forEach((el) => {
+        el.scrollTop = 0;
+        el.scrollLeft = 0;
+      });
+    }
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }
+
   private scrollActiveNavIntoView(): void {
     const nav = this.topNavRef?.nativeElement;
     if (!nav) return;
     const active = nav.querySelector<HTMLElement>('a.active');
-    active?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    if (!active) return;
+    // Solo desplazar la barra horizontal; no usar scrollIntoView (mueve el main).
+    const left = active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2;
+    nav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
   }
 
   private onTouchStart = (ev: TouchEvent): void => {

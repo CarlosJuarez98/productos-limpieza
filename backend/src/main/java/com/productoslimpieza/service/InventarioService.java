@@ -277,11 +277,12 @@ public class InventarioService {
     return compra.multiply(BigDecimal.ONE.add(nz(margen))).setScale(2, RoundingMode.HALF_UP);
   }
 
-  /** Mayoreo (≥5 / ≥10) se cobra en efectivo: pesos enteros, sin centavos. */
+  /** Mayoreo (≥5 / ≥10) se cobra en efectivo: pesos enteros (redondeo comercial .50↑). */
   private static BigDecimal conMargenEntero(BigDecimal compra, BigDecimal margen) {
     return pesoEntero(compra.multiply(BigDecimal.ONE.add(nz(margen))));
   }
 
+  /** Peso entero: 45.01→45, 45.50→46, 45.67→46. */
   private static BigDecimal pesoEntero(BigDecimal valor) {
     if (valor == null) return null;
     return valor.setScale(0, RoundingMode.HALF_UP);

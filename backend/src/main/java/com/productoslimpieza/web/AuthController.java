@@ -2,6 +2,7 @@ package com.productoslimpieza.web;
 
 import com.productoslimpieza.config.AbsoluteSessionTimeoutFilter;
 import com.productoslimpieza.config.AuthPasswordOverrides;
+import com.productoslimpieza.config.SessionCookieSupport;
 import com.productoslimpieza.web.dto.LoginRequest;
 import com.productoslimpieza.web.dto.PasswordChangeRequest;
 import jakarta.servlet.http.HttpServletRequest;
@@ -80,7 +81,15 @@ public class AuthController {
       session.setMaxInactiveInterval(inactiveSec);
       session.setAttribute(AbsoluteSessionTimeoutFilter.ATTR_TIMEOUT_MS, timeoutMs);
       session.setAttribute(AbsoluteSessionTimeoutFilter.LOGIN_AT_ATTR, System.currentTimeMillis());
+      session.setAttribute(SessionCookieSupport.ATTR_RECORDAR, Boolean.TRUE.equals(body.recordar()));
       securityContextRepository.saveContext(context, request, response);
+
+      // Cookie persistente si «Recordarme»; si no, cookie de sesión (se borra al cerrar).
+      if (Boolean.TRUE.equals(body.recordar())) {
+        SessionCookieSupport.write(request, response, inactiveSec);
+      } else {
+        SessionCookieSupport.writeSessionOnly(request, response);
+      }
 
       return Map.of(
           "ok", true,
@@ -94,12 +103,13 @@ public class AuthController {
   }
 
   @PostMapping("/logout")
-  public Map<String, Object> logout(HttpServletRequest request) {
+  public Map<String, Object> logout(HttpServletRequest request, HttpServletResponse response) {
     HttpSession session = request.getSession(false);
     if (session != null) {
       session.invalidate();
     }
     SecurityContextHolder.clearContext();
+    SessionCookieSupport.clear(request, response);
     return Map.of("ok", true);
   }
 

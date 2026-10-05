@@ -15,11 +15,14 @@ import { AutoHideDirective } from '../../auto-hide.directive';
 import { inputsVisiblesDe, navegarCampos } from '../../captura-focus.util';
 import { RangoFechasComponent } from '../../rango-fechas.component';
 import { FechaDiaComponent } from '../../fecha-dia.component';
+import { CapturaDraftService } from '../../captura-draft.service';
 
 interface Denominacion {
   valor: number;
   cantidad: number | null;
 }
+
+type DraftCalc = { v: 1; cantidades: (number | null)[] };
 
 @Component({
   selector: 'app-caja',
@@ -77,20 +80,26 @@ export class CajaComponent implements OnInit, OnDestroy {
     motivo: '',
   };
   private pullSub?: Subscription;
+  private static readonly DRAFT_CALC = 'caja-calc';
+  private calcDraftTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private api: ApiService,
     private confirmDlg: ConfirmDialogService,
-    private pullRefresh: PullRefreshService
+    private pullRefresh: PullRefreshService,
+    private drafts: CapturaDraftService
   ) {}
 
   ngOnInit(): void {
+    this.restaurarCalculadora();
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
   }
 
   ngOnDestroy(): void {
     this.pullSub?.unsubscribe();
+    if (this.calcDraftTimer != null) clearTimeout(this.calcDraftTimer);
+    this.guardarDraftCalculadora();
   }
 
   hoyLocal(): string {
@@ -313,8 +322,37 @@ export class CajaComponent implements OnInit, OnDestroy {
     navegarCampos(ev, inputsVisiblesDe(this.denInputs), { grilla: true });
   }
 
+  onDenominacionChange(): void {
+    this.programarDraftCalculadora();
+  }
+
   vaciarCalculadora(): void {
     this.denominaciones.forEach((d) => (d.cantidad = null));
+    this.drafts.clear(CajaComponent.DRAFT_CALC);
+  }
+
+  private restaurarCalculadora(): void {
+    const d = this.drafts.load<DraftCalc>(CajaComponent.DRAFT_CALC);
+    if (!d || d.v !== 1 || !Array.isArray(d.cantidades)) return;
+    this.denominaciones.forEach((den, i) => {
+      const n = d.cantidades[i];
+      den.cantidad = n != null && Number.isFinite(Number(n)) ? Number(n) : null;
+    });
+  }
+
+  private programarDraftCalculadora(): void {
+    if (this.calcDraftTimer != null) clearTimeout(this.calcDraftTimer);
+    this.calcDraftTimer = setTimeout(() => this.guardarDraftCalculadora(), 200);
+  }
+
+  private guardarDraftCalculadora(): void {
+    const cantidades = this.denominaciones.map((d) => d.cantidad);
+    const hay = cantidades.some((c) => c != null && Number(c) > 0);
+    if (!hay) {
+      this.drafts.clear(CajaComponent.DRAFT_CALC);
+      return;
+    }
+    this.drafts.save(CajaComponent.DRAFT_CALC, { v: 1, cantidades } satisfies DraftCalc);
   }
 
   /** Total de la calculadora de efectivo. */
@@ -452,6 +490,7 @@ export class CajaComponent implements OnInit, OnDestroy {
             `Dejas $${fondoNuevo.toFixed(2)} en caja; a apartar $${aApartar.toFixed(2)}. ` +
             `Nuevo periodo desde ${formatFechaDmY(inicioNuevo)}.`;
           this.denominaciones.forEach((x) => (x.cantidad = null));
+          this.drafts.clear(CajaComponent.DRAFT_CALC);
           this.fondoQueDejas = 200;
           this.guardandoPeriodo = false;
           this.limpiarCorteSeleccionado();

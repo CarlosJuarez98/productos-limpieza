@@ -117,6 +117,12 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.55rem;
+  /* Al insertar una card con «+», no anclar el scroll al botón de abajo. */
+  overflow-anchor: none;
+}
+
+.captura-actions {
+  overflow-anchor: none;
 }
 
 /* Escritorio ancho: 2 rectángulos compactos por fila. */
@@ -868,8 +874,9 @@ td.fecha-naranja {
     background:
       linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 40%, #fff) 100%);
     box-shadow: 0 8px 20px rgba(22, 40, 33, 0.045);
-    animation: fade-up 0.38s ease both;
-    animation-delay: calc(var(--i, 0) * 40ms);
+    animation: fade-up 0.28s ease both;
+    /* Sin retardo por índice: al pulsar «+» la card nueva debe verse al instante. */
+    animation-delay: 0s;
   }
 
   .historial-toolbar .filtro-chips.seg-control {
