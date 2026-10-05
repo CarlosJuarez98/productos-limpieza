@@ -16,6 +16,13 @@ public class Pedido extends TenantEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  /**
+   * Contador visible del pedido (1, 2, 3…). Por tenant, sin huecos de la secuencia Oracle.
+   * Distinto del {@code id} interno de BD.
+   */
+  @Column(name = "numero")
+  private Long numero;
+
   @Column(nullable = false)
   private LocalDate fecha;
 
@@ -52,6 +59,8 @@ public class Pedido extends TenantEntity {
 
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
+  public Long getNumero() { return numero; }
+  public void setNumero(Long numero) { this.numero = numero; }
   public LocalDate getFecha() { return fecha; }
   public void setFecha(LocalDate fecha) { this.fecha = fecha; }
   public EstadoPedido getEstado() { return estado; }

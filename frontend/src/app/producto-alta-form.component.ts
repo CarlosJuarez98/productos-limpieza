@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from './api.service';
 import { ClearableDirective } from './clearable.directive';
 import { SoloNumerosDirective } from './solo-numeros.directive';
+import { AutoHideDirective } from './auto-hide.directive';
 import { InventarioItem, MargenConfig } from './modelos';
 import { precioConMargenArriba } from './captura-focus.util';
 
@@ -22,7 +23,7 @@ type FormAlta = {
 @Component({
   selector: 'app-producto-alta-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClearableDirective, SoloNumerosDirective],
+  imports: [CommonModule, FormsModule, ClearableDirective, SoloNumerosDirective, AutoHideDirective],
   templateUrl: './producto-alta-form.component.html',
   styleUrl: './producto-alta-form.component.scss',
 })

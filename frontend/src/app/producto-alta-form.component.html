@@ -82,5 +82,5 @@
   </div>
 </form>
 @if (error) {
-  <p class="error">{{ error }}</p>
+  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
 }

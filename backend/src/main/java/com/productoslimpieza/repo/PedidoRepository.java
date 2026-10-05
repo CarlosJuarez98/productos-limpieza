@@ -13,6 +13,14 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
   List<Pedido> findByEstadoInOrderByFechaAscIdAsc(Collection<EstadoPedido> estados);
 
+  List<Pedido> findByNumeroIsNullOrderByFechaAscIdAsc();
+
+  @Query("""
+      select coalesce(max(p.numero), 0) from Pedido p
+      where p.tenantId = :tenantId
+      """)
+  Long maxNumero(@Param("tenantId") String tenantId);
+
   @Query("select distinct p from Pedido p left join fetch p.items i left join fetch i.producto where p.id = :id")
   java.util.Optional<Pedido> findByIdWithItems(@Param("id") Long id);
 }

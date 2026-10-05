@@ -933,7 +933,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
       this.error = 'Este pedido no tiene cantidades';
       return;
     }
-    const titulo = `Pedido #${p.id} · ${this.fmtFechaDmY(p.fecha)}`;
+    const titulo = `Pedido #${this.numPedido(p)} · ${this.fmtFechaDmY(p.fecha)}`;
     await this.enviarPedidoWhatsApp(this.textoPedidoLineas(items, titulo));
   }
 
@@ -1463,7 +1463,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   async cerrarPedido(p: PedidoRegistrado): Promise<void> {
-    const ok = await this.confirmDlg.ask(`¿Cerrar pedido #${p.id} del ${p.fecha}?`, {
+    const ok = await this.confirmDlg.ask(`¿Cerrar pedido #${this.numPedido(p)} del ${p.fecha}?`, {
       confirmarTexto: 'Cerrar',
     });
     if (!ok) return;
@@ -1478,7 +1478,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   async cancelarPedido(p: PedidoRegistrado): Promise<void> {
     const ok = await this.confirmDlg.ask(
-      `¿Cancelar pedido #${p.id}?\nNo se registra mercancía ni stock. Se borra el pedido.`,
+      `¿Cancelar pedido #${this.numPedido(p)}?\nNo se registra mercancía ni stock. Se borra el pedido.`,
       { confirmarTexto: 'Cancelar pedido' }
     );
     if (!ok) return;
@@ -1501,7 +1501,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
       return;
     }
     const ok = await this.confirmDlg.ask(
-      `¿Eliminar pedido #${p.id}?\nLas entradas y el stock se quedan; solo se borra el pedido.`,
+      `¿Eliminar pedido #${this.numPedido(p)}?\nLas entradas y el stock se quedan; solo se borra el pedido.`,
       { confirmarTexto: 'Eliminar' }
     );
     if (!ok) return;
@@ -1543,6 +1543,14 @@ export class SurtirComponent implements OnInit, OnDestroy {
     if (estado === 'PARCIAL') return 'Parcial';
     if (estado === 'CERRADO') return 'Cerrado';
     return 'Abierto';
+  }
+
+  /** Contador visible del pedido (secuencia 1, 2, 3…), no el id interno de BD. */
+  numPedido(p: PedidoRegistrado | null | undefined): number {
+    if (!p) return 0;
+    const n = Number(p.numero);
+    if (Number.isFinite(n) && n > 0) return n;
+    return Number(p.id) || 0;
   }
 
   pedidoExpandido(): PedidoRegistrado | undefined {

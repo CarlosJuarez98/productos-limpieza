@@ -46,7 +46,7 @@
   </div>
 
   @if (error) {
-    <p class="error">{{ error }}</p>
+    <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
   }
   @if (ok) {
     <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
@@ -501,7 +501,7 @@
       <li class="pedido-card" [class.parcial]="p.estado === 'PARCIAL'">
         <button type="button" class="pedido-cab" (click)="togglePedido(p.id)">
           <span>
-            #{{ p.id }} · {{ p.fecha | fechaDmY }}
+            #{{ numPedido(p) }} · {{ p.fecha | fechaDmY }}
             <span class="item-tag">{{ etiquetaEstado(p.estado) }}</span>
           </span>
           <span class="muted cab-estado">
@@ -1233,7 +1233,7 @@
         @for (p of pedidosCerrados; track p.id) {
           <li class="pedido-card cerrado">
             <button type="button" class="pedido-cab" (click)="togglePedido(p.id)">
-              <span>#{{ p.id }} · {{ p.fecha | fechaDmY }} · cerrado</span>
+              <span>#{{ numPedido(p) }} · {{ p.fecha | fechaDmY }} · cerrado</span>
               <span class="muted">{{ pedidoExpandidoId === p.id ? '▾' : '▸' }}</span>
             </button>
             @if (pedidoExpandidoId === p.id) {

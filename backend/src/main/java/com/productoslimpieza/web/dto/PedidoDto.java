@@ -6,6 +6,8 @@ import java.util.List;
 
 public record PedidoDto(
     Long id,
+    /** Contador visible 1, 2, 3… (no el id de BD). */
+    Long numero,
     LocalDate fecha,
     String estado,
     LocalDate periodoDesde,

@@ -230,7 +230,7 @@
       </button>
     </div>
     @if (error) {
-      <p class="error">{{ error }}</p>
+      <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
     }
   </form>
 </section>
@@ -309,7 +309,7 @@
     <button type="submit" [disabled]="!personasParaAbono.length">Registrar abono</button>
   </form>
   @if (error) {
-    <p class="error">{{ error }}</p>
+    <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
   }
 </section>
 
@@ -430,7 +430,7 @@
             <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
           </div>
           @if (errorEdit) {
-            <p class="error">{{ errorEdit }}</p>
+            <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
           }
         </form>
       }
@@ -595,7 +595,7 @@
     @if (histAbonosAbierta) {
     <div class="panel-toggle-body">
       @if (errorAbonoEdit) {
-        <p class="error">{{ errorAbonoEdit }}</p>
+        <p class="error" appAutoHide (autoHide)="errorAbonoEdit = ''">{{ errorAbonoEdit }}</p>
       }
       <div class="table-wrap hist-tabla">
         <table>

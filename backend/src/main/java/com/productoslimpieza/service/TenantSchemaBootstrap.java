@@ -68,9 +68,21 @@ public class TenantSchemaBootstrap implements ApplicationRunner {
     ensurePagoTarjetaColumn();
     ensureDepartamentoColumn();
     ensureBastonColumns();
+    ensurePedidoNumeroColumn();
     ensureTraspasoAbonoMovimientoColumn();
     ensureTraspasoAbonoPagoTarjetaColumn();
     log.info("TenantSchemaBootstrap: listo");
+  }
+
+  /** Contador visible de pedidos (1, 2, 3…) — no el ID IDENTITY. */
+  private void ensurePedidoNumeroColumn() {
+    if (!tableExists("PEDIDOS")) {
+      return;
+    }
+    addColumnIfMissing(
+        "PEDIDOS",
+        "NUMERO",
+        "ALTER TABLE PEDIDOS ADD NUMERO NUMBER(19)");
   }
 
   /** Columnas de Armar (bastón) en PRODUCTOS — solo esquema, sin tocar datos de negocio. */

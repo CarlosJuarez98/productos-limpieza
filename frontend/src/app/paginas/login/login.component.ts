@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../auth.service';
 import { ClearableDirective } from '../../clearable.directive';
+import { AutoHideDirective } from '../../auto-hide.directive';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, ClearableDirective],
+  imports: [CommonModule, FormsModule, ClearableDirective, AutoHideDirective],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
 })

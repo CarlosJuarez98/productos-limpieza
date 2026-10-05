@@ -16,6 +16,7 @@ import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreak
 import { PaginadorComponent } from '../../paginador.component';
 import { Traspaso, TraspasoAbono } from '../../modelos';
 import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
+import { AutoHideDirective } from '../../auto-hide.directive';
 
 interface LineaForm {
   key: number;
@@ -48,6 +49,7 @@ type DraftTraspasos = {
     ClearableDirective,
     SoloNumerosDirective,
     PaginadorComponent,
+    AutoHideDirective,
   ],
   templateUrl: './traspasos.component.html',
   styleUrl: './traspasos.component.scss',

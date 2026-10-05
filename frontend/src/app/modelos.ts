@@ -432,6 +432,8 @@ export interface PedidoAbono {
 
 export interface PedidoRegistrado {
   id: number;
+  /** Contador visible 1, 2, 3… (no el id de BD). */
+  numero?: number | null;
   fecha: string;
   estado: 'ABIERTO' | 'PARCIAL' | 'CERRADO';
   periodoDesde: string | null;

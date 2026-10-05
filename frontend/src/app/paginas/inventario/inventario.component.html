@@ -155,7 +155,7 @@
         <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
       }
       @if (error) {
-        <p class="error">{{ error }}</p>
+        <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
       }
       <div class="table-wrap hist-tabla">
         <table class="inv-table" [style.--cols]="colsTabla">
@@ -616,7 +616,7 @@
   </form>
   }
   @if (errorAjuste) {
-    <p class="error">{{ errorAjuste }}</p>
+    <p class="error" appAutoHide (autoHide)="errorAjuste = ''">{{ errorAjuste }}</p>
   }
   @if (okAjuste) {
     <p class="ok-msg" appAutoHide (autoHide)="okAjuste = ''">{{ okAjuste }}</p>
@@ -769,7 +769,7 @@
     <button type="submit" [disabled]="!altaCompleta">Agregar producto nuevo</button>
   </form>
   @if (error) {
-    <p class="error">{{ error }}</p>
+    <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
   }
   }
 </section>
@@ -907,7 +907,7 @@
     </div>
   </form>
   @if (errorAjuste) {
-    <p class="error">{{ errorAjuste }}</p>
+    <p class="error" appAutoHide (autoHide)="errorAjuste = ''">{{ errorAjuste }}</p>
   }
   @if (okAjuste) {
     <p class="ok-msg" appAutoHide (autoHide)="okAjuste = ''">{{ okAjuste }}</p>

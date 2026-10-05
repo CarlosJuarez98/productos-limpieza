@@ -9,6 +9,7 @@ import { AuthService } from './auth.service';
 import { OfflineService } from './offline.service';
 import { ApiService } from './api.service';
 import { capturaTieneFocoEnCampo } from './paginacion.util';
+import { AutoHideDirective } from './auto-hide.directive';
 
 type NavIcon =
   | 'ventas'
@@ -40,6 +41,7 @@ type NavLink = { path: string; label: string; short?: string; icon: NavIcon };
     RouterLinkActive,
     ConfirmDialogComponent,
     NgTemplateOutlet,
+    AutoHideDirective,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',

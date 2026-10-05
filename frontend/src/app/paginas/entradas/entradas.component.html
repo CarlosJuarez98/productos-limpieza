@@ -242,7 +242,7 @@
     <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
   }
   @if (error) {
-    <p class="error">{{ error }}</p>
+    <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
   }
 </section>
 
@@ -370,7 +370,7 @@
       <p class="ok-msg" appAutoHide (autoHide)="okMargenes = ''">{{ okMargenes }}</p>
     }
     @if (errorMargenes) {
-      <p class="error">{{ errorMargenes }}</p>
+      <p class="error" appAutoHide (autoHide)="errorMargenes = ''">{{ errorMargenes }}</p>
     }
   </section>
 }
@@ -515,7 +515,7 @@
         }
         <button type="button" class="secondary" (click)="cancelarEdicionRecetas()">Cerrar</button>
       </div>
-      @if (errorRecetas) { <p class="error">{{ errorRecetas }}</p> }
+      @if (errorRecetas) { <p class="error" appAutoHide (autoHide)="errorRecetas = ''">{{ errorRecetas }}</p> }
       @if (okRecetas) { <p class="ok-msg" appAutoHide (autoHide)="okRecetas = ''">{{ okRecetas }}</p> }
     </div>
   }
@@ -654,7 +654,7 @@
   </form>
   }
 
-  @if (errorPrep) { <p class="error">{{ errorPrep }}</p> }
+  @if (errorPrep) { <p class="error" appAutoHide (autoHide)="errorPrep = ''">{{ errorPrep }}</p> }
   @if (okPrep) { <p class="ok-msg" appAutoHide (autoHide)="okPrep = ''">{{ okPrep }}</p> }
 
   @if (prepVista === 'preparar') {
@@ -916,7 +916,7 @@
                   </div>
                 </form>
                 @if (errorEdit) {
-                  <p class="error">{{ errorEdit }}</p>
+                  <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
                 }
               </td>
             </tr>
@@ -993,7 +993,7 @@
         </div>
       </form>
       @if (errorEdit) {
-        <p class="error">{{ errorEdit }}</p>
+        <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
       }
     </div>
   }

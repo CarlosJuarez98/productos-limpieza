@@ -14,6 +14,7 @@ import com.productoslimpieza.repo.EntradaRepository;
 import com.productoslimpieza.repo.PedidoAbonoRepository;
 import com.productoslimpieza.repo.PedidoRepository;
 import com.productoslimpieza.repo.ProductoRepository;
+import com.productoslimpieza.tenant.TenantContext;
 import com.productoslimpieza.web.dto.ApartadoDto;
 import com.productoslimpieza.web.dto.ApartadoRequest;
 import com.productoslimpieza.web.dto.PedidoAbonoDto;
@@ -65,13 +66,15 @@ public class PedidoRegistroService {
     this.inventarioService = inventarioService;
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public List<PedidoDto> listar() {
+    asignarNumerosFaltantes();
     return pedidoRepo.findAllByOrderByFechaDescIdDesc().stream().map(this::toDto).toList();
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public List<PedidoDto> listarAbiertos() {
+    asignarNumerosFaltantes();
     return pedidoRepo
         .findByEstadoInOrderByFechaAscIdAsc(EnumSet.of(EstadoPedido.ABIERTO, EstadoPedido.PARCIAL))
         .stream()
@@ -79,8 +82,9 @@ public class PedidoRegistroService {
         .toList();
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public PedidoDto obtener(Long id) {
+    asignarNumerosFaltantes();
     Pedido p = pedidoRepo.findByIdWithItems(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
     return toDto(p);
@@ -149,7 +153,31 @@ public class PedidoRegistroService {
     if (pedido.getItems().isEmpty()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El pedido no tiene productos");
     }
+    asignarNumerosFaltantes();
+    pedido.setNumero(siguienteNumero());
     return toDto(pedidoRepo.save(pedido));
+  }
+
+  /** Contador visible 1, 2, 3… por tenant (no usa el id IDENTITY de Oracle). */
+  private Long siguienteNumero() {
+    Long max = pedidoRepo.maxNumero(TenantContext.require());
+    long base = max != null ? max : 0L;
+    return base + 1L;
+  }
+
+  /** Rellena número en pedidos viejos (por fecha/id). */
+  private void asignarNumerosFaltantes() {
+    List<Pedido> sin = pedidoRepo.findByNumeroIsNullOrderByFechaAscIdAsc();
+    if (sin.isEmpty()) {
+      return;
+    }
+    String tenant = TenantContext.require();
+    Long max = pedidoRepo.maxNumero(tenant);
+    long next = (max != null ? max : 0L) + 1L;
+    for (Pedido p : sin) {
+      p.setNumero(next++);
+    }
+    pedidoRepo.saveAll(sin);
   }
 
   /**
@@ -612,8 +640,10 @@ public class PedidoRegistroService {
     }
     boolean tieneEntradas = !entradaRepo.findByPedidoId(full.getId()).isEmpty()
         || items.stream().anyMatch(i -> i.cantidadRecibida().compareTo(BigDecimal.ZERO) > 0);
+    Long numero = full.getNumero() != null ? full.getNumero() : full.getId();
     return new PedidoDto(
         full.getId(),
+        numero,
         full.getFecha(),
         full.getEstado().name(),
         full.getPeriodoDesde(),

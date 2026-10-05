@@ -3,7 +3,7 @@
 }
 
 @if (error) {
-  <p class="error">{{ error }}</p>
+  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
 }
 @if (ok) {
   <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>

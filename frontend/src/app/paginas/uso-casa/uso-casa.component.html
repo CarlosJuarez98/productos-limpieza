@@ -1,7 +1,7 @@
 <h2 class="page-title">Uso en casa</h2>
 
 @if (error) {
-  <p class="error">{{ error }}</p>
+  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
 }
 @if (ok) {
   <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
@@ -199,7 +199,7 @@
                         </div>
                       </form>
                       @if (errorEdit) {
-                        <p class="error">{{ errorEdit }}</p>
+                        <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
                       }
                     </td>
                   </tr>
@@ -259,7 +259,7 @@
               </div>
             </form>
             @if (errorEdit) {
-              <p class="error">{{ errorEdit }}</p>
+              <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
             }
           </div>
         }
