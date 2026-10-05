@@ -321,29 +321,6 @@
                           <option value="PIEZA">Pieza</option>
                         </select>
                       </label>
-                      <label class="check-baston">
-                        <input type="checkbox" [(ngModel)]="form.esBaston" name="esBastonEdit" (ngModelChange)="form.esBaston && (form.usaBaston = false)" />
-                        Este producto es el bastón de madera
-                      </label>
-                      <label class="check-baston">
-                        <input type="checkbox" [(ngModel)]="form.usaBaston" name="usaBastonEdit" [disabled]="form.esBaston" (ngModelChange)="form.usaBaston && (form.esBaston = false)" />
-                        Usa bastón (escoba/jalador sin palo)
-                      </label>
-                      @if (form.usaBaston && !form.esBaston) {
-                        <label>
-                          Bastones por unidad
-                          <input type="text" inputmode="numeric" appSoloNumeros="enteros" [(ngModel)]="form.bastonesPorUnidad" name="bastonesPorEdit" />
-                        </label>
-                        <label>
-                          Producto bastón
-                          <select [(ngModel)]="form.bastonProductoId" name="bastonProdEdit">
-                            <option [ngValue]="null">Automático (el marcado como bastón)</option>
-                            @for (b of productosBaston; track b.id) {
-                              <option [ngValue]="b.id">{{ b.nombre }}</option>
-                            }
-                          </select>
-                        </label>
-                      }
                       <label>
                         Cantidad inicial
                         <input
@@ -795,29 +772,6 @@
         <option value="PIEZA">Pieza</option>
       </select>
     </label>
-    <label class="check-baston">
-      <input type="checkbox" [(ngModel)]="form.esBaston" [name]="'esBastonEdit' + sufijo" (ngModelChange)="form.esBaston && (form.usaBaston = false)" />
-      Este producto es el bastón de madera
-    </label>
-    <label class="check-baston">
-      <input type="checkbox" [(ngModel)]="form.usaBaston" [name]="'usaBastonEdit' + sufijo" [disabled]="form.esBaston" (ngModelChange)="form.usaBaston && (form.esBaston = false)" />
-      Usa bastón (escoba/jalador sin palo)
-    </label>
-    @if (form.usaBaston && !form.esBaston) {
-      <label>
-        Bastones por unidad
-        <input type="text" inputmode="numeric" appSoloNumeros="enteros" [(ngModel)]="form.bastonesPorUnidad" [name]="'bastonesPorEdit' + sufijo" />
-      </label>
-      <label>
-        Producto bastón
-        <select [(ngModel)]="form.bastonProductoId" [name]="'bastonProdEdit' + sufijo">
-          <option [ngValue]="null">Automático (el marcado como bastón)</option>
-          @for (b of productosBaston; track b.id) {
-            <option [ngValue]="b.id">{{ b.nombre }}</option>
-          }
-        </select>
-      </label>
-    }
     <label>
       Cantidad inicial
       <input
