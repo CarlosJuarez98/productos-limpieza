@@ -695,8 +695,18 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.idMarcadoresCorte.clear();
     if (this.fechasCorte.size === 0 || this.ventas.length === 0) return;
     for (const fecha of this.fechasCorte) {
-      const delDia = this.ventas.filter((v) => v.fecha === fecha);
-      if (delDia.length === 0) continue;
+      // Día del corte con ventas → última de ese día.
+      // Si ese día no hubo ventas (p. ej. corte el 27 sin movimiento) → última del día anterior con ventas.
+      let delDia = this.ventas.filter((v) => v.fecha === fecha);
+      if (delDia.length === 0) {
+        const anteriores = this.ventas.filter((v) => v.fecha < fecha);
+        if (anteriores.length === 0) continue;
+        const fechaAnt = anteriores.reduce(
+          (max, v) => (v.fecha > max ? v.fecha : max),
+          anteriores[0].fecha
+        );
+        delDia = anteriores.filter((v) => v.fecha === fechaAnt);
+      }
       const ultimo = delDia.reduce((a, b) => (a.id > b.id ? a : b));
       this.idMarcadoresCorte.add(ultimo.id);
     }
