@@ -107,6 +107,9 @@ export class VentasComponent implements OnInit, OnDestroy {
   private filtroTimer: ReturnType<typeof setTimeout> | null = null;
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
   private focusTimer: ReturnType<typeof setTimeout> | null = null;
+  private focusTimer2: ReturnType<typeof setTimeout> | null = null;
+  /** Timers de scroll al pulsar «+»; hay que cancelarlos al salir de la ruta. */
+  private scrollTimers: ReturnType<typeof setTimeout>[] = [];
   private idsPreparables = new Set<number>();
   private capturaMovil = capturaEsMovil();
 
@@ -167,7 +170,24 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.pullSub?.unsubscribe();
     if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
     if (this.draftTimer != null) clearTimeout(this.draftTimer);
+    this.limpiarTimersCaptura();
+  }
+
+  private limpiarTimersCaptura(): void {
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    this.focusTimer = null;
+    this.focusTimer2 = null;
+    for (const t of this.scrollTimers) clearTimeout(t);
+    this.scrollTimers = [];
+  }
+
+  private programarScroll(fn: () => void, ms: number): void {
+    const t = setTimeout(() => {
+      this.scrollTimers = this.scrollTimers.filter((x) => x !== t);
+      fn();
+    }, ms);
+    this.scrollTimers.push(t);
   }
 
   @HostListener('window:resize')
@@ -727,8 +747,10 @@ export class VentasComponent implements OnInit, OnDestroy {
       this.enfocarCaptura(idx, 'producto');
     });
     if (esMovilTactil()) {
-      setTimeout(() => this.scrollLineaVisible(idx), 260);
-      setTimeout(() => this.scrollLineaVisible(idx), 420);
+      // Tras teclado / visualViewport: subir un poco (si no, la card queda baja).
+      this.programarScroll(() => this.scrollLineaVisible(idx), 120);
+      this.programarScroll(() => this.scrollLineaVisible(idx), 280);
+      this.programarScroll(() => this.scrollLineaVisible(idx), 480);
     }
   }
 
@@ -792,10 +814,11 @@ export class VentasComponent implements OnInit, OnDestroy {
       }
     };
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
     this.cdr.detectChanges();
     // Móvil: un intento; si la card es nueva, un segundo tras pintar.
     this.focusTimer = setTimeout(go, 50);
-    setTimeout(go, esMovilTactil() ? 180 : 220);
+    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 180 : 220);
   }
 
   private scrollLineaVisible(index: number): void {

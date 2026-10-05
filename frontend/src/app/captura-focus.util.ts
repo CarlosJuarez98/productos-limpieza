@@ -26,23 +26,21 @@ export function mainScrollEl(): HTMLElement | null {
 export function stickyTopInset(main?: HTMLElement | null): number {
   const root = main ?? mainScrollEl();
   if (!root) return 0;
-  const mainTop = root.getBoundingClientRect().top;
   let inset = 0;
   root.querySelectorAll<HTMLElement>('.ventas-fijo, .dom-fijo, .captura-sticky-top').forEach((el) => {
     const st = getComputedStyle(el).position;
     if (st !== 'sticky' && st !== 'fixed') return;
-    const r = el.getBoundingClientRect();
-    if (r.height < 2) return;
-    // Solo barras pegadas arriba del área visible.
-    if (Math.abs(r.top - mainTop) > 8) return;
-    inset = Math.max(inset, r.bottom - mainTop);
+    // Altura completa: al medir antes del scroll la barra aún no está “pegada”.
+    const h = el.getBoundingClientRect().height;
+    if (h < 2) return;
+    inset = Math.max(inset, h);
   });
   return inset;
 }
 
 /**
  * Lleva un elemento a la vista scrolleando el main (no el body).
- * En móvil ancla arriba (bajo stickies) para que se vea la card al pulsar «+».
+ * En móvil ancla arriba (bajo stickies / visualViewport) para que la card no quede baja.
  */
 export function scrollEnMain(
   el: HTMLElement | null | undefined,
@@ -50,16 +48,23 @@ export function scrollEnMain(
 ): void {
   if (!el) return;
   const main = mainScrollEl();
+  const sticky =
+    opts?.belowSticky === false ? 0 : stickyTopInset(main);
   let offset = opts?.offset;
   if (offset == null) {
-    offset = esMovilTactil() ? 8 : 24;
-    if (opts?.belowSticky !== false) {
-      offset += stickyTopInset(main);
-    }
+    offset = sticky + (esMovilTactil() ? 10 : 24);
   }
   if (main) {
-    const mainRect = main.getBoundingClientRect();
     const r = el.getBoundingClientRect();
+    // Con teclado: anclar al viewport visible, no al layout completo.
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (esMovilTactil() && vv && vv.height > 0) {
+      const targetTop = vv.offsetTop + sticky + 8;
+      const delta = r.top - targetTop;
+      main.scrollTo({ top: Math.max(0, main.scrollTop + delta), behavior: 'auto' });
+      return;
+    }
+    const mainRect = main.getBoundingClientRect();
     const y = main.scrollTop + (r.top - mainRect.top) - offset;
     main.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
     return;

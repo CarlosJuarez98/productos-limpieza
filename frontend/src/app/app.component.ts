@@ -1,8 +1,15 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule, NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter, Subscription } from 'rxjs';
+import {
+  NavigationEnd,
+  NavigationStart,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
+import { Subscription } from 'rxjs';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
 import { PullRefreshService } from './pull-refresh.service';
 import { AuthService } from './auth.service';
@@ -181,19 +188,26 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.usuarioActual = this.auth.usuario;
     this.enLinea = this.offline.online;
     // Suscribir ya en constructor: si /me responde antes de AfterViewInit, no perdemos el evento.
-    this.routerSub = this.router.events
-      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe((e) => {
-        this.masAbierto = false;
+    this.routerSub = this.router.events.subscribe((e) => {
+      // Antes de pintar la nueva ruta: evita un frame a media página (Ventas→Caja).
+      if (e instanceof NavigationStart) {
         this.blurCampoActivo();
-        this.actualizarEsLogin(e.urlAfterRedirects || e.url);
-        // Todas las pantallas empiezan arriba (móvil conserva scroll de la anterior).
         this.resetScrollAlInicio();
-        queueMicrotask(() => this.resetScrollAlInicio());
-        setTimeout(() => this.resetScrollAlInicio(), 50);
-        setTimeout(() => this.resetScrollAlInicio(), 200);
-        this.scrollActiveNavIntoView();
-      });
+        return;
+      }
+      if (!(e instanceof NavigationEnd)) return;
+      this.masAbierto = false;
+      this.blurCampoActivo();
+      this.actualizarEsLogin(e.urlAfterRedirects || e.url);
+      // Instantáneo (sin “smooth”): arriba desde el primer frame.
+      this.resetScrollAlInicio();
+      queueMicrotask(() => this.resetScrollAlInicio());
+      requestAnimationFrame(() => this.resetScrollAlInicio());
+      setTimeout(() => this.resetScrollAlInicio(), 0);
+      setTimeout(() => this.resetScrollAlInicio(), 40);
+      setTimeout(() => this.resetScrollAlInicio(), 120);
+      this.scrollActiveNavIntoView();
+    });
     this.authSub = this.auth.authChanges$.subscribe((m) => {
       this.usuarioActual = m?.authenticated
         ? m.displayName || m.username || null
