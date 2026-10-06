@@ -222,6 +222,16 @@
   color: #163528;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.mas-ver {
+  font-size: 0.8em;
+  font-weight: 800;
+  opacity: 0.8;
 }
 
 .mas-salir {

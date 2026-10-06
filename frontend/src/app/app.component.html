@@ -136,7 +136,14 @@
           Sesión:
           <strong>{{ usuarioActual || 'ninguna' }}</strong>
         </p>
-        <button type="button" class="mas-actualizar" (click)="actualizarApp()">Actualizar app</button>
+        @if (appUpdate.updateDisponible()) {
+          <button type="button" class="mas-actualizar" (click)="actualizarApp()">
+            Actualizar app
+            @if (appUpdate.versionNueva(); as ver) {
+              <span class="mas-ver">v{{ ver }}</span>
+            }
+          </button>
+        }
         <button type="button" class="mas-salir" (click)="cerrarSesion()">Cerrar sesión / cambiar usuario</button>
       </div>
     </div>

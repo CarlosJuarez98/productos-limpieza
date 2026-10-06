@@ -1,15 +1,22 @@
-import { Injectable, OnDestroy } from '@angular/core';
-import { SwUpdate } from '@angular/service-worker';
+import { Injectable, OnDestroy, signal } from '@angular/core';
+import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 
 /**
- * En nube el Service Worker cachea el shell. Sin esto, tras un deploy hay que
- * borrar datos del sitio en cada celular/PC. Aquí se detecta versión nueva y
- * se recarga; el botón de Más fuerza limpieza si quedó atascado.
+ * Detecta builds nuevos vía Service Worker + appData.version (ngsw-config).
+ * El botón «Actualizar app» solo aparece si la versión remota es mayor.
+ * No recarga sola ni limpia caches a lo bruto (eso volvía lenta la app).
  */
 @Injectable({ providedIn: 'root' })
 export class AppUpdateService implements OnDestroy {
+  readonly updateDisponible = signal(false);
+  readonly versionNueva = signal<string | null>(null);
+
   private reloading = false;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private lastCheck = 0;
+  private readonly minCheckMs = 15 * 60_000;
+  private readonly intervalMs = 30 * 60_000;
+
   private readonly onVisibility = (): void => {
     if (document.visibilityState === 'visible') void this.buscarActualizacion();
   };
@@ -19,12 +26,13 @@ export class AppUpdateService implements OnDestroy {
 
     this.sw.versionUpdates.subscribe((evt) => {
       if (evt.type === 'VERSION_READY') {
-        this.recargar();
+        this.evaluarVersionLista(evt);
       }
     });
 
-    void this.buscarActualizacion();
-    this.timer = setInterval(() => void this.buscarActualizacion(), 5 * 60_000);
+    // Tras el arranque, para no competir con la carga inicial.
+    setTimeout(() => void this.buscarActualizacion(), 20_000);
+    this.timer = setInterval(() => void this.buscarActualizacion(), this.intervalMs);
     document.addEventListener('visibilitychange', this.onVisibility);
   }
 
@@ -33,55 +41,58 @@ export class AppUpdateService implements OnDestroy {
     document.removeEventListener('visibilitychange', this.onVisibility);
   }
 
-  /** Comprueba si el servidor ya tiene otra versión del shell. */
   async buscarActualizacion(): Promise<void> {
     if (!this.sw.isEnabled || this.reloading) return;
+    const ahora = Date.now();
+    if (this.lastCheck > 0 && ahora - this.lastCheck < this.minCheckMs) return;
+    this.lastCheck = ahora;
     try {
       await this.sw.checkForUpdate();
     } catch {
-      /* red / SW ocupado: se reintenta en el siguiente ciclo */
+      /* red / SW ocupado */
     }
   }
 
-  /**
-   * Botón «Actualizar app»: intenta SW; si no hay versión nueva o no hay SW,
-   * borra caches del sitio y recarga (equivale a limpiar datos del PWA).
-   */
-  async forzarRefresh(): Promise<void> {
-    if (this.reloading) return;
-    if (this.sw.isEnabled) {
-      try {
-        const hay = await this.sw.checkForUpdate();
-        if (hay) {
-          this.recargar();
-          return;
-        }
-      } catch {
-        /* sigue a limpieza */
-      }
-    }
-    await this.limpiarCachesYRecargar();
-  }
-
-  private async limpiarCachesYRecargar(): Promise<void> {
-    try {
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
-      }
-      if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      }
-    } catch {
-      /* igual recargamos */
-    }
-    this.recargar();
-  }
-
-  private recargar(): void {
-    if (this.reloading) return;
+  /** Recarga para activar el build ya descargado. */
+  aplicarActualizacion(): void {
+    if (this.reloading || !this.updateDisponible()) return;
     this.reloading = true;
     document.location.reload();
   }
+
+  private evaluarVersionLista(evt: VersionReadyEvent): void {
+    const actual = versionDe(evt.currentVersion?.appData);
+    const nueva = versionDe(evt.latestVersion?.appData);
+
+    // Cliente viejo sin appData: cualquier build nuevo cuenta.
+    if (!actual) {
+      this.updateDisponible.set(true);
+      this.versionNueva.set(nueva);
+      return;
+    }
+    if (nueva && esVersionMayor(nueva, actual)) {
+      this.updateDisponible.set(true);
+      this.versionNueva.set(nueva);
+    }
+  }
+}
+
+function versionDe(appData: unknown): string | null {
+  if (!appData || typeof appData !== 'object') return null;
+  const v = (appData as { version?: unknown }).version;
+  return typeof v === 'string' && v.trim() ? v.trim() : null;
+}
+
+/** true si `nueva` > `actual` (semver numérico simple: 1.2.3). */
+function esVersionMayor(nueva: string, actual: string): boolean {
+  const a = nueva.split('.').map((x) => parseInt(x, 10) || 0);
+  const b = actual.split('.').map((x) => parseInt(x, 10) || 0);
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    if (x > y) return true;
+    if (x < y) return false;
+  }
+  return false;
 }

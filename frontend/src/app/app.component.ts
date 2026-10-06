@@ -184,7 +184,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     private auth: AuthService,
     private offline: OfflineService,
     private api: ApiService,
-    private appUpdate: AppUpdateService
+    readonly appUpdate: AppUpdateService
   ) {
     this.actualizarEsLogin(this.router.url);
     this.usuarioActual = this.auth.usuario;
@@ -337,8 +337,8 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   }
 
   actualizarApp(): void {
-    this.masAbierto = false;
-    void this.appUpdate.forzarRefresh();
+    // No cerrar el menú antes: en móvil se veía que “desaparecía” sin recargar.
+    this.appUpdate.aplicarActualizacion();
   }
 
   cerrarSesion(): void {
