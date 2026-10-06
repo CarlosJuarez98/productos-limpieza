@@ -99,10 +99,11 @@
         <div class="linea-grid">
           <label class="campo campo-cantidad">
             <div class="campo-cab">
-              <span class="campo-label">Cantidad</span>
-              @if (l.productoId != null && stockDisponible(l.productoId) != null && l.modo !== 'PESOS') {
+              <span class="campo-label">{{ l.modo === 'PESOS' ? 'Pesos' : 'Cantidad' }}</span>
+              @if (l.productoId != null && stockDisponible(l.productoId) != null) {
                 <span class="stock-hint" [class.disp-warn]="excedeStock(l, i)">
-                  Disp. {{ stockDisponible(l.productoId) | number: '1.0-2' }} {{ unidadDe(l) }}
+                  Disp. {{ stockDisponible(l.productoId) | number: '1.0-2' }}
+                  {{ l.modo === 'PESOS' ? unidadFisicaDe(l) : unidadDe(l) }}
                 </span>
               }
             </div>
@@ -149,10 +150,10 @@
                   (keydown.enter)="onCampoEnter($event, i, 'precio')"
                 />
               </div>
-            } @else if (muestraPrecioLista(l)) {
+            } @else if (muestraPrecioLista(l) || l.modo === 'PESOS') {
               @if (precioLista(l) > 0) {
                 <div class="precio-fijo money">${{ precioLista(l) | number: '1.2-2' }}
-                  <small>/ {{ unidadDe(l) }}</small>
+                  <small>/ {{ unidadFisicaDe(l) }}</small>
                 </div>
               } @else {
                 <div class="precio-fijo muted">Sin precio</div>
@@ -193,6 +194,14 @@
             }
           </div>
         </div>
+        @if (l.modo === 'PESOS' && cantidadADar(l); as dar) {
+          <p class="pista-pesos">
+            Dar
+            <strong>{{ dar | number: '1.0-3' }} {{ unidadFisicaDe(l) }}</strong>
+          </p>
+        } @else if (pesosSinMenudeo(l)) {
+          <p class="pista-pesos pista-pesos-aviso">Sin menudeo: no se puede calcular cuánto dar</p>
+        }
         @if (esMayoreo(l) && l.productoId != null && pistaPrecioMayoreo(l) !== 'unitario') {
           <p class="pista-mayoreo muted" [title]="tituloPistaMayoreo(l)">
             Lista mayoreo: {{ pistaPrecioMayoreo(l) }}
@@ -493,7 +502,7 @@
       />
     </label>
     <label>
-      Cantidad
+      {{ formEdit.modo === 'PESOS' ? 'Pesos' : 'Cantidad' }}
       <input
         type="text"
         inputmode="decimal"
@@ -504,6 +513,13 @@
         required
       />
     </label>
+    @if (formEdit.modo === 'PESOS' && cantidadADar(lineaEdit); as darEdit) {
+      <p class="pista-pesos pista-pesos-edit">
+        Dar
+        <strong>{{ darEdit | number: '1.0-3' }} {{ unidadFisicaDe(lineaEdit) }}</strong>
+        <span class="muted"> · ${{ precioLista(lineaEdit) | number: '1.2-2' }}/{{ unidadFisicaDe(lineaEdit) }}</span>
+      </p>
+    }
     @if (permitePrecioManual(lineaEdit)) {
       <label>
         Precio

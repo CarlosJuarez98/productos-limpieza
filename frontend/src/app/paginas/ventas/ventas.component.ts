@@ -453,6 +453,26 @@ export class VentasComponent implements OnInit, OnDestroy {
     return p?.vendePor === 'PIEZA' ? 'pza' : 'L';
   }
 
+  /** Litros o piezas (para «cuánto dar» en modo Pesos). */
+  unidadFisicaDe(l: LineaVenta): string {
+    const p = this.productoDe(l);
+    return p?.vendePor === 'PIEZA' ? 'pza' : 'L';
+  }
+
+  /** En Pesos: cuántas unidades físicas corresponde dar por el monto. */
+  cantidadADar(l: LineaVenta): number | null {
+    if (l.modo !== 'PESOS') return null;
+    const u = this.unidadesPedidas(l);
+    return u > 0 ? u : null;
+  }
+
+  /** Pesos con monto pero sin menudeo para calcular. */
+  pesosSinMenudeo(l: LineaVenta): boolean {
+    if (l.modo !== 'PESOS' || l.productoId == null) return false;
+    const cant = Number(l.cantidad);
+    return Number.isFinite(cant) && cant > 0 && this.precioLista(l) <= 0;
+  }
+
   /** Tipo real que se guarda en BD (menudeo → Litros/Pieza del producto). */
   tipoVentaEfectivo(l: LineaVenta): TipoVenta {
     if (l.modo === 'MENUDEO') {
