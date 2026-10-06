@@ -116,7 +116,7 @@ public class InventarioService {
         .toList();
   }
 
-  /** Recalcula solo mayoreo (≥5 / ≥10). El menudeo vive en el histórico y no se sobrescribe. */
+  /** Recalcula mayoreo (≥5 / ≥10) como descuento sobre menudeo. No toca menudeo. */
   @Transactional
   public void aplicarPreciosDesdeMargenes(MargenConfig margen) {
     for (Producto p : productoRepo.findByActivoTrueOrderByNombreAsc()) {
@@ -124,7 +124,7 @@ public class InventarioService {
       if (compra.compareTo(BigDecimal.ZERO) <= 0) {
         continue;
       }
-      aplicarMayoreoDesdeCompra(p, margen);
+      aplicarMayoreoDesdeMenudeo(p, margen);
       productoRepo.save(p);
     }
   }
@@ -153,12 +153,14 @@ public class InventarioService {
       }
       previo.setDepartamento(resolverDepartamento(req, previo.getVendePor(), nombre));
       aplicarFlagsBaston(previo, req);
-      aplicarMayoreoDesdeCompra(previo, margen);
+      validarPreciosVsCompra(previo.getPrecioCompra(), req);
       previo = productoRepo.save(previo);
       if (req.precioVenta() != null) {
         LocalDate fecha = req.fechaVigenciaPrecio() != null ? req.fechaVigenciaPrecio() : LocalDate.now(ZONA);
         precioHistoricoService.crearDirecto(previo, fecha, req.precioVenta());
       }
+      aplicarMayoreoTrasMenudeo(previo, margen, req);
+      previo = productoRepo.save(previo);
       return toDto(previo, margen);
     }
     MargenConfig margen = margenService.getConfig();
@@ -171,7 +173,7 @@ public class InventarioService {
     p.setDepartamento(resolverDepartamento(req, vendePor, nombre));
     p.setActivo(true);
     aplicarFlagsBaston(p, req);
-    aplicarMayoreoDesdeCompra(p, margen);
+    validarPreciosVsCompra(p.getPrecioCompra(), req);
     p = productoRepo.save(p);
     LocalDate fecha = req.fechaVigenciaPrecio() != null ? req.fechaVigenciaPrecio() : null;
     if (req.precioVenta() != null) {
@@ -183,6 +185,8 @@ public class InventarioService {
       }
       precioHistoricoService.crearDirecto(p, fecha, req.precioVenta());
     }
+    aplicarMayoreoTrasMenudeo(p, margen, req);
+    p = productoRepo.save(p);
     // Los % mín/máx solo alimentan columnas sugeridas; no crean menudeo automático.
     return toDto(p, margen);
   }
@@ -213,7 +217,8 @@ public class InventarioService {
       p.setDepartamento(req.departamento());
     }
     aplicarFlagsBaston(p, req);
-    // Precios mayoreo manuales; si no vienen y cambió compra, recalcular desde márgenes
+    validarPreciosVsCompra(p.getPrecioCompra(), req);
+    // Mayoreo manual; si no viene y hay menudeo/compra, recalcular descuento s/ menudeo
     if (req.precioMayoreo5() != null || req.precioMayoreo10() != null) {
       if (req.precioMayoreo5() != null) {
         p.setPrecioMayoreo5(pesoEntero(req.precioMayoreo5()));
@@ -221,8 +226,9 @@ public class InventarioService {
       if (req.precioMayoreo10() != null) {
         p.setPrecioMayoreo10(pesoEntero(req.precioMayoreo10()));
       }
-    } else if (req.precioCompra() != null) {
-      aplicarMayoreoDesdeCompra(p, margen);
+      asegurarMayoreoNoBajoCompra(p);
+    } else if (req.precioCompra() != null || req.precioVenta() != null) {
+      // se aplica abajo tras guardar menudeo
     }
     p = productoRepo.save(p);
     if (p.isEsBaston() && req.precioCompra() != null) {
@@ -233,6 +239,11 @@ public class InventarioService {
           ? req.fechaVigenciaPrecio()
           : LocalDate.now(ZONA);
       precioHistoricoService.crearDirecto(p, fecha, req.precioVenta());
+    }
+    if (req.precioMayoreo5() == null && req.precioMayoreo10() == null
+        && (req.precioCompra() != null || req.precioVenta() != null)) {
+      aplicarMayoreoDesdeMenudeo(p, margen);
+      p = productoRepo.save(p);
     }
     return toDto(p, margen);
   }
@@ -264,22 +275,96 @@ public class InventarioService {
     productoRepo.delete(p);
   }
 
-  private void aplicarMayoreoDesdeCompra(Producto p, MargenConfig margen) {
+  /**
+   * Mayoreo = menudeo con descuento %. Nunca por debajo de la compra.
+   * Si no hay % configurado o no hay menudeo, no cambia.
+   */
+  private void aplicarMayoreoDesdeMenudeo(Producto p, MargenConfig margen) {
+    BigDecimal compra = nz(p.getPrecioCompra());
+    BigDecimal menudeo = nz(precioService.precioHoy(p));
+    if (menudeo.compareTo(BigDecimal.ZERO) <= 0) {
+      return;
+    }
+    if (margen.getMargenMayoreo5() != null) {
+      p.setPrecioMayoreo5(
+          noBajoCompra(conDescuentoEntero(menudeo, margen.getMargenMayoreo5()), compra));
+    }
+    if (margen.getMargenMayoreo10() != null) {
+      p.setPrecioMayoreo10(
+          noBajoCompra(conDescuentoEntero(menudeo, margen.getMargenMayoreo10()), compra));
+    }
+    asegurarMayoreoNoBajoCompra(p);
+  }
+
+  private void aplicarMayoreoTrasMenudeo(Producto p, MargenConfig margen, ProductoRequest req) {
+    if (req.precioMayoreo5() != null || req.precioMayoreo10() != null) {
+      if (req.precioMayoreo5() != null) {
+        p.setPrecioMayoreo5(pesoEntero(req.precioMayoreo5()));
+      }
+      if (req.precioMayoreo10() != null) {
+        p.setPrecioMayoreo10(pesoEntero(req.precioMayoreo10()));
+      }
+      asegurarMayoreoNoBajoCompra(p);
+      return;
+    }
+    aplicarMayoreoDesdeMenudeo(p, margen);
+  }
+
+  private void validarPreciosVsCompra(BigDecimal compraRaw, ProductoRequest req) {
+    BigDecimal compra = nz(compraRaw);
+    if (compra.compareTo(BigDecimal.ZERO) <= 0) {
+      return;
+    }
+    if (req.precioVenta() != null && req.precioVenta().compareTo(compra) < 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El menudeo no puede ser menor al precio de compra");
+    }
+    if (req.precioMayoreo5() != null && req.precioMayoreo5().compareTo(compra) < 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El mayoreo ≥5 no puede ser menor al precio de compra");
+    }
+    if (req.precioMayoreo10() != null && req.precioMayoreo10().compareTo(compra) < 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El mayoreo ≥10 no puede ser menor al precio de compra");
+    }
+  }
+
+  private void asegurarMayoreoNoBajoCompra(Producto p) {
     BigDecimal compra = nz(p.getPrecioCompra());
     if (compra.compareTo(BigDecimal.ZERO) <= 0) {
       return;
     }
-    p.setPrecioMayoreo5(conMargenEntero(compra, margen.getMargenMayoreo5()));
-    p.setPrecioMayoreo10(conMargenEntero(compra, margen.getMargenMayoreo10()));
+    if (p.getPrecioMayoreo5() != null && p.getPrecioMayoreo5().compareTo(compra) < 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El mayoreo ≥5 no puede ser menor al precio de compra");
+    }
+    if (p.getPrecioMayoreo10() != null && p.getPrecioMayoreo10().compareTo(compra) < 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "El mayoreo ≥10 no puede ser menor al precio de compra");
+    }
   }
 
-  private static BigDecimal conMargen(BigDecimal compra, BigDecimal margen) {
-    return compra.multiply(BigDecimal.ONE.add(nz(margen))).setScale(2, RoundingMode.HALF_UP);
-  }
-
-  /** Mayoreo (≥5 / ≥10) se cobra en efectivo: pesos enteros (redondeo comercial .50↑). */
+  /** Menudeo sugerido / mayoreo: pesos enteros. */
   private static BigDecimal conMargenEntero(BigDecimal compra, BigDecimal margen) {
     return pesoEntero(compra.multiply(BigDecimal.ONE.add(nz(margen))));
+  }
+
+  /** Descuento fracción (0.20 = 20%) sobre menudeo → pesos enteros. */
+  private static BigDecimal conDescuentoEntero(BigDecimal menudeo, BigDecimal descuento) {
+    return pesoEntero(menudeo.multiply(BigDecimal.ONE.subtract(nz(descuento))));
+  }
+
+  private static BigDecimal noBajoCompra(BigDecimal precio, BigDecimal compra) {
+    if (precio == null) {
+      return null;
+    }
+    if (compra == null || compra.compareTo(BigDecimal.ZERO) <= 0) {
+      return precio;
+    }
+    if (precio.compareTo(compra) >= 0) {
+      return precio;
+    }
+    return compra.setScale(0, RoundingMode.CEILING);
   }
 
   /** Peso entero: 45.01→45, 45.50→46, 45.67→46. */
@@ -341,12 +426,16 @@ public class InventarioService {
         pesoEntero(
             p.getPrecioMayoreo5() != null
                 ? p.getPrecioMayoreo5()
-                : conMargen(compra, margen.getMargenMayoreo5()));
+                : (margen.getMargenMayoreo5() != null && venta.compareTo(BigDecimal.ZERO) > 0
+                    ? noBajoCompra(conDescuentoEntero(venta, margen.getMargenMayoreo5()), compra)
+                    : null));
     BigDecimal mayoreo10 =
         pesoEntero(
             p.getPrecioMayoreo10() != null
                 ? p.getPrecioMayoreo10()
-                : conMargen(compra, margen.getMargenMayoreo10()));
+                : (margen.getMargenMayoreo10() != null && venta.compareTo(BigDecimal.ZERO) > 0
+                    ? noBajoCompra(conDescuentoEntero(venta, margen.getMargenMayoreo10()), compra)
+                    : null));
 
     BigDecimal casaMonto = nz(casa).multiply(compra).setScale(2, RoundingMode.HALF_UP);
 

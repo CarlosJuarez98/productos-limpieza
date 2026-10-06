@@ -749,7 +749,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
   async recalcularMayoreoDesdeMargenes(): Promise<void> {
     if (!this.revisionPrecios.length) return;
     const ok = await this.confirmDlg.ask(
-      '¿Recalcular mayoreo (≥5 / ≥10) con los % de margen actuales? El menudeo no se cambia solo: revísalo en Inventario si hace falta.',
+      '¿Recalcular mayoreo (≥5 / ≥10) como descuento sobre menudeo? Los precios no bajarán de la compra.',
       { confirmarTexto: 'Recalcular mayoreo' }
     );
     if (!ok) return;

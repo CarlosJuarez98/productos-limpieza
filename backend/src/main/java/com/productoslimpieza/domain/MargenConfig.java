@@ -20,10 +20,10 @@ public class MargenConfig extends TenantEntity {
   private BigDecimal margenMax = new BigDecimal("0.6300");
 
   @Column(precision = 10, scale = 4)
-  private BigDecimal margenMayoreo5 = new BigDecimal("0.4000");
+  private BigDecimal margenMayoreo5;
 
   @Column(precision = 10, scale = 4)
-  private BigDecimal margenMayoreo10 = new BigDecimal("0.3000");
+  private BigDecimal margenMayoreo10;
 
   public Long getId() {
     return id;

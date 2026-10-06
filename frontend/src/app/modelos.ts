@@ -275,12 +275,12 @@ export interface Receta {
 export interface MargenConfig {
   margenMin: number;
   margenMax: number;
-  margenMayoreo5: number;
-  margenMayoreo10: number;
+  margenMayoreo5: number | null;
+  margenMayoreo10: number | null;
   porcentajeMin: number;
   porcentajeMax: number;
-  porcentajeMayoreo5: number;
-  porcentajeMayoreo10: number;
+  porcentajeMayoreo5: number | null;
+  porcentajeMayoreo10: number | null;
 }
 
 export interface TraspasoLinea {

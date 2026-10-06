@@ -26,7 +26,7 @@ import { FechaDiaComponent } from '../../fecha-dia.component';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { enviarTextoWhatsApp } from '../../ticket-whatsapp.util';
 import { firstValueFrom } from 'rxjs';
-import { precioConMargenArriba } from '../../captura-focus.util';
+import { noBajoCompra, precioConDescuentoEntero, precioConMargenArriba } from '../../captura-focus.util';
 
 type LineaEditable = PedidoLinea & {
   pedir: number | null;
@@ -165,7 +165,12 @@ export class SurtirComponent implements OnInit, OnDestroy {
   pagPiezas = new PaginacionEstado<LineaEditable>(12);
   tipsSurtir: TipSurtir[] = [];
   /** % márgenes para min/máx y mayoreo al completar producto nuevo. */
-  private pct = { mayoreo5: 40, mayoreo10: 30, min: 46.5, max: 63 };
+  private pct: {
+    mayoreo5: number | null;
+    mayoreo10: number | null;
+    min: number;
+    max: number;
+  } = { mayoreo5: null, mayoreo10: null, min: 46.5, max: 63 };
   /** Listas del punto 2: se pueden contraer. */
   limpiaAbierta = true;
   jarceriaAbierta = true;
@@ -214,8 +219,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
   private cargarMargenes(): void {
     this.api.margenes().subscribe({
       next: (m: MargenConfig) => {
-        this.pct.mayoreo5 = Number(m.porcentajeMayoreo5) || 40;
-        this.pct.mayoreo10 = Number(m.porcentajeMayoreo10) || 30;
+        this.pct.mayoreo5 = m.porcentajeMayoreo5 == null ? null : Number(m.porcentajeMayoreo5);
+        this.pct.mayoreo10 = m.porcentajeMayoreo10 == null ? null : Number(m.porcentajeMayoreo10);
         this.pct.min = Number(m.porcentajeMin) || 46.5;
         this.pct.max = Number(m.porcentajeMax) || 63;
       },
@@ -1186,13 +1191,15 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   private sincronizarMayoreoRecibo(r: ReciboEdit): void {
     const u = this.unitarioRecibo(r);
-    if (u == null || u <= 0) {
-      r.precioMayoreo5 = null;
-      r.precioMayoreo10 = null;
-      return;
+    const menudeo = Number(r.precioVenta) || 0;
+    if (menudeo <= 0) return;
+    const compra = u != null && u > 0 ? u : 0;
+    if (this.pct.mayoreo5 != null) {
+      r.precioMayoreo5 = noBajoCompra(precioConDescuentoEntero(menudeo, this.pct.mayoreo5), compra);
     }
-    r.precioMayoreo5 = precioConMargenArriba(u, this.pct.mayoreo5);
-    r.precioMayoreo10 = precioConMargenArriba(u, this.pct.mayoreo10);
+    if (this.pct.mayoreo10 != null) {
+      r.precioMayoreo10 = noBajoCompra(precioConDescuentoEntero(menudeo, this.pct.mayoreo10), compra);
+    }
   }
 
   /** Última compra con precio (entradas ya vienen fecha desc). */

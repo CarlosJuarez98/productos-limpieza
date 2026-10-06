@@ -16,7 +16,7 @@ import { FechaDiaComponent } from '../../fecha-dia.component';
 import { compararNombreNatural } from '../../nombre-natural.util';
 import { AutoHideDirective } from '../../auto-hide.directive';
 import { OfflineService } from '../../offline.service';
-import { precioConMargenArriba } from '../../captura-focus.util';
+import { precioConDescuentoEntero, precioConMargenArriba, noBajoCompra } from '../../captura-focus.util';
 
 type FormProducto = {
   nombre: string;
@@ -135,18 +135,23 @@ export class InventarioComponent implements OnInit, OnDestroy {
   margen: MargenConfig = {
     margenMin: 0.465,
     margenMax: 0.63,
-    margenMayoreo5: 0.4,
-    margenMayoreo10: 0.3,
+    margenMayoreo5: null,
+    margenMayoreo10: null,
     porcentajeMin: 46.5,
     porcentajeMax: 63,
-    porcentajeMayoreo5: 40,
-    porcentajeMayoreo10: 30,
+    porcentajeMayoreo5: null,
+    porcentajeMayoreo10: null,
   };
-  pct = {
+  pct: {
+    min: number;
+    max: number;
+    mayoreo5: number | null;
+    mayoreo10: number | null;
+  } = {
     min: 46.5,
     max: 63,
-    mayoreo5: 40,
-    mayoreo10: 30,
+    mayoreo5: null,
+    mayoreo10: null,
   };
   /** Formulario de alta (arriba). */
   formAlta: FormProducto = this.formVacio();
@@ -779,11 +784,23 @@ export class InventarioComponent implements OnInit, OnDestroy {
   }
 
   private calcularMayoreo(f: FormProducto): void {
-    // Mayoreo se arma con % sobre compra; el menudeo es el precio de venta (rango mín/máx).
-    const c = Number(f.precioCompra) || 0;
-    if (c <= 0) return;
-    f.precioMayoreo5 = precioConMargenArriba(c, Number(this.pct.mayoreo5));
-    f.precioMayoreo10 = precioConMargenArriba(c, Number(this.pct.mayoreo10));
+    // Mayoreo = descuento % sobre menudeo; nunca bajo compra.
+    // Si no hay % configurado, no toca los precios mayoreo ya guardados.
+    const menudeo = Number(f.precioVenta) || 0;
+    const compra = Number(f.precioCompra) || 0;
+    if (menudeo <= 0) return;
+    if (this.pct.mayoreo5 != null && String(this.pct.mayoreo5).trim() !== '') {
+      f.precioMayoreo5 = noBajoCompra(
+        precioConDescuentoEntero(menudeo, Number(this.pct.mayoreo5)),
+        compra
+      );
+    }
+    if (this.pct.mayoreo10 != null && String(this.pct.mayoreo10).trim() !== '') {
+      f.precioMayoreo10 = noBajoCompra(
+        precioConDescuentoEntero(menudeo, Number(this.pct.mayoreo10)),
+        compra
+      );
+    }
   }
 
   cargar(): void {
@@ -815,8 +832,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
         this.pct = {
           min: Number(m.porcentajeMin),
           max: Number(m.porcentajeMax),
-          mayoreo5: Number(m.porcentajeMayoreo5),
-          mayoreo10: Number(m.porcentajeMayoreo10),
+          mayoreo5: m.porcentajeMayoreo5 == null ? null : Number(m.porcentajeMayoreo5),
+          mayoreo10: m.porcentajeMayoreo10 == null ? null : Number(m.porcentajeMayoreo10),
         };
       },
     });
@@ -871,10 +888,32 @@ export class InventarioComponent implements OnInit, OnDestroy {
   private normalizarPct(): void {
     this.pct.min = Math.max(0, +Number(this.pct.min).toFixed(1));
     this.pct.max = Math.max(0, +Number(this.pct.max).toFixed(1));
-    this.pct.mayoreo5 = Math.max(0, +Number(this.pct.mayoreo5).toFixed(1));
-    this.pct.mayoreo10 = Math.max(0, +Number(this.pct.mayoreo10).toFixed(1));
+    this.pct.mayoreo5 = this.pctOpcional(this.pct.mayoreo5);
+    this.pct.mayoreo10 = this.pctOpcional(this.pct.mayoreo10);
     if (this.pct.min > this.pct.max) this.pct.max = this.pct.min;
-    if (this.pct.mayoreo10 > this.pct.mayoreo5) this.pct.mayoreo5 = this.pct.mayoreo10;
+    // Descuento: ≥10 L debe ser ≥ ≥5 L
+    if (
+      this.pct.mayoreo5 != null &&
+      this.pct.mayoreo10 != null &&
+      this.pct.mayoreo10 < this.pct.mayoreo5
+    ) {
+      this.pct.mayoreo10 = this.pct.mayoreo5;
+    }
+  }
+
+  private pctOpcional(raw: number | null | string): number | null {
+    if (raw == null || String(raw).trim() === '') return null;
+    const n = Math.max(0, Math.min(100, +Number(raw).toFixed(1)));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  private pctDesdeDto(m: MargenConfig): typeof this.pct {
+    return {
+      min: Number(m.porcentajeMin),
+      max: Number(m.porcentajeMax),
+      mayoreo5: m.porcentajeMayoreo5 == null ? null : Number(m.porcentajeMayoreo5),
+      mayoreo10: m.porcentajeMayoreo10 == null ? null : Number(m.porcentajeMayoreo10),
+    };
   }
 
   guardarMargenes(): void {
@@ -891,12 +930,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (m) => {
           this.margen = m;
-          this.pct = {
-            min: Number(m.porcentajeMin),
-            max: Number(m.porcentajeMax),
-            mayoreo5: Number(m.porcentajeMayoreo5),
-            mayoreo10: Number(m.porcentajeMayoreo10),
-          };
+          this.pct = this.pctDesdeDto(m);
           this.guardandoMargen = false;
           this.ok = 'Márgenes guardados: Mín/Máx solo actualizan columnas sugeridas';
           this.cargar();
@@ -911,7 +945,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
   async aplicarPreciosDesdeMargenes(): Promise<void> {
     this.normalizarPct();
     const ok = await this.confirmDlg.ask(
-      '¿Recalcular Mín/Máx sugerido y mayoreo (≥5 / ≥10) con estos %?',
+      '¿Recalcular mayoreo (≥5 / ≥10) como descuento sobre menudeo con estos %? Los precios no bajarán de la compra.',
       { confirmarTexto: 'Recalcular' }
     );
     if (!ok) return;
@@ -930,12 +964,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
           this.api.aplicarPreciosDesdeMargenes().subscribe({
             next: (m) => {
               this.margen = m;
-              this.pct = {
-                min: Number(m.porcentajeMin),
-                max: Number(m.porcentajeMax),
-                mayoreo5: Number(m.porcentajeMayoreo5),
-                mayoreo10: Number(m.porcentajeMayoreo10),
-              };
+              this.pct = this.pctDesdeDto(m);
               this.guardandoMargen = false;
               this.ok = 'Columnas recalculadas';
               this.cargar();
@@ -1011,6 +1040,25 @@ export class InventarioComponent implements OnInit, OnDestroy {
       this.error = 'Indica el precio de menudeo';
       return;
     }
+    if (Number(this.formAlta.precioVenta) < Number(this.formAlta.precioCompra)) {
+      this.error = 'El menudeo no puede ser menor al precio de compra';
+      return;
+    }
+    this.calcularMayoreo(this.formAlta);
+    if (
+      this.formAlta.precioMayoreo5 != null &&
+      Number(this.formAlta.precioMayoreo5) < Number(this.formAlta.precioCompra)
+    ) {
+      this.error = 'El mayoreo ≥5 no puede ser menor al precio de compra';
+      return;
+    }
+    if (
+      this.formAlta.precioMayoreo10 != null &&
+      Number(this.formAlta.precioMayoreo10) < Number(this.formAlta.precioCompra)
+    ) {
+      this.error = 'El mayoreo ≥10 no puede ser menor al precio de compra';
+      return;
+    }
     const body = this.bodyDesde(this.formAlta, { cantidadDefaultUno: true });
     this.api.crearProducto(body).subscribe({
       next: () => {
@@ -1027,6 +1075,34 @@ export class InventarioComponent implements OnInit, OnDestroy {
     this.error = '';
     if (!this.form.nombre?.trim()) {
       this.error = 'Indica el nombre del producto';
+      return;
+    }
+    const compraEdit = Number(this.form.precioCompra) || 0;
+    const menudeoEdit = Number(this.form.precioVenta);
+    if (
+      compraEdit > 0 &&
+      Number.isFinite(menudeoEdit) &&
+      menudeoEdit > 0 &&
+      menudeoEdit < compraEdit
+    ) {
+      this.error = 'El menudeo no puede ser menor al precio de compra';
+      return;
+    }
+    this.calcularMayoreo(this.form);
+    if (
+      compraEdit > 0 &&
+      this.form.precioMayoreo5 != null &&
+      Number(this.form.precioMayoreo5) < compraEdit
+    ) {
+      this.error = 'El mayoreo ≥5 no puede ser menor al precio de compra';
+      return;
+    }
+    if (
+      compraEdit > 0 &&
+      this.form.precioMayoreo10 != null &&
+      Number(this.form.precioMayoreo10) < compraEdit
+    ) {
+      this.error = 'El mayoreo ≥10 no puede ser menor al precio de compra';
       return;
     }
     const body = this.bodyDesde(this.form);

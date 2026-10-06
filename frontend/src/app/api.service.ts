@@ -152,8 +152,8 @@ export class ApiService {
   actualizarMargenes(body: {
     porcentajeMin: number;
     porcentajeMax: number;
-    porcentajeMayoreo5: number;
-    porcentajeMayoreo10: number;
+    porcentajeMayoreo5: number | null;
+    porcentajeMayoreo10: number | null;
   }): Observable<MargenConfig> {
     return this.http.put<MargenConfig>(`${this.base}/margenes`, body);
   }

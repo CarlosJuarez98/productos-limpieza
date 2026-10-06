@@ -103,7 +103,7 @@
               </div>
             </div>
             <div class="margen-grupo">
-              <span class="margen-grupo-tit">Mayoreo</span>
+              <span class="margen-grupo-tit">Mayoreo (descuento s/ menudeo)</span>
               <div class="margen-grupo-campos">
                 <label class="margen-mini">
                   ≥5 L
@@ -114,6 +114,7 @@
                       appClearable
                       [(ngModel)]="pct.mayoreo5"
                       name="pctM5"
+                      placeholder="—"
                       (keyup.enter)="aplicarMargenesManuales()"
                     />
                     <span class="pct-suffix">%</span>
@@ -128,6 +129,7 @@
                       appClearable
                       [(ngModel)]="pct.mayoreo10"
                       name="pctM10"
+                      placeholder="—"
                       (keyup.enter)="aplicarMargenesManuales()"
                     />
                     <span class="pct-suffix">%</span>

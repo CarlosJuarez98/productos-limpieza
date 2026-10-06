@@ -124,6 +124,24 @@ export function precioConMargenEntero(base: number, pct: number): number {
   return Math.round(b * (1 + p / 100));
 }
 
+/** Mayoreo: descuento % sobre menudeo, en pesos enteros. */
+export function precioConDescuentoEntero(menudeo: number, pctDescuento: number): number {
+  const b = Number(menudeo);
+  const p = Number(pctDescuento);
+  if (!Number.isFinite(b) || b <= 0 || !Number.isFinite(p)) return 0;
+  return Math.round(b * (1 - p / 100));
+}
+
+/** No permitir precio por debajo de la compra (mayoreo entero ≥ techo de compra). */
+export function noBajoCompra(precio: number, compra: number): number {
+  const p = Number(precio);
+  const c = Number(compra);
+  if (!Number.isFinite(p)) return 0;
+  if (!Number.isFinite(c) || c <= 0) return p;
+  const piso = Math.ceil(c - 1e-9);
+  return Math.max(p, piso);
+}
+
 /** @deprecated usar precioConMargenEntero */
 export function precioConMargenArriba(base: number, pct: number): number {
   return precioConMargenEntero(base, pct);

@@ -6,7 +6,7 @@ import { ClearableDirective } from './clearable.directive';
 import { SoloNumerosDirective } from './solo-numeros.directive';
 import { AutoHideDirective } from './auto-hide.directive';
 import { InventarioItem, MargenConfig } from './modelos';
-import { precioConMargenArriba } from './captura-focus.util';
+import { noBajoCompra, precioConDescuentoEntero, precioConMargenArriba } from './captura-focus.util';
 
 type FormAlta = {
   nombre: string;
@@ -38,7 +38,12 @@ export class ProductoAltaFormComponent implements OnInit {
   form: FormAlta = this.vacio();
   error = '';
   guardando = false;
-  private pct = { mayoreo5: 40, mayoreo10: 30, min: 46.5, max: 63 };
+  private pct: {
+    mayoreo5: number | null;
+    mayoreo10: number | null;
+    min: number;
+    max: number;
+  } = { mayoreo5: null, mayoreo10: null, min: 46.5, max: 63 };
 
   constructor(private api: ApiService) {}
 
@@ -48,8 +53,8 @@ export class ProductoAltaFormComponent implements OnInit {
     }
     this.api.margenes().subscribe({
       next: (m: MargenConfig) => {
-        this.pct.mayoreo5 = Number(m.porcentajeMayoreo5) || 40;
-        this.pct.mayoreo10 = Number(m.porcentajeMayoreo10) || 30;
+        this.pct.mayoreo5 = m.porcentajeMayoreo5 == null ? null : Number(m.porcentajeMayoreo5);
+        this.pct.mayoreo10 = m.porcentajeMayoreo10 == null ? null : Number(m.porcentajeMayoreo10);
         this.pct.min = Number(m.porcentajeMin) || 46.5;
         this.pct.max = Number(m.porcentajeMax) || 63;
       },
@@ -117,7 +122,25 @@ export class ProductoAltaFormComponent implements OnInit {
     }
     this.sincronizarUnitario();
     this.form.precioCompra = this.unitario;
+    if (Number(this.form.precioVenta) < Number(this.form.precioCompra)) {
+      this.error = 'El menudeo no puede ser menor al precio de compra';
+      return;
+    }
     this.calcularMayoreo();
+    if (
+      this.form.precioMayoreo5 != null &&
+      Number(this.form.precioMayoreo5) < Number(this.form.precioCompra)
+    ) {
+      this.error = 'El mayoreo ≥5 no puede ser menor al precio de compra';
+      return;
+    }
+    if (
+      this.form.precioMayoreo10 != null &&
+      Number(this.form.precioMayoreo10) < Number(this.form.precioCompra)
+    ) {
+      this.error = 'El mayoreo ≥10 no puede ser menor al precio de compra';
+      return;
+    }
     const cant = this.cantidadEfectiva ?? 1;
     const body = {
       nombre: this.form.nombre.trim(),
@@ -151,10 +174,21 @@ export class ProductoAltaFormComponent implements OnInit {
   }
 
   private calcularMayoreo(): void {
-    const c = Number(this.form.precioCompra) || 0;
-    if (c <= 0) return;
-    this.form.precioMayoreo5 = precioConMargenArriba(c, this.pct.mayoreo5);
-    this.form.precioMayoreo10 = precioConMargenArriba(c, this.pct.mayoreo10);
+    const menudeo = Number(this.form.precioVenta) || 0;
+    const compra = Number(this.form.precioCompra) || this.unitario || 0;
+    if (menudeo <= 0) return;
+    if (this.pct.mayoreo5 != null) {
+      this.form.precioMayoreo5 = noBajoCompra(
+        precioConDescuentoEntero(menudeo, this.pct.mayoreo5),
+        compra
+      );
+    }
+    if (this.pct.mayoreo10 != null) {
+      this.form.precioMayoreo10 = noBajoCompra(
+        precioConDescuentoEntero(menudeo, this.pct.mayoreo10),
+        compra
+      );
+    }
   }
 
   private vacio(): FormAlta {
