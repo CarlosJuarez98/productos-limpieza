@@ -1,7 +1,7 @@
 /**
- * Flyers Amorcas formato Ropa / Trastes (4:5):
- * logo arriba notorio, título, slogan, solo nombres de productos,
- * stickers deco, pie de contacto. Precios van en el texto de WhatsApp.
+ * Flyers Amorcas formato 4:5 estilo Canva:
+ * logo, título, slogan, lista de productos + collage visual de limpieza
+ * (fotos recortadas, formas de color, destellos). Precios en WhatsApp.
  */
 
 /** Departamento de un lote de publicidad. */
@@ -68,7 +68,6 @@ type Composicion = {
   tema: TemaFlyer;
   vertical: boolean;
   precios: PrecioItem[];
-  stickerMotivos: StickerMotivo[];
 };
 
 /** Paleta Amorcas extraída del logo (navy · teal · lima). */
@@ -261,25 +260,48 @@ const TEMAS: TemaFlyer[] = [
   },
 ];
 
-function loadImage(src: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.decoding = 'async';
-    const done = () => {
-      const w = img.naturalWidth || img.width;
-      const h = img.naturalHeight || img.height;
-      resolve(w > 0 && h > 0 ? img : null);
-    };
-    img.onload = () => {
-      if (typeof img.decode === 'function') {
-        img.decode().then(done).catch(done);
-      } else {
-        done();
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = src;
-  });
+/** Carga imagen por fetch→blob (más fiable que Image() con SW/caché). */
+async function loadImage(src: string): Promise<HTMLImageElement | null> {
+  try {
+    const res = await fetch(src, { cache: 'no-cache', credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (!blob || blob.size < 32) return null;
+    const url = URL.createObjectURL(blob);
+    return await new Promise<HTMLImageElement | null>((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (w > 0 && h > 0) resolve(img);
+        else {
+          URL.revokeObjectURL(url);
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(null);
+      };
+      img.src = url;
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Prueba varias rutas: API (disco/JAR) y estáticos del front. */
+async function loadPublicidadMedia(name: string, bust: string): Promise<HTMLImageElement | null> {
+  const urls = [
+    `/api/publicidad/media/${name}?${bust}`,
+    `/publicidad/${name}?${bust}`,
+    `/publicidad/${name}`,
+  ];
+  for (const u of urls) {
+    const img = await loadImage(u);
+    if (img) return img;
+  }
+  return null;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -353,7 +375,7 @@ function familiaDePrecios(precios: PrecioItem[], fallback: GrupoTema): GrupoTema
 function motivoDeProducto(nombre: string): StickerMotivo {
   const n = nombre || '';
   if (/guante/i.test(n)) return 'guantes';
-  if (/fibra/i.test(n)) return 'fibra';
+  if (/fibra(?!\s*verde)/i.test(n) && !/esponja/i.test(n)) return 'fibra';
   if (/escoba/i.test(n)) return 'escoba';
   if (/trape|mechudo/i.test(n)) return 'trapeador';
   if (/jalador/i.test(n)) return 'jalador';
@@ -362,87 +384,40 @@ function motivoDeProducto(nombre: string): StickerMotivo {
   if (/cepillo/i.test(n)) return 'cepillo';
   if (/esponja|fibr[ao]\s*verde|scotch/i.test(n)) return 'esponja';
   if (/downy|suavitel|suaviz/i.test(n)) return 'suavizante';
-  if (/jab[oó]n\s*manos|crema\s*manos/i.test(n)) return 'manos';
-  if (/axion|brazo|braso|desengr|teflon|vidrios/i.test(n)) return 'trastes';
-  if (/cloro|sosa|hipoclor|sarro|pastilla\s*de\s*cloro/i.test(n)) return 'cloro';
-  if (/aromatiz|fabuloso|^pino$|pinol|creolina|almorol/i.test(n)) return 'aroma';
+  if (/jab[oó]n\s*(de\s*)?manos|crema\s*manos/i.test(n)) return 'manos';
+  if (/axion|brazo|braso|desengr|teflon|vidrios|trastes|lava\s*trastes/i.test(n)) return 'trastes';
+  if (/cloro|sosa|hipoclor|sarro|destapaca|pastilla\s*de\s*cloro/i.test(n)) return 'cloro';
+  if (/aromatiz|fabuloso|\bpino\b|pinol|creolina|almorol|aroma/i.test(n)) return 'aroma';
   if (/jab[oó]n|ariel|persil|zote|vanish|carisma|detercon|mas\s*color|\broma\b|deterg/i.test(n))
     return 'detergente';
-  if (/trapo|pa[nñ]o/i.test(n)) return 'jarceria';
-  return 'burbujas';
+  if (/trapo|pa[nñ]o|jarcer/i.test(n)) return 'jarceria';
+  // Sin deco genérico: líquidos desconocidos → detergente
+  return 'detergente';
 }
 
-/** Pool limpieza: formas bien distintas (no 5 botellas iguales). */
-const MOTIVOS_LIMPIEZA: StickerMotivo[] = [
-  'detergente',
-  'suavizante',
-  'cloro',
-  'aroma',
-  'manos',
-  'trastes',
-  'esponja',
-  'burbujas',
-  'guantes',
-  'cubeta',
-];
-
-/** Pool jarcería: utensilios distintos. */
-const MOTIVOS_JARCERIA: StickerMotivo[] = [
-  'escoba',
-  'trapeador',
-  'guantes',
-  'fibra',
-  'cubeta',
-  'cepillo',
-  'jalador',
-  'recogedor',
-  'esponja',
-];
-
-function fillersDeFamilia(grupo: GrupoTema): StickerMotivo[] {
-  switch (grupo) {
-    case 'lavado':
-      return ['detergente', 'esponja', 'burbujas', 'suavizante', 'cloro', 'guantes', 'cubeta'];
-    case 'suavizante':
-      return ['suavizante', 'detergente', 'burbujas', 'esponja', 'manos', 'guantes'];
-    case 'manos':
-      return ['manos', 'esponja', 'burbujas', 'trastes', 'guantes', 'detergente'];
-    case 'aroma':
-      return ['aroma', 'cloro', 'burbujas', 'detergente', 'manos', 'esponja'];
-    case 'cocina':
-      return ['trastes', 'esponja', 'guantes', 'cloro', 'fibra', 'cubeta', 'burbujas'];
-    case 'jarceria':
-      return [...MOTIVOS_JARCERIA];
-    default:
-      return shuffle([...MOTIVOS_LIMPIEZA]);
-  }
-}
-
-/**
- * Hasta 5 motivos distintos y con forma diferente.
- * En limpieza no se rellena con utensilios de jarcería genéricos al revés:
- * se usa el pool de botellas/esponja/burbujas bien diferenciadas.
- */
-function stickersDesdeLista(precios: PrecioItem[], familia: GrupoTema): StickerMotivo[] {
-  const unique: StickerMotivo[] = [];
-  const add = (m: StickerMotivo) => {
-    if (unique.includes(m)) return;
-    unique.push(m);
-  };
+/** 2–3 motivos del tema del lote (collage Canva, no una botella por renglón). */
+function motivosCollage(precios: PrecioItem[], familia: GrupoTema): StickerMotivo[] {
+  const fromList: StickerMotivo[] = [];
   for (const p of precios) {
-    add(motivoDeProducto(p.nombre));
-    if (unique.length >= 5) break;
+    const m = motivoDeProducto(p.nombre);
+    if (m === 'burbujas' || fromList.includes(m)) continue;
+    fromList.push(m);
+    if (fromList.length >= 3) break;
   }
-  for (const m of fillersDeFamilia(familia)) {
-    if (unique.length >= 5) break;
-    add(m);
+  const extras: Record<GrupoTema, StickerMotivo[]> = {
+    lavado: ['detergente', 'suavizante', 'esponja'],
+    suavizante: ['suavizante', 'detergente', 'aroma'],
+    aroma: ['aroma', 'cloro', 'manos'],
+    cocina: ['trastes', 'esponja', 'guantes'],
+    manos: ['manos', 'esponja', 'trastes'],
+    jarceria: ['escoba', 'trapeador', 'guantes'],
+    mixto: ['detergente', 'trastes', 'esponja'],
+  };
+  for (const m of extras[familia] || extras.mixto) {
+    if (fromList.length >= 3) break;
+    if (!fromList.includes(m)) fromList.push(m);
   }
-  const pool = familia === 'jarceria' ? MOTIVOS_JARCERIA : MOTIVOS_LIMPIEZA;
-  for (const m of shuffle([...pool])) {
-    if (unique.length >= 5) break;
-    add(m);
-  }
-  return shuffle(unique.slice(0, 5));
+  return fromList.slice(0, 3);
 }
 
 /** Quita fondo negro/blanco de stickers deco (como en Ropa / Trastes). */
@@ -526,27 +501,117 @@ function drawSticker(
 }
 
 /**
- * Un sticker = un motivo. No usa PNGs compuestos (jarcería/detergente/trastes
- * traen varios utensilios y se veían como stickers repetidos).
+ * Foto completa (contain): se ve entera, sin cleanSticker que la “comía”.
+ * size = lado máximo del cuadro donde cabe.
  */
-function drawMotivoSticker(
+function drawFotoCompleta(
   ctx: CanvasRenderingContext2D,
-  motivo: StickerMotivo,
+  img: HTMLImageElement,
   cx: number,
   cy: number,
   size: number,
-  rotDeg: number,
-  pngs: Record<StickerKey, HTMLImageElement | null>
+  rotDeg: number
 ): void {
-  if (motivo === 'burbujas' && pngs.burbujas) {
-    drawSticker(ctx, pngs.burbujas, cx, cy, size, rotDeg);
-    return;
-  }
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  if (!iw || !ih) return;
+  const scale = Math.min(size / iw, size / ih);
+  const dw = Math.max(1, Math.round(iw * scale));
+  const dh = Math.max(1, Math.round(ih * scale));
+
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate((rotDeg * Math.PI) / 180);
-  drawCanvasMotivo(ctx, motivo, size);
+  ctx.shadowColor = 'rgba(16, 32, 56, 0.2)';
+  ctx.shadowBlur = Math.max(12, size * 0.06);
+  ctx.shadowOffsetY = Math.max(5, size * 0.03);
+  // Soft white plate detrás para que destaque el producto
+  const pad = Math.max(8, size * 0.04);
+  const rw = dw + pad * 2;
+  const rh = dh + pad * 2;
+  const rr = Math.min(28, rw * 0.12);
+  ctx.beginPath();
+  ctx.moveTo(-rw / 2 + rr, -rh / 2);
+  ctx.arcTo(rw / 2, -rh / 2, rw / 2, rh / 2, rr);
+  ctx.arcTo(rw / 2, rh / 2, -rw / 2, rh / 2, rr);
+  ctx.arcTo(-rw / 2, rh / 2, -rw / 2, -rh / 2, rr);
+  ctx.arcTo(-rw / 2, -rh / 2, rw / 2, -rh / 2, rr);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
   ctx.restore();
+}
+
+/**
+ * Collage Canva: blob + 2 fotos completas apiladas (sin cortar).
+ */
+function drawCanvaCollage(
+  ctx: CanvasRenderingContext2D,
+  motivos: StickerMotivo[],
+  fotos: Stickers,
+  safe: { xMin: number; xMax: number; yMin: number; yMax: number },
+  tema: TemaFlyer
+): void {
+  const imgs = motivos.map((m) => fotos[m]).filter((i): i is HTMLImageElement => !!i).slice(0, 2);
+  if (!imgs.length) return;
+
+  const cx = (safe.xMin + safe.xMax) / 2;
+  const colW = Math.max(40, safe.xMax - safe.xMin);
+  const colH = Math.max(40, safe.yMax - safe.yMin);
+  const cy = (safe.yMin + safe.yMax) / 2;
+
+  // Blob de color (fondo Canva)
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  ctx.fillStyle = tema.acentoTitulo;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, colW * 0.48, colH * 0.4, -0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = Brand.lime;
+  ctx.beginPath();
+  ctx.ellipse(cx + colW * 0.08, cy + colH * 0.12, colW * 0.32, colH * 0.22, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Destellos (fuera del producto)
+  const sparkCols = [Brand.lime, Brand.teal, Brand.limeSoft, '#FF8FAB'];
+  const sparks: [number, number, number][] = [
+    [safe.xMin + 18, safe.yMin + 24, 12],
+    [safe.xMax - 22, safe.yMin + 40, 10],
+    [safe.xMax - 18, safe.yMax - 36, 12],
+  ];
+  ctx.save();
+  for (let i = 0; i < sparks.length; i++) {
+    const [sx, sy, ss] = sparks[i];
+    ctx.fillStyle = sparkCols[i % sparkCols.length];
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    for (let k = 0; k < 8; k++) {
+      const ang = (k * Math.PI) / 4 - Math.PI / 2;
+      const r = k % 2 === 0 ? ss : ss * 0.35;
+      const px = sx + Math.cos(ang) * r;
+      const py = sy + Math.sin(ang) * r;
+      if (k === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Apiladas verticalmente, enteras, poca rotación
+  const n = imgs.length;
+  const gap = 28;
+  const maxS = Math.min(colW * 0.9, (colH - gap * (n - 1)) / n - 8);
+  const totalH = n * maxS + (n - 1) * gap;
+  let y = cy - totalH / 2 + maxS / 2;
+  imgs.forEach((img, i) => {
+    const rot = i % 2 === 0 ? -4 : 4;
+    drawFotoCompleta(ctx, img, cx, y, maxS, rot);
+    y += maxS + gap;
+  });
 }
 
 /** Iconos simples y coloridos por tipo de producto (centrados en 0,0). */
@@ -833,51 +898,6 @@ function drawCanvasMotivo(ctx: CanvasRenderingContext2D, motivo: StickerMotivo, 
   ctx.restore();
 }
 
-/**
- * Slots solo en columna derecha, entre slogan y pie.
- * Nunca invaden lista de productos, título ni pie de contacto.
- */
-function pickStickerSlots(
-  W: number,
-  H: number,
-  count: number,
-  safe: { xMin: number; xMax: number; yMin: number; yMax: number }
-): { x: number; y: number; s: number; rot: number }[] {
-  const maxS = Math.min(W * 0.13, (safe.xMax - safe.xMin) * 0.55, (safe.yMax - safe.yMin) * 0.28);
-  const candidates = [
-    { x: 0.82, y: 0.34, s: 0.11 },
-    { x: 0.9, y: 0.42, s: 0.1 },
-    { x: 0.78, y: 0.5, s: 0.1 },
-    { x: 0.88, y: 0.56, s: 0.11 },
-    { x: 0.8, y: 0.64, s: 0.1 },
-    { x: 0.92, y: 0.68, s: 0.09 },
-    { x: 0.85, y: 0.46, s: 0.1 },
-    { x: 0.76, y: 0.58, s: 0.09 },
-  ];
-  const pad = maxS * 0.55;
-  const valid = candidates.filter((c) => {
-    const x = W * c.x;
-    const y = H * c.y;
-    return (
-      x - pad >= safe.xMin &&
-      x + pad <= safe.xMax &&
-      y - pad >= safe.yMin &&
-      y + pad <= safe.yMax
-    );
-  });
-  const pool = valid.length >= count ? valid : candidates;
-  const picked = shuffle(pool).slice(0, count);
-  return picked.map((c) => {
-    let x = W * c.x;
-    let y = H * c.y;
-    const s = Math.min(W * c.s, maxS);
-    const half = s * 0.52;
-    x = Math.min(safe.xMax - half, Math.max(safe.xMin + half, x));
-    y = Math.min(safe.yMax - half, Math.max(safe.yMin + half, y));
-    return { x, y, s, rot: (Math.random() - 0.5) * 22 };
-  });
-}
-
 /** Quita el rectángulo blanco del PNG del logo. */
 function logoSinFondo(img: HTMLImageElement, boxW: number, boxH: number): HTMLCanvasElement | null {
   const iw = img.naturalWidth || img.width;
@@ -1029,7 +1049,6 @@ function pickComposiciones(
       tema: { ...tema, slogan: sloganParaProductos(precios, familia) },
       vertical: true,
       precios,
-      stickerMotivos: stickersDesdeLista(precios, familia),
     });
   };
   for (let i = 0; i < n; i++) {
@@ -1095,7 +1114,28 @@ function saludo(): string {
   }
 }
 
-type Stickers = Record<StickerKey, HTMLImageElement | null>;
+/** Fotos realistas por motivo (JPG en /publicidad). Sin PNG deco/stickers. */
+type Stickers = Partial<Record<StickerMotivo, HTMLImageElement | null>>;
+
+/** Archivos en /publicidad (fotos de producto). */
+const FOTO_PRODUCTO: Partial<Record<StickerMotivo, string>> = {
+  detergente: 'prod-detergente.jpg',
+  suavizante: 'prod-suavizante.jpg',
+  cloro: 'prod-cloro.jpg',
+  aroma: 'prod-aroma.jpg',
+  trastes: 'prod-trastes.jpg',
+  manos: 'prod-manos.jpg',
+  escoba: 'prod-escoba.jpg',
+  trapeador: 'prod-trapeador.jpg',
+  guantes: 'prod-guantes.jpg',
+  fibra: 'prod-fibra.jpg',
+  cubeta: 'prod-cubeta.jpg',
+  jalador: 'prod-jalador.jpg',
+  recogedor: 'prod-recogedor.jpg',
+  cepillo: 'prod-cepillo.jpg',
+  esponja: 'prod-esponja.jpg',
+  jarceria: 'prod-jarceria.jpg',
+};
 
 /** Título fijo en todas las promos. */
 const HEADLINE_FIJO = 'PRODUCTOS DE LIMPIEZA\nA GRANEL';
@@ -1369,19 +1409,19 @@ async function renderFlyer(
     layoutNames = measureBlock(nameSize, lineH, gap, textW);
   }
 
-  // Stickers solo a la derecha del texto, debajo del slogan y arriba del pie
-  const motivosUnicos = [...new Set(comp.stickerMotivos)].slice(0, 5);
+  // Collage Canva (derecha): imágenes de limpieza del tema, no N botellas etiquetadas
+  const familia = familiaDePrecios(precios, tema.grupo);
+  const motivos = motivosCollage(
+    productNames.map((n) => ({ nombre: n, precio: '' })),
+    familia
+  );
   const safe = {
-    xMin: margin + listMaxW + 28,
+    xMin: margin + listMaxW + 20,
     xMax: W - margin - 8,
-    yMin: listTopY - 20,
-    yMax: H - footReserve - 12,
+    yMin: listTopY - 10,
+    yMax: H - footReserve - 16,
   };
-  const slots = pickStickerSlots(W, H, motivosUnicos.length, safe);
-  motivosUnicos.forEach((motivo, i) => {
-    const L = slots[i];
-    drawMotivoSticker(ctx, motivo, L.x, L.y, L.s, L.rot, stickers);
-  });
+  drawCanvaCollage(ctx, motivos, stickers, safe, tema);
 
   drawSoftPanel(ctx, margin - 4, listTopY - nameSize - 6, listMaxW + 36, layoutNames.h + 28, 20);
 
@@ -1454,36 +1494,31 @@ function drawFlyerBackground(
   H: number,
   tema: TemaFlyer
 ): void {
-  ctx.fillStyle = tema.fondo;
-  ctx.fillRect(0, 0, W, H);
-
-  const grad = ctx.createLinearGradient(0, 0, W * 0.35, H);
-  grad.addColorStop(0, 'rgba(255,255,255,0.72)');
-  grad.addColorStop(0.4, 'rgba(255,255,255,0.22)');
-  grad.addColorStop(1, hexAlpha(tema.acentoTitulo, 0.1));
-  ctx.fillStyle = grad;
+  // Fondo degradado tipo Canva
+  const base = ctx.createLinearGradient(0, 0, W, H);
+  base.addColorStop(0, '#FFFFFF');
+  base.addColorStop(0.45, tema.fondo);
+  base.addColorStop(1, hexAlpha(tema.acentoTitulo, 0.18));
+  ctx.fillStyle = base;
   ctx.fillRect(0, 0, W, H);
 
   ctx.save();
-  ctx.globalAlpha = 0.14;
-  const blobs: [number, number, number, string][] = [
-    [W * 0.82, H * 0.28, 160, tema.acentoTitulo],
-    [W * 0.92, H * 0.55, 200, Brand.lime],
-    [W * 0.78, H * 0.72, 140, Brand.teal],
-  ];
-  for (const [bx, by, br, color] of blobs) {
-    ctx.beginPath();
-    ctx.fillStyle = color;
-    ctx.arc(bx, by, br, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = Brand.lime;
+  ctx.beginPath();
+  ctx.ellipse(W * 0.12, H * 0.08, 220, 140, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = Brand.teal;
+  ctx.beginPath();
+  ctx.ellipse(W * 0.95, H * 0.9, 260, 180, 0.4, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 
-  const bot = ctx.createLinearGradient(0, H * 0.72, 0, H);
+  const bot = ctx.createLinearGradient(0, H * 0.75, 0, H);
   bot.addColorStop(0, 'rgba(255,255,255,0)');
-  bot.addColorStop(1, 'rgba(255,255,255,0.35)');
+  bot.addColorStop(1, 'rgba(255,255,255,0.4)');
   ctx.fillStyle = bot;
-  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+  ctx.fillRect(0, H * 0.75, W, H * 0.25);
 }
 
 function hexAlpha(hex: string, a: number): string {
@@ -1532,22 +1567,23 @@ export async function generarLotePublicidad(
   inventario: ProductoPromo[] = [],
   depto: DeptoPromo = 'LIMPIEZA'
 ): Promise<PromoGenerada[]> {
-  const media = (name: string) =>
-    loadImage(`/publicidad/${name}?v=44`).then((i) => i || loadImage(`/api/publicidad/media/${name}?v=44`));
+  const bust = 'v=53';
+  const media = (name: string) => loadPublicidadMedia(name, bust);
 
-  const [logo, detergente, trastes, jarceria, burbujas, iconWa, iconPin] = await Promise.all([
-    media('amorcas-chingon.png').then(
-      (i) => i || loadImage('/amorcas-logo.png').then((j) => j || media('amorcas-c.jpg'))
-    ),
-    media('deco-detergente.png'),
-    media('deco-trastes-jabon.png'),
-    media('deco-jarceria.png'),
-    media('deco-burbujas.png'),
-    media('icon-wa-fijo.png').then((i) => i || media('icon-wa-verde.png')),
-    media('icon-pin-casa.png'),
-  ]);
+  const fotoEntries = Object.entries(FOTO_PRODUCTO) as [StickerMotivo, string][];
+  // Secuencial en lotes: evita fallos por muchas Image/fetch en paralelo (SW/caché).
+  const logo =
+    (await media('amorcas-chingon.png')) ||
+    (await loadImage('/amorcas-logo.png')) ||
+    (await media('amorcas-c.jpg'));
+  const iconWa = (await media('icon-wa-fijo.png')) || (await media('icon-wa-verde.png'));
+  const iconPin = await media('icon-pin-casa.png');
 
-  const stickers: Stickers = { detergente, trastes, jarceria, burbujas };
+  const fotosCargadas = await Promise.all(fotoEntries.map(([, file]) => media(file)));
+  const stickers: Stickers = {};
+  fotoEntries.forEach(([motivo], i) => {
+    stickers[motivo] = fotosCargadas[i] ?? null;
+  });
   const icons = { wa: iconWa, pin: iconPin };
   const comps = pickComposiciones(cantidad, inventario, depto);
   const out: PromoGenerada[] = [];
