@@ -11,6 +11,7 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { CajaResumen, InventarioItem, Venta } from '../../modelos';
@@ -18,7 +19,6 @@ import { ProductoAutocompleteComponent } from '../../producto-autocomplete.compo
 import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
-import { AutoHideDirective } from '../../auto-hide.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 
 interface ProductoPeriodo {
@@ -69,8 +69,7 @@ const INICIO_HISTORICO = '2025-10-29';
     FechaDiaComponent,
     ClearableDirective,
     SoloNumerosDirective,
-    PaginadorComponent,
-    AutoHideDirective,
+    PaginadorComponent, PageAlertsComponent,
   ],
   templateUrl: './uso-casa.component.html',
   styleUrl: './uso-casa.component.scss',

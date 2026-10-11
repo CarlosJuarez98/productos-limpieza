@@ -11,12 +11,13 @@ import {
 } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
+import { AlertDialogComponent } from './alert-dialog.component';
+import { PageAlertsComponent } from './page-alerts.component';
 import { PullRefreshService } from './pull-refresh.service';
 import { AuthService } from './auth.service';
 import { OfflineService } from './offline.service';
 import { ApiService } from './api.service';
 import { capturaTieneFocoEnCampo } from './paginacion.util';
-import { AutoHideDirective } from './auto-hide.directive';
 import { AppUpdateService } from './app-update.service';
 
 type NavIcon =
@@ -48,8 +49,9 @@ type NavLink = { path: string; label: string; short?: string; icon: NavIcon };
     RouterLink,
     RouterLinkActive,
     ConfirmDialogComponent,
+    AlertDialogComponent,
+    PageAlertsComponent,
     NgTemplateOutlet,
-    AutoHideDirective,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',

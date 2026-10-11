@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { InventarioItem, TraspasosResumen } from '../../modelos';
@@ -16,7 +17,6 @@ import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreak
 import { PaginadorComponent } from '../../paginador.component';
 import { Traspaso, TraspasoAbono } from '../../modelos';
 import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
-import { AutoHideDirective } from '../../auto-hide.directive';
 
 interface LineaForm {
   key: number;
@@ -48,8 +48,7 @@ type DraftTraspasos = {
     FechaDiaComponent,
     ClearableDirective,
     SoloNumerosDirective,
-    PaginadorComponent,
-    AutoHideDirective,
+    PaginadorComponent, PageAlertsComponent,
   ],
   templateUrl: './traspasos.component.html',
   styleUrl: './traspasos.component.scss',

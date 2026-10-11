@@ -7,6 +7,7 @@ import { InventarioItem, PrecioHistorico } from '../../modelos';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
+import { PageAlertsComponent } from '../../page-alerts.component';
 
 interface PrecioAnterior extends PrecioHistorico {
   vigenteHasta: string | null;
@@ -22,7 +23,7 @@ interface PrecioActual {
 @Component({
   selector: 'app-precios',
   standalone: true,
-  imports: [CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, PaginadorComponent],
+  imports: [PageAlertsComponent, CommonModule, FormsModule, FechaDmYPipe, ClearableDirective, PaginadorComponent],
   templateUrl: './precios.component.html',
   styleUrl: './precios.component.scss',
 })

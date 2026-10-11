@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
-import { AutoHideDirective } from '../../auto-hide.directive';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { InventarioItem } from '../../modelos';
@@ -15,8 +15,7 @@ import { PullRefreshService } from '../../pull-refresh.service';
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
-    AutoHideDirective,
+    FormsModule, PageAlertsComponent,
     SoloNumerosDirective,
     ProductoAutocompleteComponent,
   ],

@@ -1,11 +1,5 @@
 <h2 class="page-title">Inversión y ganancias</h2>
-
-@if (error) {
-  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-}
-@if (ok) {
-  <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
-}
+<app-page-alerts [(ok)]="ok" [(error)]="error" />
 
 @if (data) {
   <div class="stats stats-inversion">

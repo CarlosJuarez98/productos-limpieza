@@ -81,6 +81,4 @@
     <button type="button" class="secondary" (click)="cancelado.emit()">Cancelar</button>
   </div>
 </form>
-@if (error) {
-  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-}
+<app-page-alerts [(error)]="error" />

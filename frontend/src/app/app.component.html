@@ -251,9 +251,6 @@
         Nueva
         <input type="password" name="pwdNueva" [(ngModel)]="pwdNueva" autocomplete="new-password" required />
       </label>
-      @if (pwdError) {
-        <p class="pwd-error" appAutoHide (autoHide)="pwdError = ''">{{ pwdError }}</p>
-      }
       <div class="pwd-actions">
         <button type="button" class="btn-salir" (click)="cerrarCambioPassword()" [disabled]="pwdCargando">Cancelar</button>
         <button type="submit" [disabled]="pwdCargando">{{ pwdCargando ? 'Guardando…' : 'Guardar' }}</button>
@@ -263,3 +260,5 @@
 }
 
 <app-confirm-dialog />
+<app-alert-dialog />
+<app-page-alerts [(error)]="pwdError" />

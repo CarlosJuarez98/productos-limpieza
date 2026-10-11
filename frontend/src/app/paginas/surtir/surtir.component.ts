@@ -6,6 +6,7 @@ import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import {
   inferirDepartamento,
   Entrada,
@@ -22,7 +23,6 @@ import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
-import { AutoHideDirective } from '../../auto-hide.directive';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
@@ -42,6 +42,25 @@ type GrupoPedido = 'LIMPIEZA' | 'JARCERIA';
 type FiltroDepto = 'todo' | 'limpieza' | 'jarceria';
 type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
 type TipSurtirEstado = 'urgente' | 'pronto' | 'ok' | 'sin_dato';
+
+/** Escoba / jalador / mechudo (y trapeador) → van a lista Armar con bastón. */
+function nombreSugiereUsaBaston(nombre: string | null | undefined): boolean {
+  return /escoba|jalador|mechudo|trapeador/i.test(nombre || '');
+}
+
+type ReciboDraftSnap = {
+  itemId: number;
+  productoId?: number;
+  pedida: number | null;
+  recibida: number | null;
+  precioUnitario?: number | null;
+  totalPagado: number | null;
+  precioVenta?: number | null;
+  precioMayoreo5?: number | null;
+  precioMayoreo10?: number | null;
+  usaBaston?: boolean;
+  traeBastonIncluido?: boolean;
+};
 type TipSurtir = {
   depto: GrupoPedido;
   titulo: string;
@@ -85,7 +104,7 @@ type ReciboEdit = {
   traeBastonIncluido: boolean;
 };
 type DraftSurtir = {
-  v: 1;
+  v: 1 | 2;
   porcentajeExtra: number;
   filtroDepto: FiltroDepto;
   desde: string;
@@ -95,16 +114,10 @@ type DraftSurtir = {
   ultimo: PedidoSugerido | null;
   lineas: LineaEditable[];
   pedidoExpandidoId: number | null;
-  recibos: {
-    itemId: number;
-    pedida: number | null;
-    recibida: number | null;
-    precioUnitario?: number | null;
-    totalPagado: number | null;
-    precioVenta?: number | null;
-    usaBaston?: boolean;
-    traeBastonIncluido?: boolean;
-  }[];
+  /** Captura del pedido expandido (compat). */
+  recibos: ReciboDraftSnap[];
+  /** Capturas por pedido: no se pierden al colapsar, agregar ítem o cambiar pantalla. */
+  recibosPorPedido?: Record<string, ReciboDraftSnap[]>;
   fechaLimitePago: string;
   abonoNuevo: { fecha: string; monto: number | null; nota: string };
 };
@@ -118,8 +131,7 @@ type DraftSurtir = {
     ClearableDirective,
     SoloNumerosDirective,
     PaginadorComponent,
-    FechaDmYPipe,
-    AutoHideDirective,
+    FechaDmYPipe, PageAlertsComponent,
     ProductoAutocompleteComponent,
     FechaDiaComponent,
   ],
@@ -840,6 +852,32 @@ export class SurtirComponent implements OnInit, OnDestroy {
     );
   }
 
+  /** Costo de 1 bastón (precio compra del producto bastón). */
+  costoBastonPorUnidad(): number {
+    const b = this.bastonInv;
+    const c = Number(b?.precioCompra) || 0;
+    return c > 0 ? Math.round(c * 100) / 100 : 0;
+  }
+
+  /**
+   * Base para sugerir menudeo (solo hint):
+   * - Trae bastón → solo cabeza del proveedor.
+   * - Falta armar → cabeza + costo del bastón.
+   */
+  baseCompraMenudeoRecibo(r: ReciboEdit): number | null {
+    const u = this.unitarioRecibo(r);
+    if (u == null || u <= 0) return null;
+    const usa = r.usaBaston || nombreSugiereUsaBaston(r.productoNombre);
+    if (!usa || r.traeBastonIncluido) return u;
+    const baston = this.costoBastonPorUnidad();
+    return baston > 0 ? Math.round((u + baston) * 100) / 100 : u;
+  }
+
+  /** Mostrar Falta armar / Trae bastón (ya en lista o nombre tipico). */
+  muestraOpcionesBaston(r: ReciboEdit): boolean {
+    return !!r.usaBaston || nombreSugiereUsaBaston(r.productoNombre);
+  }
+
   /**
    * Si en el pedido hay productos de la lista Armar y no alcanzan los bastones
    * (stock + lo que ya pediste de bastón), sugiere cuántos surtir.
@@ -1119,14 +1157,19 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   togglePedido(id: number): void {
     if (this.pedidoExpandidoId === id) {
+      // Guardar captura antes de colapsar; no pisar el draft con recibos vacíos.
+      this.persistirBorrador();
       this.pedidoExpandidoId = null;
       this.recibosEdit = [];
       this.editandoPedidaId = null;
-      this.programarBorrador();
       return;
+    }
+    if (this.pedidoExpandidoId != null && this.recibosEdit.length) {
+      this.persistirBorrador();
     }
     this.pedidoExpandidoId = id;
     this.armarDetalle(this.pedidos.find((x) => x.id === id));
+    this.aplicarRecibosGuardadosDelPedido(id);
     this.programarBorrador();
   }
 
@@ -1160,6 +1203,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
       const sinMenudeo = !prod || !Number.isFinite(Number(prod.precioVentaHoy)) || Number(prod.precioVentaHoy) <= 0;
       const stubCompra = compraRaw == null || compraRaw <= 0;
       const completarAlta = sinMenudeo || (stubCompra && !yaCapturado);
+      const porNombre = nombreSugiereUsaBaston(i.productoNombre);
       return {
         itemId: i.id,
         productoId: i.productoId,
@@ -1185,7 +1229,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
         precioVenta: sinMenudeo ? null : Number(prod!.precioVentaHoy),
         precioMayoreo5: Number(prod?.precioMayoreo5) > 0 ? Number(prod!.precioMayoreo5) : null,
         precioMayoreo10: Number(prod?.precioMayoreo10) > 0 ? Number(prod!.precioMayoreo10) : null,
-        usaBaston: !!prod?.usaBaston,
+        usaBaston: !!prod?.usaBaston || (completarAlta && porNombre),
         /** Por defecto falta armar; si trae bastón, el usuario lo marca. */
         traeBastonIncluido: false,
       };
@@ -1201,8 +1245,13 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   setTraeBaston(r: ReciboEdit, trae: boolean): void {
-    if (r.traeBastonIncluido === trae) return;
+    r.usaBaston = true;
+    if (r.traeBastonIncluido === trae) {
+      this.programarBorrador();
+      return;
+    }
     r.traeBastonIncluido = trae;
+    if (r.completarAlta) this.sincronizarMayoreoRecibo(r);
     this.programarBorrador();
   }
 
@@ -1287,7 +1336,14 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   tituloMenudeoRecibo(r: ReciboEdit): string {
     const rango = this.rangoMinMaxRecibo(r);
-    let t = 'Menudeo (precio de venta)';
+    let t = 'Menudeo (tú lo pones; el rango es solo sugerencia)';
+    const usa = r.usaBaston || nombreSugiereUsaBaston(r.productoNombre);
+    const baston = this.costoBastonPorUnidad();
+    if (usa && !r.traeBastonIncluido && baston > 0) {
+      t += ` · falta armar: incluye bastón $${baston}`;
+    } else if (usa && r.traeBastonIncluido) {
+      t += ' · trae bastón: sin sumar bastón';
+    }
     if (rango) {
       t += ` · sugerido ${rango.min}–${rango.max}`;
       if (r.precioMayoreo5 != null && r.precioMayoreo10 != null) {
@@ -1300,11 +1356,11 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   rangoMinMaxRecibo(r: ReciboEdit): { min: number; max: number } | null {
-    const u = this.unitarioRecibo(r);
-    if (u == null || u <= 0) return null;
+    const base = this.baseCompraMenudeoRecibo(r);
+    if (base == null || base <= 0) return null;
     return {
-      min: precioConMargenArriba(u, this.pct.min),
-      max: precioConMargenArriba(u, this.pct.max),
+      min: precioConMargenArriba(base, this.pct.min),
+      max: precioConMargenArriba(base, this.pct.max),
     };
   }
 
@@ -1364,10 +1420,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   private sincronizarMayoreoRecibo(r: ReciboEdit): void {
-    const u = this.unitarioRecibo(r);
     const menudeo = Number(r.precioVenta) || 0;
     if (menudeo <= 0) return;
-    const compra = u != null && u > 0 ? u : 0;
+    const compra = this.baseCompraMenudeoRecibo(r) ?? 0;
     if (this.pct.mayoreo5 != null) {
       r.precioMayoreo5 = noBajoCompra(precioConDescuentoEntero(menudeo, this.pct.mayoreo5), compra);
     }
@@ -1458,10 +1513,14 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.guardandoRecepcion = true;
     this.error = '';
     try {
+      const bastonId = this.bastonInv?.id ?? null;
+      let agregadosArmar = 0;
       for (const r of aCompletar) {
         const u = this.unitarioRecibo(r)!;
+        if (this.muestraOpcionesBaston(r)) r.usaBaston = true;
         this.sincronizarMayoreoRecibo(r);
         const prod = this.productoPorId(r.productoId);
+        const usaBaston = !!r.usaBaston || !!prod?.usaBaston;
         const actualizado = await firstValueFrom(
           this.api.actualizarProducto(r.productoId, {
             nombre: r.productoNombre.trim(),
@@ -1472,18 +1531,49 @@ export class SurtirComponent implements OnInit, OnDestroy {
             precioMayoreo10: r.precioMayoreo10,
             vendePor: prod?.vendePor || (r.unidad === 'pza' ? 'PIEZA' : 'LITROS'),
             departamento: r.departamento,
-            usaBaston: !!prod?.usaBaston || !!r.usaBaston,
+            usaBaston,
             esBaston: false,
             bastonesPorUnidad: Number(prod?.bastonesPorUnidad) || 1,
-            bastonProductoId: prod?.bastonProductoId ?? null,
+            bastonProductoId: usaBaston ? (prod?.bastonProductoId ?? bastonId) : null,
           }),
         );
         const ix = this.productos.findIndex((p) => p.id === actualizado.id);
         if (ix >= 0) this.productos[ix] = actualizado;
         else this.productos = [...this.productos, actualizado];
+        if (usaBaston && !prod?.usaBaston) agregadosArmar++;
         r.completarAlta = false;
         r.precioCompra = u;
         r.usaBaston = !!actualizado.usaBaston;
+      }
+      // Productos ya en catálogo (escoba/jalador/mechudo o marcados): entrar a lista Armar.
+      for (const r of this.recibosEdit) {
+        const rec = Math.max(0, Number(r.recibida) || 0);
+        if (rec <= 0) continue;
+        if (!this.muestraOpcionesBaston(r)) continue;
+        r.usaBaston = true;
+        const prod = this.productoPorId(r.productoId);
+        if (!prod || prod.usaBaston) continue;
+        const actualizado = await firstValueFrom(
+          this.api.actualizarProducto(r.productoId, {
+            nombre: prod.nombre,
+            precioCompra: Number(prod.precioCompra) || 0,
+            cantidadInicial: prod.cantidadInicial ?? 0,
+            precioVenta: Number(prod.precioVentaHoy) > 0 ? Number(prod.precioVentaHoy) : null,
+            precioMayoreo5: Number(prod.precioMayoreo5) > 0 ? Number(prod.precioMayoreo5) : null,
+            precioMayoreo10: Number(prod.precioMayoreo10) > 0 ? Number(prod.precioMayoreo10) : null,
+            vendePor: prod.vendePor,
+            departamento: prod.departamento || r.departamento,
+            usaBaston: true,
+            esBaston: false,
+            bastonesPorUnidad: Number(prod.bastonesPorUnidad) || 1,
+            bastonProductoId: prod.bastonProductoId ?? bastonId,
+          }),
+        );
+        const ix = this.productos.findIndex((p) => p.id === actualizado.id);
+        if (ix >= 0) this.productos[ix] = actualizado;
+        else this.productos = [...this.productos, actualizado];
+        agregadosArmar++;
+        r.usaBaston = true;
       }
       const lineas = this.recibosEdit.map((r) => {
         const u = this.unitarioRecibo(r);
@@ -1510,6 +1600,13 @@ export class SurtirComponent implements OnInit, OnDestroy {
             ? ' Producto nuevo ya en inventario con precios.'
             : ` ${aCompletar.length} productos nuevos ya en inventario con precios.`;
       }
+      if (agregadosArmar > 0) {
+        this.ok +=
+          agregadosArmar === 1
+            ? ' Quedó en la lista Armar (Entradas).'
+            : ` ${agregadosArmar} quedaron en la lista Armar (Entradas).`;
+      }
+      this.limpiarDraftRecepcionPedido(this.pedidoExpandidoId);
       this.reemplazarPedido(act, true);
       this.cargarPedidos();
       this.cargarSaldoProductos();
@@ -1993,6 +2090,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
       return;
     }
     this.error = '';
+    this.persistirBorrador();
     this.api.agregarItemPedido(p.id, prod.id, cant).subscribe({
         next: (act) => {
           this.altaPedidoProductoId = null;
@@ -2021,6 +2119,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
       return;
     }
     this.error = '';
+    this.persistirBorrador();
+    const usaBaston = nombreSugiereUsaBaston(nombre);
+    const bastonId = this.bastonInv?.id ?? null;
     try {
       const creado = await firstValueFrom(
         this.api.crearProducto({
@@ -2032,6 +2133,10 @@ export class SurtirComponent implements OnInit, OnDestroy {
           precioMayoreo10: null,
           vendePor: this.altaPedidoNuevoVendePor,
           departamento: this.altaPedidoNuevoDepto,
+          usaBaston,
+          esBaston: false,
+          bastonesPorUnidad: 1,
+          bastonProductoId: usaBaston ? bastonId : null,
         }),
       );
       if (!this.productos.some((x) => x.id === creado.id)) {
@@ -2042,7 +2147,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
       this.altaPedidoCantidad = null;
       this.altaPedidoNuevo = false;
       const donde = this.altaPedidoNuevoDepto === 'JARCERIA' ? 'Jarcería' : 'Limpieza';
-      this.ok = `Nuevo en ${donde}: ${creado.nombre}. Pon importe al recibir.`;
+      this.ok = usaBaston
+        ? `Nuevo en ${donde}: ${creado.nombre}. Indica si trae bastón o falta armar; el hint de menudeo suma bastón solo si falta armar.`
+        : `Nuevo en ${donde}: ${creado.nombre}. Pon importe al recibir.`;
       this.reemplazarPedido(act, true);
     } catch (e: unknown) {
       const err = e as { error?: { error?: string } };
@@ -2066,6 +2173,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
     if (!ok) return;
     const eraNuevo = r.completarAlta;
     const productoId = r.productoId;
+    this.persistirBorrador();
     this.api.eliminarItemPedido(p.id, r.itemId).subscribe({
       next: async (act) => {
         this.ok = 'Producto quitado del pedido';
@@ -2353,8 +2461,13 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.fechaLimitePago = act.fechaLimitePago || this.fechaLimitePago;
     if (rearmarDetalle) {
       const keepPago = this.pagadoAhora;
+      const snap = this.snapshotRecibosEdit();
       this.armarDetalle(act);
+      // Draft guardado primero; la captura en memoria gana (p. ej. tras agregar ítem).
+      this.aplicarRecibosGuardadosDelPedido(act.id);
+      this.aplicarRecibosSnap(snap);
       this.pagadoAhora = keepPago;
+      this.programarBorrador();
     }
   }
 
@@ -2363,25 +2476,130 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.draftTimer = setTimeout(() => this.persistirBorrador(), 200);
   }
 
+  private hayCapturaReciboUtil(r: ReciboDraftSnap | ReciboEdit): boolean {
+    return (
+      (r.recibida != null && Number(r.recibida) > 0) ||
+      (r.totalPagado != null && String(r.totalPagado) !== '') ||
+      (r.precioUnitario != null && String(r.precioUnitario) !== '') ||
+      (r.precioVenta != null && Number(r.precioVenta) > 0) ||
+      !!r.usaBaston
+    );
+  }
+
   private hayBorradorUtil(): boolean {
     if (this.lineas.some((l) => l.incluido && Number(l.pedir) > 0)) return true;
     if (this.pedidoExpandidoId != null) return true;
-    if (this.recibosEdit.some((r) => Number(r.recibida) > 0 || (r.totalPagado != null && String(r.totalPagado) !== ''))) {
-      return true;
-    }
+    if (this.recibosEdit.some((r) => this.hayCapturaReciboUtil(r))) return true;
     if (this.fechaLimitePago) return true;
     if (this.abonoNuevo.monto != null && Number(this.abonoNuevo.monto) > 0) return true;
     if ((this.abonoNuevo.nota || '').trim()) return true;
     return false;
   }
 
+  private limpiarDraftRecepcionPedido(pedidoId: number | null): void {
+    if (pedidoId == null) return;
+    const prev = this.drafts.load<DraftSurtir>(SurtirComponent.DRAFT);
+    if (!prev) return;
+    const recibosPorPedido = { ...(prev.recibosPorPedido || {}) };
+    delete recibosPorPedido[String(pedidoId)];
+    const draft: DraftSurtir = {
+      ...prev,
+      v: 2,
+      recibosPorPedido,
+      recibos: prev.pedidoExpandidoId === pedidoId ? [] : prev.recibos,
+      pedidoExpandidoId: prev.pedidoExpandidoId === pedidoId ? null : prev.pedidoExpandidoId,
+    };
+    this.drafts.save(SurtirComponent.DRAFT, draft);
+  }
+
+  private snapshotRecibosEdit(): ReciboDraftSnap[] {
+    return this.recibosEdit.map((r) => ({
+      itemId: r.itemId,
+      productoId: r.productoId,
+      pedida: r.pedida,
+      recibida: r.recibida,
+      precioUnitario: r.precioUnitario,
+      totalPagado: r.totalPagado,
+      precioVenta: r.precioVenta,
+      precioMayoreo5: r.precioMayoreo5,
+      precioMayoreo10: r.precioMayoreo10,
+      usaBaston: r.usaBaston,
+      traeBastonIncluido: r.traeBastonIncluido,
+    }));
+  }
+
+  private aplicarRecibosSnap(recibos: ReciboDraftSnap[] | undefined | null): void {
+    if (!recibos?.length) return;
+    const byItem = new Map(recibos.map((r) => [r.itemId, r]));
+    const byProd = new Map<number, ReciboDraftSnap>();
+    for (const d of recibos) {
+      if (d.productoId != null) byProd.set(d.productoId, d);
+    }
+    for (const r of this.recibosEdit) {
+      const d = byItem.get(r.itemId) || byProd.get(r.productoId);
+      if (!d) continue;
+      if (d.pedida != null) r.pedida = d.pedida;
+      if (d.recibida !== undefined) r.recibida = d.recibida;
+      if (d.precioUnitario !== undefined) r.precioUnitario = d.precioUnitario;
+      if (d.totalPagado !== undefined) r.totalPagado = d.totalPagado;
+      if (d.precioVenta !== undefined && r.completarAlta) {
+        r.precioVenta = d.precioVenta;
+      }
+      if (d.precioMayoreo5 !== undefined && r.completarAlta) {
+        r.precioMayoreo5 = d.precioMayoreo5 ?? null;
+      }
+      if (d.precioMayoreo10 !== undefined && r.completarAlta) {
+        r.precioMayoreo10 = d.precioMayoreo10 ?? null;
+      }
+      if (d.usaBaston !== undefined) r.usaBaston = !!d.usaBaston;
+      if (d.traeBastonIncluido !== undefined) r.traeBastonIncluido = !!d.traeBastonIncluido;
+      if (r.completarAlta && r.precioVenta != null && Number(r.precioVenta) > 0) {
+        this.sincronizarMayoreoRecibo(r);
+      }
+    }
+  }
+
+  /** Restaura captura guardada de un pedido (session/draft por id). */
+  private aplicarRecibosGuardadosDelPedido(pedidoId: number): void {
+    const draft = this.drafts.load<DraftSurtir>(SurtirComponent.DRAFT);
+    if (!draft) return;
+    const porId = draft.recibosPorPedido?.[String(pedidoId)];
+    if (porId?.length) {
+      this.aplicarRecibosSnap(porId);
+      return;
+    }
+    if (draft.pedidoExpandidoId === pedidoId && draft.recibos?.length) {
+      this.aplicarRecibosSnap(draft.recibos);
+    }
+  }
+
   private persistirBorrador(): void {
-    if (!this.hayBorradorUtil()) {
+    const prev = this.drafts.load<DraftSurtir>(SurtirComponent.DRAFT);
+    const recibosPorPedido: Record<string, ReciboDraftSnap[]> = {
+      ...(prev?.recibosPorPedido || {}),
+    };
+    if (this.pedidoExpandidoId != null && this.recibosEdit.length) {
+      recibosPorPedido[String(this.pedidoExpandidoId)] = this.snapshotRecibosEdit();
+    }
+    const tieneRecepcion =
+      Object.keys(recibosPorPedido).length > 0 ||
+      this.pedidoExpandidoId != null ||
+      (prev?.pedidoExpandidoId != null && !!prev.recibos?.length);
+
+    if (!this.hayBorradorUtil() && !tieneRecepcion) {
       this.drafts.clear(SurtirComponent.DRAFT);
       return;
     }
+
+    const recibosActuales =
+      this.pedidoExpandidoId != null && this.recibosEdit.length
+        ? this.snapshotRecibosEdit()
+        : prev?.pedidoExpandidoId != null
+          ? recibosPorPedido[String(prev.pedidoExpandidoId)] || prev.recibos || []
+          : [];
+
     const draft: DraftSurtir = {
-      v: 1,
+      v: 2,
       porcentajeExtra: this.porcentajeExtra,
       filtroDepto: this.filtroDepto,
       desde: this.desde,
@@ -2390,26 +2608,25 @@ export class SurtirComponent implements OnInit, OnDestroy {
       modoPeriodo: this.modoPeriodo,
       ultimo: this.ultimo,
       lineas: this.lineas,
-      pedidoExpandidoId: this.pedidoExpandidoId,
-      recibos: this.recibosEdit.map((r) => ({
-        itemId: r.itemId,
-        pedida: r.pedida,
-        recibida: r.recibida,
-        precioUnitario: r.precioUnitario,
-        totalPagado: r.totalPagado,
-        precioVenta: r.precioVenta,
-        usaBaston: r.usaBaston,
-        traeBastonIncluido: r.traeBastonIncluido,
-      })),
-      fechaLimitePago: this.fechaLimitePago,
-      abonoNuevo: { ...this.abonoNuevo },
+      pedidoExpandidoId:
+        this.pedidoExpandidoId != null
+          ? this.pedidoExpandidoId
+          : prev?.pedidoExpandidoId ?? null,
+      recibos: recibosActuales,
+      recibosPorPedido,
+      fechaLimitePago: this.fechaLimitePago || prev?.fechaLimitePago || '',
+      abonoNuevo: this.recibosEdit.length
+        ? { ...this.abonoNuevo }
+        : prev?.abonoNuevo
+          ? { ...prev.abonoNuevo }
+          : { ...this.abonoNuevo },
     };
     this.drafts.save(SurtirComponent.DRAFT, draft);
   }
 
   private restaurarBorradorSugerido(): void {
     const draft = this.drafts.load<DraftSurtir>(SurtirComponent.DRAFT);
-    if (!draft || draft.v !== 1) return;
+    if (!draft || (draft.v !== 1 && draft.v !== 2)) return;
     if (draft.lineas?.length) {
       this.porcentajeExtra = this.ajustarColchon(Number(draft.porcentajeExtra) || 0);
       this.filtroDepto = draft.filtroDepto || 'todo';
@@ -2431,7 +2648,11 @@ export class SurtirComponent implements OnInit, OnDestroy {
       if (minId < 0) this.pendienteSeq = minId - 1;
       this.syncPag(true);
     }
-    if (draft.pedidoExpandidoId != null || draft.recibos?.length) {
+    const hayRecepcion =
+      draft.pedidoExpandidoId != null ||
+      !!draft.recibos?.length ||
+      !!(draft.recibosPorPedido && Object.keys(draft.recibosPorPedido).length);
+    if (hayRecepcion) {
       this.draftRecepcionPendiente = draft;
     }
     if (draft.fechaLimitePago) this.fechaLimitePago = draft.fechaLimitePago;
@@ -2454,21 +2675,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
     }
     this.pedidoExpandidoId = p.id;
     this.armarDetalle(p);
-    const byId = new Map((draft.recibos || []).map((r) => [r.itemId, r]));
-    for (const r of this.recibosEdit) {
-      const d = byId.get(r.itemId);
-      if (!d) continue;
-      if (d.pedida != null) r.pedida = d.pedida;
-      if (d.recibida !== undefined) r.recibida = d.recibida;
-      if (d.precioUnitario !== undefined) r.precioUnitario = d.precioUnitario;
-      if (d.totalPagado !== undefined) r.totalPagado = d.totalPagado;
-      if (d.precioVenta !== undefined && r.completarAlta) {
-        r.precioVenta = d.precioVenta;
-        this.sincronizarMayoreoRecibo(r);
-      }
-      if (d.usaBaston !== undefined) r.usaBaston = !!d.usaBaston;
-      if (d.traeBastonIncluido !== undefined) r.traeBastonIncluido = !!d.traeBastonIncluido;
-    }
+    const snap =
+      draft.recibosPorPedido?.[String(p.id)] || draft.recibos || [];
+    this.aplicarRecibosSnap(snap);
     if (draft.fechaLimitePago) this.fechaLimitePago = draft.fechaLimitePago;
     if (draft.abonoNuevo) {
       this.abonoNuevo = {

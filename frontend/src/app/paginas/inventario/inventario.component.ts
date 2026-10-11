@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { AjusteInventario, inferirDepartamento, InventarioItem, MargenConfig } from '../../modelos';
@@ -14,7 +15,6 @@ import { PaginadorComponent } from '../../paginador.component';
 import { FechaDmYPipe } from '../../fecha-dmy.pipe';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { compararNombreNatural } from '../../nombre-natural.util';
-import { AutoHideDirective } from '../../auto-hide.directive';
 import { OfflineService } from '../../offline.service';
 import { precioConDescuentoEntero, precioConMargenArriba, noBajoCompra } from '../../captura-focus.util';
 
@@ -70,8 +70,7 @@ const COLS_STORAGE = 'pl.inventario.columnas.v3';
     SoloNumerosDirective,
     PaginadorComponent,
     FechaDmYPipe,
-    FechaDiaComponent,
-    AutoHideDirective,
+    FechaDiaComponent, PageAlertsComponent,
   ],
   templateUrl: './inventario.component.html',
   styleUrl: './inventario.component.scss',

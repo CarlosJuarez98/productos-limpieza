@@ -252,13 +252,7 @@
       Cancelar
     </button>
   </div>
-
-  @if (error) {
-    <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-  }
-  @if (ok) {
-    <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
-  }
+<app-page-alerts [(ok)]="ok" [(error)]="error" />
 </section>
 
 <section class="panel historial-panel" style="margin-top: 1rem" #listaHistorial id="ventas-hist-top" data-pag-top>
@@ -556,9 +550,7 @@
       <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
     </div>
   </form>
-  @if (errorEdit) {
-    <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
-  }
+<app-page-alerts [(error)]="errorEdit" />
 </ng-template>
 
 <ng-template #pagoMarcaTpl let-v>

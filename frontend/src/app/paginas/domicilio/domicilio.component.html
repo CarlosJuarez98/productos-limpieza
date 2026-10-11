@@ -6,13 +6,7 @@
     <strong class="fecha-naranja-caja">{{ fechaUltimoCorte | fechaDmY }}</strong>
   </p>
 }
-
-@if (error) {
-  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-}
-@if (ok) {
-  <p class="ok" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
-}
+<app-page-alerts [(ok)]="ok" [(error)]="error" />
 
 <section class="panel captura-panel panel-anim">
   <div class="captura-head">

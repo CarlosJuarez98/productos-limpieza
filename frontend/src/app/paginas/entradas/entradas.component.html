@@ -238,12 +238,7 @@
       }}
     </button>
   </div>
-  @if (ok) {
-    <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
-  }
-  @if (error) {
-    <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-  }
+  <app-page-alerts [(ok)]="ok" [(error)]="error" />
 </section>
 
 @if (revisionPrecios.length) {
@@ -366,12 +361,8 @@
       </button>
       <button type="button" class="secondary" (click)="cerrarRevision()">Listo</button>
     </div>
-    @if (okMargenes) {
-      <p class="ok-msg" appAutoHide (autoHide)="okMargenes = ''">{{ okMargenes }}</p>
-    }
-    @if (errorMargenes) {
-      <p class="error" appAutoHide (autoHide)="errorMargenes = ''">{{ errorMargenes }}</p>
-    }
+<app-page-alerts [(ok)]="okMargenes" />
+<app-page-alerts [(error)]="errorMargenes" />
   </section>
 }
 
@@ -515,8 +506,8 @@
         }
         <button type="button" class="secondary" (click)="cancelarEdicionRecetas()">Cerrar</button>
       </div>
-      @if (errorRecetas) { <p class="error" appAutoHide (autoHide)="errorRecetas = ''">{{ errorRecetas }}</p> }
-      @if (okRecetas) { <p class="ok-msg" appAutoHide (autoHide)="okRecetas = ''">{{ okRecetas }}</p> }
+<app-page-alerts [(error)]="errorRecetas" />
+<app-page-alerts [(ok)]="okRecetas" />
     </div>
   }
 
@@ -653,9 +644,8 @@
     </div>
   </form>
   }
-
-  @if (errorPrep) { <p class="error" appAutoHide (autoHide)="errorPrep = ''">{{ errorPrep }}</p> }
-  @if (okPrep) { <p class="ok-msg" appAutoHide (autoHide)="okPrep = ''">{{ okPrep }}</p> }
+<app-page-alerts [(error)]="errorPrep" />
+<app-page-alerts [(ok)]="okPrep" />
 
   @if (prepVista === 'preparar') {
   <div class="table-wrap hist-tabla hist-prep">
@@ -915,9 +905,7 @@
                     <button type="button" class="secondary" (click)="cancelarEdicionEntrada()">Cancelar</button>
                   </div>
                 </form>
-                @if (errorEdit) {
-                  <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
-                }
+<app-page-alerts [(error)]="errorEdit" />
               </td>
             </tr>
           }
@@ -992,9 +980,7 @@
           <button type="button" class="secondary" (click)="cancelarEdicionEntrada()">Cancelar</button>
         </div>
       </form>
-      @if (errorEdit) {
-        <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
-      }
+<app-page-alerts [(error)]="errorEdit" />
     </div>
   }
 
