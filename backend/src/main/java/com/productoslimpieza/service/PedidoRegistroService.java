@@ -267,8 +267,8 @@ public class PedidoRegistroService {
 
   /**
    * Actualiza precio de compra del catálogo.
-   * Lista Armar: el precio del proveedor es la cabeza; si trae bastón (producto listo),
-   * compra = cabeza + costo del bastón (vigente). Si falta armar, queda solo la cabeza hasta Armar.
+   * Lista Armar: compra final = cabeza (proveedor) + bastón (así se calculan márgenes).
+   * «Falta armar» solo suma a pendienteArmar; no deja la compra en solo-cabeza.
    * Si el producto es el bastón y cambió de precio, recalcula compras de la lista Armar.
    */
   private void actualizarPrecioCompraSiCambio(
@@ -278,7 +278,7 @@ public class PedidoRegistroService {
     }
     BigDecimal anterior = producto.getPrecioCompra();
     BigDecimal nuevo = precioProveedor;
-    if (producto.isUsaBaston() && Boolean.TRUE.equals(traeBastonIncluido)) {
+    if (producto.isUsaBaston()) {
       BigDecimal baston = inventarioService.costoBastonPorUnidad(producto);
       if (baston.compareTo(BigDecimal.ZERO) > 0) {
         nuevo = precioProveedor.add(baston).setScale(4, RoundingMode.HALF_UP);

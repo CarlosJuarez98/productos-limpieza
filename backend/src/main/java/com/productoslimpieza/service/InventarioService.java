@@ -380,6 +380,7 @@ public class InventarioService {
     BigDecimal venta = precioService.precioHoy(p);
     BigDecimal stock = stockActual(p);
     BigDecimal casa = nz(ventaRepo.sumCantidadByProductoAndTipo(p, TipoVenta.CASA));
+    asegurarCompraFinalConBaston(p, stock);
     return toDtoValues(p, margen, venta, stock, casa);
   }
 
@@ -415,12 +416,54 @@ public class InventarioService {
             .subtract(salidas.getOrDefault(id, BigDecimal.ZERO))
             .subtract(equivPesos)
             .setScale(2, RoundingMode.HALF_UP);
+    asegurarCompraFinalConBaston(p, stock);
     return toDtoValues(p, margen, venta, stock, casaMap.getOrDefault(id, BigDecimal.ZERO));
+  }
+
+  /**
+   * Lista Armar: compra de catálogo = cabeza + bastón (precio final para márgenes / COGS).
+   * Repara filas viejas que se quedaron en solo-cabeza.
+   */
+  private void asegurarCompraFinalConBaston(Producto p, BigDecimal stock) {
+    if (p == null || !p.isUsaBaston()) {
+      return;
+    }
+    BigDecimal costoB;
+    try {
+      costoB = costoBastonPorUnidad(p);
+    } catch (ResponseStatusException ex) {
+      return;
+    }
+    if (costoB.compareTo(BigDecimal.ZERO) <= 0) {
+      return;
+    }
+    if (compraIncluyeBaston(p, stock)) {
+      return;
+    }
+    BigDecimal cabeza = resolverPrecioCabeza(p, stock);
+    BigDecimal finalCompra = cabeza.add(costoB).setScale(4, RoundingMode.HALF_UP);
+    if (casiIgual(nz(p.getPrecioCompra()), finalCompra)) {
+      return;
+    }
+    p.setPrecioCompra(finalCompra);
+    productoRepo.save(p);
   }
 
   private InventarioDto toDtoValues(
       Producto p, MargenConfig margen, BigDecimal venta, BigDecimal stock, BigDecimal casa) {
+    // Compra efectiva: en lista Armar siempre cabeza+bastón (márgenes sobre el costo listo).
     BigDecimal compra = nz(p.getPrecioCompra());
+    if (p.isUsaBaston()) {
+      try {
+        BigDecimal costoB = costoBastonPorUnidad(p);
+        if (costoB.compareTo(BigDecimal.ZERO) > 0) {
+          BigDecimal cabeza = resolverPrecioCabeza(p, stock);
+          compra = cabeza.add(costoB).setScale(4, RoundingMode.HALF_UP);
+        }
+      } catch (ResponseStatusException ignored) {
+        /* sin bastón configurado */
+      }
+    }
     BigDecimal margenMin = nz(margen.getMargenMin());
     BigDecimal margenMax = nz(margen.getMargenMax());
     BigDecimal min = conMargenEntero(compra, margenMin);

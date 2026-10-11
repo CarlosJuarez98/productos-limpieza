@@ -591,14 +591,16 @@ td.col-compra,
 
 td.bajo-minimo,
 .bajo-minimo {
-  color: var(--danger);
-  font-weight: 700;
+  /* Rojo más intenso: bajo el mínimo sugerido */
+  color: #c62828;
+  font-weight: 800;
 }
 
 td.sobre-maximo,
 .sobre-maximo {
-  color: #b45309;
-  font-weight: 700;
+  /* Índigo: distinto del naranja de columnas sugeridas y del rojo de bajo mínimo */
+  color: #3730a3;
+  font-weight: 800;
 }
 
 .ganancia-alta {
@@ -1053,11 +1055,13 @@ input[readonly] {
   }
 
   .hist-cards .bajo-minimo {
-    color: var(--danger);
+    color: #c62828;
+    font-weight: 800;
   }
 
   .hist-cards .sobre-maximo {
-    color: #b45309;
+    color: #3730a3;
+    font-weight: 800;
   }
 
   .hist-cards .ganancia-alta {
