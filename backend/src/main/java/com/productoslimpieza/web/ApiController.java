@@ -33,6 +33,7 @@ public class ApiController {
   private final PedidoDomicilioService pedidoDomicilioService;
   private final PublicidadGaleriaService publicidadGaleriaService;
   private final PublicidadMediaService publicidadMediaService;
+  private final PrestamoAdminService prestamoAdminService;
 
   public ApiController(
       VentaService ventaService,
@@ -53,7 +54,8 @@ public class ApiController {
       ArmadoService armadoService,
       PedidoDomicilioService pedidoDomicilioService,
       PublicidadGaleriaService publicidadGaleriaService,
-      PublicidadMediaService publicidadMediaService) {
+      PublicidadMediaService publicidadMediaService,
+      PrestamoAdminService prestamoAdminService) {
     this.ventaService = ventaService;
     this.entradaService = entradaService;
     this.inventarioService = inventarioService;
@@ -73,6 +75,7 @@ public class ApiController {
     this.pedidoDomicilioService = pedidoDomicilioService;
     this.publicidadGaleriaService = publicidadGaleriaService;
     this.publicidadMediaService = publicidadMediaService;
+    this.prestamoAdminService = prestamoAdminService;
   }
 
   @GetMapping("/ventas")
@@ -456,6 +459,21 @@ public class ApiController {
   @DeleteMapping("/pedidos/{id}/items/{itemId}")
   public PedidoDto eliminarItemPedido(@PathVariable Long id, @PathVariable Long itemId) {
     return pedidoRegistroService.eliminarItem(id, itemId);
+  }
+
+  @GetMapping("/prestamos-admin")
+  public PrestamoAdminResumenDto prestamosAdmin() {
+    return prestamoAdminService.resumen();
+  }
+
+  @PostMapping("/prestamos-admin")
+  public PrestamoAdminResumenDto registrarPrestamoAdmin(@Valid @RequestBody PrestamoAdminRequest req) {
+    return prestamoAdminService.registrar(req);
+  }
+
+  @DeleteMapping("/prestamos-admin/{id}")
+  public PrestamoAdminResumenDto eliminarPrestamoAdmin(@PathVariable Long id) {
+    return prestamoAdminService.eliminar(id);
   }
 
   @PostMapping("/pedidos/{id}/abonos")

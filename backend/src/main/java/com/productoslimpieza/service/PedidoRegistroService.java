@@ -18,6 +18,7 @@ import com.productoslimpieza.tenant.TenantContext;
 import com.productoslimpieza.web.dto.ApartadoDto;
 import com.productoslimpieza.web.dto.ApartadoRequest;
 import com.productoslimpieza.web.dto.PedidoAbonoDto;
+import com.productoslimpieza.web.dto.PedidoAbonoParteRequest;
 import com.productoslimpieza.web.dto.PedidoAbonoRequest;
 import com.productoslimpieza.web.dto.PedidoCreditoRequest;
 import com.productoslimpieza.web.dto.PedidoDto;
@@ -50,6 +51,7 @@ public class PedidoRegistroService {
   private final PedidoAbonoRepository abonoRepo;
   private final ApartadoService apartadoService;
   private final InventarioService inventarioService;
+  private final PrestamoAdminService prestamoAdminService;
 
   public PedidoRegistroService(
       PedidoRepository pedidoRepo,
@@ -57,13 +59,15 @@ public class PedidoRegistroService {
       EntradaRepository entradaRepo,
       PedidoAbonoRepository abonoRepo,
       ApartadoService apartadoService,
-      InventarioService inventarioService) {
+      InventarioService inventarioService,
+      PrestamoAdminService prestamoAdminService) {
     this.pedidoRepo = pedidoRepo;
     this.productoRepo = productoRepo;
     this.entradaRepo = entradaRepo;
     this.abonoRepo = abonoRepo;
     this.apartadoService = apartadoService;
     this.inventarioService = inventarioService;
+    this.prestamoAdminService = prestamoAdminService;
   }
 
   @Transactional
@@ -473,7 +477,73 @@ public class PedidoRegistroService {
       p.setFechaLimitePago(req.fechaLimitePago());
       pedidoRepo.save(p);
     }
-    registrarPagoSiHay(pedidoId, req.monto(), req.fecha(), req.nota());
+    BigDecimal total = req.monto().setScale(2, RoundingMode.HALF_UP);
+    String notaBase = req.nota() != null && !req.nota().isBlank() ? req.nota().trim() : null;
+
+    if (req.tienePartes()) {
+      BigDecimal suma = BigDecimal.ZERO;
+      for (PedidoAbonoParteRequest parte : req.partes()) {
+        if (parte == null || parte.monto() == null) continue;
+        suma = suma.add(parte.monto().setScale(2, RoundingMode.HALF_UP));
+      }
+      suma = suma.setScale(2, RoundingMode.HALF_UP);
+      if (suma.subtract(total).abs().compareTo(new BigDecimal("0.02")) > 0) {
+        throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "La suma de las partes ($"
+                + suma.toPlainString()
+                + ") debe igualar el pago ($"
+                + total.toPlainString()
+                + ")");
+      }
+      for (PedidoAbonoParteRequest parte : req.partes()) {
+        if (parte == null || parte.monto() == null || parte.monto().compareTo(BigDecimal.ZERO) <= 0) {
+          continue;
+        }
+        BigDecimal m = parte.monto().setScale(2, RoundingMode.HALF_UP);
+        if (parte.esMiDinero()) {
+          String n = notaBase != null ? notaBase + " · Mi dinero" : "Parte mi dinero";
+          registrarPagoSiHay(pedidoId, m, req.fecha(), n, true, null);
+        } else {
+          String cat = parte.codigoApartado();
+          if (cat == null) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST, "Cada parte debe indicar un apartado o MI_DINERO");
+          }
+          String n = notaBase != null ? notaBase + " · " + cat : "Parte " + cat;
+          registrarPagoSiHay(pedidoId, m, req.fecha(), n, false, cat);
+        }
+      }
+      return obtener(pedidoId);
+    }
+
+    if (req.esConDineroPropio()) {
+      registrarPagoSiHay(pedidoId, total, req.fecha(), notaBase, true, null);
+      return obtener(pedidoId);
+    }
+    BigDecimal deMiDinero = nz(req.parteDineroPropio()).setScale(2, RoundingMode.HALF_UP);
+    if (deMiDinero.compareTo(BigDecimal.ZERO) < 0) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El monto de tu dinero no puede ser negativo");
+    }
+    if (deMiDinero.compareTo(total) > 0) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Tu parte no puede ser mayor al pago total");
+    }
+    BigDecimal deProductos = total.subtract(deMiDinero).setScale(2, RoundingMode.HALF_UP);
+    if (deProductos.compareTo(BigDecimal.ZERO) > 0) {
+      String n =
+          deMiDinero.compareTo(BigDecimal.ZERO) > 0
+              ? (notaBase != null ? notaBase + " · Productos" : "Parte Productos")
+              : notaBase;
+      registrarPagoSiHay(pedidoId, deProductos, req.fecha(), n, false, CategoriaApartado.PRODUCTOS.name());
+    }
+    if (deMiDinero.compareTo(BigDecimal.ZERO) > 0) {
+      String n =
+          deProductos.compareTo(BigDecimal.ZERO) > 0
+              ? (notaBase != null ? notaBase + " · Mi dinero" : "Parte mi dinero")
+              : notaBase;
+      registrarPagoSiHay(pedidoId, deMiDinero, req.fecha(), n, true, null);
+    }
     return obtener(pedidoId);
   }
 
@@ -494,26 +564,56 @@ public class PedidoRegistroService {
     a.setFecha(req.fecha());
     a.setMonto(nuevo);
     a.setNota(req.nota() != null && !req.nota().isBlank() ? req.nota().trim() : null);
-    String motivo = motivoGastoSurtir(pedidoId);
-    if (a.getApartadoId() != null) {
-      apartadoService.actualizar(
-          a.getApartadoId(),
-          new ApartadoRequest(
-              req.fecha(),
-              CategoriaApartado.PRODUCTOS.name(),
-              nuevo,
-              TipoMovimientoApartado.GASTO,
-              motivo));
+    if (a.isConDineroPropio()) {
+      prestamoAdminService.actualizarPorAbono(a.getId(), req.fecha(), nuevo, a.getNota());
     } else {
-      ApartadoDto gasto =
-          apartadoService.crear(
+      String motivo = motivoGastoSurtir(pedidoId);
+      String cat = CategoriaApartado.PRODUCTOS.name();
+      if (a.getApartadoId() != null) {
+        try {
+          ApartadoDto actual = apartadoService.obtener(a.getApartadoId());
+          if (actual.categoria() != null && !actual.categoria().isBlank()) {
+            cat = actual.categoria();
+          }
+        } catch (ResponseStatusException ignored) {
+          /* se recrea abajo */
+        }
+      }
+      if (a.getApartadoId() != null) {
+        try {
+          apartadoService.actualizar(
+              a.getApartadoId(),
               new ApartadoRequest(
                   req.fecha(),
-                  CategoriaApartado.PRODUCTOS.name(),
+                  cat,
                   nuevo,
                   TipoMovimientoApartado.GASTO,
                   motivo));
-      a.setApartadoId(gasto.id());
+        } catch (ResponseStatusException ex) {
+          if (ex.getStatusCode() != HttpStatus.NOT_FOUND) {
+            throw ex;
+          }
+          ApartadoDto gasto =
+              apartadoService.crear(
+                  new ApartadoRequest(
+                      req.fecha(),
+                      cat,
+                      nuevo,
+                      TipoMovimientoApartado.GASTO,
+                      motivo));
+          a.setApartadoId(gasto.id());
+        }
+      } else {
+        ApartadoDto gasto =
+            apartadoService.crear(
+                new ApartadoRequest(
+                    req.fecha(),
+                    cat,
+                    nuevo,
+                    TipoMovimientoApartado.GASTO,
+                    motivo));
+        a.setApartadoId(gasto.id());
+      }
     }
     abonoRepo.save(a);
     if (req.fechaLimitePago() != null) {
@@ -529,7 +629,11 @@ public class PedidoRegistroService {
     PedidoAbono a = abonoRepo.findById(abonoId)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pago no encontrado"));
     Long pedidoId = a.getPedido().getId();
-    borrarGastoLigado(a);
+    if (a.isConDineroPropio()) {
+      prestamoAdminService.borrarPorAbono(a.getId());
+    } else {
+      borrarGastoLigado(a);
+    }
     abonoRepo.delete(a);
     return obtener(pedidoId);
   }
@@ -626,7 +730,9 @@ public class PedidoRegistroService {
             full.getId(),
             a.getFecha(),
             nz(a.getMonto()).setScale(2, RoundingMode.HALF_UP),
-            a.getNota()))
+            a.getNota(),
+            a.isConDineroPropio(),
+            categoriaDeAbono(a)))
         .toList();
     // Solo cuenta como pagado lo registrado en abonos. Mercancía sin pagos = deuda
     // (aunque aún no hayan puesto fecha de crédito).
@@ -663,6 +769,27 @@ public class PedidoRegistroService {
   }
 
   private void registrarPagoSiHay(Long pedidoId, BigDecimal monto, LocalDate fecha, String nota) {
+    registrarPagoSiHay(pedidoId, monto, fecha, nota, false, CategoriaApartado.PRODUCTOS.name());
+  }
+
+  private void registrarPagoSiHay(
+      Long pedidoId, BigDecimal monto, LocalDate fecha, String nota, boolean conDineroPropio) {
+    registrarPagoSiHay(
+        pedidoId,
+        monto,
+        fecha,
+        nota,
+        conDineroPropio,
+        conDineroPropio ? null : CategoriaApartado.PRODUCTOS.name());
+  }
+
+  private void registrarPagoSiHay(
+      Long pedidoId,
+      BigDecimal monto,
+      LocalDate fecha,
+      String nota,
+      boolean conDineroPropio,
+      String categoriaApartado) {
     if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
       return;
     }
@@ -680,25 +807,37 @@ public class PedidoRegistroService {
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
     LocalDate f = fecha != null ? fecha : LocalDate.now(ZONA);
     String motivo = motivoGastoSurtir(p);
-    ApartadoDto gasto =
-        apartadoService.crear(
-            new ApartadoRequest(
-                f,
-                CategoriaApartado.PRODUCTOS.name(),
-                pago,
-                TipoMovimientoApartado.GASTO,
-                motivo));
     PedidoAbono a = new PedidoAbono();
     a.setPedido(p);
     a.setFecha(f);
     a.setMonto(pago);
-    a.setApartadoId(gasto.id());
+    a.setConDineroPropio(conDineroPropio);
     if (nota != null && !nota.isBlank()) {
       a.setNota(nota.trim());
+    } else if (conDineroPropio) {
+      a.setNota("Mi dinero · " + motivo);
     } else {
       a.setNota("Surtir · " + motivo);
     }
+    if (!conDineroPropio) {
+      String cat =
+          categoriaApartado != null && !categoriaApartado.isBlank()
+              ? categoriaApartado.trim()
+              : CategoriaApartado.PRODUCTOS.name();
+      ApartadoDto gasto =
+          apartadoService.crear(
+              new ApartadoRequest(
+                  f,
+                  cat,
+                  pago,
+                  TipoMovimientoApartado.GASTO,
+                  motivo));
+      a.setApartadoId(gasto.id());
+    }
     abonoRepo.save(a);
+    if (conDineroPropio) {
+      prestamoAdminService.registrarPrestamoPorAbono(pedidoId, a.getId(), f, pago, a.getNota());
+    }
   }
 
   private void borrarGastoLigado(PedidoAbono a) {
@@ -711,6 +850,16 @@ public class PedidoRegistroService {
       }
     }
     a.setApartadoId(null);
+  }
+
+  private String categoriaDeAbono(PedidoAbono a) {
+    if (a.isConDineroPropio()) return null;
+    if (a.getApartadoId() == null) return CategoriaApartado.PRODUCTOS.name();
+    try {
+      return apartadoService.obtener(a.getApartadoId()).categoria();
+    } catch (ResponseStatusException ex) {
+      return CategoriaApartado.PRODUCTOS.name();
+    }
   }
 
   /** Tras guardar mercancía sin pago, el saldo queda a crédito; la fecha la elige el usuario en Surtir. */
@@ -745,9 +894,9 @@ public class PedidoRegistroService {
         limpia = true;
       }
     }
-    if (limpia && jarceria) return "productos y jarceria";
-    if (jarceria) return "jarceria";
-    return "productos";
+    if (limpia && jarceria) return "Productos y jarcería";
+    if (jarceria) return "Jarcería";
+    return "Productos";
   }
 
   private void agregarOSumarItem(Pedido pedido, PedidoItemRequest linea) {

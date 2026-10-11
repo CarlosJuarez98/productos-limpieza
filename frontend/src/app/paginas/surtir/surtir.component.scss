@@ -776,145 +776,127 @@ th.col-pedir {
 }
 
 .pedido-detalle .tabla-recibos col.col-prod {
-  width: auto;
+  width: 34%;
 }
 
-.pedido-detalle .tabla-recibos col.col-num {
-  width: 6.75rem;
+.pedido-detalle .tabla-recibos col.col-ped {
+  width: 10%;
 }
 
-.pedido-detalle .tabla-recibos col.col-falta {
-  width: 4.25rem;
+.pedido-detalle .tabla-recibos col.col-rec {
+  width: 14%;
+}
+
+.pedido-detalle .tabla-recibos col.col-unit {
+  width: 14%;
+}
+
+.pedido-detalle .tabla-recibos col.col-tot {
+  width: 16%;
 }
 
 .pedido-detalle .tabla-recibos col.col-acc {
-  width: 4.75rem;
+  width: 12%;
 }
 
 .pedido-detalle .tabla-recibos th,
 .pedido-detalle .tabla-recibos td {
   vertical-align: middle;
-  padding: 0.5rem 0.45rem;
+  padding: 0.55rem 0.4rem;
   overflow: hidden;
-  overflow-wrap: normal;
-  word-break: normal;
 }
 
 .pedido-detalle .tabla-recibos th.money,
 .pedido-detalle .tabla-recibos td.money {
-  text-align: right;
+  text-align: center;
   white-space: nowrap;
 }
 
-.pedido-detalle .tabla-recibos th.money:nth-child(2),
-.pedido-detalle .tabla-recibos th.money:nth-child(3),
-.pedido-detalle .tabla-recibos th.money:nth-child(4),
-.pedido-detalle .tabla-recibos td.recibo-pedida,
-.pedido-detalle .tabla-recibos td.recibo-campo {
-  text-align: center;
+.pedido-detalle .tabla-recibos th.th-acc,
+.pedido-detalle .tabla-recibos td.actions {
+  text-align: right;
+  white-space: nowrap;
+  overflow: visible;
+  padding-right: 0.4rem;
 }
 
 .pedido-detalle .tabla-recibos td.celda-producto {
   text-align: left;
-  padding-left: 0.55rem;
+  padding-left: 0.6rem;
+  overflow: visible;
 }
 
 .pedido-detalle .tabla-recibos .producto-con-tags {
-  flex-wrap: nowrap;
-  gap: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem;
   min-width: 0;
 }
 
 .pedido-detalle .tabla-recibos .producto-nom {
-  display: inline;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 600;
   min-width: 0;
 }
 
 .pedido-detalle .tabla-recibos .producto-nom .unidad {
-  margin-left: 0.25rem;
-  white-space: nowrap;
+  margin-left: 0.2rem;
+  font-weight: 500;
 }
 
-.pedido-detalle .tabla-recibos .item-tag {
-  flex-shrink: 0;
+.pedido-detalle .tabla-recibos .recibo-meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.25;
 }
 
-.pedido-detalle .tabla-recibos td.actions {
-  text-align: center;
-  white-space: nowrap;
-  overflow: visible;
-}
-
-.pedido-detalle .tabla-recibos td.celda-unitario,
-.pedido-detalle .tabla-recibos td.celda-ultima {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: inherit;
-}
-
-.pedido-detalle .tabla-recibos td.celda-ultima {
-  color: var(--muted);
-}
-
-.pedido-detalle .precio-con-cambio {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 1.45rem;
-  align-items: center;
-  column-gap: 0.3rem;
-  width: 100%;
-  min-height: 1.45rem;
-}
-
-.pedido-detalle .precio-con-cambio .precio-val,
-.pedido-detalle .tabla-recibos td.celda-ultima .precio-val {
-  display: block;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+.pedido-detalle .tabla-recibos .falta-meta {
+  color: #9a3412;
   font-weight: 600;
-  font-size: 0.92rem;
-  line-height: 1.2;
 }
 
-.pedido-detalle .precio-con-cambio .icono-cambio,
-.pedido-detalle .precio-con-cambio .icono-cambio-slot {
-  width: 1.45rem;
-  height: 1.45rem;
-  justify-self: end;
+.pedido-detalle .tabla-recibos .precio-cambio-linea {
+  display: inline;
+  margin: 0;
+  font-size: inherit;
 }
 
-.pedido-detalle .precio-con-cambio .icono-cambio-slot {
-  display: block;
+.pedido-detalle .tabla-recibos .menudeo-en-fila {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
 }
 
-.pedido-detalle .tabla-recibos td.recibo-campo,
-.pedido-detalle .tabla-recibos td.recibo-pedida,
-.pedido-detalle .tabla-recibos td.celda-ultima {
-  position: relative;
+.pedido-detalle .tabla-recibos .menudeo-en-fila .recibo-num {
+  margin: 0;
+  max-width: 5rem;
+  height: 1.75rem;
+}
+
+.pedido-detalle .tabla-recibos .recibo-acciones {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.12rem;
 }
 
 .pedido-detalle .tabla-recibos .recibo-num {
   display: block;
   width: 100%;
-  max-width: 5.1rem;
-  height: 2.15rem;
-  margin: 0 auto;
+  height: 2.1rem;
+  margin: 0;
   box-sizing: border-box;
   text-align: center;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  padding: 0 0.4rem;
-}
-
-.pedido-detalle .tabla-recibos td.celda-ultima .recibo-num {
-  margin-left: auto;
-  margin-right: 0;
-}
-
-.pedido-detalle .tabla-recibos td.recibo-pedida .recibo-num {
-  max-width: 4.25rem;
+  font-size: 0.95rem;
+  padding: 0 0.35rem;
+  border: 1px solid #c5d0c8;
+  border-radius: 0.4rem;
+  background: #fff;
 }
 
 .pedido-detalle .tabla-recibos .recibo-num:focus {
@@ -1327,6 +1309,87 @@ tr.recibo-nuevo td.celda-producto .producto-nom {
   border: 1px solid #f4a460;
 }
 
+.deuda-banner.deuda-admin {
+  background: #eef6fb;
+  border-color: #8cb4d4;
+}
+
+.deuda-banner.deuda-admin > p {
+  margin: 0 0 0.45rem;
+}
+
+.devolucion-admin-fila {
+  margin-top: 0.15rem;
+}
+
+.origen-pago {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.45rem 0 0.35rem;
+}
+
+.chip-origen {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid #b9c9be;
+  background: #f4f7f5;
+  color: #3d5245;
+  cursor: pointer;
+}
+
+.chip-origen.activo {
+  background: #1f3d2a;
+  border-color: #1f3d2a;
+  color: #fff;
+}
+
+.chip-origen.activo:nth-child(2) {
+  background: #3d5a40;
+  border-color: #3d5a40;
+}
+
+.chip-origen.activo:nth-child(3) {
+  background: #1e3a5f;
+  border-color: #1e3a5f;
+}
+
+.input-readonly {
+  background: #f0f3f1 !important;
+  color: #1f3d2a;
+  font-weight: 700;
+  cursor: default;
+}
+
+.split-resumen {
+  margin: 0.35rem 0 0;
+}
+
+.split-apartados {
+  margin-top: 0.45rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.4rem;
+  background: #f3f6f4;
+  border: 1px solid #c5d0c8;
+}
+
+.split-fila {
+  margin: 0.25rem 0;
+  align-items: end;
+}
+
+.tag-mi-dinero {
+  background: #e0edf8;
+  color: #1e3a5f;
+}
+
+.tag-apartado-pago {
+  background: #e7f0ea;
+  color: #1f3d2a;
+}
+
 .deuda-tag {
   display: inline-block;
   margin-left: 0.35rem;
@@ -1412,6 +1475,32 @@ tr.recibo-nuevo td.celda-producto .producto-nom {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem 0.65rem;
+}
+
+.btn-no-llego.icon-btn {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #8a6a3a;
+  border-color: transparent;
+  background: transparent;
+  line-height: 1;
+  min-width: 1.7rem;
+}
+
+.btn-no-llego.icon-btn:hover {
+  background: #fff3e0;
+  color: #6b4e24;
+  border-color: #e8d0a8;
+}
+
+.recibo-acciones .icon-btn,
+.recibo-acciones .danger.icon-btn {
+  min-width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cuenta-acciones {

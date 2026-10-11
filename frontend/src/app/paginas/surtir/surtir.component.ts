@@ -11,10 +11,12 @@ import {
   Entrada,
   InventarioItem,
   MargenConfig,
+  ApartadoRubro,
   PedidoAbono,
   PedidoLinea,
   PedidoRegistrado,
   PedidoSugerido,
+  PrestamoAdminResumen,
 } from '../../modelos';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
@@ -59,10 +61,13 @@ type ReciboEdit = {
   pedida: number | null;
   pedidaInicial: number;
   recibidaInicial: number;
+  /** Vacío = aún no capturado (no suma). */
   recibida: number | null;
-  /** Importe que cobra el proveedor por lo recibido (unitario = importe ÷ recibido). */
+  /** $/pza o $/L del proveedor (editable; recalcula el total). */
+  precioUnitario: number | null;
+  /** Importe total de la nota por esta línea (editable; recalcula el unitario). */
   totalPagado: number | null;
-  /** Precio compra de catálogo (para sugerir total). */
+  /** Precio compra de catálogo (solo referencia). */
   precioCompra: number | null;
   unidad: string;
   departamento: GrupoPedido;
@@ -94,6 +99,7 @@ type DraftSurtir = {
     itemId: number;
     pedida: number | null;
     recibida: number | null;
+    precioUnitario?: number | null;
     totalPagado: number | null;
     precioVenta?: number | null;
     usaBaston?: boolean;
@@ -145,6 +151,25 @@ export class SurtirComponent implements OnInit, OnDestroy {
   /** Historial de entradas (fecha desc) para comparar unitario vs última compra. */
   entradas: Entrada[] = [];
   saldoProductos = 0;
+  /** Cuánto le debe el negocio al admin (préstamos con dinero propio). */
+  saldoMeDebeNegocio = 0;
+  prestamosResumen: PrestamoAdminResumen | null = null;
+  /** Si falla /api/prestamos-admin (backend viejo o sin reiniciar). */
+  errorPrestamosAdmin = '';
+  /** Rubros de apartados para elegir de dónde te pagan. */
+  rubrosApartado: ApartadoRubro[] = [];
+  saldosApartado: Record<string, number> = {};
+  /** PRODUCTOS | MI_DINERO | MIXTO (N apartados + préstamo). */
+  abonoOrigen: 'PRODUCTOS' | 'MI_DINERO' | 'MIXTO' = 'PRODUCTOS';
+  /** En MIXTO: líneas de apartados (el faltante del total = mi dinero). */
+  abonoPartes: { categoria: string; monto: number | null }[] = [];
+  devolucionAdmin = {
+    fecha: '',
+    monto: null as number | null,
+    nota: '',
+    categoria: 'PRODUCTOS',
+  };
+  guardandoDevolucion = false;
   altaProductoId: number | null = null;
   altaCantidad: number | null = null;
   altaNuevoProducto = false;
@@ -154,6 +179,11 @@ export class SurtirComponent implements OnInit, OnDestroy {
   private pendienteSeq = -1;
   altaPedidoProductoId: number | null = null;
   altaPedidoCantidad: number | null = null;
+  /** +Nuevo dentro del pedido expandido (extra del proveedor). */
+  altaPedidoNuevo = false;
+  altaPedidoNuevoNombre = '';
+  altaPedidoNuevoVendePor: 'LITROS' | 'PIEZA' = 'PIEZA';
+  altaPedidoNuevoDepto: GrupoPedido = 'JARCERIA';
   pagadoAhora: number | null = null;
   fechaLimitePago = '';
   abonoNuevo = { fecha: '', monto: null as number | null, nota: '' };
@@ -193,6 +223,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.restaurarBorradorSugerido();
     this.cargarPedidos();
     this.cargarSaldoProductos();
+    this.cargarPrestamosAdmin();
     this.cargarEntradas();
     this.cargarMargenes();
     this.api.inventario().subscribe({
@@ -205,6 +236,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => {
       this.cargarPedidos();
       this.cargarSaldoProductos();
+      this.cargarPrestamosAdmin();
       this.cargarEntradas();
       this.cargarMargenes();
       this.api.inventario().subscribe({
@@ -409,10 +441,61 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.api.apartados().subscribe({
       next: (r) => {
         const t = r.totales || {};
+        this.saldosApartado = t;
+        this.rubrosApartado = (r.rubros || []).filter((x) => x.activo !== false);
         this.saldoProductos = Number(t['PRODUCTOS'] ?? t['productos'] ?? 0) || 0;
+        if (
+          this.devolucionAdmin.categoria &&
+          !this.rubrosApartado.some((x) => x.codigo === this.devolucionAdmin.categoria)
+        ) {
+          this.devolucionAdmin.categoria = this.rubrosApartado[0]?.codigo || 'PRODUCTOS';
+        }
       },
-      error: () => (this.saldoProductos = 0),
+      error: () => {
+        this.saldoProductos = 0;
+        this.saldosApartado = {};
+        this.rubrosApartado = [];
+      },
     });
+  }
+
+  saldoApartadoDe(codigo: string): number {
+    if (!codigo) return 0;
+    const t = this.saldosApartado;
+    return Number(t[codigo] ?? t[codigo.toUpperCase()] ?? t[codigo.toLowerCase()] ?? 0) || 0;
+  }
+
+  alcanzaDevolucionAdmin(): boolean {
+    const monto = Number(this.devolucionAdmin.monto) || 0;
+    if (monto <= 0) return true;
+    return monto <= this.saldoApartadoDe(this.devolucionAdmin.categoria) + 0.009;
+  }
+
+  cargarPrestamosAdmin(): void {
+    this.api.prestamosAdmin().subscribe({
+      next: (r) => {
+        this.errorPrestamosAdmin = '';
+        this.prestamosResumen = r;
+        this.saldoMeDebeNegocio = Number(r.saldo) || 0;
+        if (!this.devolucionAdmin.fecha) {
+          this.devolucionAdmin.fecha = this.hoyLocal();
+        }
+      },
+      error: (e) => {
+        this.prestamosResumen = null;
+        this.saldoMeDebeNegocio = 0;
+        this.errorPrestamosAdmin =
+          e?.error?.error ||
+          'No se pudo cargar lo que te debe el negocio. Reinicia el backend y recarga.';
+      },
+    });
+  }
+
+  etiquetaOrigenAbono(a: PedidoAbono): string {
+    if (a.conDineroPropio) return 'mi dinero';
+    const cat = a.categoriaApartado;
+    if (!cat) return 'apartado';
+    return this.nombreRubro(cat);
   }
 
   get pedidosAbiertos(): PedidoRegistrado[] {
@@ -1052,11 +1135,14 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.pagadoAhora = null;
     this.altaPedidoProductoId = null;
     this.altaPedidoCantidad = null;
+    this.altaPedidoNuevo = false;
+    this.altaPedidoNuevoNombre = '';
     this.abonoNuevo = { fecha: this.hoyLocal(), monto: null, nota: '' };
     this.editandoAbonoId = null;
     this.editandoPedidaId = null;
     this.recibosEdit = (p?.items || []).map((i) => {
-      const recibida = Number(i.cantidadRecibida);
+      const recibidaNum = Number(i.cantidadRecibida) || 0;
+      const yaCapturado = recibidaNum > 0;
       const pedida = Number(i.cantidadPedida);
       const compraRaw =
         i.precioCompra != null && Number.isFinite(Number(i.precioCompra))
@@ -1064,21 +1150,31 @@ export class SurtirComponent implements OnInit, OnDestroy {
           : null;
       /** 0 = stub de producto nuevo: no sugerir total (el precio real se captura al recibir). */
       const compra = compraRaw != null && compraRaw > 0 ? compraRaw : null;
-      const cantParaTotal = recibida > 0 ? recibida : 1;
+      const unitRef =
+        compra ??
+        (() => {
+          const u = this.ultimaCompra(i.productoId);
+          return u != null && u > 0 ? u : null;
+        })();
       const prod = this.productoPorId(i.productoId);
       const sinMenudeo = !prod || !Number.isFinite(Number(prod.precioVentaHoy)) || Number(prod.precioVentaHoy) <= 0;
       const stubCompra = compraRaw == null || compraRaw <= 0;
-      const completarAlta = sinMenudeo || (stubCompra && recibida <= 0);
+      const completarAlta = sinMenudeo || (stubCompra && !yaCapturado);
       return {
         itemId: i.id,
         productoId: i.productoId,
         productoNombre: i.productoNombre,
         pedida,
         pedidaInicial: pedida,
-        recibidaInicial: recibida,
-        recibida,
+        recibidaInicial: recibidaNum,
+        /** Vacío al abrir: no asume 0 ni rellena totales hasta que captures. */
+        recibida: yaCapturado ? recibidaNum : null,
+        precioUnitario: yaCapturado && unitRef != null ? unitRef : null,
         precioCompra: compra,
-        totalPagado: compra != null ? Math.round(compra * cantParaTotal * 100) / 100 : null,
+        totalPagado:
+          yaCapturado && unitRef != null
+            ? Math.round(unitRef * recibidaNum * 100) / 100
+            : null,
         unidad: i.vendePor === 'PIEZA' ? 'pza' : 'L',
         departamento: inferirDepartamento(
           i.vendePor || prod?.vendePor,
@@ -1117,12 +1213,19 @@ export class SurtirComponent implements OnInit, OnDestroy {
     ].filter((g) => g.items.length > 0);
   }
 
+  /**
+   * Todo llegó: pedida → recibida y, si hay precio (catálogo o última compra),
+   * llena $/pza + total para que sume lo debido al proveedor (jarcería y limpieza).
+   */
   marcarTodoRecibido(): void {
     for (const r of this.recibosEdit) {
       const pedida = Number(r.pedida) || 0;
+      if (pedida <= 0) continue;
       r.recibida = pedida;
-      if (r.precioCompra != null && pedida > 0) {
-        r.totalPagado = Math.round(r.precioCompra * pedida * 100) / 100;
+      const unit = this.resolverUnitarioSugerido(r);
+      if (unit != null) {
+        r.precioUnitario = unit;
+        r.totalPagado = Math.round(unit * pedida * 100) / 100;
       }
       if (r.completarAlta) {
         this.sincronizarMayoreoRecibo(r);
@@ -1131,8 +1234,39 @@ export class SurtirComponent implements OnInit, OnDestroy {
     this.programarBorrador();
   }
 
-  /** Unitario = total pagado ÷ cantidad recibida. */
+  /** No llegó: vacío → no suma al total del proveedor. */
+  marcarNoLlego(r: ReciboEdit): void {
+    r.recibida = null;
+    r.totalPagado = null;
+    r.precioUnitario = null;
+    this.programarBorrador();
+  }
+
+  /** Catálogo → unitario ya capturado → última compra en entradas. */
+  private resolverUnitarioSugerido(r: ReciboEdit): number | null {
+    if (r.precioUnitario != null && Number.isFinite(Number(r.precioUnitario)) && Number(r.precioUnitario) > 0) {
+      return Math.round(Number(r.precioUnitario) * 100) / 100;
+    }
+    if (r.precioCompra != null && Number.isFinite(r.precioCompra) && r.precioCompra > 0) {
+      return Math.round(r.precioCompra * 100) / 100;
+    }
+    const u = this.ultimaCompra(r.productoId);
+    return u != null && Number.isFinite(u) && u > 0 ? Math.round(u * 100) / 100 : null;
+  }
+
+  placeholderUnitario(r: ReciboEdit): string {
+    const u =
+      (r.precioCompra != null && r.precioCompra > 0 ? r.precioCompra : null) ??
+      this.ultimaCompra(r.productoId);
+    return u != null && u > 0 ? String(u) : '';
+  }
+
+  /** Unitario: campo $/pza, o total ÷ recibida. */
   unitarioRecibo(r: ReciboEdit): number | null {
+    if (r.precioUnitario != null && String(r.precioUnitario).trim() !== '') {
+      const u = Number(r.precioUnitario);
+      if (Number.isFinite(u) && u >= 0) return Math.round(u * 100) / 100;
+    }
     const rec = Number(r.recibida);
     const total = Number(r.totalPagado);
     if (!Number.isFinite(rec) || rec <= 0) return null;
@@ -1174,12 +1308,52 @@ export class SurtirComponent implements OnInit, OnDestroy {
     };
   }
 
+  /** Al capturar $/pza → multiplica × recibida = total nota. */
+  onPrecioUnitarioChange(r: ReciboEdit): void {
+    const unit = Number(r.precioUnitario);
+    const rec = Number(r.recibida);
+    if (Number.isFinite(unit) && unit >= 0 && Number.isFinite(rec) && rec > 0) {
+      r.totalPagado = Math.round(unit * rec * 100) / 100;
+    }
+    if (r.completarAlta) this.sincronizarMayoreoRecibo(r);
+    this.programarBorrador();
+  }
+
+  /** Al capturar total de la nota → divide ÷ recibida = $/pza. */
   onTotalReciboChange(r: ReciboEdit): void {
+    const tot = Number(r.totalPagado);
+    const rec = Number(r.recibida);
+    if (Number.isFinite(tot) && tot >= 0 && Number.isFinite(rec) && rec > 0) {
+      r.precioUnitario = Math.round((tot / rec) * 100) / 100;
+    }
     if (r.completarAlta) this.sincronizarMayoreoRecibo(r);
     this.programarBorrador();
   }
 
   onRecibidaReciboChange(r: ReciboEdit): void {
+    const rec = Number(r.recibida);
+    if (!Number.isFinite(rec) || rec <= 0) {
+      if (r.recibida === 0 || r.recibida == null) {
+        r.totalPagado = null;
+      }
+      this.programarBorrador();
+      return;
+    }
+    const unit = Number(r.precioUnitario);
+    if (Number.isFinite(unit) && unit >= 0 && String(r.precioUnitario ?? '').trim() !== '') {
+      r.totalPagado = Math.round(unit * rec * 100) / 100;
+    } else {
+      const tot = Number(r.totalPagado);
+      if (Number.isFinite(tot) && tot >= 0 && r.totalPagado != null && String(r.totalPagado).trim() !== '') {
+        r.precioUnitario = Math.round((tot / rec) * 100) / 100;
+      } else {
+        const sug = this.resolverUnitarioSugerido(r);
+        if (sug != null) {
+          r.precioUnitario = sug;
+          r.totalPagado = Math.round(sug * rec * 100) / 100;
+        }
+      }
+    }
     if (r.completarAlta) this.sincronizarMayoreoRecibo(r);
     this.programarBorrador();
   }
@@ -1653,9 +1827,156 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   alcanzaAbonoNuevo(): boolean {
-    const monto = Number(this.abonoNuevo.monto) || 0;
-    if (monto <= 0) return true;
-    return monto <= this.saldoProductos + 0.009;
+    if (this.abonoOrigen === 'MI_DINERO') return true;
+    if (this.abonoOrigen === 'PRODUCTOS') {
+      const monto = Number(this.abonoNuevo.monto) || 0;
+      if (monto <= 0) return true;
+      return monto <= this.saldoProductos + 0.009;
+    }
+    for (const parte of this.abonoPartes) {
+      const m = Number(parte.monto) || 0;
+      if (m <= 0) continue;
+      if (m > this.saldoApartadoDe(parte.categoria) + 0.009) return false;
+    }
+    return true;
+  }
+
+  /** Cuánto falta del pedido que no cabe solo en Productos (para hint). */
+  faltanteSinCobertura(p: PedidoRegistrado): number {
+    const falta = this.saldoDe(p);
+    if (falta <= 0.009) return 0;
+    return Math.max(0, Math.round((falta - this.saldoProductos) * 100) / 100);
+  }
+
+  /** Suma de lo tomado de apartados (MIXTO). */
+  sumaAbonoApartados(): number {
+    let s = 0;
+    for (const parte of this.abonoPartes) {
+      const m = Number(parte.monto);
+      if (Number.isFinite(m) && m > 0) s += m;
+    }
+    return Math.round(s * 100) / 100;
+  }
+
+  /** Parte del pago que presta el admin. */
+  parteAbonoMiDinero(): number {
+    const total = Number(this.abonoNuevo.monto) || 0;
+    if (total <= 0) return 0;
+    if (this.abonoOrigen === 'MI_DINERO') return Math.round(total * 100) / 100;
+    if (this.abonoOrigen === 'PRODUCTOS') return 0;
+    return Math.max(0, Math.round((total - this.sumaAbonoApartados()) * 100) / 100);
+  }
+
+  setAbonoOrigen(origen: 'PRODUCTOS' | 'MI_DINERO' | 'MIXTO'): void {
+    this.abonoOrigen = origen;
+    if (origen === 'MIXTO') {
+      this.asegurarPartesMixto();
+      this.repartirMixtoAutomatico();
+    } else {
+      this.abonoPartes = [];
+    }
+    this.programarBorrador();
+  }
+
+  onAbonoMontoChange(): void {
+    if (this.abonoOrigen === 'MIXTO') {
+      this.repartirMixtoAutomatico();
+    }
+    this.programarBorrador();
+  }
+
+  private asegurarPartesMixto(): void {
+    if (this.abonoPartes.length) return;
+    const conSaldo = this.rubrosApartado.filter((r) => this.saldoApartadoDe(r.codigo) > 0.009);
+    if (conSaldo.length) {
+      this.abonoPartes = conSaldo.map((r) => ({ categoria: r.codigo, monto: null }));
+    } else {
+      const def = this.rubrosApartado[0]?.codigo || 'PRODUCTOS';
+      this.abonoPartes = [{ categoria: def, monto: null }];
+    }
+  }
+
+  /**
+   * Reparte el total entre apartados con saldo (en orden) y deja el resto como mi dinero.
+   */
+  private repartirMixtoAutomatico(): void {
+    this.asegurarPartesMixto();
+    let resto = Number(this.abonoNuevo.monto) || 0;
+    if (resto <= 0) {
+      for (const parte of this.abonoPartes) parte.monto = null;
+      return;
+    }
+    for (const parte of this.abonoPartes) {
+      if (resto <= 0.009) {
+        parte.monto = null;
+        continue;
+      }
+      const disp = this.saldoApartadoDe(parte.categoria);
+      const toma = Math.min(resto, disp);
+      parte.monto = toma > 0.009 ? Math.round(toma * 100) / 100 : null;
+      resto = Math.round((resto - (parte.monto || 0)) * 100) / 100;
+    }
+  }
+
+  agregarParteAbono(): void {
+    const usados = new Set(this.abonoPartes.map((p) => p.categoria));
+    const libre = this.rubrosApartado.find((r) => !usados.has(r.codigo));
+    if (!libre) {
+      this.error = 'Ya agregaste todos los apartados';
+      return;
+    }
+    this.abonoPartes = [...this.abonoPartes, { categoria: libre.codigo, monto: null }];
+    this.programarBorrador();
+  }
+
+  quitarParteAbono(ix: number): void {
+    this.abonoPartes = this.abonoPartes.filter((_, i) => i !== ix);
+    if (!this.abonoPartes.length) this.asegurarPartesMixto();
+    this.programarBorrador();
+  }
+
+  onParteAbonoMontoChange(ix: number): void {
+    const parte = this.abonoPartes[ix];
+    if (!parte) return;
+    let m = Number(parte.monto);
+    if (!Number.isFinite(m) || m < 0) m = 0;
+    const maxCat = this.saldoApartadoDe(parte.categoria);
+    const total = Number(this.abonoNuevo.monto) || 0;
+    const otros = this.abonoPartes.reduce((s, p, i) => {
+      if (i === ix) return s;
+      const v = Number(p.monto);
+      return s + (Number.isFinite(v) && v > 0 ? v : 0);
+    }, 0);
+    const maxTotal = Math.max(0, total - otros);
+    m = Math.min(m, maxCat, maxTotal);
+    parte.monto = m > 0 ? Math.round(m * 100) / 100 : null;
+    this.programarBorrador();
+  }
+
+  nombreRubro(codigo: string): string {
+    return this.rubrosApartado.find((r) => r.codigo === codigo)?.nombre || codigo;
+  }
+
+  /** Armar partes API: apartados + MI_DINERO si aplica. */
+  private armarPartesPago(monto: number): { categoria: string; monto: number }[] {
+    if (this.abonoOrigen === 'MI_DINERO') {
+      return [{ categoria: 'MI_DINERO', monto }];
+    }
+    if (this.abonoOrigen === 'PRODUCTOS') {
+      return [{ categoria: 'PRODUCTOS', monto }];
+    }
+    const partes: { categoria: string; monto: number }[] = [];
+    for (const p of this.abonoPartes) {
+      const m = Number(p.monto);
+      if (Number.isFinite(m) && m > 0.009) {
+        partes.push({ categoria: p.categoria, monto: Math.round(m * 100) / 100 });
+      }
+    }
+    const mio = this.parteAbonoMiDinero();
+    if (mio > 0.009) {
+      partes.push({ categoria: 'MI_DINERO', monto: mio });
+    }
+    return partes;
   }
 
   agregarItemAPedido(): void {
@@ -1678,11 +1999,55 @@ export class SurtirComponent implements OnInit, OnDestroy {
           this.altaPedidoCantidad = null;
           const depto = inferirDepartamento(prod.vendePor, prod.nombre, prod.departamento);
           const donde = depto === 'JARCERIA' ? 'Jarcería' : 'Limpieza';
-          this.ok = `Agregado en ${donde}: ${prod.nombre}`;
+          this.ok = `Agregado en ${donde}: ${prod.nombre}. Captura lo recibido abajo.`;
           this.reemplazarPedido(act, true);
         },
       error: (e) => (this.error = e.error?.error || 'No se pudo agregar'),
     });
+  }
+
+  /** Extra del proveedor: alta rápida en catálogo + línea en el pedido abierto. */
+  async agregarProductoNuevoAPedido(): Promise<void> {
+    const p = this.pedidoExpandido();
+    if (!p || p.estado === 'CERRADO') return;
+    const nombre = (this.altaPedidoNuevoNombre || '').trim();
+    const cant = Math.ceil(Number(this.altaPedidoCantidad) || 0);
+    if (!nombre) {
+      this.error = 'Escribe el nombre del producto nuevo';
+      return;
+    }
+    if (cant <= 0) {
+      this.error = 'Indica cuánto llegó / pedir';
+      return;
+    }
+    this.error = '';
+    try {
+      const creado = await firstValueFrom(
+        this.api.crearProducto({
+          nombre,
+          precioCompra: 0,
+          cantidadInicial: 0,
+          precioVenta: null,
+          precioMayoreo5: null,
+          precioMayoreo10: null,
+          vendePor: this.altaPedidoNuevoVendePor,
+          departamento: this.altaPedidoNuevoDepto,
+        }),
+      );
+      if (!this.productos.some((x) => x.id === creado.id)) {
+        this.productos = [...this.productos, creado];
+      }
+      const act = await firstValueFrom(this.api.agregarItemPedido(p.id, creado.id, cant));
+      this.altaPedidoNuevoNombre = '';
+      this.altaPedidoCantidad = null;
+      this.altaPedidoNuevo = false;
+      const donde = this.altaPedidoNuevoDepto === 'JARCERIA' ? 'Jarcería' : 'Limpieza';
+      this.ok = `Nuevo en ${donde}: ${creado.nombre}. Pon importe al recibir.`;
+      this.reemplazarPedido(act, true);
+    } catch (e: unknown) {
+      const err = e as { error?: { error?: string } };
+      this.error = err?.error?.error || 'No se pudo agregar el producto nuevo';
+    }
   }
 
   async quitarItemPedido(r: ReciboEdit): Promise<void> {
@@ -1727,10 +2092,36 @@ export class SurtirComponent implements OnInit, OnDestroy {
       this.error = 'Indica fecha y cuánto pagas';
       return;
     }
-    if (monto > this.saldoProductos + 0.009) {
-      this.error = `En Productos solo hay $${this.saldoProductos.toFixed(2)}. Baja el abono o aparta más.`;
+    if (this.abonoOrigen === 'PRODUCTOS' && monto > this.saldoProductos + 0.009) {
+      const hayAlgunApartado = this.rubrosApartado.some((r) => this.saldoApartadoDe(r.codigo) > 0.009);
+      if (hayAlgunApartado) {
+        this.setAbonoOrigen('MIXTO');
+        this.abonoNuevo.monto = monto;
+        this.repartirMixtoAutomatico();
+      } else {
+        this.error = 'No hay saldo en apartados. Usa «Con mi dinero» o deja a crédito.';
+        return;
+      }
+    }
+    if (this.abonoOrigen === 'MIXTO') {
+      this.asegurarPartesMixto();
+    }
+    const partes = this.armarPartesPago(monto);
+    const suma = Math.round(partes.reduce((s, x) => s + x.monto, 0) * 100) / 100;
+    if (Math.abs(suma - monto) > 0.02) {
+      this.error = 'La suma de apartados + tu dinero debe igualar el total a pagar';
       return;
     }
+    for (const parte of partes) {
+      if (parte.categoria === 'MI_DINERO') continue;
+      const disp = this.saldoApartadoDe(parte.categoria);
+      if (parte.monto > disp + 0.009) {
+        this.error = `En ${this.nombreRubro(parte.categoria)} solo hay $${disp.toFixed(2)}`;
+        return;
+      }
+    }
+    const deMio = partes.filter((x) => x.categoria === 'MI_DINERO').reduce((s, x) => s + x.monto, 0);
+    const deApts = Math.round((monto - deMio) * 100) / 100;
     this.guardandoAbono = true;
     this.error = '';
     this.api
@@ -1739,14 +2130,26 @@ export class SurtirComponent implements OnInit, OnDestroy {
         monto,
         nota: this.abonoNuevo.nota || null,
         fechaLimitePago: this.fechaLimitePago || null,
+        partes,
       })
       .subscribe({
         next: (act) => {
           this.guardandoAbono = false;
           this.abonoNuevo = { fecha: this.hoyLocal(), monto: null, nota: '' };
-          this.ok = 'Pago al proveedor registrado (gasto en Productos)';
+          this.abonoPartes = [];
+          if (deMio > 0.009 && deApts > 0.009) {
+            this.ok =
+              `Pago mixto: $${deApts.toFixed(2)} de apartados + $${deMio.toFixed(2)} de tu dinero. ` +
+              `El negocio te debe $${deMio.toFixed(2)} más.`;
+          } else if (deMio > 0.009) {
+            this.ok = `Pago con tu dinero. El negocio te debe $${deMio.toFixed(2)} más.`;
+          } else {
+            this.ok = 'Pago al proveedor registrado (gasto en apartados)';
+          }
+          this.abonoOrigen = 'PRODUCTOS';
           this.reemplazarPedido(act, true);
           this.cargarSaldoProductos();
+          this.cargarPrestamosAdmin();
         },
         error: (e) => {
           this.guardandoAbono = false;
@@ -1757,7 +2160,114 @@ export class SurtirComponent implements OnInit, OnDestroy {
 
   pagarTodoLoQueFalta(p: PedidoRegistrado): void {
     this.abonoNuevo.fecha = this.abonoNuevo.fecha || this.hoyLocal();
-    this.abonoNuevo.monto = Math.round(this.saldoDe(p) * 100) / 100;
+    const falta = Math.round(this.saldoDe(p) * 100) / 100;
+    this.abonoNuevo.monto = falta;
+    const totalApartados = this.rubrosApartado.reduce((s, r) => s + this.saldoApartadoDe(r.codigo), 0);
+    if (falta <= this.saldoProductos + 0.009) {
+      this.setAbonoOrigen('PRODUCTOS');
+    } else if (totalApartados > 0.009) {
+      this.setAbonoOrigen('MIXTO');
+    } else {
+      this.setAbonoOrigen('MI_DINERO');
+    }
+  }
+
+  /** Pone en el abono solo lo que sí cabe en Productos. */
+  pagarLoQueAlcanza(p: PedidoRegistrado): void {
+    const falta = this.saldoDe(p);
+    const alcanza = Math.min(falta, this.saldoProductos);
+    if (alcanza <= 0.009) {
+      this.error = 'En Productos no hay saldo. Usa «Mixto», «Con mi dinero» o deja a crédito.';
+      return;
+    }
+    this.setAbonoOrigen('PRODUCTOS');
+    this.abonoNuevo.fecha = this.abonoNuevo.fecha || this.hoyLocal();
+    this.abonoNuevo.monto = Math.round(alcanza * 100) / 100;
+  }
+
+  /** Deuda completa repartida en apartados con saldo; el resto lo prestas tú. */
+  pagarMixtoCompleto(p: PedidoRegistrado): void {
+    const falta = Math.round(this.saldoDe(p) * 100) / 100;
+    if (falta <= 0.009) return;
+    this.abonoNuevo.fecha = this.abonoNuevo.fecha || this.hoyLocal();
+    this.abonoNuevo.monto = falta;
+    const totalApartados = this.rubrosApartado.reduce((s, r) => s + this.saldoApartadoDe(r.codigo), 0);
+    if (totalApartados <= 0.009) {
+      this.setAbonoOrigen('MI_DINERO');
+      return;
+    }
+    this.setAbonoOrigen('MIXTO');
+  }
+
+  /** Marca el faltante del pedido como crédito (sin pago); solo asegura fecha límite. */
+  dejarACredito(p: PedidoRegistrado): void {
+    const falta = this.saldoDe(p);
+    if (falta <= 0.009) {
+      this.error = 'Este pedido no tiene saldo pendiente';
+      return;
+    }
+    if (!this.fechaLimitePago) {
+      this.ponerFechaLimiteEn(15, p);
+    } else {
+      this.guardarFechaLimite(p);
+    }
+    this.ok =
+      `Queda a crédito: debes al proveedor $${falta.toFixed(2)}` +
+      (this.fechaLimitePago ? ` · pagar hasta ${this.fmtFechaDmY(this.fechaLimitePago)}` : '');
+  }
+
+  registrarDevolucionAdmin(): void {
+    const monto = Number(this.devolucionAdmin.monto);
+    const cat = (this.devolucionAdmin.categoria || '').trim();
+    if (!this.devolucionAdmin.fecha || !Number.isFinite(monto) || monto <= 0) {
+      this.error = 'Indica fecha y cuánto te regresó el negocio';
+      return;
+    }
+    if (!cat) {
+      this.error = 'Elige de qué apartado te paga el negocio';
+      return;
+    }
+    if (monto > this.saldoMeDebeNegocio + 0.009) {
+      this.error = `Solo te deben $${this.saldoMeDebeNegocio.toFixed(2)}`;
+      return;
+    }
+    const saldoCat = this.saldoApartadoDe(cat);
+    if (monto > saldoCat + 0.009) {
+      const nombre = this.rubrosApartado.find((r) => r.codigo === cat)?.nombre || cat;
+      this.error = `En ${nombre} solo hay $${saldoCat.toFixed(2)}. Aparta más o baja el monto.`;
+      return;
+    }
+    this.guardandoDevolucion = true;
+    this.error = '';
+    this.api
+      .registrarPrestamoAdmin({
+        fecha: this.devolucionAdmin.fecha,
+        monto,
+        tipo: 'DEVOLUCION',
+        nota: this.devolucionAdmin.nota || `Devolución al admin · ${cat}`,
+        categoria: cat,
+      })
+      .subscribe({
+        next: (r) => {
+          this.guardandoDevolucion = false;
+          this.prestamosResumen = r;
+          this.saldoMeDebeNegocio = Number(r.saldo) || 0;
+          this.devolucionAdmin = {
+            fecha: this.hoyLocal(),
+            monto: null,
+            nota: '',
+            categoria: cat,
+          };
+          this.ok =
+            `Registrado: te pagaron $${monto.toFixed(2)} de ${cat}. ` +
+            `Te deben $${this.saldoMeDebeNegocio.toFixed(2)}.`;
+          this.cargarSaldoProductos();
+        },
+        error: (e) => {
+          this.guardandoDevolucion = false;
+          this.error = e.error?.error || 'No se pudo registrar la devolución';
+        },
+      });
   }
 
   empezarEditarAbono(a: PedidoAbono): void {
@@ -1786,7 +2296,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
     const actual = this.pedidoExpandido()?.abonos?.find((x) => x.id === this.editandoAbonoId);
     const anterior = Number(actual?.monto) || 0;
     const extra = monto - anterior;
-    if (extra > 0.009 && extra > this.saldoProductos + 0.009) {
+    const conDineroPropio = !!actual?.conDineroPropio;
+    if (!conDineroPropio && extra > 0.009 && extra > this.saldoProductos + 0.009) {
       this.error = `En Productos solo hay $${this.saldoProductos.toFixed(2)} para subir este pago.`;
       return;
     }
@@ -1801,9 +2312,12 @@ export class SurtirComponent implements OnInit, OnDestroy {
         next: (act) => {
           this.guardandoAbono = false;
           this.editandoAbonoId = null;
-          this.ok = 'Pago actualizado (gasto en Productos)';
+          this.ok = conDineroPropio
+            ? 'Pago (mi dinero) actualizado'
+            : 'Pago actualizado (gasto en Productos)';
           this.reemplazarPedido(act);
           this.cargarSaldoProductos();
+          this.cargarPrestamosAdmin();
         },
         error: (e) => {
           this.guardandoAbono = false;
@@ -1819,9 +2333,12 @@ export class SurtirComponent implements OnInit, OnDestroy {
     if (!ok) return;
     this.api.eliminarAbonoPedido(a.id).subscribe({
       next: (act) => {
-        this.ok = 'Pago eliminado (se revirtió el gasto en Productos)';
+        this.ok = a.conDineroPropio
+          ? 'Pago eliminado (ya no cuenta como préstamo tuyo)'
+          : 'Pago eliminado (se revirtió el gasto en Productos)';
         this.reemplazarPedido(act);
         this.cargarSaldoProductos();
+        this.cargarPrestamosAdmin();
       },
       error: (e) => (this.error = e.error?.error || 'No se pudo eliminar el pago'),
     });
@@ -1878,6 +2395,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
         itemId: r.itemId,
         pedida: r.pedida,
         recibida: r.recibida,
+        precioUnitario: r.precioUnitario,
         totalPagado: r.totalPagado,
         precioVenta: r.precioVenta,
         usaBaston: r.usaBaston,
@@ -1941,7 +2459,8 @@ export class SurtirComponent implements OnInit, OnDestroy {
       const d = byId.get(r.itemId);
       if (!d) continue;
       if (d.pedida != null) r.pedida = d.pedida;
-      if (d.recibida != null) r.recibida = d.recibida;
+      if (d.recibida !== undefined) r.recibida = d.recibida;
+      if (d.precioUnitario !== undefined) r.precioUnitario = d.precioUnitario;
       if (d.totalPagado !== undefined) r.totalPagado = d.totalPagado;
       if (d.precioVenta !== undefined && r.completarAlta) {
         r.precioVenta = d.precioVenta;

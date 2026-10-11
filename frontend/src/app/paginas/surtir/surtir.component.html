@@ -492,6 +492,64 @@
     </p>
   }
 
+  @if (errorPrestamosAdmin || saldoMeDebeNegocio > 0.009) {
+    <div class="deuda-banner deuda-admin" role="status">
+      @if (errorPrestamosAdmin) {
+        <p class="warn-inline">{{ errorPrestamosAdmin }}</p>
+      } @else {
+        <p>
+          <strong>El negocio te debe ${{ saldoMeDebeNegocio | number: '1.2-2' }}</strong>
+        </p>
+        <div class="alta-manual-fila devolucion-admin-fila">
+          <label class="campo">
+            De apartado
+            <select [(ngModel)]="devolucionAdmin.categoria" name="devAdminCat">
+              @for (r of rubrosApartado; track r.codigo) {
+                <option [value]="r.codigo">
+                  {{ r.nombre }} (${{ saldoApartadoDe(r.codigo) | number: '1.2-2' }})
+                </option>
+              }
+            </select>
+          </label>
+          <label class="campo">
+            Fecha
+            <app-fecha-dia
+              [(ngModel)]="devolucionAdmin.fecha"
+              name="devAdminF"
+              ariaLabel="Fecha en que el negocio te regresó"
+            />
+          </label>
+          <label class="campo">
+            Te pagan
+            <input
+              type="text"
+              inputmode="decimal"
+              appSoloNumeros
+              appClearable
+              [(ngModel)]="devolucionAdmin.monto"
+              name="devAdminM"
+              placeholder="$"
+              [class.input-warn]="!alcanzaDevolucionAdmin() && num(devolucionAdmin.monto) > 0"
+            />
+          </label>
+          <label class="campo">
+            Nota
+            <input type="text" [(ngModel)]="devolucionAdmin.nota" name="devAdminN" placeholder="opcional" />
+          </label>
+          <button type="button" (click)="registrarDevolucionAdmin()" [disabled]="guardandoDevolucion">
+            {{ guardandoDevolucion ? 'Guardando…' : 'Ya me pagó el negocio' }}
+          </button>
+        </div>
+        @if (num(devolucionAdmin.monto) > 0 && !alcanzaDevolucionAdmin()) {
+          <p class="warn-inline">
+            En ese apartado no alcanza
+            (${{ saldoApartadoDe(devolucionAdmin.categoria) | number: '1.2-2' }}).
+          </p>
+        }
+      }
+    </div>
+  }
+
   @if (pedidosAbiertos.length === 0 && pedidosCerrados.length === 0) {
     <p class="muted">Aún no hay pedidos registrados.</p>
   }
@@ -558,6 +616,9 @@
             @if (p.estado !== 'CERRADO') {
             <div class="alta-manual alta-en-pedido">
               <p class="alta-manual-tit">Agregar producto a este pedido</p>
+              <p class="muted hint-inline">
+                Extra del proveedor sin abrir otro pedido. Si es nuevo, usa «+ Nuevo».
+              </p>
               <div class="alta-manual-fila">
                 <label class="campo producto-campo">
                   Producto
@@ -572,7 +633,7 @@
                   />
                 </label>
                 <label class="campo">
-                  Pedir
+                  Cantidad
                   <input
                     type="text"
                     inputmode="numeric"
@@ -580,11 +641,52 @@
                     appClearable
                     [(ngModel)]="altaPedidoCantidad"
                     [name]="'altaPedCant' + p.id"
-                    placeholder="0"
+                    placeholder=""
                   />
                 </label>
                 <button type="button" class="secondary" (click)="agregarItemAPedido()">Agregar</button>
+                <button
+                  type="button"
+                  class="secondary"
+                  (click)="altaPedidoNuevo = !altaPedidoNuevo"
+                >
+                  {{ altaPedidoNuevo ? 'Cerrar nuevo' : '+ Nuevo' }}
+                </button>
               </div>
+              @if (altaPedidoNuevo) {
+                <div class="alta-nuevo-en-surtir">
+                  <p class="muted">
+                    Solo nombre y cantidad. El precio de compra lo pones al capturar lo recibido.
+                  </p>
+                  <div class="alta-nuevo-fila">
+                    <label class="campo producto-campo">
+                      Nombre
+                      <input
+                        type="text"
+                        appClearable
+                        [(ngModel)]="altaPedidoNuevoNombre"
+                        [name]="'altaPedNuevoNom' + p.id"
+                        placeholder="Ej. Escoba nueva…"
+                      />
+                    </label>
+                    <label class="campo">
+                      Se vende por
+                      <select [(ngModel)]="altaPedidoNuevoVendePor" [name]="'altaPedNuevoVp' + p.id">
+                        <option value="PIEZA">Pieza</option>
+                        <option value="LITROS">Litros</option>
+                      </select>
+                    </label>
+                    <label class="campo">
+                      Departamento
+                      <select [(ngModel)]="altaPedidoNuevoDepto" [name]="'altaPedNuevoDep' + p.id">
+                        <option value="JARCERIA">Jarcería</option>
+                        <option value="LIMPIEZA">Limpieza</option>
+                      </select>
+                    </label>
+                    <button type="button" (click)="agregarProductoNuevoAPedido()">Añadir al pedido</button>
+                  </div>
+                </div>
+              }
             </div>
             }
 
@@ -610,12 +712,10 @@
               <table class="tabla-recibos">
                 <colgroup>
                   <col class="col-prod" />
-                  <col class="col-num" />
-                  <col class="col-num" />
-                  <col class="col-num" />
-                  <col class="col-num" />
-                  <col class="col-num" />
-                  <col class="col-falta" />
+                  <col class="col-ped" />
+                  <col class="col-rec" />
+                  <col class="col-unit" />
+                  <col class="col-tot" />
                   <col class="col-acc" />
                 </colgroup>
                 <thead>
@@ -623,22 +723,15 @@
                     <th>Producto</th>
                     <th class="money">Pedido</th>
                     <th class="money">Recibido</th>
-                    <th class="money">Importe $</th>
-                    <th class="money">Unitario</th>
-                    <th
-                      class="money"
-                      [title]="hayCompletarAltaRecibo ? 'Última compra · en productos nuevos: menudeo' : 'Última compra'"
-                    >
-                      {{ hayCompletarAltaRecibo ? 'Últ. / Men.' : 'Última' }}
-                    </th>
-                    <th class="money">Falta</th>
-                    <th></th>
+                    <th class="money" title="Precio por pieza o litro · multiplica × recibido">$/pza</th>
+                    <th class="money" title="Total de la nota · divide ÷ recibido">Total $</th>
+                    <th class="th-acc"></th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (g of recibosPorDepto; track g.titulo) {
                     <tr class="depto-sep">
-                      <td colspan="8">{{ g.titulo }}</td>
+                      <td colspan="6">{{ g.titulo }}</td>
                     </tr>
                     @for (r of g.items; track r.itemId) {
                     <tr
@@ -657,6 +750,36 @@
                             <span class="item-tag tag-pendiente">nuevo</span>
                           }
                         </div>
+                        <p class="recibo-meta muted">
+                          @if (ultimaCompra(r.productoId) != null) {
+                            <span>últ. ${{ ultimaCompra(r.productoId) | number: '1.2-2' }}</span>
+                          }
+                          @if (faltaDe(r) > 0.001) {
+                            <span class="falta-meta">· falta {{ faltaDe(r) | number: '1.0-2' }}</span>
+                          }
+                          @if (cambioRecibo(r) === 'SUBIO') {
+                            <span class="precio-cambio-linea subio">· subió ${{ diffAbsRecibo(r) | number: '1.2-2' }}</span>
+                          } @else if (cambioRecibo(r) === 'BAJO') {
+                            <span class="precio-cambio-linea bajo">· bajó ${{ diffAbsRecibo(r) | number: '1.2-2' }}</span>
+                          }
+                        </p>
+                        @if (r.completarAlta && p.estado !== 'CERRADO') {
+                          <label class="campo menudeo-en-fila">
+                            Menudeo
+                            <input
+                              type="text"
+                              class="recibo-num"
+                              inputmode="decimal"
+                              appSoloNumeros
+                              [(ngModel)]="r.precioVenta"
+                              [name]="'men' + r.itemId"
+                              [placeholder]="menudeoPlaceholderRecibo(r)"
+                              (ngModelChange)="onMenudeoReciboChange(r)"
+                              (keydown.enter)="focusSiguienteCampo($event)"
+                              [title]="tituloMenudeoRecibo(r)"
+                            />
+                          </label>
+                        }
                         @if (r.usaBaston) {
                           <div class="baston-opts" role="group" aria-label="¿Trae bastón?">
                             @if (p.estado !== 'CERRADO') {
@@ -684,15 +807,6 @@
                               <span class="item-tag tag-trae-baston">trae bastón</span>
                             }
                           </div>
-                        }
-                        @if (cambioRecibo(r) === 'SUBIO' || cambioRecibo(r) === 'BAJO') {
-                          <p class="precio-cambio-linea" [class.subio]="cambioRecibo(r) === 'SUBIO'" [class.bajo]="cambioRecibo(r) === 'BAJO'">
-                            @if (cambioRecibo(r) === 'SUBIO') {
-                              Precio subió ${{ diffAbsRecibo(r) | number: '1.2-2' }} vs última compra
-                            } @else {
-                              Precio bajó ${{ diffAbsRecibo(r) | number: '1.2-2' }} vs última compra
-                            }
-                          </p>
                         }
                       </td>
                       <td class="money recibo-pedida">
@@ -725,7 +839,32 @@
                             (keydown.enter)="focusSiguienteCampo($event)"
                           />
                         } @else {
-                          {{ r.recibida | number: '1.0-2' }}
+                          @if (r.recibida != null) {
+                            {{ r.recibida | number: '1.0-2' }}
+                          } @else {
+                            —
+                          }
+                        }
+                      </td>
+                      <td class="money recibo-campo celda-unitario">
+                        @if (p.estado !== 'CERRADO') {
+                          <input
+                            type="text"
+                            class="recibo-num"
+                            inputmode="decimal"
+                            appSoloNumeros
+                            [(ngModel)]="r.precioUnitario"
+                            [name]="'unit' + r.itemId"
+                            (ngModelChange)="onPrecioUnitarioChange(r)"
+                            (keydown.enter)="focusSiguienteCampo($event)"
+                            title="$ por pieza o litro"
+                          />
+                        } @else {
+                          @if (unitarioRecibo(r) != null) {
+                            <span class="precio-val">${{ unitarioRecibo(r) | number: '1.2-2' }}</span>
+                          } @else {
+                            <span class="precio-val muted">—</span>
+                          }
                         }
                       </td>
                       <td class="money recibo-campo">
@@ -737,9 +876,9 @@
                             appSoloNumeros
                             [(ngModel)]="r.totalPagado"
                             [name]="'tot' + r.itemId"
-                            placeholder="$"
                             (ngModelChange)="onTotalReciboChange(r)"
                             (keydown.enter)="focusSiguienteCampo($event)"
+                            title="Total de la nota de esta línea"
                           />
                         } @else {
                           @if (r.totalPagado != null) {
@@ -749,85 +888,41 @@
                           }
                         }
                       </td>
-                      <td class="money celda-unitario">
-                        <div class="precio-con-cambio">
-                          @if (unitarioRecibo(r) != null) {
-                            <span class="precio-val">${{ unitarioRecibo(r) | number: '1.2-2' }}</span>
-                            @switch (cambioRecibo(r)) {
-                              @case ('SUBIO') {
-                                <span
-                                  class="icono-cambio subio"
-                                  [title]="'Subió +$' + (diffAbsRecibo(r) | number: '1.2-2')"
-                                  aria-label="Subió"
-                                >↑</span>
-                              }
-                              @case ('IGUAL') {
-                                <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
-                              }
-                              @case ('BAJO') {
-                                <span
-                                  class="icono-cambio bajo"
-                                  [title]="'Bajó −$' + (diffAbsRecibo(r) | number: '1.2-2')"
-                                  aria-label="Bajó"
-                                >↓</span>
-                              }
-                              @default {
-                                <span class="icono-cambio-slot" aria-hidden="true"></span>
-                              }
-                            }
-                          } @else {
-                            <span class="precio-val muted">—</span>
-                            <span class="icono-cambio-slot" aria-hidden="true"></span>
-                          }
-                        </div>
-                      </td>
-                      <td class="money celda-ultima">
-                        @if (r.completarAlta && p.estado !== 'CERRADO') {
-                          <input
-                            type="text"
-                            class="recibo-num"
-                            inputmode="decimal"
-                            appSoloNumeros
-                            [(ngModel)]="r.precioVenta"
-                            [name]="'men' + r.itemId"
-                            [placeholder]="menudeoPlaceholderRecibo(r)"
-                            (ngModelChange)="onMenudeoReciboChange(r)"
-                            (keydown.enter)="focusSiguienteCampo($event)"
-                            [title]="tituloMenudeoRecibo(r)"
-                            aria-label="Menudeo"
-                          />
-                        } @else if (ultimaCompra(r.productoId) != null) {
-                          <span class="precio-val">${{ ultimaCompra(r.productoId) | number: '1.2-2' }}</span>
-                        } @else {
-                          <span class="precio-val muted">—</span>
-                        }
-                      </td>
-                      <td class="money">{{ faltaDe(r) | number: '1.0-2' }}</td>
                       <td class="actions">
                         @if (p.estado !== 'CERRADO') {
-                          @if (editandoPedidaId === r.itemId) {
+                          <div class="recibo-acciones">
                             <button
                               type="button"
-                              class="icon-btn"
-                              title="Guardar (Enter)"
-                              (click)="guardarPedida(r)"
-                              [disabled]="guardandoPedidaId === r.itemId"
+                              class="icon-btn btn-no-llego"
+                              title="No llegó · no suma a la cuenta"
+                              (click)="marcarNoLlego(r)"
                             >
-                              ✓
+                              ∅
                             </button>
-                          } @else {
-                            <button
-                              type="button"
-                              class="icon-btn"
-                              title="Editar lo pedido"
-                              (click)="empezarEditarPedida(r)"
-                            >
-                              ✎
-                            </button>
-                          }
-                          @if (r.recibidaInicial <= 0) {
-                            <button type="button" class="danger" title="Quitar" (click)="quitarItemPedido(r)">×</button>
-                          }
+                            @if (editandoPedidaId === r.itemId) {
+                              <button
+                                type="button"
+                                class="icon-btn"
+                                title="Guardar (Enter)"
+                                (click)="guardarPedida(r)"
+                                [disabled]="guardandoPedidaId === r.itemId"
+                              >
+                                ✓
+                              </button>
+                            } @else {
+                              <button
+                                type="button"
+                                class="icon-btn"
+                                title="Editar lo pedido"
+                                (click)="empezarEditarPedida(r)"
+                              >
+                                ✎
+                              </button>
+                            }
+                            @if (r.recibidaInicial <= 0) {
+                              <button type="button" class="icon-btn danger" title="Quitar" (click)="quitarItemPedido(r)">×</button>
+                            }
+                          </div>
                         }
                       </td>
                     </tr>
@@ -918,35 +1013,6 @@
                       <dd>{{ faltaDe(r) | number: '1.0-2' }}</dd>
                     </div>
                     <div>
-                      <dt>Unitario</dt>
-                      <dd class="unitario-celda">
-                        @if (unitarioRecibo(r) != null) {
-                          <span>${{ unitarioRecibo(r) | number: '1.2-2' }}</span>
-                          @switch (cambioRecibo(r)) {
-                            @case ('SUBIO') {
-                              <span
-                                class="icono-cambio subio"
-                                [title]="'Subió +$' + (diffAbsRecibo(r) | number: '1.2-2')"
-                                aria-label="Subió"
-                              >↑</span>
-                            }
-                            @case ('IGUAL') {
-                              <span class="icono-cambio igual" title="Igual que la última compra" aria-label="Igual">=</span>
-                            }
-                            @case ('BAJO') {
-                              <span
-                                class="icono-cambio bajo"
-                                [title]="'Bajó −$' + (diffAbsRecibo(r) | number: '1.2-2')"
-                                aria-label="Bajó"
-                              >↓</span>
-                            }
-                          }
-                        } @else {
-                          —
-                        }
-                      </dd>
-                    </div>
-                    <div>
                       <dt>{{ r.completarAlta ? 'Menudeo' : 'Última' }}</dt>
                       <dd class="muted">
                         @if (r.completarAlta && p.estado !== 'CERRADO') {
@@ -983,12 +1049,26 @@
                         appClearable
                         [(ngModel)]="r.recibida"
                         [name]="'recM' + r.itemId"
+                        placeholder=""
                         (ngModelChange)="onRecibidaReciboChange(r)"
                         (keydown.enter)="focusSiguienteCampo($event)"
                       />
                     </label>
                     <label>
-                      Importe $
+                      $/pza
+                      <input
+                        type="text"
+                        class="recibo-num"
+                        inputmode="decimal"
+                        appSoloNumeros
+                        [(ngModel)]="r.precioUnitario"
+                        [name]="'unitM' + r.itemId"
+                        (ngModelChange)="onPrecioUnitarioChange(r)"
+                        (keydown.enter)="focusSiguienteCampo($event)"
+                      />
+                    </label>
+                    <label>
+                      Total $
                       <input
                         type="text"
                         class="recibo-num"
@@ -997,12 +1077,20 @@
                         appClearable
                         [(ngModel)]="r.totalPagado"
                         [name]="'totM' + r.itemId"
-                        placeholder="$"
+                        placeholder=""
                         (ngModelChange)="onTotalReciboChange(r)"
                         (keydown.enter)="focusSiguienteCampo($event)"
                       />
                     </label>
                     <div class="recibo-acc">
+                      <button
+                        type="button"
+                        class="icon-btn btn-no-llego"
+                        title="No llegó · no suma a la cuenta"
+                        (click)="marcarNoLlego(r)"
+                      >
+                        ∅
+                      </button>
                       @if (editandoPedidaId === r.itemId) {
                         <button
                           type="button"
@@ -1043,7 +1131,12 @@
               <button type="button" (click)="guardarRecepcion()" [disabled]="guardandoRecepcion">
                 {{ guardandoRecepcion ? 'Guardando…' : 'Guardar lo recibido' }}
               </button>
-              <button type="button" class="secondary" (click)="marcarTodoRecibido()">
+              <button
+                type="button"
+                class="secondary"
+                (click)="marcarTodoRecibido()"
+                title="Marca todo lo pedido como recibido y calcula la cuenta con el último precio conocido"
+              >
                 Todo llegó
               </button>
             </div>
@@ -1055,7 +1148,7 @@
               <p class="alta-manual-tit">2. ¿Ya le pagaste al proveedor?</p>
               <p class="muted hint-inline">
                 @if (saldoDe(p) > 0.009) {
-                  Todavía debe <strong>${{ saldoDe(p) | number: '1.2-2' }}</strong>
+                  Todavía debe al proveedor <strong>${{ saldoDe(p) | number: '1.2-2' }}</strong>
                   @if (p.fechaLimitePago) {
                     · puedes pagar hasta el <strong>{{ p.fechaLimitePago | fechaDmY }}</strong>
                     @if (creditoVencido(p)) {
@@ -1071,12 +1164,18 @@
                 }
                 Disponible en <strong>Productos</strong>:
                 ${{ saldoProductos | number: '1.2-2' }}.
-                @if (num(abonoNuevo.monto) > 0) {
+                @if (num(abonoNuevo.monto) > 0 && abonoOrigen === 'PRODUCTOS') {
                   @if (alcanzaAbonoNuevo()) {
                     <span class="ok-inline">Te alcanza.</span>
                   } @else {
                     <span class="warn-inline">No te alcanza.</span>
                   }
+                }
+                @if (faltanteSinCobertura(p) > 0.009) {
+                  <span class="warn-inline">
+                    Faltan ${{ faltanteSinCobertura(p) | number: '1.2-2' }} sin cubrir con Productos
+                    — déjalos a crédito o paga «Con mi dinero».
+                  </span>
                 }
               </p>
               <div class="credito-box">
@@ -1150,6 +1249,13 @@
                       </div>
                     } @else {
                       <span>{{ a.fecha | fechaDmY }} · ${{ a.monto | number: '1.2-2' }}</span>
+                      <span
+                        class="item-tag"
+                        [class.tag-mi-dinero]="a.conDineroPropio"
+                        [class.tag-apartado-pago]="!a.conDineroPropio"
+                      >
+                        {{ etiquetaOrigenAbono(a) }}
+                      </span>
                       @if (a.nota) {
                         <span class="muted"> {{ a.nota }}</span>
                       }
@@ -1161,6 +1267,42 @@
                   </li>
                 }
               </ul>
+              <div class="origen-pago" role="group" aria-label="De dónde sale el pago">
+                <button
+                  type="button"
+                  class="chip-origen"
+                  [class.activo]="abonoOrigen === 'PRODUCTOS'"
+                  (click)="setAbonoOrigen('PRODUCTOS')"
+                >
+                  De Productos
+                </button>
+                <button
+                  type="button"
+                  class="chip-origen"
+                  [class.activo]="abonoOrigen === 'MIXTO'"
+                  (click)="setAbonoOrigen('MIXTO')"
+                >
+                  Mixto
+                </button>
+                <button
+                  type="button"
+                  class="chip-origen"
+                  [class.activo]="abonoOrigen === 'MI_DINERO'"
+                  (click)="setAbonoOrigen('MI_DINERO')"
+                >
+                  Con mi dinero
+                </button>
+              </div>
+              @if (abonoOrigen === 'MI_DINERO') {
+                <p class="muted hint-inline">
+                  No descuenta apartados. Se anota que <strong>el negocio te debe</strong> ese monto.
+                </p>
+              }
+              @if (abonoOrigen === 'MIXTO') {
+                <p class="muted hint-inline">
+                  Tomas de uno o varios apartados; lo que falte lo prestas tú (el negocio te lo debe).
+                </p>
+              }
               <div class="alta-manual-fila">
                 <label class="campo">
                   Fecha
@@ -1182,7 +1324,7 @@
                     [name]="'abonoM' + p.id"
                     placeholder="$"
                     [class.input-warn]="!alcanzaAbonoNuevo() && num(abonoNuevo.monto) > 0"
-                    (ngModelChange)="programarBorrador()"
+                    (ngModelChange)="onAbonoMontoChange()"
                     (keydown.enter)="registrarAbono(); $event.preventDefault()"
                   />
                 </label>
@@ -1201,8 +1343,86 @@
                 </button>
                 @if (saldoDe(p) > 0.009) {
                   <button type="button" class="secondary" (click)="pagarTodoLoQueFalta(p)">Pagar todo</button>
+                  <button type="button" class="secondary" (click)="pagarMixtoCompleto(p)">
+                    Apartados + mi dinero
+                  </button>
+                  @if (faltanteSinCobertura(p) > 0.009 && saldoProductos > 0.009) {
+                    <button type="button" class="secondary" (click)="pagarLoQueAlcanza(p)">
+                      Solo lo que alcanza
+                    </button>
+                  }
+                  <button type="button" class="secondary" (click)="dejarACredito(p)">
+                    Dejar a crédito
+                  </button>
                 }
               </div>
+              @if (abonoOrigen === 'MIXTO' && num(abonoNuevo.monto) > 0) {
+                <div class="split-apartados">
+                  @for (parte of abonoPartes; track $index) {
+                    <div class="alta-manual-fila split-fila">
+                      <label class="campo">
+                        Apartado
+                        <select
+                          [(ngModel)]="parte.categoria"
+                          [name]="'abonoCat' + p.id + '_' + $index"
+                          (ngModelChange)="onParteAbonoMontoChange($index)"
+                        >
+                          @for (r of rubrosApartado; track r.codigo) {
+                            <option [value]="r.codigo">
+                              {{ r.nombre }} (${{ saldoApartadoDe(r.codigo) | number: '1.2-2' }})
+                            </option>
+                          }
+                        </select>
+                      </label>
+                      <label class="campo">
+                        Monto
+                        <input
+                          type="text"
+                          inputmode="decimal"
+                          appSoloNumeros
+                          [(ngModel)]="parte.monto"
+                          [name]="'abonoParteM' + p.id + '_' + $index"
+                          [class.input-warn]="
+                            num(parte.monto) > 0 && num(parte.monto) > saldoApartadoDe(parte.categoria) + 0.009
+                          "
+                          (ngModelChange)="onParteAbonoMontoChange($index)"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        class="icon-btn danger"
+                        title="Quitar apartado"
+                        (click)="quitarParteAbono($index)"
+                        [disabled]="abonoPartes.length <= 1"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  }
+                  <div class="alta-manual-fila split-fila">
+                    <button type="button" class="secondary" (click)="agregarParteAbono()">+ Apartado</button>
+                    <label class="campo">
+                      Mi dinero
+                      <input
+                        type="text"
+                        class="input-readonly"
+                        [ngModel]="parteAbonoMiDinero()"
+                        [name]="'abonoMio' + p.id"
+                        readonly
+                        tabindex="-1"
+                      />
+                    </label>
+                  </div>
+                  <p class="muted hint-inline split-resumen">
+                    Apartados ${{ sumaAbonoApartados() | number: '1.2-2' }}
+                    + tuyos ${{ parteAbonoMiDinero() | number: '1.2-2' }}
+                    = ${{ num(abonoNuevo.monto) | number: '1.2-2' }}
+                    @if (parteAbonoMiDinero() > 0.009) {
+                      · el negocio te deberá ${{ parteAbonoMiDinero() | number: '1.2-2' }} más
+                    }
+                  </p>
+                </div>
+              }
             </div>
             }
 

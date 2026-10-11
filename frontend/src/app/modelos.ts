@@ -428,6 +428,28 @@ export interface PedidoAbono {
   fecha: string;
   monto: number;
   nota: string | null;
+  /** Pagado con dinero del admin → el negocio se lo debe. */
+  conDineroPropio?: boolean;
+  /** Apartado del que se descontó (PRODUCTOS, SALARIOS…); null si fue mi dinero. */
+  categoriaApartado?: string | null;
+}
+
+export interface PrestamoAdminMov {
+  id: number;
+  fecha: string;
+  monto: number;
+  tipo: 'PRESTAMO' | 'DEVOLUCION';
+  nota: string | null;
+  pedidoId: number | null;
+  pedidoAbonoId: number | null;
+  categoria?: string | null;
+}
+
+export interface PrestamoAdminResumen {
+  saldo: number;
+  totalPrestamos: number;
+  totalDevoluciones: number;
+  movimientos: PrestamoAdminMov[];
 }
 
 export interface PedidoRegistrado {

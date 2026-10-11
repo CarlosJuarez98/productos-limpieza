@@ -31,6 +31,10 @@ public class PedidoAbono extends TenantEntity {
   @Column(name = "apartado_id")
   private Long apartadoId;
 
+  /** true = el admin pagó de su bolsa; no descuenta Productos y genera préstamo. */
+  @Column(name = "con_dinero_propio", nullable = false)
+  private boolean conDineroPropio = false;
+
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
   public Pedido getPedido() { return pedido; }
@@ -43,4 +47,6 @@ public class PedidoAbono extends TenantEntity {
   public void setNota(String nota) { this.nota = nota; }
   public Long getApartadoId() { return apartadoId; }
   public void setApartadoId(Long apartadoId) { this.apartadoId = apartadoId; }
+  public boolean isConDineroPropio() { return conDineroPropio; }
+  public void setConDineroPropio(boolean conDineroPropio) { this.conDineroPropio = conDineroPropio; }
 }

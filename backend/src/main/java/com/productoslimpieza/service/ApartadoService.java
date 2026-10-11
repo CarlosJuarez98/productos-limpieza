@@ -170,6 +170,15 @@ public class ApartadoService {
     return apartadoRepo.saveAll(aGuardar).stream().map(this::toDto).toList();
   }
 
+  @Transactional(readOnly = true)
+  public ApartadoDto obtener(Long id) {
+    Apartado a =
+        apartadoRepo
+            .findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Apartado no encontrado"));
+    return toDto(a);
+  }
+
   @Transactional
   public ApartadoDto actualizar(Long id, ApartadoRequest req) {
     Apartado a =

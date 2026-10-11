@@ -8,5 +8,8 @@ public record PedidoAbonoDto(
     Long pedidoId,
     LocalDate fecha,
     BigDecimal monto,
-    String nota
+    String nota,
+    boolean conDineroPropio,
+    /** Código del apartado gastado (PRODUCTOS, SALARIOS…); null si fue mi dinero. */
+    String categoriaApartado
 ) {}

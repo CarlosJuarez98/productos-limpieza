@@ -23,6 +23,7 @@ import {
   PedidoSugerido,
   PedidoRegistrado,
   PedidoDomicilio,
+  PrestamoAdminResumen,
   Traspaso,
   TraspasoAbono,
   TraspasosResumen,
@@ -362,16 +363,43 @@ export class ApiService {
 
   crearAbonoPedido(
     id: number,
-    body: { fecha: string; monto: number; nota?: string | null; fechaLimitePago?: string | null }
+    body: {
+      fecha: string;
+      monto: number;
+      nota?: string | null;
+      fechaLimitePago?: string | null;
+      conDineroPropio?: boolean;
+      montoDineroPropio?: number | null;
+      /** Reparto: N apartados y/o { categoria: 'MI_DINERO', monto }. */
+      partes?: { categoria: string; monto: number }[];
+    }
   ): Observable<PedidoRegistrado> {
     return this.http.post<PedidoRegistrado>(`${this.base}/pedidos/${id}/abonos`, body);
   }
 
   actualizarAbonoPedido(
     abonoId: number,
-    body: { fecha: string; monto: number; nota?: string | null }
+    body: { fecha: string; monto: number; nota?: string | null; conDineroPropio?: boolean }
   ): Observable<PedidoRegistrado> {
     return this.http.put<PedidoRegistrado>(`${this.base}/pedidos/abonos/${abonoId}`, body);
+  }
+
+  prestamosAdmin(): Observable<PrestamoAdminResumen> {
+    return this.http.get<PrestamoAdminResumen>(`${this.base}/prestamos-admin`);
+  }
+
+  registrarPrestamoAdmin(body: {
+    fecha: string;
+    monto: number;
+    tipo: 'PRESTAMO' | 'DEVOLUCION';
+    nota?: string | null;
+    categoria?: string | null;
+  }): Observable<PrestamoAdminResumen> {
+    return this.http.post<PrestamoAdminResumen>(`${this.base}/prestamos-admin`, body);
+  }
+
+  eliminarPrestamoAdmin(id: number): Observable<PrestamoAdminResumen> {
+    return this.http.delete<PrestamoAdminResumen>(`${this.base}/prestamos-admin/${id}`);
   }
 
   eliminarAbonoPedido(abonoId: number): Observable<PedidoRegistrado> {

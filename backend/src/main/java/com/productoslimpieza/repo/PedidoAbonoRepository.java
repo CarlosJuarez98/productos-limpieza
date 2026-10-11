@@ -11,6 +11,8 @@ public interface PedidoAbonoRepository extends JpaRepository<PedidoAbono, Long> 
 
   List<PedidoAbono> findByPedidoIdOrderByFechaDescIdDesc(Long pedidoId);
 
+  List<PedidoAbono> findByConDineroPropioTrue();
+
   @Query("select coalesce(sum(a.monto), 0) from PedidoAbono a where a.pedido.id = :pedidoId")
   BigDecimal sumMontoByPedidoId(@Param("pedidoId") Long pedidoId);
 }
