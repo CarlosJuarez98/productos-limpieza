@@ -82,22 +82,12 @@ public class ArmadoService {
     ajuste.setMotivo("Armar «" + p.getNombre() + "» × " + cant.stripTrailingZeros().toPlainString());
     ajusteRepo.save(ajuste);
 
-    // Lista Armar: costo listo = cabeza (lo que pagaste en Surtir) + bastón por unidad.
+    // Lista Armar: costo listo = cabeza (proveedor) + bastón. Nunca restar a ciegas
+    // (23 − 14 = 9 es el bug típico cuando la compra aún es solo cabeza).
     BigDecimal stockProd = inventarioService.stockActual(p);
     BigDecimal costoBastonUnit = inventarioService.costoBastonPorUnidad(p);
-    BigDecimal compraActual = nz(p.getPrecioCompra());
     if (costoBastonUnit.compareTo(BigDecimal.ZERO) > 0 && stockProd.compareTo(BigDecimal.ZERO) > 0) {
-      BigDecimal cabeza;
-      if (pendiente.compareTo(stockProd) == 0) {
-        // Todo el stock estaba pendiente → compra actual es solo la cabeza.
-        cabeza = compraActual;
-      } else {
-        // Ya había armadas: si compra ya incluye bastón, la cabeza es compra − bastón;
-        // si alguien dejó la compra en solo-cabeza, no restamos de más.
-        BigDecimal talvezCabeza = compraActual.subtract(costoBastonUnit);
-        cabeza =
-            talvezCabeza.compareTo(BigDecimal.ZERO) >= 0 ? talvezCabeza : compraActual;
-      }
+      BigDecimal cabeza = inventarioService.resolverPrecioCabeza(p, stockProd);
       p.setPrecioCompra(cabeza.add(costoBastonUnit).setScale(4, RoundingMode.HALF_UP));
     }
 

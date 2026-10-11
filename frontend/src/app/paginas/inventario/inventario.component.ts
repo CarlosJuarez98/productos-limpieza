@@ -300,8 +300,9 @@ export class InventarioComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Desglose cabeza/bastón solo para la lista Armar.
-   * Si todo el stock está pendiente, la compra aún es solo cabeza.
+   * Desglose cabeza/bastón (lista Armar).
+   * La compra puede ser solo cabeza (Falta armar) o ya con bastón (Trae bastón / Armar).
+   * No restar el bastón a ciegas: 23 − 14 = 9 es incorrecto si 23 era la cabeza.
    */
   desgloseCompraBaston(i: InventarioItem): {
     cabeza: number;
@@ -317,8 +318,9 @@ export class InventarioComponent implements OnInit, OnDestroy {
     const compra = Number(i.precioCompra) || 0;
     const stock = Number(i.stockActual) || 0;
     const pend = Number(i.pendienteArmar) || 0;
-    const soloCabeza = stock > 0 && pend >= stock;
-    if (soloCabeza) {
+
+    // Unidades por armar → compra vigente = cabeza del proveedor.
+    if (pend > 0 || stock <= 0) {
       return {
         cabeza: compra,
         baston: costoB,
@@ -326,8 +328,20 @@ export class InventarioComponent implements OnInit, OnDestroy {
         armado: false,
       };
     }
+
+    const restada = Math.round((compra - costoB) * 100) / 100;
+    // Si al restar queda menos que el bastón, la compra era solo cabeza (ej. 23−14=9).
+    if (restada < costoB) {
+      return {
+        cabeza: compra,
+        baston: costoB,
+        lista: Math.round((compra + costoB) * 100) / 100,
+        armado: false,
+      };
+    }
+
     return {
-      cabeza: Math.max(0, Math.round((compra - costoB) * 100) / 100),
+      cabeza: Math.max(0, restada),
       baston: costoB,
       lista: compra,
       armado: true,
