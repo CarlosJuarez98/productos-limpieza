@@ -642,8 +642,22 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
   });
 }
 
-/** Solo imagen (sin caption de total: WhatsApp lo mandaría aparte). */
-export async function compartirTicketWhatsApp(datos: TicketDatos): Promise<'compartido' | 'descargado'> {
+/** Mensaje de domicilio en portapapeles (efectivo / ¿exacto?). */
+export function textoPortapapelesDomicilio(total: number): string {
+  const t = Number(total);
+  const monto = Number.isFinite(t) ? money(t) : '0.00';
+  return `Es un total de $${monto}. ¿Será pago exacto?`;
+}
+
+/**
+ * Imagen del pedido + mensaje en portapapeles para pegar en «Añadir mensaje».
+ */
+export async function compartirTicketWhatsApp(
+  datos: TicketDatos
+): Promise<'compartido' | 'descargado'> {
+  const caption = textoPortapapelesDomicilio(datos.total);
+  await copiarTextoSeguro(caption);
+
   const blob = await generarTicketPng(datos);
   const safePart = (s: string) =>
     s
