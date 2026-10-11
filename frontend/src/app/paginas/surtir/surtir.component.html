@@ -44,13 +44,7 @@
       </button>
     </div>
   </div>
-
-  @if (error) {
-    <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-  }
-  @if (ok) {
-    <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
-  }
+<app-page-alerts [(ok)]="ok" [(error)]="error" />
 </section>
 
 <div class="surtir-paso2">
@@ -780,7 +774,7 @@
                             />
                           </label>
                         }
-                        @if (r.usaBaston) {
+                        @if (muestraOpcionesBaston(r)) {
                           <div class="baston-opts" role="group" aria-label="¿Trae bastón?">
                             @if (p.estado !== 'CERRADO') {
                               <button
@@ -950,7 +944,7 @@
                       <span class="item-tag tag-pendiente">nuevo</span>
                     }
                   </p>
-                  @if (r.usaBaston) {
+                  @if (muestraOpcionesBaston(r)) {
                     <div class="baston-opts" role="group" aria-label="¿Trae bastón?">
                       @if (p.estado !== 'CERRADO') {
                         <button

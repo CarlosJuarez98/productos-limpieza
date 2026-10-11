@@ -6,9 +6,9 @@ import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
-import { AutoHideDirective } from '../../auto-hide.directive';
 import { elementoVisible, esMovilTactil, scrollEnMain } from '../../captura-focus.util';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
@@ -43,8 +43,7 @@ interface LineaDom {
     FechaDiaComponent,
     FechaDmYPipe,
     ClearableDirective,
-    SoloNumerosDirective,
-    AutoHideDirective,
+    SoloNumerosDirective, PageAlertsComponent,
     ProductoAutocompleteComponent,
   ],
   templateUrl: './domicilio.component.html',

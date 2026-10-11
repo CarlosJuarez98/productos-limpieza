@@ -1,11 +1,5 @@
 <h2 class="page-title">Uso en casa</h2>
-
-@if (error) {
-  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-}
-@if (ok) {
-  <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
-}
+<app-page-alerts [(ok)]="ok" [(error)]="error" />
 
 <div class="uso-flow">
   <section class="panel chart-panel uso-chart">
@@ -198,9 +192,7 @@
                           <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
                         </div>
                       </form>
-                      @if (errorEdit) {
-                        <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
-                      }
+<app-page-alerts [(error)]="errorEdit" />
                     </td>
                   </tr>
                 }
@@ -258,9 +250,7 @@
                 <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
               </div>
             </form>
-            @if (errorEdit) {
-              <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
-            }
+<app-page-alerts [(error)]="errorEdit" />
           </div>
         }
 

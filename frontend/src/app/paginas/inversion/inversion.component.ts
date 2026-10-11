@@ -3,12 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import { InversionItem, InversionResumen } from '../../modelos';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
-import { AutoHideDirective } from '../../auto-hide.directive';
 
 @Component({
   selector: 'app-inversion',
@@ -18,8 +18,7 @@ import { AutoHideDirective } from '../../auto-hide.directive';
     FormsModule,
     PaginadorComponent,
     ClearableDirective,
-    SoloNumerosDirective,
-    AutoHideDirective,
+    SoloNumerosDirective, PageAlertsComponent,
   ],
   templateUrl: './inversion.component.html',
   styleUrl: './inversion.component.scss',

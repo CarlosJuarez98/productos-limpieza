@@ -1,9 +1,9 @@
 import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AutoHideDirective } from '../../auto-hide.directive';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import { InventarioItem, PublicidadGaleriaItem } from '../../modelos';
 import { compartirPublicidad } from '../../ticket-whatsapp.util';
 import { generarLotePublicidad, PromoGenerada, DeptoPromo } from '../../promo-generador.util';
@@ -28,7 +28,7 @@ const LOTE_SIZE = 5;
 @Component({
   selector: 'app-publicidad',
   standalone: true,
-  imports: [CommonModule, FormsModule, AutoHideDirective],
+  imports: [CommonModule, FormsModule, PageAlertsComponent],
   templateUrl: './publicidad.component.html',
   styleUrl: './publicidad.component.scss',
 })

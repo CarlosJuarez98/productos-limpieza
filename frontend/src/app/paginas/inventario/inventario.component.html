@@ -153,12 +153,7 @@
           </div>
         </div>
       }
-      @if (ok) {
-        <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
-      }
-      @if (error) {
-        <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-      }
+  <app-page-alerts [(ok)]="ok" [(error)]="error" />
       <div class="table-wrap hist-tabla">
         <table class="inv-table" [style.--cols]="colsTabla">
           <thead>
@@ -594,12 +589,8 @@
     </div>
   </form>
   }
-  @if (errorAjuste) {
-    <p class="error" appAutoHide (autoHide)="errorAjuste = ''">{{ errorAjuste }}</p>
-  }
-  @if (okAjuste) {
-    <p class="ok-msg" appAutoHide (autoHide)="okAjuste = ''">{{ okAjuste }}</p>
-  }
+<app-page-alerts [(error)]="errorAjuste" />
+<app-page-alerts [(ok)]="okAjuste" />
 
   <div class="table-wrap hist-tabla">
     <table>
@@ -747,9 +738,7 @@
     </label>
     <button type="submit" [disabled]="!altaCompleta">Agregar producto nuevo</button>
   </form>
-  @if (error) {
-    <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-  }
+<app-page-alerts [(error)]="error" />
   }
 </section>
 </div>
@@ -862,10 +851,6 @@
       }
     </div>
   </form>
-  @if (errorAjuste) {
-    <p class="error" appAutoHide (autoHide)="errorAjuste = ''">{{ errorAjuste }}</p>
-  }
-  @if (okAjuste) {
-    <p class="ok-msg" appAutoHide (autoHide)="okAjuste = ''">{{ okAjuste }}</p>
-  }
+<app-page-alerts [(error)]="errorAjuste" />
+<app-page-alerts [(ok)]="okAjuste" />
 </ng-template>

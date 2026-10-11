@@ -1,13 +1,7 @@
 @if (!embebido) {
   <h2 class="page-title">Armar</h2>
 }
-
-@if (error) {
-  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-}
-@if (ok) {
-  <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
-}
+<app-page-alerts [(ok)]="ok" [(error)]="error" />
 
 <section class="panel baston-panel">
   <h3 class="panel-titulo">Bastones disponibles</h3>

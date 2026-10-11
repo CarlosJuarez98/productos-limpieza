@@ -9,6 +9,7 @@ import { CapturaDraftService } from '../../captura-draft.service';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import { Entrada, InventarioItem, Produccion, Receta, RecetaInsumo } from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { ProductoAltaFormComponent } from '../../producto-alta-form.component';
@@ -18,7 +19,6 @@ import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreakpointCambio, capturaTieneFocoEnCampo, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
-import { AutoHideDirective } from '../../auto-hide.directive';
 import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
 
 interface LineaForm {
@@ -90,8 +90,7 @@ type DraftEntradas = {
     FechaDiaComponent,
     ClearableDirective,
     SoloNumerosDirective,
-    PaginadorComponent,
-    AutoHideDirective,
+    PaginadorComponent, PageAlertsComponent,
     ArmarComponent,
   ],
   templateUrl: './entradas.component.html',

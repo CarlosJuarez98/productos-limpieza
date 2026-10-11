@@ -1,11 +1,5 @@
 <h2 class="page-title">Apartados</h2>
-
-@if (error) {
-  <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-}
-@if (ok) {
-  <p class="ok-msg" appAutoHide (autoHide)="ok = ''">{{ ok }}</p>
-}
+<app-page-alerts [(ok)]="ok" [(error)]="error" />
 
 <div class="stats">
   <div class="stat destacado">
@@ -431,9 +425,7 @@
                                       </button>
                                     </div>
                                   </form>
-                                  @if (errorEdit) {
-                                    <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
-                                  }
+<app-page-alerts [(error)]="errorEdit" />
                                 </td>
                               </tr>
                             }

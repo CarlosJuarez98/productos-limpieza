@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
+import { PageAlertsComponent } from '../../page-alerts.component';
 import {
   Apartado,
   ApartadoRubro,
@@ -17,7 +18,6 @@ import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
-import { AutoHideDirective } from '../../auto-hide.directive';
 import { enfocarInput, inputsVisiblesDe, navegarCampos, programarEnfoque } from '../../captura-focus.util';
 
 /** Línea de gasto: partes sumadas (+) + monto en captura. */
@@ -41,8 +41,7 @@ interface GastoForm {
     FechaDiaComponent,
     PaginadorComponent,
     ClearableDirective,
-    SoloNumerosDirective,
-    AutoHideDirective,
+    SoloNumerosDirective, PageAlertsComponent,
   ],
   templateUrl: './apartados.component.html',
   styleUrl: './apartados.component.scss',

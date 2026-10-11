@@ -229,9 +229,7 @@
         Registrar traspaso
       </button>
     </div>
-    @if (error) {
-      <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-    }
+<app-page-alerts [(error)]="error" />
   </form>
 </section>
 
@@ -308,9 +306,7 @@
     </div>
     <button type="submit" [disabled]="!personasParaAbono.length">Registrar abono</button>
   </form>
-  @if (error) {
-    <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-  }
+<app-page-alerts [(error)]="error" />
 </section>
 
 @if (data) {
@@ -429,9 +425,7 @@
             </button>
             <button type="button" class="secondary" (click)="cancelarEdicion()">Cancelar</button>
           </div>
-          @if (errorEdit) {
-            <p class="error" appAutoHide (autoHide)="errorEdit = ''">{{ errorEdit }}</p>
-          }
+<app-page-alerts [(error)]="errorEdit" />
         </form>
       }
 
@@ -594,9 +588,7 @@
     </button>
     @if (histAbonosAbierta) {
     <div class="panel-toggle-body">
-      @if (errorAbonoEdit) {
-        <p class="error" appAutoHide (autoHide)="errorAbonoEdit = ''">{{ errorAbonoEdit }}</p>
-      }
+<app-page-alerts [(error)]="errorAbonoEdit" />
       <div class="table-wrap hist-tabla">
         <table>
           <thead>

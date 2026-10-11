@@ -34,10 +34,7 @@
       <input type="checkbox" name="recordar" [(ngModel)]="recordar" />
       Recordarme 7 días
     </label>
-
-    @if (error) {
-      <p class="error" appAutoHide (autoHide)="error = ''">{{ error }}</p>
-    }
+<app-page-alerts [(error)]="error" />
 
     <button type="submit" [disabled]="cargando">
       {{ cargando ? 'Entrando…' : 'Entrar' }}
