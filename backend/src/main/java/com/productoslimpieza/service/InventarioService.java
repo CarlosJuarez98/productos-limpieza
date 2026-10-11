@@ -76,8 +76,11 @@ public class InventarioService {
     this.margenService = margenService;
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public List<InventarioDto> listar() {
+    // Prod: si lo quitaron de Armar, el pendiente viejo seguía en BD y el badge no se iba.
+    limpiarPendientesFueraDeListaArmar();
+
     MargenConfig margen = margenService.getConfig();
     List<Producto> productos = productoRepo.findByActivoTrueOrderByNombreAsc();
     if (productos.isEmpty()) {
@@ -457,6 +460,9 @@ public class InventarioService {
             ? p.getDepartamento()
             : DepartamentoProducto.inferir(vendePor, p.getNombre());
 
+    // Fuera de lista Armar no hay «sin armar» (aunque quede basura en BD).
+    BigDecimal pend = p.isUsaBaston() ? nz(p.getPendienteArmar()) : BigDecimal.ZERO;
+
     return new InventarioDto(
         p.getId(),
         p.getNombre(),
@@ -481,8 +487,18 @@ public class InventarioService {
         p.isUsaBaston(),
         p.getBastonesPorUnidad() != null ? p.getBastonesPorUnidad() : BigDecimal.ONE,
         p.getBastonProductoId(),
-        nz(p.getPendienteArmar()),
-        stock.subtract(nz(p.getPendienteArmar())).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP));
+        pend,
+        stock.subtract(pend).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP));
+  }
+
+  /** Quita pendientes huérfanos de productos que ya no están en la lista Armar. */
+  private void limpiarPendientesFueraDeListaArmar() {
+    for (Producto p : productoRepo.findByActivoTrueOrderByNombreAsc()) {
+      if (!p.isUsaBaston() && nz(p.getPendienteArmar()).compareTo(BigDecimal.ZERO) > 0) {
+        p.setPendienteArmar(BigDecimal.ZERO);
+        productoRepo.save(p);
+      }
+    }
   }
 
   private static Map<Long, BigDecimal> toMap(List<Object[]> rows) {
@@ -568,9 +584,79 @@ public class InventarioService {
     return nz(baston.getPrecioCompra()).multiply(porUnidad).setScale(4, RoundingMode.HALF_UP);
   }
 
+  private static final BigDecimal EPS_PRECIO = new BigDecimal("0.05");
+
+  private static boolean casiIgual(BigDecimal a, BigDecimal b) {
+    if (a == null || b == null) return false;
+    return a.subtract(b).abs().compareTo(EPS_PRECIO) <= 0;
+  }
+
+  /**
+   * Precio de la cabeza (proveedor), sin bastón.
+   *
+   * <p>La compra del catálogo a veces es solo cabeza (Falta armar / entradas) y a veces ya
+   * incluye bastón (Trae bastón / tras Armar). Nunca restar el bastón a ciegas: eso convierte
+   * $23+$14 en «cabeza $9».
+   */
+  public BigDecimal resolverPrecioCabeza(Producto p, BigDecimal stock) {
+    BigDecimal compra = nz(p.getPrecioCompra());
+    if (p == null || !p.isUsaBaston()) {
+      return compra;
+    }
+    BigDecimal costoB = costoBastonPorUnidad(p);
+    if (costoB.compareTo(BigDecimal.ZERO) <= 0) {
+      return compra;
+    }
+    BigDecimal pend = nz(p.getPendienteArmar());
+    BigDecimal ultimaCabeza =
+        entradaRepo
+            .findFirstByProductoIdAndPrecioProveedorIsNotNullOrderByFechaDescIdDesc(p.getId())
+            .map(e -> nz(e.getPrecioProveedor()))
+            .filter(u -> u.compareTo(BigDecimal.ZERO) > 0)
+            .orElse(null);
+
+    if (ultimaCabeza != null) {
+      if (casiIgual(compra, ultimaCabeza)) {
+        return ultimaCabeza;
+      }
+      if (casiIgual(compra, ultimaCabeza.add(costoB))) {
+        return ultimaCabeza;
+      }
+    }
+    // Hay unidades por armar → la compra vigente es la cabeza del proveedor.
+    if (pend.compareTo(BigDecimal.ZERO) > 0) {
+      return compra;
+    }
+    BigDecimal stockNz = stock != null ? stock : BigDecimal.ZERO;
+    if (stockNz.compareTo(BigDecimal.ZERO) > 0 && compra.compareTo(costoB) > 0) {
+      BigDecimal restada = compra.subtract(costoB);
+      // Si al restar queda una «cabeza» más barata que el bastón, la compra era solo cabeza
+      // (ej. 23 − 14 = 9 con bastón a 14).
+      if (restada.compareTo(costoB) < 0) {
+        return compra;
+      }
+      return restada.max(BigDecimal.ZERO);
+    }
+    return compra;
+  }
+
+  /** true si {@code precioCompra} ya incluye el costo del bastón. */
+  public boolean compraIncluyeBaston(Producto p, BigDecimal stock) {
+    if (p == null || !p.isUsaBaston()) {
+      return false;
+    }
+    BigDecimal costoB = costoBastonPorUnidad(p);
+    if (costoB.compareTo(BigDecimal.ZERO) <= 0) {
+      return false;
+    }
+    BigDecimal compra = nz(p.getPrecioCompra());
+    BigDecimal cabeza = resolverPrecioCabeza(p, stock);
+    return casiIgual(compra, cabeza.add(costoB));
+  }
+
   /**
    * Si sube/baja el precio del bastón, actualiza la compra de productos de la lista Armar que ya
-   * incluyen bastón (listos o mixtos). Los que están 100% pendientes (solo cabeza) no se tocan.
+   * incluyen bastón. Los que están solo-cabeza (pendientes o compra = proveedor) no se tocan.
    */
   public void recalcularCompraTrasCambioPrecioBaston(
       Producto baston, BigDecimal precioAnterior, BigDecimal precioNuevo) {
@@ -590,20 +676,12 @@ public class InventarioService {
         continue;
       }
       BigDecimal stock = stockActual(p);
-      BigDecimal pend = nz(p.getPendienteArmar());
-      // Todo el stock es cabeza pendiente → compra aún no lleva bastón.
-      if (stock.compareTo(BigDecimal.ZERO) > 0 && pend.compareTo(stock) == 0) {
+      if (!compraIncluyeBaston(p, stock)) {
         continue;
       }
       BigDecimal por = bastonesPorUnidad(p);
-      BigDecimal oldCosto = precioAnterior.multiply(por);
       BigDecimal newCosto = precioNuevo.multiply(por);
-      BigDecimal compra = nz(p.getPrecioCompra());
-      BigDecimal cabeza = compra.subtract(oldCosto);
-      if (cabeza.compareTo(BigDecimal.ZERO) < 0) {
-        // Parece solo-cabeza; no forzar. Al armar se suma el bastón vigente.
-        continue;
-      }
+      BigDecimal cabeza = resolverPrecioCabeza(p, stock);
       p.setPrecioCompra(cabeza.add(newCosto).setScale(4, RoundingMode.HALF_UP));
       productoRepo.save(p);
     }
@@ -622,12 +700,15 @@ public class InventarioService {
       if (req.esBaston()) {
         p.setUsaBaston(false);
         p.setBastonProductoId(null);
+        p.setPendienteArmar(BigDecimal.ZERO);
       }
     }
     if (req.usaBaston() != null) {
       p.setUsaBaston(req.usaBaston());
       if (!req.usaBaston()) {
         p.setBastonProductoId(null);
+        // Fuera de la lista Armar: ya no hay pendientes que mostrar.
+        p.setPendienteArmar(BigDecimal.ZERO);
       }
     }
     if (req.bastonesPorUnidad() != null && req.bastonesPorUnidad().compareTo(BigDecimal.ZERO) > 0) {

@@ -860,22 +860,25 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Base para sugerir menudeo (solo hint):
+   * Base para sugerir menudeo (solo hint), solo si está en lista Armar:
    * - Trae bastón → solo cabeza del proveedor.
    * - Falta armar → cabeza + costo del bastón.
    */
   baseCompraMenudeoRecibo(r: ReciboEdit): number | null {
     const u = this.unitarioRecibo(r);
     if (u == null || u <= 0) return null;
-    const usa = r.usaBaston || nombreSugiereUsaBaston(r.productoNombre);
-    if (!usa || r.traeBastonIncluido) return u;
+    if (!r.usaBaston || r.traeBastonIncluido) return u;
     const baston = this.costoBastonPorUnidad();
     return baston > 0 ? Math.round((u + baston) * 100) / 100 : u;
   }
 
-  /** Mostrar Falta armar / Trae bastón (ya en lista o nombre tipico). */
+  /**
+   * Bastón solo si ya está en lista Armar, o es producto nuevo (alta) con nombre
+   * tipico (escoba/jalador/mechudo) para poder meterlo a Armar.
+   */
   muestraOpcionesBaston(r: ReciboEdit): boolean {
-    return !!r.usaBaston || nombreSugiereUsaBaston(r.productoNombre);
+    if (r.usaBaston) return true;
+    return !!r.completarAlta && nombreSugiereUsaBaston(r.productoNombre);
   }
 
   /**
@@ -1229,6 +1232,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
         precioVenta: sinMenudeo ? null : Number(prod!.precioVentaHoy),
         precioMayoreo5: Number(prod?.precioMayoreo5) > 0 ? Number(prod!.precioMayoreo5) : null,
         precioMayoreo10: Number(prod?.precioMayoreo10) > 0 ? Number(prod!.precioMayoreo10) : null,
+        // Solo lista Armar; en alta nueva, escoba/jalador/mechudo arranca en lista.
         usaBaston: !!prod?.usaBaston || (completarAlta && porNombre),
         /** Por defecto falta armar; si trae bastón, el usuario lo marca. */
         traeBastonIncluido: false,
@@ -1337,11 +1341,10 @@ export class SurtirComponent implements OnInit, OnDestroy {
   tituloMenudeoRecibo(r: ReciboEdit): string {
     const rango = this.rangoMinMaxRecibo(r);
     let t = 'Menudeo (tú lo pones; el rango es solo sugerencia)';
-    const usa = r.usaBaston || nombreSugiereUsaBaston(r.productoNombre);
     const baston = this.costoBastonPorUnidad();
-    if (usa && !r.traeBastonIncluido && baston > 0) {
+    if (r.usaBaston && !r.traeBastonIncluido && baston > 0) {
       t += ` · falta armar: incluye bastón $${baston}`;
-    } else if (usa && r.traeBastonIncluido) {
+    } else if (r.usaBaston && r.traeBastonIncluido) {
       t += ' · trae bastón: sin sumar bastón';
     }
     if (rango) {
@@ -1517,10 +1520,12 @@ export class SurtirComponent implements OnInit, OnDestroy {
       let agregadosArmar = 0;
       for (const r of aCompletar) {
         const u = this.unitarioRecibo(r)!;
+        // Alta nueva con nombre tipico / botones bastón → entra a lista Armar.
         if (this.muestraOpcionesBaston(r)) r.usaBaston = true;
         this.sincronizarMayoreoRecibo(r);
         const prod = this.productoPorId(r.productoId);
-        const usaBaston = !!r.usaBaston || !!prod?.usaBaston;
+        // Respeta catálogo: si lo quitaron de Armar, no lo volvemos a meter por el nombre.
+        const usaBaston = !!r.usaBaston;
         const actualizado = await firstValueFrom(
           this.api.actualizarProducto(r.productoId, {
             nombre: r.productoNombre.trim(),
@@ -1544,36 +1549,6 @@ export class SurtirComponent implements OnInit, OnDestroy {
         r.completarAlta = false;
         r.precioCompra = u;
         r.usaBaston = !!actualizado.usaBaston;
-      }
-      // Productos ya en catálogo (escoba/jalador/mechudo o marcados): entrar a lista Armar.
-      for (const r of this.recibosEdit) {
-        const rec = Math.max(0, Number(r.recibida) || 0);
-        if (rec <= 0) continue;
-        if (!this.muestraOpcionesBaston(r)) continue;
-        r.usaBaston = true;
-        const prod = this.productoPorId(r.productoId);
-        if (!prod || prod.usaBaston) continue;
-        const actualizado = await firstValueFrom(
-          this.api.actualizarProducto(r.productoId, {
-            nombre: prod.nombre,
-            precioCompra: Number(prod.precioCompra) || 0,
-            cantidadInicial: prod.cantidadInicial ?? 0,
-            precioVenta: Number(prod.precioVentaHoy) > 0 ? Number(prod.precioVentaHoy) : null,
-            precioMayoreo5: Number(prod.precioMayoreo5) > 0 ? Number(prod.precioMayoreo5) : null,
-            precioMayoreo10: Number(prod.precioMayoreo10) > 0 ? Number(prod.precioMayoreo10) : null,
-            vendePor: prod.vendePor,
-            departamento: prod.departamento || r.departamento,
-            usaBaston: true,
-            esBaston: false,
-            bastonesPorUnidad: Number(prod.bastonesPorUnidad) || 1,
-            bastonProductoId: prod.bastonProductoId ?? bastonId,
-          }),
-        );
-        const ix = this.productos.findIndex((p) => p.id === actualizado.id);
-        if (ix >= 0) this.productos[ix] = actualizado;
-        else this.productos = [...this.productos, actualizado];
-        agregadosArmar++;
-        r.usaBaston = true;
       }
       const lineas = this.recibosEdit.map((r) => {
         const u = this.unitarioRecibo(r);

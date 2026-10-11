@@ -215,7 +215,7 @@
                 @if (col('stock')) {
                   <td class="money col-stock" [class.stock-cero]="i.stockActual <= 0">
                     {{ i.stockActual | number: '1.2-2' }}
-                    @if ((i.pendienteArmar || 0) > 0) {
+                    @if (i.usaBaston && (i.pendienteArmar || 0) > 0) {
                       <span class="tag-pendiente-armar" title="Sin bastón aún">{{ i.pendienteArmar | number: '1.0-0' }} sin armar</span>
                     }
                   </td>
