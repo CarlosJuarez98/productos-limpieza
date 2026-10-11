@@ -646,8 +646,8 @@ export class DomicilioComponent implements OnInit {
       });
       this.ok =
         modo === 'compartido'
-          ? 'Elige el chat en Compartir y listo'
-          : 'Imagen descargada: ábrela y compártela en WhatsApp';
+          ? 'Elige el chat. Mensaje listo para pegar (¿pago exacto?).'
+          : 'Imagen descargada. Mensaje en el portapapeles (¿pago exacto?).';
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudo generar la imagen';
     } finally {
