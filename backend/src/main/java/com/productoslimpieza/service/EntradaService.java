@@ -223,15 +223,22 @@ public class EntradaService {
     if (precioProveedor == null) {
       return;
     }
+    BigDecimal nuevo = precioProveedor;
+    if (producto.isUsaBaston()) {
+      BigDecimal baston = inventarioService.costoBastonPorUnidad(producto);
+      if (baston.compareTo(BigDecimal.ZERO) > 0) {
+        nuevo = precioProveedor.add(baston).setScale(4, RoundingMode.HALF_UP);
+      }
+    }
     BigDecimal actual = producto.getPrecioCompra();
-    if (actual != null && actual.compareTo(precioProveedor) == 0) {
+    if (actual != null && actual.compareTo(nuevo) == 0) {
       return;
     }
     BigDecimal anterior = actual;
-    producto.setPrecioCompra(precioProveedor);
+    producto.setPrecioCompra(nuevo);
     productoRepo.save(producto);
     if (producto.isEsBaston()) {
-      inventarioService.recalcularCompraTrasCambioPrecioBaston(producto, anterior, precioProveedor);
+      inventarioService.recalcularCompraTrasCambioPrecioBaston(producto, anterior, nuevo);
     }
   }
 

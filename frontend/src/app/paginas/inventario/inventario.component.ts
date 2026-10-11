@@ -316,35 +316,21 @@ export class InventarioComponent implements OnInit, OnDestroy {
       Math.round((Number(baston?.precioCompra) || 0) * (Number(i.bastonesPorUnidad) || 1) * 100) / 100;
     if (costoB <= 0) return null;
     const compra = Number(i.precioCompra) || 0;
-    const stock = Number(i.stockActual) || 0;
     const pend = Number(i.pendienteArmar) || 0;
-
-    // Unidades por armar → compra vigente = cabeza del proveedor.
-    if (pend > 0 || stock <= 0) {
-      return {
-        cabeza: compra,
-        baston: costoB,
-        lista: Math.round((compra + costoB) * 100) / 100,
-        armado: false,
-      };
-    }
-
     const restada = Math.round((compra - costoB) * 100) / 100;
-    // Si al restar queda menos que el bastón, la compra era solo cabeza (ej. 23−14=9).
-    if (restada < costoB) {
-      return {
-        cabeza: compra,
-        baston: costoB,
-        lista: Math.round((compra + costoB) * 100) / 100,
-        armado: false,
-      };
-    }
+    // Compra final = cabeza+bastón. Si al restar queda < bastón, aún era solo cabeza.
+    const soloCabeza = restada < costoB;
+    const cabeza = soloCabeza ? compra : Math.max(0, restada);
+    const lista = soloCabeza
+      ? Math.round((compra + costoB) * 100) / 100
+      : compra;
 
     return {
-      cabeza: Math.max(0, restada),
+      cabeza,
       baston: costoB,
-      lista: compra,
-      armado: true,
+      lista,
+      /** Pendiente físico; el $ de compra ya es el final con bastón. */
+      armado: pend <= 0 && !soloCabeza,
     };
   }
 
