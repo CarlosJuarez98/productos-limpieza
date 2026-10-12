@@ -78,7 +78,7 @@
   </section>
 }
 
-<section class="panel" style="margin-top: 1rem">
+<section class="panel traspasos-captura" style="margin-top: 1rem">
   <h3 class="panel-titulo">Nuevo traspaso</h3>
   <form (ngSubmit)="guardar()">
     <div class="form-grid captura-meta">
@@ -130,6 +130,7 @@
       @for (l of lineas; track l.key; let i = $index) {
         <article
           class="prod-fila"
+          [attr.id]="'linea-traspaso-' + l.key"
           [attr.data-linea-key]="l.key"
           [class.stock-warn]="excedeStock(l, i)"
           [class.es-muestra]="l.muestra"

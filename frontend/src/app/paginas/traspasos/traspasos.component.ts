@@ -16,7 +16,7 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreakpointCambio, capturaTieneFocoEnCampo, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { Traspaso, TraspasoAbono } from '../../modelos';
-import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
+import { enfocarPorAttr, esMovilTactil, scrollEnMain } from '../../captura-focus.util';
 
 interface LineaForm {
   key: number;
@@ -71,6 +71,9 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   private nextKey = 1;
   private pullSub?: Subscription;
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
+  private focusTimer: ReturnType<typeof setTimeout> | null = null;
+  private focusTimer2: ReturnType<typeof setTimeout> | null = null;
+  private scrollTimers: ReturnType<typeof setTimeout>[] = [];
   private capturaMovil = capturaEsMovil();
   form = {
     fecha: this.hoyLocal(),
@@ -127,6 +130,18 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     this.persistirBorrador();
     this.pullSub?.unsubscribe();
     if (this.draftTimer != null) clearTimeout(this.draftTimer);
+    if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    for (const t of this.scrollTimers) clearTimeout(t);
+    this.scrollTimers = [];
+  }
+
+  private programarScroll(fn: () => void, ms: number): void {
+    const t = setTimeout(() => {
+      fn();
+      this.scrollTimers = this.scrollTimers.filter((x) => x !== t);
+    }, ms);
+    this.scrollTimers.push(t);
   }
 
   /** En móvil/tablet 1 card vacía; en PC 2. Recorta vacías sobrantes del borrador. */
@@ -314,7 +329,21 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
     this.programarBorrador();
-    this.enfocarCaptura(this.lineas.length - 1, 'producto');
+    this.cdr.detectChanges();
+    const idx = this.lineas.length - 1;
+    // Quitar foco del «+»: el anclaje de scroll del navegador deja la vista abajo.
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => {
+      this.scrollLineaVisible(idx);
+      this.enfocarCaptura(idx, 'producto');
+    });
+    if (esMovilTactil()) {
+      this.programarScroll(() => this.scrollLineaVisible(idx), 120);
+      this.programarScroll(() => this.scrollLineaVisible(idx), 280);
+      this.programarScroll(() => this.scrollLineaVisible(idx), 480);
+    }
   }
 
   onFechaEnter(_ev?: Event): void {
@@ -345,18 +374,35 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     return (this.prodAutos?.toArray() || []).filter((a) => a.estaVisible());
   }
 
+  /** Igual que Ventas: primero la card a la vista, luego foco (preventScroll) para que el teclado no baje todo. */
   private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
     const go = () => {
+      this.scrollLineaVisible(index);
       const key = this.lineas[index]?.key;
       if (campo === 'cantidad') {
         enfocarPorAttr('data-cant-key', key ?? '');
       } else {
         this.autosVisibles()[index]?.focus();
       }
-      if (key != null) scrollLineaPorAttr('data-linea-key', key);
+      if (esMovilTactil()) {
+        requestAnimationFrame(() => this.scrollLineaVisible(index));
+      }
     };
+    if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
     this.cdr.detectChanges();
-    programarEnfoque(go);
+    this.focusTimer = setTimeout(go, 50);
+    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 180 : 220);
+  }
+
+  private scrollLineaVisible(index: number): void {
+    const l = this.lineas[index];
+    if (!l) return;
+    const linea =
+      document.getElementById('linea-traspaso-' + l.key) ||
+      (document.querySelector(`[data-linea-key="${l.key}"]`) as HTMLElement | null);
+    if (!linea) return;
+    scrollEnMain(linea, { belowSticky: true });
   }
 
   quitarLinea(index: number): void {

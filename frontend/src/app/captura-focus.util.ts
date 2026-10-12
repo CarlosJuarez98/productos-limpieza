@@ -27,7 +27,9 @@ export function stickyTopInset(main?: HTMLElement | null): number {
   const root = main ?? mainScrollEl();
   if (!root) return 0;
   let inset = 0;
-  root.querySelectorAll<HTMLElement>('.ventas-fijo, .dom-fijo, .captura-sticky-top').forEach((el) => {
+  root
+    .querySelectorAll<HTMLElement>('.ventas-fijo, .dom-fijo, .captura-sticky-top, .traspasos-fijo')
+    .forEach((el) => {
     const st = getComputedStyle(el).position;
     if (st !== 'sticky' && st !== 'fixed') return;
     // Altura completa: al medir antes del scroll la barra aún no está “pegada”.
