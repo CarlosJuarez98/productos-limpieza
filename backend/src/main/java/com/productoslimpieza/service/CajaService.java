@@ -109,13 +109,8 @@ public class CajaService {
       yaApartado = BigDecimal.ZERO;
     }
 
-    BigDecimal ventasTarjetaGlobal = nz(ventaRepo.sumTotalTarjetaByTipos(TIPOS_PRODUCTO))
-        .add(nz(traspasoAbonoRepo.sumMontoPagoTarjeta()))
-        .setScale(2, RoundingMode.HALF_UP);
-    BigDecimal saldoBancoGlobal = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
-        .subtract(nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA)))
-        .add(ventasTarjetaGlobal)
-        .setScale(2, RoundingMode.HALF_UP);
+    BigDecimal ventasTarjetaGlobal = ventasTarjetaGlobal();
+    BigDecimal saldoBancoGlobal = saldoBancoGlobal();
     BigDecimal transferenciasGlobal = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
         .setScale(2, RoundingMode.HALF_UP);
     BigDecimal retirosTxGlobal = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA))
@@ -426,10 +421,9 @@ public class CajaService {
       ampliarFechaFinSiHaceFalta(cfg, fecha);
     }
 
-    // Banco: saldo global (todas las fechas). No se filtra por periodo/corte.
+    // Banco: misma fórmula que el resumen (transferencias − retiros + ventas/abonos tarjeta).
     if (req.tipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
-      BigDecimal saldoBanco = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
-          .subtract(nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA)));
+      BigDecimal saldoBanco = saldoBancoGlobal();
       if (req.monto().compareTo(saldoBanco) > 0) {
         throw new ResponseStatusException(
             HttpStatus.BAD_REQUEST,
@@ -467,8 +461,7 @@ public class CajaService {
       validarFechaEnPeriodoAbierto(cfg, fecha);
     }
     if (req.tipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
-      BigDecimal saldoBanco = nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
-          .subtract(nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA)));
+      BigDecimal saldoBanco = saldoBancoGlobal();
       if (m.getTipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
         saldoBanco = saldoBanco.add(nz(m.getMonto()));
       }
@@ -823,6 +816,24 @@ public class CajaService {
     Totales t = calcularTotales(desde, hasta, fondo, BigDecimal.ZERO);
     aplicarSnapshotTotales(c, t);
     corteRepo.save(c);
+  }
+
+  /** Ventas con tarjeta + abonos de traspaso con tarjeta (cuentan como saldo en banco). */
+  private BigDecimal ventasTarjetaGlobal() {
+    return nz(ventaRepo.sumTotalTarjetaByTipos(TIPOS_PRODUCTO))
+        .add(nz(traspasoAbonoRepo.sumMontoPagoTarjeta()))
+        .setScale(2, RoundingMode.HALF_UP);
+  }
+
+  /**
+   * Saldo banco global: transferencias − retiros de transferencia + ingresos por tarjeta.
+   * Misma fórmula en resumen y al validar RETIRO_TRANSFERENCIA.
+   */
+  private BigDecimal saldoBancoGlobal() {
+    return nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.TRANSFERENCIA))
+        .subtract(nz(movimientoRepo.sumByTipo(TipoMovimientoCaja.RETIRO_TRANSFERENCIA)))
+        .add(ventasTarjetaGlobal())
+        .setScale(2, RoundingMode.HALF_UP);
   }
 
   private static BigDecimal nz(BigDecimal v) {
