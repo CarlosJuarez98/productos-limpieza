@@ -14,25 +14,28 @@
 @if (data && data.saldosPorPersona.length) {
   <section class="panel">
     <h3>Cuenta por persona</h3>
+    <p class="hint saldos-hint">
+      Cuenta corrida: saldo = todo lo traspasado − todo lo abonado. Un traspaso nuevo suma a la deuda; los abonos previos siguen contando.
+    </p>
     <div class="table-wrap hist-tabla">
-      <table>
+      <table class="tabla-saldos-persona">
         <thead>
           <tr>
-            <th>Persona</th>
-            <th>Traspasado</th>
-            <th>Abonado</th>
-            <th>Saldo</th>
-            <th>Estado</th>
+            <th class="col-persona">Persona</th>
+            <th class="money col-monto">Traspasado</th>
+            <th class="money col-monto">Abonado</th>
+            <th class="money col-monto">Saldo</th>
+            <th class="col-estado">Estado</th>
           </tr>
         </thead>
         <tbody>
           @for (s of data.saldosPorPersona; track s.personaId) {
             <tr [class.debe]="s.estado === 'DEBE'" [class.ok-row]="s.estado === 'AL_CORRIENTE'">
-              <td>{{ s.persona }}</td>
-              <td class="money">${{ s.totalTraspasado | number: '1.2-2' }}</td>
-              <td class="money">${{ s.totalAbonado | number: '1.2-2' }}</td>
-              <td class="money">${{ s.saldo | number: '1.2-2' }}</td>
-              <td>
+              <td class="col-persona">{{ s.persona }}</td>
+              <td class="money col-monto">${{ s.totalTraspasado | number: '1.2-2' }}</td>
+              <td class="money col-monto">${{ s.totalAbonado | number: '1.2-2' }}</td>
+              <td class="money col-monto">${{ s.saldo | number: '1.2-2' }}</td>
+              <td class="col-estado">
                 @switch (s.estado) {
                   @case ('DEBE') {
                     <span class="badge debe">Debe</span>
@@ -66,11 +69,12 @@
                 @default { {{ s.estado }} }
               }
             </span>
-            <span class="item-tag">abonado ${{ s.totalAbonado | number: '1.2-2' }}</span>
           </div>
           <p class="item-motivo">{{ s.persona }}</p>
-          <div class="item-fila">
-            <strong class="money">${{ s.saldo | number: '1.2-2' }}</strong>
+          <div class="item-fila saldos-card-montos">
+            <span class="muted">Traspasado <strong class="money">${{ s.totalTraspasado | number: '1.2-2' }}</strong></span>
+            <span class="muted">Abonado <strong class="money">${{ s.totalAbonado | number: '1.2-2' }}</strong></span>
+            <span>Saldo <strong class="money">${{ s.saldo | number: '1.2-2' }}</strong></span>
           </div>
         </li>
       }
