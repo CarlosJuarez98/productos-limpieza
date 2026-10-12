@@ -7,6 +7,49 @@
   font-size: 0.9rem;
 }
 
+.saldos-hint {
+  margin: 0.35rem 0 0.75rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+/* Columnas fijas: los montos no se ven “corridos” bajo el encabezado de al lado. */
+.tabla-saldos-persona {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.tabla-saldos-persona .col-persona {
+  width: 22%;
+  text-align: left;
+}
+
+.tabla-saldos-persona .col-monto {
+  width: 20%;
+  text-align: right;
+  padding-right: 1rem;
+}
+
+.tabla-saldos-persona th.col-monto {
+  text-align: right;
+}
+
+.tabla-saldos-persona .col-estado {
+  width: 18%;
+  text-align: center;
+}
+
+.saldos-card-montos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  align-items: baseline;
+}
+
+.saldos-card-montos .muted {
+  font-size: 0.88rem;
+}
+
 .campo-tarjeta {
   display: flex;
   flex-direction: column;
