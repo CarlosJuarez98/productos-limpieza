@@ -534,9 +534,11 @@ export class CajaComponent implements OnInit, OnDestroy {
         next: () => {
           const tipo = this.mov.tipo;
           this.ok =
-            tipo === 'TRANSFERENCIA' || tipo === 'RETIRO_TRANSFERENCIA'
-              ? 'Movimiento guardado. Revisa la sección de banco / transferencias.'
-              : 'Movimiento guardado.';
+            tipo === 'RETIRO_TRANSFERENCIA'
+              ? 'Retiro del banco guardado e ingresado en caja.'
+              : tipo === 'TRANSFERENCIA'
+                ? 'Movimiento guardado. Revisa la sección de banco / transferencias.'
+                : 'Movimiento guardado.';
           this.mov.monto = null;
           this.mov.motivo = '';
           this.asegurarFechaMovValida();

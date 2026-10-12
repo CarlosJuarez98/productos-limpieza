@@ -27,6 +27,12 @@ public class MovimientoCaja extends TenantEntity {
   @Column(length = 200)
   private String motivo;
 
+  /**
+   * Movimiento espejo: retiro del banco ↔ ingreso en efectivo (misma fecha/monto).
+   */
+  @Column(name = "pareado_id")
+  private Long pareadoId;
+
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
   public LocalDate getFecha() { return fecha; }
@@ -37,4 +43,6 @@ public class MovimientoCaja extends TenantEntity {
   public void setMonto(BigDecimal monto) { this.monto = monto; }
   public String getMotivo() { return motivo; }
   public void setMotivo(String motivo) { this.motivo = motivo; }
+  public Long getPareadoId() { return pareadoId; }
+  public void setPareadoId(Long pareadoId) { this.pareadoId = pareadoId; }
 }

@@ -17,7 +17,7 @@ public record CajaResumenDto(
     BigDecimal totalTransferencias,
     BigDecimal totalApartadosProductos,
     BigDecimal totalApartadosServicios,
-    /** Fondo + ventas + ingresos + retiros del banco − retiros − transferencias − apartados */
+    /** Fondo + ventas + ingresos (incl. retiro del banco) − retiros − transferencias − apartados */
     BigDecimal totalCaja,
     /** Saldo en banco global: todas las transferencias − todos los retiros transferencia */
     BigDecimal totalTransferenciasNetas,

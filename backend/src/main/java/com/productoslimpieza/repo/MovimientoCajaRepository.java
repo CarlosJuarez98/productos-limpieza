@@ -17,6 +17,8 @@ public interface MovimientoCajaRepository extends JpaRepository<MovimientoCaja, 
 
   List<MovimientoCaja> findAllByOrderByFechaDescIdDesc();
 
+  List<MovimientoCaja> findByTipoAndPareadoIdIsNull(TipoMovimientoCaja tipo);
+
   @Query("select coalesce(sum(m.monto), 0) from MovimientoCaja m where m.tipo = :tipo")
   BigDecimal sumByTipo(@Param("tipo") TipoMovimientoCaja tipo);
 

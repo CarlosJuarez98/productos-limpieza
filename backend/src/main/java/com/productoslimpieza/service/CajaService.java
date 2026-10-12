@@ -23,7 +23,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,6 +77,7 @@ public class CajaService {
   public CajaResumenDto resumen() {
     CajaConfig cfg = getOrCreateConfig();
     asegurarCorteInicialSiNoHay(cfg);
+    asegurarIngresosPorRetirosBanco();
     LocalDate desde = cfg.getFechaInicio() != null ? cfg.getFechaInicio() : LocalDate.of(2000, 1, 1);
     LocalDate hasta = finPeriodoAbierto(cfg);
     // Tras un corte el fondo ya es el efectivo que quedó en cajón; los ingresos a
@@ -370,6 +373,7 @@ public class CajaService {
     }
 
     CajaConfig cfg = getOrCreateConfig();
+    asegurarIngresosPorRetirosBanco();
     LocalDate desde = inicioPeriodoParaCorte(corte);
     LocalDate hasta = corte;
     BigDecimal fondoCierre = req.fondoPeriodo() != null ? nz(req.fondoPeriodo()) : nz(cfg.getFondoInicial());
@@ -436,7 +440,11 @@ public class CajaService {
     m.setTipo(req.tipo());
     m.setMonto(req.monto());
     m.setMotivo(req.motivo());
-    MovimientoCajaDto dto = toDto(movimientoRepo.save(m));
+    m = movimientoRepo.save(m);
+    if (m.getTipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
+      vincularIngresoPorRetiroBanco(m);
+    }
+    MovimientoCajaDto dto = toDto(m);
     if (enPeriodoCerrado) {
       resnapshotCorteQueContiene(fecha);
     }
@@ -460,7 +468,8 @@ public class CajaService {
     if (!enPeriodoCerrado) {
       validarFechaEnPeriodoAbierto(cfg, fecha);
     }
-    if (req.tipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
+    TipoMovimientoCaja tipoNuevo = req.tipo() != null ? req.tipo() : m.getTipo();
+    if (tipoNuevo == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
       BigDecimal saldoBanco = saldoBancoGlobal();
       if (m.getTipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
         saldoBanco = saldoBanco.add(nz(m.getMonto()));
@@ -471,11 +480,14 @@ public class CajaService {
             "Saldo en banco insuficiente ($" + saldoBanco.setScale(2, RoundingMode.HALF_UP) + ")");
       }
     }
+    TipoMovimientoCaja tipoAnterior = m.getTipo();
     m.setFecha(fecha);
-    m.setTipo(req.tipo() != null ? req.tipo() : m.getTipo());
+    m.setTipo(tipoNuevo);
     m.setMonto(req.monto());
     m.setMotivo(req.motivo());
-    MovimientoCajaDto dto = toDto(movimientoRepo.save(m));
+    m = movimientoRepo.save(m);
+    sincronizarPareadoRetiroBanco(m, tipoAnterior);
+    MovimientoCajaDto dto = toDto(m);
     if (fechaEnPeriodoCerrado(cfg, fechaAnterior)) {
       resnapshotCorteQueContiene(fechaAnterior);
     }
@@ -490,11 +502,29 @@ public class CajaService {
     MovimientoCaja m = movimientoRepo.findById(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Movimiento no encontrado"));
     LocalDate fecha = m.getFecha();
+    LocalDate fechaPareado = null;
     CajaConfig cfg = getOrCreateConfig();
     boolean cerrado = fechaEnPeriodoCerrado(cfg, fecha);
+    Long pareadoId = m.getPareadoId();
+    m.setPareadoId(null);
+    movimientoRepo.saveAndFlush(m);
+    if (pareadoId != null) {
+      MovimientoCaja pareado = movimientoRepo.findById(pareadoId).orElse(null);
+      if (pareado != null) {
+        fechaPareado = pareado.getFecha();
+        pareado.setPareadoId(null);
+        movimientoRepo.saveAndFlush(pareado);
+        movimientoRepo.delete(pareado);
+      }
+    }
     movimientoRepo.delete(m);
     if (cerrado) {
       resnapshotCorteQueContiene(fecha);
+    }
+    if (fechaPareado != null
+        && !fechaPareado.equals(fecha)
+        && fechaEnPeriodoCerrado(cfg, fechaPareado)) {
+      resnapshotCorteQueContiene(fechaPareado);
     }
   }
 
@@ -525,9 +555,9 @@ public class CajaService {
     BigDecimal apartadosProductos = apartadosProductosBruto.subtract(exentoProd).max(BigDecimal.ZERO);
     BigDecimal apartadosServicios = apartadosServiciosBruto.subtract(exentoServ).max(BigDecimal.ZERO);
 
+    // Retiro del banco ya entra como INGRESO pareado (no sumar retirosTx otra vez).
     BigDecimal totalCaja = fondo
         .add(productosEfectivo).add(recargas).add(servicios).add(ingresos)
-        .add(retirosTx) // retiro del banco → entra efectivo a la caja del periodo
         .subtract(retiros)
         .subtract(transferencias) // transferencia a banco → sale de caja
         .subtract(apartadosProductos)
@@ -816,6 +846,81 @@ public class CajaService {
     Totales t = calcularTotales(desde, hasta, fondo, BigDecimal.ZERO);
     aplicarSnapshotTotales(c, t);
     corteRepo.save(c);
+  }
+
+  /**
+   * Retiros del banco históricos sin ingreso espejo: crea el INGRESO (misma fecha/monto)
+   * para que el total de caja siga cuadrando tras dejar de sumar retirosTx directo.
+   */
+  private void asegurarIngresosPorRetirosBanco() {
+    List<MovimientoCaja> huérfanos =
+        movimientoRepo.findByTipoAndPareadoIdIsNull(TipoMovimientoCaja.RETIRO_TRANSFERENCIA);
+    if (huérfanos.isEmpty()) return;
+    Set<LocalDate> fechas = new HashSet<>();
+    for (MovimientoCaja retiro : huérfanos) {
+      vincularIngresoPorRetiroBanco(retiro);
+      if (retiro.getFecha() != null) fechas.add(retiro.getFecha());
+    }
+    CajaConfig cfg = getOrCreateConfig();
+    for (LocalDate f : fechas) {
+      if (fechaEnPeriodoCerrado(cfg, f)) {
+        resnapshotCorteQueContiene(f);
+      }
+    }
+  }
+
+  private void vincularIngresoPorRetiroBanco(MovimientoCaja retiro) {
+    if (retiro == null || retiro.getId() == null) return;
+    if (retiro.getTipo() != TipoMovimientoCaja.RETIRO_TRANSFERENCIA) return;
+    if (retiro.getPareadoId() != null) {
+      if (movimientoRepo.existsById(retiro.getPareadoId())) return;
+      retiro.setPareadoId(null);
+    }
+    MovimientoCaja ingreso = new MovimientoCaja();
+    ingreso.setFecha(retiro.getFecha());
+    ingreso.setTipo(TipoMovimientoCaja.INGRESO);
+    ingreso.setMonto(retiro.getMonto());
+    ingreso.setMotivo(motivoIngresoRetiroBanco(retiro.getMotivo()));
+    ingreso.setPareadoId(retiro.getId());
+    ingreso = movimientoRepo.save(ingreso);
+    retiro.setPareadoId(ingreso.getId());
+    movimientoRepo.save(retiro);
+  }
+
+  private void sincronizarPareadoRetiroBanco(MovimientoCaja m, TipoMovimientoCaja tipoAnterior) {
+    if (m.getTipo() == TipoMovimientoCaja.RETIRO_TRANSFERENCIA) {
+      if (m.getPareadoId() != null) {
+        MovimientoCaja ingreso = movimientoRepo.findById(m.getPareadoId()).orElse(null);
+        if (ingreso != null && ingreso.getTipo() == TipoMovimientoCaja.INGRESO) {
+          ingreso.setFecha(m.getFecha());
+          ingreso.setMonto(m.getMonto());
+          ingreso.setMotivo(motivoIngresoRetiroBanco(m.getMotivo()));
+          movimientoRepo.save(ingreso);
+          return;
+        }
+        m.setPareadoId(null);
+      }
+      vincularIngresoPorRetiroBanco(m);
+      return;
+    }
+    if (tipoAnterior == TipoMovimientoCaja.RETIRO_TRANSFERENCIA && m.getPareadoId() != null) {
+      Long pareadoId = m.getPareadoId();
+      m.setPareadoId(null);
+      movimientoRepo.save(m);
+      movimientoRepo.findById(pareadoId).ifPresent(pareado -> {
+        pareado.setPareadoId(null);
+        movimientoRepo.save(pareado);
+        movimientoRepo.delete(pareado);
+      });
+    }
+  }
+
+  private static String motivoIngresoRetiroBanco(String motivoRetiro) {
+    String base = "Retiro del banco";
+    if (motivoRetiro == null || motivoRetiro.isBlank()) return base;
+    String t = motivoRetiro.trim();
+    if (t.equalsIgnoreCase(base) || t.toLowerCase().startsWith("retiro del banco")) return t;
+    return base + ": " + t;
   }
 
   /** Ventas con tarjeta + abonos de traspaso con tarjeta (cuentan como saldo en banco). */
