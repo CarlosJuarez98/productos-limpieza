@@ -8,7 +8,7 @@ import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { PageAlertsComponent } from '../../page-alerts.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
-import { AjusteInventario, inferirDepartamento, InventarioItem, MargenConfig } from '../../modelos';
+import { AjusteInventario, etiquetaPrecioUnidad, inferirDepartamento, InventarioItem, MargenConfig } from '../../modelos';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
@@ -375,7 +375,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
     if (productoId == null) return '';
     const p = this.items.find((i) => i.id === productoId);
     if (!p) return '';
-    return this.esPieza(p) ? 'pza' : 'L';
+    return this.esPieza(p) ? 'Pieza' : 'Litro';
   }
 
   /** Delta que se enviará: deseado − stock base (suma o resta sola). */
@@ -650,6 +650,10 @@ export class InventarioComponent implements OnInit, OnDestroy {
 
   etiquetaUnidad(i: InventarioItem): string {
     return this.esPieza(i) ? 'Pieza' : 'Litros';
+  }
+
+  etiquetaPrecio(vendePor?: string | null): string {
+    return etiquetaPrecioUnidad(vendePor);
   }
 
   etiquetaDepartamento(i: InventarioItem): string {

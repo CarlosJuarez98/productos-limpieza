@@ -19,16 +19,16 @@ export class AlertDialogService {
 
   readonly state$ = this.pending$.asObservable();
 
-  /** Guardado / éxito: se cierra solo a los ~3.5 s o con el botón. */
+  /** Guardado / éxito: toast, se cierra solo (~2 s). No bloquea ni pide Enter. */
   ok(mensaje: string, opts?: { titulo?: string; autoCloseMs?: number }): void {
     this.show(mensaje, 'ok', {
       titulo: opts?.titulo ?? 'Listo',
-      autoCloseMs: opts?.autoCloseMs ?? 3500,
+      autoCloseMs: opts?.autoCloseMs ?? 2000,
       botonTexto: 'Listo',
     });
   }
 
-  /** Falta algo / error: se queda hasta que lo cierren. */
+  /** Error importante: modal hasta Entendido. */
   error(mensaje: string, opts?: { titulo?: string }): void {
     this.show(mensaje, 'error', {
       titulo: opts?.titulo ?? 'Atención',
@@ -37,10 +37,11 @@ export class AlertDialogService {
     });
   }
 
+  /** Aviso leve: toast, se cierra solo. */
   info(mensaje: string, opts?: { titulo?: string; autoCloseMs?: number | null }): void {
     this.show(mensaje, 'info', {
       titulo: opts?.titulo ?? 'Aviso',
-      autoCloseMs: opts?.autoCloseMs === undefined ? 4000 : opts.autoCloseMs,
+      autoCloseMs: opts?.autoCloseMs === undefined ? 2200 : opts.autoCloseMs,
       botonTexto: 'Ok',
     });
   }
@@ -57,8 +58,8 @@ export class AlertDialogService {
       tipo === 'error'
         ? { titulo: 'Atención', autoCloseMs: null as number | null, botonTexto: 'Entendido' }
         : tipo === 'ok'
-          ? { titulo: 'Listo', autoCloseMs: 3500 as number | null, botonTexto: 'Listo' }
-          : { titulo: 'Aviso', autoCloseMs: 4000 as number | null, botonTexto: 'Ok' };
+          ? { titulo: 'Listo', autoCloseMs: 2000 as number | null, botonTexto: 'Listo' }
+          : { titulo: 'Aviso', autoCloseMs: 2200 as number | null, botonTexto: 'Ok' };
     this.pending$.next({
       mensaje: t,
       tipo,

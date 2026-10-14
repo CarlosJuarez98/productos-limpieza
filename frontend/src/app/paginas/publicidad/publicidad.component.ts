@@ -4,9 +4,17 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { PageAlertsComponent } from '../../page-alerts.component';
-import { InventarioItem, PublicidadGaleriaItem } from '../../modelos';
+import { InventarioItem, PublicidadGaleriaItem, PublicidadCategoria } from '../../modelos';
 import { compartirPublicidad } from '../../ticket-whatsapp.util';
-import { generarLotePublicidad, PromoGenerada, DeptoPromo } from '../../promo-generador.util';
+import {
+  generarLotePublicidad,
+  generarLoteDesdeCategoriaDef,
+  contarCategoriasPublicidad,
+  CategoriaConteo,
+  CategoriaPromoDef,
+  PromoGenerada,
+  DeptoPromo,
+} from '../../promo-generador.util';
 
 type Promo = {
   id: string;
@@ -21,6 +29,17 @@ type Promo = {
   seleccionada?: boolean;
   guardando?: boolean;
   departamento?: DeptoPromo;
+  categoria?: string;
+};
+
+type CatForm = {
+  id: string | null;
+  nombre: string;
+  departamento: DeptoPromo;
+  productoIds: number[];
+  slogan: string;
+  imagenEstatica: string;
+  filtroProd: string;
 };
 
 const LOTE_SIZE = 5;
@@ -45,7 +64,21 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   generando = false;
   /** Departamento del lote visible (para el título / botones). */
   deptoLote: DeptoPromo = 'LIMPIEZA';
+  /** Id de categoría del último lote. */
+  categoriaLote: string | null = null;
   guardandoSeleccion = false;
+
+  /** Conteos por categoría editable. */
+  categorias: CategoriaConteo[] = [];
+  private categoriasRaw: PublicidadCategoria[] = [];
+  private inventarioCache: InventarioItem[] = [];
+
+  /** Editor de categoría. */
+  catEditorAbierto = false;
+  catGuardando = false;
+  catSubiendoImg = false;
+  catForm: CatForm = this.catFormVacio();
+  catPreviewSrc = '';
 
   /** Lote visible (siempre 5 generadas). */
   promosNuevas: Promo[] = [];
@@ -98,7 +131,286 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       }
     }
     this.cargarGaleria();
-    void this.generarMas('LIMPIEZA');
+    void this.cargarInventarioYCategorias().then(() => this.generarMas('LIMPIEZA'));
+  }
+
+  private async cargarInventarioYCategorias(): Promise<InventarioItem[]> {
+    // Separado: si categorías fallan, igual tenemos inventario para el picker.
+    try {
+      const inv = await new Promise<InventarioItem[]>((resolve, reject) => {
+        this.api.inventario().subscribe({ next: resolve, error: reject });
+      });
+      this.inventarioCache = inv || [];
+    } catch (e: unknown) {
+      this.error = this.msgError(e, 'No se pudo cargar el inventario');
+    }
+    try {
+      const cats = await new Promise<PublicidadCategoria[]>((resolve, reject) => {
+        this.api.publicidadCategorias().subscribe({ next: resolve, error: reject });
+      });
+      this.categoriasRaw = cats || [];
+      this.refrescarConteosCategorias();
+    } catch (e: unknown) {
+      this.categorias = [];
+      this.categoriasRaw = [];
+      this.error = this.msgError(e, 'No se pudieron cargar categorías');
+    }
+    this.cdr.detectChanges();
+    return this.inventarioCache;
+  }
+
+  private refrescarConteosCategorias(): void {
+    const defs = this.categoriasRaw.map((c) => this.toDef(c));
+    this.categorias = contarCategoriasPublicidad(
+      this.inventarioCache.map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        precioVentaHoy: p.precioVentaHoy,
+        vendePor: p.vendePor,
+        departamento: p.departamento,
+      })),
+      defs
+    );
+  }
+
+  private toDef(c: PublicidadCategoria): CategoriaPromoDef {
+    return {
+      id: c.id,
+      nombre: c.nombre,
+      depto: c.departamento === 'JARCERIA' ? 'JARCERIA' : 'LIMPIEZA',
+      productoIds: c.productoIds || [],
+      slogan: c.slogan,
+      imagenSrc: c.imagenSrc,
+    };
+  }
+
+  labelCategoria(id: string | null | undefined): string {
+    if (!id) return '';
+    return this.categorias.find((c) => c.id === id)?.nombre || id;
+  }
+
+  private catFormVacio(): CatForm {
+    return {
+      id: null,
+      nombre: '',
+      departamento: 'LIMPIEZA',
+      productoIds: [],
+      slogan: '',
+      imagenEstatica: '',
+      filtroProd: '',
+    };
+  }
+
+  /** Inventario para el picker: con texto busca en todos; sin texto prioriza el depto. */
+  get productosPicker(): InventarioItem[] {
+    const q = this.normTxt(this.catForm.filtroProd);
+    const deptoCat = this.catForm.departamento;
+    const list = this.inventarioCache.filter((p) => {
+      if (!(p.nombre || '').trim()) return false;
+      if (q) return this.normTxt(p.nombre).includes(q);
+      const depto = p.departamento === 'JARCERIA' ? 'JARCERIA' : 'LIMPIEZA';
+      return depto === deptoCat;
+    });
+    // Con búsqueda: mismos depto primero, luego el resto
+    if (q) {
+      list.sort((a, b) => {
+        const da = a.departamento === 'JARCERIA' ? 'JARCERIA' : 'LIMPIEZA';
+        const db = b.departamento === 'JARCERIA' ? 'JARCERIA' : 'LIMPIEZA';
+        const sa = da === deptoCat ? 0 : 1;
+        const sb = db === deptoCat ? 0 : 1;
+        if (sa !== sb) return sa - sb;
+        return (a.nombre || '').localeCompare(b.nombre || '', 'es');
+      });
+    }
+    return list.slice(0, q ? 100 : 80);
+  }
+
+  get pickerVacioHint(): string {
+    if (!this.inventarioCache.length) {
+      return 'No se cargó el inventario. Cierra y vuelve a abrir, o recarga la página.';
+    }
+    if (this.catForm.filtroProd?.trim()) {
+      return 'Ningún producto coincide con esa búsqueda.';
+    }
+    return 'No hay productos de este departamento.';
+  }
+
+  private normTxt(s: string | null | undefined): string {
+    return (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
+  productoSeleccionado(id: number): boolean {
+    return this.catForm.productoIds.includes(id);
+  }
+
+  toggleProducto(id: number): void {
+    const i = this.catForm.productoIds.indexOf(id);
+    if (i >= 0) {
+      this.catForm.productoIds = this.catForm.productoIds.filter((x) => x !== id);
+    } else {
+      this.catForm.productoIds = [...this.catForm.productoIds, id];
+    }
+  }
+
+  quitarProductoSeleccionado(id: number, ev?: Event): void {
+    ev?.stopPropagation();
+    this.catForm.productoIds = this.catForm.productoIds.filter((x) => x !== id);
+  }
+
+  nombreProducto(id: number): string {
+    return this.inventarioCache.find((p) => p.id === id)?.nombre || `#${id}`;
+  }
+
+  abrirNuevaCategoria(): void {
+    this.catForm = this.catFormVacio();
+    this.catPreviewSrc = '';
+    this.catEditorAbierto = true;
+    void this.asegurarInventarioParaPicker();
+  }
+
+  abrirEditarCategoria(c: CategoriaConteo, ev?: Event): void {
+    ev?.stopPropagation();
+    const raw = this.categoriasRaw.find((x) => x.id === c.id);
+    this.catForm = {
+      id: c.id,
+      nombre: c.nombre,
+      departamento: c.depto,
+      productoIds: [...(c.productoIds || [])],
+      slogan: c.slogan || '',
+      imagenEstatica: raw && !raw.imagenCustom ? raw.imagenSrc || '' : '',
+      filtroProd: '',
+    };
+    this.catPreviewSrc = c.imagenSrc || '';
+    this.catEditorAbierto = true;
+    void this.asegurarInventarioParaPicker();
+  }
+
+  private async asegurarInventarioParaPicker(): Promise<void> {
+    if (this.inventarioCache.length > 0) {
+      this.cdr.detectChanges();
+      return;
+    }
+    try {
+      await this.cargarInventarioYCategorias();
+    } finally {
+      this.cdr.detectChanges();
+    }
+  }
+
+  cerrarEditorCategoria(): void {
+    this.catEditorAbierto = false;
+    this.catForm = this.catFormVacio();
+    this.catPreviewSrc = '';
+  }
+
+  guardarCategoria(): void {
+    const nombre = this.catForm.nombre.trim();
+    if (!nombre) {
+      this.error = 'Indica el nombre de la categoría';
+      return;
+    }
+    const body = {
+      nombre,
+      departamento: this.catForm.departamento,
+      productoIds: [...this.catForm.productoIds],
+      slogan: this.catForm.slogan.trim() || null,
+      imagenEstatica: this.catForm.imagenEstatica.trim() || null,
+    };
+    this.catGuardando = true;
+    this.error = '';
+    const req$ = this.catForm.id
+      ? this.api.actualizarPublicidadCategoria(this.catForm.id, body)
+      : this.api.crearPublicidadCategoria(body);
+    req$.subscribe({
+      next: (item) => {
+        if (this.catForm.id) {
+          this.categoriasRaw = this.categoriasRaw.map((x) => (x.id === item.id ? item : x));
+        } else {
+          this.categoriasRaw = [...this.categoriasRaw, item];
+        }
+        this.refrescarConteosCategorias();
+        this.catGuardando = false;
+        this.ok = this.catForm.id ? 'Categoría actualizada' : 'Categoría creada';
+        this.cerrarEditorCategoria();
+        this.cdr.detectChanges();
+      },
+      error: (e: unknown) => {
+        this.catGuardando = false;
+        this.error = this.msgError(e, 'No se pudo guardar la categoría');
+      },
+    });
+  }
+
+  onElegirImagenCategoria(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || !this.catForm.id) {
+      this.error = 'Guarda la categoría primero y luego sube la imagen';
+      return;
+    }
+    this.catSubiendoImg = true;
+    this.api.subirImagenCategoria(this.catForm.id, file).subscribe({
+      next: (item) => {
+        this.categoriasRaw = this.categoriasRaw.map((x) => (x.id === item.id ? item : x));
+        this.refrescarConteosCategorias();
+        this.catPreviewSrc = item.imagenSrc || '';
+        this.catForm.imagenEstatica = '';
+        this.catSubiendoImg = false;
+        this.ok = 'Imagen de categoría actualizada';
+        this.cdr.detectChanges();
+      },
+      error: (e: unknown) => {
+        this.catSubiendoImg = false;
+        this.error = this.msgError(e, 'No se pudo subir la imagen');
+      },
+    });
+  }
+
+  quitarImagenCategoria(): void {
+    if (!this.catForm.id) return;
+    this.catSubiendoImg = true;
+    this.api.quitarImagenCategoria(this.catForm.id).subscribe({
+      next: (item) => {
+        this.categoriasRaw = this.categoriasRaw.map((x) => (x.id === item.id ? item : x));
+        this.refrescarConteosCategorias();
+        this.catPreviewSrc = item.imagenSrc || '';
+        this.catSubiendoImg = false;
+        this.ok = 'Imagen quitada';
+        this.cdr.detectChanges();
+      },
+      error: (e: unknown) => {
+        this.catSubiendoImg = false;
+        this.error = this.msgError(e, 'No se pudo quitar la imagen');
+      },
+    });
+  }
+
+  async eliminarCategoria(c: CategoriaConteo, ev?: Event): Promise<void> {
+    ev?.stopPropagation();
+    const ok = await this.confirmDlg.ask(`¿Eliminar la categoría «${c.nombre}»?`, {
+      titulo: 'Eliminar categoría',
+      confirmarTexto: 'Eliminar',
+      cancelarTexto: 'Cancelar',
+    });
+    if (!ok) return;
+    this.api.eliminarPublicidadCategoria(c.id).subscribe({
+      next: () => {
+        this.categoriasRaw = this.categoriasRaw.filter((x) => x.id !== c.id);
+        this.refrescarConteosCategorias();
+        if (this.categoriaLote === c.id) this.categoriaLote = null;
+        if (this.catForm.id === c.id) this.cerrarEditorCategoria();
+        this.ok = 'Categoría eliminada';
+        this.cdr.detectChanges();
+      },
+      error: (e: unknown) => {
+        this.error = this.msgError(e, 'No se pudo eliminar');
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -155,30 +467,44 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Chrome a veces no pinta <img src="/publicidad/..."> por caché rota.
+   * Chrome a veces no pinta <img src="/publicidad/..."> por caché rota / HTML de SPA.
    * Bajamos el archivo con fetch(no-store) y lo mostramos como blob: — siempre visible.
    */
   private async hidratarGaleriaComoBlob(promos: Promo[]): Promise<void> {
     await Promise.all(
       promos.map(async (p) => {
         const url = (p.src || '').split('?')[0];
-        if (!url || url.startsWith('blob:')) return;
-        const candidates = [url];
+        if (!url || url.startsWith('blob:') || url.startsWith('data:')) return;
+        const candidates: string[] = [];
         if (url.includes('/api/publicidad/media/')) {
-          candidates.push(url.replace('/api/publicidad/media/', '/publicidad/'));
+          candidates.push(url, url.replace('/api/publicidad/media/', '/publicidad/'));
         } else if (url.startsWith('/publicidad/')) {
-          candidates.push(url.replace('/publicidad/', '/api/publicidad/media/'));
+          candidates.push(
+            url.replace('/publicidad/', '/api/publicidad/media/'),
+            url
+          );
+        } else if (url.startsWith('/api/publicidad/galeria/archivo/')) {
+          candidates.push(url);
+        } else {
+          candidates.push(url);
         }
         for (const u of candidates) {
           try {
             const res = await fetch(u, { credentials: 'same-origin', cache: 'no-store' });
             if (!res.ok) continue;
+            const ct = (res.headers.get('content-type') || '').toLowerCase();
+            if (ct.includes('text/html') || ct.includes('application/json')) continue;
             const blob = await res.blob();
-            if (!blob.type.startsWith('image/') && blob.size < 1000) continue;
+            const okType =
+              blob.type.startsWith('image/') ||
+              (!blob.type && blob.size > 500) ||
+              ct.startsWith('image/');
+            if (!okType || blob.size < 64) continue;
             const obj = URL.createObjectURL(blob);
             this.galeriaBlobUrls.push(obj);
             p.src = obj;
-            this.cdr.markForCheck();
+            p.blob = blob;
+            this.cdr.detectChanges();
             return;
           } catch {
             /* siguiente candidato */
@@ -195,17 +521,28 @@ export class PublicidadComponent implements OnInit, OnDestroy {
 
   fondoGaleria(src: string | undefined): string {
     if (!src) return 'none';
-    return `url("${src}")`;
+    // Escapar comillas por si el blob/data URL viene raro en algún navegador.
+    const safe = src.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return `url("${safe}")`;
   }
 
   /** Genera 5 nuevas aleatorias del departamento y las agrega al historial. */
   async generarMas(depto: DeptoPromo = 'LIMPIEZA'): Promise<void> {
+    await this.generarLote(depto, null);
+  }
+
+  /** Genera un lote solo con productos de esa categoría editable. */
+  async generarPorCategoria(cat: CategoriaConteo): Promise<void> {
+    if (!cat.count || this.generando) return;
+    await this.generarLote(cat.depto, cat);
+  }
+
+  private async generarLote(depto: DeptoPromo, cat: CategoriaConteo | null): Promise<void> {
     this.generando = true;
     this.error = '';
     this.ok = '';
     this.preview = null;
     try {
-      // Si estamos en medio del historial, descartar “futuro” al generar nuevo lote
       if (this.indiceLote >= 0 && this.indiceLote < this.historialLotes.length - 1) {
         const descartados = this.historialLotes.slice(this.indiceLote + 1);
         for (const lote of descartados) {
@@ -216,31 +553,34 @@ export class PublicidadComponent implements OnInit, OnDestroy {
         this.historialLotes = this.historialLotes.slice(0, this.indiceLote + 1);
       }
 
-      const inv = await new Promise<InventarioItem[]>((resolve, reject) => {
-        this.api.inventario().subscribe({ next: resolve, error: reject });
-      });
-      const lote = await generarLotePublicidad(
-        LOTE_SIZE,
-        inv.map((p) => ({
-          id: p.id,
-          nombre: p.nombre,
-          precioVentaHoy: p.precioVentaHoy,
-          vendePor: p.vendePor,
-          departamento: p.departamento,
-        })),
-        depto
-      );
+      const inv =
+        this.inventarioCache.length > 0
+          ? this.inventarioCache
+          : await this.cargarInventarioYCategorias();
+      const productos = inv.map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        precioVentaHoy: p.precioVentaHoy,
+        vendePor: p.vendePor,
+        departamento: p.departamento,
+      }));
+      const lote = cat
+        ? await generarLoteDesdeCategoriaDef(LOTE_SIZE, productos, cat)
+        : await generarLotePublicidad(LOTE_SIZE, productos, depto);
       const promos = lote.map((p) => this.fromGen(p));
       lote.forEach((p) => this.blobUrls.push(p.src));
       this.historialLotes.push(promos);
       this.indiceLote = this.historialLotes.length - 1;
       this.promosNuevas = promos;
       this.deptoLote = depto;
-      this.ok = '';
+      this.categoriaLote = cat?.id || null;
+      this.ok = cat ? `Lote de ${cat.nombre} listo` : '';
+      this.cdr.detectChanges();
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudieron generar las promos';
     } finally {
       this.generando = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -248,6 +588,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     if (!this.puedeAnterior) return;
     this.indiceLote -= 1;
     this.promosNuevas = this.historialLotes[this.indiceLote];
+    this.sincronizarMetaLote();
     this.preview = null;
     this.ok = `Lote ${this.loteLabel}`;
   }
@@ -256,8 +597,15 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     if (!this.puedeSiguiente) return;
     this.indiceLote += 1;
     this.promosNuevas = this.historialLotes[this.indiceLote];
+    this.sincronizarMetaLote();
     this.preview = null;
     this.ok = `Lote ${this.loteLabel}`;
+  }
+
+  private sincronizarMetaLote(): void {
+    const first = this.promosNuevas[0];
+    this.deptoLote = first?.departamento || 'LIMPIEZA';
+    this.categoriaLote = first?.categoria || null;
   }
 
   private fromGen(p: PromoGenerada): Promo {
@@ -273,6 +621,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       eliminable: false,
       seleccionada: false,
       departamento: p.departamento,
+      categoria: p.categoria,
     };
   }
 
@@ -326,6 +675,10 @@ export class PublicidadComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.catEditorAbierto) {
+      this.cerrarEditorCategoria();
+      return;
+    }
     if (this.preview) this.cerrarPreview();
   }
 

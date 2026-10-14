@@ -33,6 +33,7 @@ public class ApiController {
   private final PedidoDomicilioService pedidoDomicilioService;
   private final PublicidadGaleriaService publicidadGaleriaService;
   private final PublicidadMediaService publicidadMediaService;
+  private final PublicidadCategoriaService publicidadCategoriaService;
   private final PrestamoAdminService prestamoAdminService;
 
   public ApiController(
@@ -55,6 +56,7 @@ public class ApiController {
       PedidoDomicilioService pedidoDomicilioService,
       PublicidadGaleriaService publicidadGaleriaService,
       PublicidadMediaService publicidadMediaService,
+      PublicidadCategoriaService publicidadCategoriaService,
       PrestamoAdminService prestamoAdminService) {
     this.ventaService = ventaService;
     this.entradaService = entradaService;
@@ -75,6 +77,7 @@ public class ApiController {
     this.pedidoDomicilioService = pedidoDomicilioService;
     this.publicidadGaleriaService = publicidadGaleriaService;
     this.publicidadMediaService = publicidadMediaService;
+    this.publicidadCategoriaService = publicidadCategoriaService;
     this.prestamoAdminService = prestamoAdminService;
   }
 
@@ -601,6 +604,54 @@ public class ApiController {
         .header(
             org.springframework.http.HttpHeaders.CONTENT_TYPE,
             publicidadMediaService.contentType(nombre))
+        .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
+        .header("X-Content-Type-Options", "nosniff")
+        .body(resource);
+  }
+
+  @GetMapping("/publicidad/categorias")
+  public List<PublicidadCategoriaDto> publicidadCategorias() {
+    return publicidadCategoriaService.listar();
+  }
+
+  @PostMapping("/publicidad/categorias")
+  public PublicidadCategoriaDto crearPublicidadCategoria(@RequestBody PublicidadCategoriaRequest req) {
+    return publicidadCategoriaService.crear(req);
+  }
+
+  @PutMapping("/publicidad/categorias/{id}")
+  public PublicidadCategoriaDto actualizarPublicidadCategoria(
+      @PathVariable String id, @RequestBody PublicidadCategoriaRequest req) {
+    return publicidadCategoriaService.actualizar(id, req);
+  }
+
+  @DeleteMapping("/publicidad/categorias/{id}")
+  public void eliminarPublicidadCategoria(@PathVariable String id) {
+    publicidadCategoriaService.eliminar(id);
+  }
+
+  @PostMapping(
+      value = "/publicidad/categorias/{id}/imagen",
+      consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+  public PublicidadCategoriaDto subirImagenCategoria(
+      @PathVariable String id, @RequestParam("file") org.springframework.web.multipart.MultipartFile file)
+      throws java.io.IOException {
+    return publicidadCategoriaService.subirImagen(id, file);
+  }
+
+  @DeleteMapping("/publicidad/categorias/{id}/imagen")
+  public PublicidadCategoriaDto quitarImagenCategoria(@PathVariable String id) {
+    return publicidadCategoriaService.quitarImagen(id);
+  }
+
+  @GetMapping("/publicidad/categorias/archivo/{nombre}")
+  public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> archivoCategoria(
+      @PathVariable String nombre) throws java.io.IOException {
+    var resource = publicidadCategoriaService.archivo(nombre);
+    return org.springframework.http.ResponseEntity.ok()
+        .header(
+            org.springframework.http.HttpHeaders.CONTENT_TYPE,
+            publicidadCategoriaService.contentType(nombre))
         .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
         .header("X-Content-Type-Options", "nosniff")
         .body(resource);

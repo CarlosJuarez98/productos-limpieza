@@ -330,7 +330,7 @@
                         />
                       </label>
                       <label>
-                        Precio compra
+                        {{ etiquetaPrecio(form.vendePor) }}
                         <div class="precio-input">
                           <span class="peso">$</span>
                           <input
@@ -402,7 +402,7 @@
                   <span class="stock-pill-val" [class.stock-cero]="i.stockActual <= 0">{{
                     i.stockActual | number: '1.2-2'
                   }}</span>
-                  <span class="stock-pill-unit">{{ esPieza(i) ? 'pza' : 'L' }}</span>
+                  <span class="stock-pill-unit">{{ esPieza(i) ? 'Pieza' : 'Litro' }}</span>
                 </span>
               </div>
               <div class="acciones">
@@ -713,7 +713,7 @@
       </div>
     </label>
     <div class="campo-unitario">
-      <span class="campo-label">Precio unitario</span>
+      <span class="campo-label">{{ etiquetaPrecio(formAlta.vendePor) }}</span>
       @if (unitarioAlta != null) {
         <div class="dato-fijo money">${{ unitarioAlta | number: '1.2-2' }}</div>
       } @else {
@@ -775,7 +775,7 @@
       />
     </label>
     <label>
-      Precio compra
+      {{ etiquetaPrecio(form.vendePor) }}
       <div class="precio-input">
         <span class="peso">$</span>
         <input

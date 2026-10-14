@@ -9,6 +9,7 @@ import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { PageAlertsComponent } from '../../page-alerts.component';
 import {
   inferirDepartamento,
+  etiquetaPrecioUnidad,
   Entrada,
   InventarioItem,
   MargenConfig,
@@ -860,9 +861,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Base para sugerir menudeo (solo hint), solo si está en lista Armar:
-   * - Trae bastón → solo cabeza del proveedor.
+   * Base para sugerir menudeo (solo hint), lista Armar:
    * - Falta armar → cabeza + costo del bastón.
+   * - Trae bastón → solo el precio capturado (ya viene armado; no suma bastón).
    */
   baseCompraMenudeoRecibo(r: ReciboEdit): number | null {
     const u = this.unitarioRecibo(r);
@@ -1315,6 +1316,15 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   /** Unitario: campo $/pza, o total ÷ recibida. */
+  etiquetaPrecioRecibo(r: ReciboEdit): string {
+    return etiquetaPrecioUnidad(r.unidad);
+  }
+
+  /** Texto corto de unidad (Pieza / Litro) sin cambiar el código interno pza|L. */
+  etiquetaUnidadRecibo(r: ReciboEdit): string {
+    return r.unidad === 'pza' ? 'Pieza' : 'Litro';
+  }
+
   unitarioRecibo(r: ReciboEdit): number | null {
     if (r.precioUnitario != null && String(r.precioUnitario).trim() !== '') {
       const u = Number(r.precioUnitario);
@@ -1343,9 +1353,9 @@ export class SurtirComponent implements OnInit, OnDestroy {
     let t = 'Menudeo (tú lo pones; el rango es solo sugerencia)';
     const baston = this.costoBastonPorUnidad();
     if (r.usaBaston && !r.traeBastonIncluido && baston > 0) {
-      t += ` · falta armar: incluye bastón $${baston}`;
+      t += ` · falta armar: compra = cabeza + bastón $${baston}`;
     } else if (r.usaBaston && r.traeBastonIncluido) {
-      t += ' · trae bastón: sin sumar bastón';
+      t += ' · trae bastón: no se suma el bastón de madera';
     }
     if (rango) {
       t += ` · sugerido ${rango.min}–${rango.max}`;
@@ -1447,8 +1457,16 @@ export class SurtirComponent implements OnInit, OnDestroy {
     );
     if (previa?.precioProveedor != null) return Number(previa.precioProveedor);
     const inv = this.productos.find((p) => p.id === productoId);
-    const compra = inv != null ? Number(inv.precioCompra) : 0;
-    return compra > 0 ? compra : null;
+    let compra = inv != null ? Number(inv.precioCompra) : 0;
+    if (!(compra > 0)) return null;
+    // Catálogo = cabeza + bastón; aquí se compara contra el unitario del proveedor (cabeza).
+    if (inv?.usaBaston && !inv.esBaston) {
+      const baston = this.costoBastonPorUnidad();
+      if (baston > 0 && compra > baston) {
+        compra = Math.round((compra - baston) * 100) / 100;
+      }
+    }
+    return compra;
   }
 
   cambioRecibo(r: ReciboEdit): CambioPrecio {
@@ -2123,7 +2141,7 @@ export class SurtirComponent implements OnInit, OnDestroy {
       this.altaPedidoNuevo = false;
       const donde = this.altaPedidoNuevoDepto === 'JARCERIA' ? 'Jarcería' : 'Limpieza';
       this.ok = usaBaston
-        ? `Nuevo en ${donde}: ${creado.nombre}. Indica si trae bastón o falta armar; el hint de menudeo suma bastón solo si falta armar.`
+        ? `Nuevo en ${donde}: ${creado.nombre}. Indica si trae bastón o falta armar.`
         : `Nuevo en ${donde}: ${creado.nombre}. Pon importe al recibir.`;
       this.reemplazarPedido(act, true);
     } catch (e: unknown) {

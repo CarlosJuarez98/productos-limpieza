@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -28,6 +28,8 @@ import { PullRefreshService } from '../../pull-refresh.service';
 export class ArmarComponent implements OnInit, OnDestroy {
   /** true = panel dentro de Entradas (sin título de página). */
   @Input() embebido = false;
+  /** Inventario actualizado (para que Entradas muestre Falta armar / Trae bastón al instante). */
+  @Output() inventarioChange = new EventEmitter<InventarioItem[]>();
 
   error = '';
   ok = '';
@@ -87,6 +89,7 @@ export class ArmarComponent implements OnInit, OnDestroy {
             this.cantidades[p.id] = Number(p.pendienteArmar) || null;
           }
         }
+        this.inventarioChange.emit(this.items);
       },
       error: () => {
         this.cargando = false;

@@ -72,7 +72,9 @@ public class EntradaService {
     aplicar(e, req.fecha(), producto, req.cantidad(), req.precioProveedor());
     ligarPedido(e, producto.getId(), req.aplicarAPedido(), req.pedidoId());
     Entrada saved = entradaRepo.save(e);
-    actualizarPrecioCompraSiCambio(producto, req.precioProveedor());
+    actualizarPrecioCompraSiCambio(producto, req.precioProveedor(), req.traeBastonIncluido());
+    pedidoRegistroService.sumarPendienteArmarSiAplica(
+        producto, req.cantidad(), req.traeBastonIncluido());
     if (saved.getPedido() != null) {
       pedidoRegistroService.recalcularRecibidoDesdeEntradas(saved.getPedido().getId());
     }
@@ -98,6 +100,8 @@ public class EntradaService {
     List<BigDecimal> anteriores = new ArrayList<>(req.lineas().size());
     List<Producto> prodsLinea = new ArrayList<>(req.lineas().size());
     List<BigDecimal> preciosLinea = new ArrayList<>(req.lineas().size());
+    List<BigDecimal> cantidadesLinea = new ArrayList<>(req.lineas().size());
+    List<Boolean> traeBastonLinea = new ArrayList<>(req.lineas().size());
 
     for (EntradaLineaRequest linea : req.lineas()) {
       Producto producto = productos.get(linea.productoId());
@@ -117,6 +121,8 @@ public class EntradaService {
       anteriores.add(anterior);
       prodsLinea.add(producto);
       preciosLinea.add(linea.precioProveedor());
+      cantidadesLinea.add(linea.cantidad());
+      traeBastonLinea.add(linea.traeBastonIncluido());
       if (linea.precioProveedor() != null) {
         ultimaEnLote.put(producto.getId(), linea.precioProveedor());
       }
@@ -128,7 +134,10 @@ public class EntradaService {
       if (e.getPedido() != null) {
         pedidosTocados.add(e.getPedido().getId());
       }
-      actualizarPrecioCompraSiCambio(prodsLinea.get(i), preciosLinea.get(i));
+      actualizarPrecioCompraSiCambio(
+          prodsLinea.get(i), preciosLinea.get(i), traeBastonLinea.get(i));
+      pedidoRegistroService.sumarPendienteArmarSiAplica(
+          prodsLinea.get(i), cantidadesLinea.get(i), traeBastonLinea.get(i));
       out.add(toDto(e, anteriores.get(i)));
     }
     for (Long pid : pedidosTocados) {
@@ -149,7 +158,7 @@ public class EntradaService {
     aplicar(e, req.fecha(), producto, req.cantidad(), req.precioProveedor());
     ligarPedido(e, producto.getId(), req.aplicarAPedido(), req.pedidoId());
     Entrada saved = entradaRepo.save(e);
-    actualizarPrecioCompraSiCambio(producto, req.precioProveedor());
+    actualizarPrecioCompraSiCambio(producto, req.precioProveedor(), req.traeBastonIncluido());
     Long pedidoDespues = saved.getPedido() != null ? saved.getPedido().getId() : null;
     if (pedidoAntes != null) {
       pedidoRegistroService.recalcularRecibidoDesdeEntradas(pedidoAntes);
@@ -219,12 +228,22 @@ public class EntradaService {
     }
   }
 
-  private void actualizarPrecioCompraSiCambio(Producto producto, BigDecimal precioProveedor) {
+  /**
+   * Actualiza compra del catálogo.
+   * <ul>
+   *   <li>Falta armar ({@code traeBastonIncluido=false}): compra = cabeza + bastón; también
+   *       suma pendiente de armar (fuera de este método).
+   *   <li>Trae bastón: compra = precio capturado (ya viene armado; no suma bastón).
+   * </ul>
+   */
+  private void actualizarPrecioCompraSiCambio(
+      Producto producto, BigDecimal precioProveedor, Boolean traeBastonIncluido) {
     if (precioProveedor == null) {
       return;
     }
     BigDecimal nuevo = precioProveedor;
-    if (producto.isUsaBaston()) {
+    // Falta armar (default): compra = cabeza + bastón. Trae bastón: no sumar.
+    if (producto.isUsaBaston() && !Boolean.TRUE.equals(traeBastonIncluido)) {
       BigDecimal baston = inventarioService.costoBastonPorUnidad(producto);
       if (baston.compareTo(BigDecimal.ZERO) > 0) {
         nuevo = precioProveedor.add(baston).setScale(4, RoundingMode.HALF_UP);
@@ -237,7 +256,7 @@ public class EntradaService {
     BigDecimal anterior = actual;
     producto.setPrecioCompra(nuevo);
     productoRepo.save(producto);
-    if (producto.isEsBaston()) {
+    if (inventarioService.esProductoBastonUsadoEnArmar(producto)) {
       inventarioService.recalcularCompraTrasCambioPrecioBaston(producto, anterior, nuevo);
     }
   }

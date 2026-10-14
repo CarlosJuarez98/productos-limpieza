@@ -5,7 +5,7 @@ import { ApiService } from './api.service';
 import { PageAlertsComponent } from './page-alerts.component';
 import { ClearableDirective } from './clearable.directive';
 import { SoloNumerosDirective } from './solo-numeros.directive';
-import { InventarioItem, MargenConfig } from './modelos';
+import { InventarioItem, MargenConfig, etiquetaPrecioUnidad } from './modelos';
 import { noBajoCompra, precioConDescuentoEntero, precioConMargenArriba } from './captura-focus.util';
 
 type FormAlta = {
@@ -76,6 +76,10 @@ export class ProductoAltaFormComponent implements OnInit {
     if (this.form.totalPagado == null || String(this.form.totalPagado).trim() === '') return null;
     if (!Number.isFinite(total) || total < 0) return null;
     return Math.round((total / cant) * 100) / 100;
+  }
+
+  get etiquetaPrecio(): string {
+    return etiquetaPrecioUnidad(this.form.vendePor);
   }
 
   get completa(): boolean {

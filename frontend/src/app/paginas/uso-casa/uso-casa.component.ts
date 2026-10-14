@@ -25,7 +25,7 @@ interface ProductoPeriodo {
   productoId: number | null;
   nombre: string;
   cantidad: number;
-  unidad: 'L' | 'pza';
+  unidad: string;
   importe: number;
   color: string;
 }
@@ -288,9 +288,9 @@ export class UsoCasaComponent implements OnInit, OnDestroy {
     return Math.max(4, Math.round((cantidad / this.maxCantidad) * 100));
   }
 
-  unidadDe(productoId: number | null | undefined): 'L' | 'pza' {
+  unidadDe(productoId: number | null | undefined): string {
     const p = this.productos.find((x) => x.id === productoId);
-    return p?.vendePor === 'PIEZA' ? 'pza' : 'L';
+    return p?.vendePor === 'PIEZA' ? 'Pieza' : 'Litro';
   }
 
   colorDe(productoId: number | null | undefined, nombre: string): string {

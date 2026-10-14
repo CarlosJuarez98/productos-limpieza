@@ -1,8 +1,8 @@
-{
+﻿{
   "$schema": "./node_modules/@angular/service-worker/config/schema.json",
   "index": "/index.html",
   "appData": {
-    "version": "1.2.11"
+    "version": "1.2.15"
   },
   "assetGroups": [
     {
@@ -14,7 +14,6 @@
           "/apple-touch-icon.png",
           "/index.html",
           "/manifest.webmanifest",
-
           "/*.css",
           "/*.js"
         ]

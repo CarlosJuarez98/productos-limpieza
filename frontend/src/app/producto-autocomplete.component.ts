@@ -227,8 +227,13 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     if (this.listaVisible) this.programarReposicion();
   };
 
+  /**
+   * Lista abierta mientras el combo está activo y hay texto.
+   * No se oculta por coincidencia exacta: si no, la flecha ↓ no puede
+   * recorrer sugerencias (p. ej. «Baston» vs «Baston de madera»).
+   */
   get listaVisible(): boolean {
-    return this.abierto && !!this.texto.trim() && !this.productoExactoSeleccionado();
+    return this.abierto && !!this.texto.trim();
   }
 
   /** Name aleatorio: evita sugerencias nativas del browser (Room/Rome…). */
@@ -272,20 +277,27 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   }
 
   onKeydown(ev: KeyboardEvent): void {
-    const list = this.filtrados;
     if (ev.key === 'ArrowDown') {
       if (!this.texto.trim()) return;
       ev.preventDefault();
+      ev.stopPropagation();
       this.abrir(true);
+      const list = this.filtrados;
       if (list.length === 0) return;
       this.indiceActivo = this.indiceActivo < list.length - 1 ? this.indiceActivo + 1 : 0;
+      this.refrescarPortal();
       this.scrollActivo();
       return;
     }
     if (ev.key === 'ArrowUp') {
-      if (!this.listaVisible || list.length === 0) return;
+      if (!this.texto.trim()) return;
       ev.preventDefault();
+      ev.stopPropagation();
+      this.abrir(true);
+      const list = this.filtrados;
+      if (list.length === 0) return;
       this.indiceActivo = this.indiceActivo > 0 ? this.indiceActivo - 1 : list.length - 1;
+      this.refrescarPortal();
       this.scrollActivo();
       return;
     }
@@ -333,7 +345,8 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     if (this.disabled) return;
     if (this.bloqueoReabrir) {
       this.bloqueoReabrir = false;
-      return;
+      // Solo bloquea el focus post-elegir; flechas deben poder reabrir.
+      if (!forzar) return;
     }
     if (!forzar && this.productoExactoSeleccionado()) {
       this.cerrarLista(false);
@@ -524,13 +537,32 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     return !!p && p.nombre.trim().toLowerCase() === this.texto.trim().toLowerCase();
   }
 
+  /** El portal está en body: hay que forzar CD al cambiar indiceActivo. */
+  private refrescarPortal(): void {
+    this.sincronizarPortal();
+    this.portalView?.detectChanges();
+  }
+
+  /**
+   * Mueve el ítem activo dentro del ul sin scrollIntoView (eso desplaza
+   * main/página y el listener de scroll cerraba la lista).
+   */
   private scrollActivo(): void {
-    setTimeout(() => {
-      const activo = document.querySelector(
-        '.producto-ac-sugerencias li.activo'
-      ) as HTMLElement | null;
-      activo?.scrollIntoView({ block: 'nearest' });
-    }, 0);
+    queueMicrotask(() => {
+      this.refrescarPortal();
+      const lista = this.portalView?.rootNodes?.find(
+        (n): n is HTMLElement => n instanceof HTMLElement && n.classList.contains('producto-ac-sugerencias')
+      );
+      const activo = lista?.querySelector('li.activo') as HTMLElement | null;
+      if (!lista || !activo) return;
+      const top = activo.offsetTop;
+      const bottom = top + activo.offsetHeight;
+      if (top < lista.scrollTop) {
+        lista.scrollTop = top;
+      } else if (bottom > lista.scrollTop + lista.clientHeight) {
+        lista.scrollTop = bottom - lista.clientHeight;
+      }
+    });
   }
 
   private viewportMetrics(): { top: number; bottom: number; height: number } {
