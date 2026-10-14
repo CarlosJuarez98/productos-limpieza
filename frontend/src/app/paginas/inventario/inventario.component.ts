@@ -156,6 +156,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
   formAlta: FormProducto = this.formVacio();
   /** NA = no usa bastón; FALTA / TRAE = lista Armar. Default NA. */
   tipoBastonAlta: 'NA' | 'FALTA' | 'TRAE' = 'NA';
+  /** Último campo de precio editado: total ↔ unitario se calculan entre sí. */
+  private altaPrecioOrigen: 'total' | 'unitario' = 'total';
   /** Formulario de edición en la fila. */
   form: FormProducto = this.formVacio();
 
@@ -295,18 +297,39 @@ export class InventarioComponent implements OnInit, OnDestroy {
     } else {
       this.formAlta.bastonProductoId = null;
     }
-    if (this.formAlta.precioVenta != null && Number(this.formAlta.precioVenta) > 0) {
-      this.calcularMayoreo(this.formAlta);
-    }
+    // Al cambiar Falta/Trae/NA se recalcula la compra final y el rango mín/máx.
+    this.sincronizarUnitarioAlta();
   }
 
-  /** Compra de catálogo al alta: con Falta armar incluye costo del bastón. */
-  private compraAltaEfectiva(): number | null {
-    const u = this.unitarioAlta;
+  /** Costo del bastón de madera (para Falta armar). */
+  get costoBastonAlta(): number {
+    return Number(this.productosBaston[0]?.precioCompra) || 0;
+  }
+
+  /**
+   * Precio unitario de catálogo al alta.
+   * Falta armar = lo pagado por pieza + bastón (base de mín/máx).
+   */
+  get compraAltaEfectiva(): number | null {
+    const u = this.unitarioAltaCabeza;
     if (u == null || u <= 0) return null;
     if (this.tipoBastonAlta !== 'FALTA') return u;
-    const baston = Number(this.productosBaston[0]?.precioCompra) || 0;
+    const baston = this.costoBastonAlta;
     return baston > 0 ? Math.round((u + baston) * 100) / 100 : u;
+  }
+
+  /** Cabeza (lo pagado por pieza), sin sumar bastón. */
+  get unitarioAltaCabeza(): number | null {
+    const u = Number(this.formAlta.precioCompra);
+    if (this.formAlta.precioCompra != null && String(this.formAlta.precioCompra).trim() !== '') {
+      if (Number.isFinite(u) && u > 0) return Math.round(u * 100) / 100;
+    }
+    return this.unitarioDesdeTotal();
+  }
+
+  /** Alias usado en placeholder / chips de menudeo. */
+  get unitarioAltaFinal(): number | null {
+    return this.compraAltaEfectiva;
   }
 
   get productosBaston(): InventarioItem[] {
@@ -708,18 +731,18 @@ export class InventarioComponent implements OnInit, OnDestroy {
   }
 
   get sugeridoPlaceholderAlta(): string {
-    const u = this.unitarioAlta;
+    const u = this.unitarioAltaFinal;
     const min = this.sugeridoMin(u);
     if (min <= 0) return 'Según unitario';
     return `mín $${min} – máx $${this.sugeridoMax(u)}`;
   }
 
   get sugeridoMinAlta(): number {
-    return this.sugeridoMin(this.unitarioAlta);
+    return this.sugeridoMin(this.unitarioAltaFinal);
   }
 
   get sugeridoMaxAlta(): number {
-    return this.sugeridoMax(this.unitarioAlta);
+    return this.sugeridoMax(this.unitarioAltaFinal);
   }
 
   /** Alta: todos los campos visibles con valor válido. */
@@ -729,9 +752,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
     if (!f.vendePor || !f.departamento) return false;
     const cant = this.cantidadAltaEfectiva;
     if (cant == null || cant <= 0) return false;
-    if (f.totalPagado == null || String(f.totalPagado).trim() === '') return false;
-    if (!Number.isFinite(Number(f.totalPagado)) || Number(f.totalPagado) <= 0) return false;
-    if (this.unitarioAlta == null || this.unitarioAlta <= 0) return false;
+    const cabeza = this.unitarioAltaCabeza;
+    if (cabeza == null || cabeza <= 0) return false;
     if (f.precioVenta == null || String(f.precioVenta).trim() === '') return false;
     if (!Number.isFinite(Number(f.precioVenta)) || Number(f.precioVenta) <= 0) return false;
     return true;
@@ -748,6 +770,10 @@ export class InventarioComponent implements OnInit, OnDestroy {
 
   /** Precio unitario = total ÷ cantidad (cantidad vacía → 1). */
   get unitarioAlta(): number | null {
+    return this.unitarioAltaCabeza;
+  }
+
+  private unitarioDesdeTotal(): number | null {
     const cant = this.cantidadAltaEfectiva;
     const total = Number(this.formAlta.totalPagado);
     if (cant == null || cant <= 0) return null;
@@ -771,22 +797,55 @@ export class InventarioComponent implements OnInit, OnDestroy {
     this.calcularMayoreo(this.form);
   }
 
-  /** Recalcula unitario al cambiar cantidad o total (1 pieza o varias). */
+  /** Recalcula total ↔ unitario según el último campo editado. */
   onCantidadAltaChange(valor: string | number | null): void {
     this.formAlta.cantidadInicial =
       valor === '' || valor == null ? null : (valor as number | null);
-    this.sincronizarUnitarioAlta();
+    this.sincronizarPreciosAlta();
   }
 
   onTotalPagadoAltaChange(valor: string | number | null): void {
+    this.altaPrecioOrigen = 'total';
     this.formAlta.totalPagado =
       valor === '' || valor == null ? null : (valor as number | null);
+    this.sincronizarPreciosAlta();
+  }
+
+  onUnitarioAltaChange(valor: string | number | null): void {
+    this.altaPrecioOrigen = 'unitario';
+    this.formAlta.precioCompra =
+      valor === '' || valor == null ? null : (valor as number | null);
+    this.sincronizarPreciosAlta();
+  }
+
+  private sincronizarPreciosAlta(): void {
+    const cant = this.cantidadAltaEfectiva;
+    if (cant == null || cant <= 0) {
+      this.sincronizarUnitarioAlta();
+      return;
+    }
+    if (this.altaPrecioOrigen === 'unitario') {
+      const u = Number(this.formAlta.precioCompra);
+      if (
+        this.formAlta.precioCompra != null &&
+        String(this.formAlta.precioCompra).trim() !== '' &&
+        Number.isFinite(u) &&
+        u >= 0
+      ) {
+        this.formAlta.totalPagado = Math.round(u * cant * 100) / 100;
+      }
+    } else {
+      const desdeTotal = this.unitarioDesdeTotal();
+      this.formAlta.precioCompra = desdeTotal;
+    }
     this.sincronizarUnitarioAlta();
   }
 
   private sincronizarUnitarioAlta(): void {
-    const u = this.unitarioAlta;
-    this.formAlta.precioCompra = u;
+    const u = this.unitarioAltaCabeza;
+    if (u != null && u > 0) {
+      this.formAlta.precioCompra = u;
+    }
     if (u == null || u <= 0) {
       if (this.formAlta.precioVenta == null || Number(this.formAlta.precioVenta) <= 0) {
         this.formAlta.precioMayoreo5 = null;
@@ -795,7 +854,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.formAlta.precioVenta != null && Number(this.formAlta.precioVenta) > 0) {
-      this.calcularMayoreo(this.formAlta);
+      this.calcularMayoreoAltaConCompraFinal();
     }
   }
 
@@ -810,7 +869,16 @@ export class InventarioComponent implements OnInit, OnDestroy {
       this.formAlta.precioMayoreo10 = null;
       return;
     }
+    this.calcularMayoreoAltaConCompraFinal();
+  }
+
+  /** Mayoreo con piso = compra final (incluye bastón si Falta armar). */
+  private calcularMayoreoAltaConCompraFinal(): void {
+    const cabeza = this.formAlta.precioCompra;
+    const final = this.compraAltaEfectiva;
+    this.formAlta.precioCompra = final;
     this.calcularMayoreo(this.formAlta);
+    this.formAlta.precioCompra = cabeza;
   }
 
   private calcularMayoreo(f: FormProducto): void {
@@ -1054,27 +1122,19 @@ export class InventarioComponent implements OnInit, OnDestroy {
       this.error = 'La cantidad comprada no es válida';
       return;
     }
-    this.sincronizarUnitarioAlta();
-    if (
-      this.formAlta.totalPagado == null ||
-      String(this.formAlta.totalPagado).trim() === '' ||
-      !Number.isFinite(Number(this.formAlta.totalPagado)) ||
-      Number(this.formAlta.totalPagado) <= 0
-    ) {
-      this.error = 'Indica el total que pagaste';
+    this.sincronizarPreciosAlta();
+    const cabeza = this.unitarioAltaCabeza;
+    if (cabeza == null || cabeza <= 0) {
+      this.error = 'Indica el total pagado o el precio por pieza';
       return;
     }
-    if (this.unitarioAlta == null || this.unitarioAlta <= 0) {
-      this.error = 'No se pudo calcular el precio unitario';
-      return;
-    }
-    const compraCat = this.compraAltaEfectiva();
+    const compraCat = this.compraAltaEfectiva;
     if (compraCat == null || compraCat <= 0) {
       this.error = 'No se pudo calcular el precio unitario';
       return;
     }
     // Al backend va la cabeza (unitario); si Falta armar, el server suma el bastón.
-    this.formAlta.precioCompra = this.unitarioAlta;
+    this.formAlta.precioCompra = cabeza;
     if (
       this.formAlta.precioVenta == null ||
       String(this.formAlta.precioVenta).trim() === '' ||
@@ -1120,6 +1180,7 @@ export class InventarioComponent implements OnInit, OnDestroy {
       next: () => {
         this.formAlta = this.formVacio();
         this.tipoBastonAlta = 'NA';
+        this.altaPrecioOrigen = 'total';
         this.ok = 'Producto agregado';
         this.cargar();
       },

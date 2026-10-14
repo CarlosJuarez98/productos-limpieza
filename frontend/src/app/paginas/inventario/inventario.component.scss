@@ -177,19 +177,24 @@ h3 {
   min-height: 2.35rem;
 }
 
+.form-alta .campo-unitario-alta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
 .form-alta .hint-unitario {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
 }
 
 .form-alta .alta-pie {
   grid-column: 1 / -1;
   display: flex;
-  flex-wrap: nowrap;
-  align-items: end;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 0.15rem;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
 }
 
 .form-alta .campo-baston-alta {
@@ -197,7 +202,7 @@ h3 {
   flex-direction: column;
   gap: 0.2rem;
   min-width: 0;
-  flex: 0 1 auto;
+  align-self: end;
 }
 
 .form-alta .campo-baston-alta .campo-label {
@@ -217,11 +222,13 @@ h3 {
   border: 1px solid color-mix(in srgb, var(--line) 85%, #fff);
   width: max-content;
   max-width: 100%;
+  min-height: 2.35rem;
+  box-sizing: border-box;
 }
 
 .form-alta .btn-baston {
-  min-height: 2.05rem;
-  padding: 0.28rem 0.7rem !important;
+  min-height: 1.95rem;
+  padding: 0.28rem 0.65rem !important;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 800;
@@ -237,8 +244,7 @@ h3 {
 
 .form-alta .alta-pie > button[type='submit'] {
   width: auto;
-  min-width: 11rem;
-  flex: 0 0 auto;
+  min-width: 12rem;
   margin: 0;
 }
 
@@ -932,14 +938,9 @@ input[readonly] {
     min-height: 2.45rem;
   }
 
-  .form-alta .alta-pie {
-    flex-wrap: wrap;
-  }
-
   .form-alta .alta-pie > button[type='submit'] {
     width: 100%;
     min-width: 0;
-    margin-left: 0;
   }
 
   /*
