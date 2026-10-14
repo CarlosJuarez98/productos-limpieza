@@ -19,5 +19,10 @@ public record ProductoRequest(
     Boolean esBaston,
     Boolean usaBaston,
     BigDecimal bastonesPorUnidad,
-    Long bastonProductoId
+    Long bastonProductoId,
+    /**
+     * Solo al crear con usaBaston. true = Trae bastón (sin pendiente). false/null = Falta
+     * armar → pendienteArmar = cantidad inicial y compra += costo bastón.
+     */
+    Boolean traeBastonIncluido
 ) {}
