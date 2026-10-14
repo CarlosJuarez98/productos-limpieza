@@ -1,4 +1,14 @@
-import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import {
+  ApplicationRef,
+  ChangeDetectorRef,
+  Component,
+  EmbeddedViewRef,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  TemplateRef,
+  ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
@@ -7,7 +17,6 @@ import { PageAlertsComponent } from '../../page-alerts.component';
 import { InventarioItem, PublicidadGaleriaItem, PublicidadCategoria } from '../../modelos';
 import { compartirPublicidad } from '../../ticket-whatsapp.util';
 import {
-  generarLotePublicidad,
   generarLoteDesdeCategoriaDef,
   contarCategoriasPublicidad,
   CategoriaConteo,
@@ -73,12 +82,15 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   private categoriasRaw: PublicidadCategoria[] = [];
   private inventarioCache: InventarioItem[] = [];
 
-  /** Editor de categoría. */
+  /** Editor de categoría (montado en document.body para no recortarse). */
   catEditorAbierto = false;
   catGuardando = false;
   catSubiendoImg = false;
   catForm: CatForm = this.catFormVacio();
   catPreviewSrc = '';
+  @ViewChild('catEditorTpl') private catEditorTpl?: TemplateRef<unknown>;
+  private catEditorPortal: EmbeddedViewRef<unknown> | null = null;
+  private bodyOverflowPrev = '';
 
   /** Lote visible (siempre 5 generadas). */
   promosNuevas: Promo[] = [];
@@ -118,7 +130,8 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   constructor(
     private api: ApiService,
     private confirmDlg: ConfirmDialogService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private appRef: ApplicationRef
   ) {}
 
   ngOnInit(): void {
@@ -131,7 +144,8 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       }
     }
     this.cargarGaleria();
-    void this.cargarInventarioYCategorias().then(() => this.generarMas('LIMPIEZA'));
+    // Con categorías + productos: genera lotes (eslogan de cada categoría). Sin categorías: nada.
+    void this.cargarInventarioYCategorias().then(() => this.generarTodasLasCategorias(true));
   }
 
   private async cargarInventarioYCategorias(): Promise<InventarioItem[]> {
@@ -268,7 +282,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   abrirNuevaCategoria(): void {
     this.catForm = this.catFormVacio();
     this.catPreviewSrc = '';
-    this.catEditorAbierto = true;
+    this.abrirEditorCategoriaPortal();
     void this.asegurarInventarioParaPicker();
   }
 
@@ -285,23 +299,54 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       filtroProd: '',
     };
     this.catPreviewSrc = c.imagenSrc || '';
-    this.catEditorAbierto = true;
+    this.abrirEditorCategoriaPortal();
     void this.asegurarInventarioParaPicker();
   }
 
   private async asegurarInventarioParaPicker(): Promise<void> {
     if (this.inventarioCache.length > 0) {
+      this.catEditorPortal?.detectChanges();
       this.cdr.detectChanges();
       return;
     }
     try {
       await this.cargarInventarioYCategorias();
     } finally {
+      this.catEditorPortal?.detectChanges();
       this.cdr.detectChanges();
     }
   }
 
+  private abrirEditorCategoriaPortal(): void {
+    this.catEditorAbierto = true;
+    this.cdr.detectChanges();
+    queueMicrotask(() => this.montarEditorCategoria());
+  }
+
+  private montarEditorCategoria(): void {
+    if (!this.catEditorAbierto || !this.catEditorTpl) return;
+    this.desmontarEditorCategoria();
+    this.catEditorPortal = this.catEditorTpl.createEmbeddedView({});
+    this.appRef.attachView(this.catEditorPortal);
+    for (const node of this.catEditorPortal.rootNodes) {
+      if (node instanceof Node) document.body.appendChild(node);
+    }
+    this.bodyOverflowPrev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    this.catEditorPortal.detectChanges();
+  }
+
+  private desmontarEditorCategoria(): void {
+    if (this.catEditorPortal) {
+      this.appRef.detachView(this.catEditorPortal);
+      this.catEditorPortal.destroy();
+      this.catEditorPortal = null;
+    }
+    document.body.style.overflow = this.bodyOverflowPrev;
+  }
+
   cerrarEditorCategoria(): void {
+    this.desmontarEditorCategoria();
     this.catEditorAbierto = false;
     this.catForm = this.catFormVacio();
     this.catPreviewSrc = '';
@@ -332,11 +377,17 @@ export class PublicidadComponent implements OnInit, OnDestroy {
         } else {
           this.categoriasRaw = [...this.categoriasRaw, item];
         }
+        const eraNueva = !this.catForm.id;
         this.refrescarConteosCategorias();
         this.catGuardando = false;
-        this.ok = this.catForm.id ? 'Categoría actualizada' : 'Categoría creada';
+        this.ok = eraNueva ? 'Categoría creada' : 'Categoría actualizada';
+        const catId = item.id;
         this.cerrarEditorCategoria();
         this.cdr.detectChanges();
+        const conProd = this.categorias.find((c) => c.id === catId && c.count > 0);
+        if (conProd) {
+          void this.generarPorCategoria(conProd);
+        }
       },
       error: (e: unknown) => {
         this.catGuardando = false;
@@ -414,6 +465,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.desmontarEditorCategoria();
     this.limpiarTodosBlobs();
     this.limpiarGaleriaBlobs();
   }
@@ -526,18 +578,92 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     return `url("${safe}")`;
   }
 
-  /** Genera 5 nuevas aleatorias del departamento y las agrega al historial. */
-  async generarMas(depto: DeptoPromo = 'LIMPIEZA'): Promise<void> {
-    await this.generarLote(depto, null);
+  get categoriasConProductos(): CategoriaConteo[] {
+    return this.categorias.filter((c) => c.count > 0);
   }
 
-  /** Genera un lote solo con productos de esa categoría editable. */
+  /** Genera un lote solo con productos de esa categoría (usa su eslogan). */
   async generarPorCategoria(cat: CategoriaConteo): Promise<void> {
-    if (!cat.count || this.generando) return;
-    await this.generarLote(cat.depto, cat);
+    if (!cat || this.generando) return;
+    if (!cat.count) {
+      this.error = `«${cat.nombre}» no tiene productos. Edítala y asigna del inventario.`;
+      return;
+    }
+    await this.generarLote(cat);
   }
 
-  private async generarLote(depto: DeptoPromo, cat: CategoriaConteo | null): Promise<void> {
+  /**
+   * Genera un lote por cada categoría con productos (eslogan de esa categoría).
+   * @param silencioso si true (carga inicial), no marca error si aún no hay categorías.
+   */
+  async generarTodasLasCategorias(silencioso = false): Promise<void> {
+    const listas = this.categoriasConProductos;
+    if (!listas.length) {
+      if (!silencioso) {
+        this.error = this.categorias.length
+          ? 'Asigna productos a alguna categoría para generar publicidad.'
+          : 'Crea una categoría y asígnale productos para generar publicidad.';
+      }
+      return;
+    }
+    if (this.generando) return;
+    this.generando = true;
+    this.error = '';
+    this.ok = '';
+    this.preview = null;
+    try {
+      const inv =
+        this.inventarioCache.length > 0
+          ? this.inventarioCache
+          : await this.cargarInventarioYCategorias();
+      const productos = inv.map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        precioVentaHoy: p.precioVentaHoy,
+        vendePor: p.vendePor,
+        departamento: p.departamento,
+      }));
+      let generados = 0;
+      let primerIndice = -1;
+      for (const cat of listas) {
+        try {
+          const lote = await generarLoteDesdeCategoriaDef(LOTE_SIZE, productos, cat);
+          if (!lote.length) continue;
+          const promos = lote.map((p) => this.fromGen(p));
+          lote.forEach((p) => this.blobUrls.push(p.src));
+          this.historialLotes.push(promos);
+          if (primerIndice < 0) primerIndice = this.historialLotes.length - 1;
+          generados += 1;
+        } catch (e: unknown) {
+          // Sigue con las demás categorías
+          console.warn('Publicidad categoría', cat.nombre, e);
+        }
+      }
+      if (primerIndice < 0 || !generados) {
+        if (!silencioso) {
+          this.error = 'No se pudieron generar promos (revisa precios de los productos)';
+        }
+        return;
+      }
+      this.indiceLote = primerIndice;
+      this.promosNuevas = this.historialLotes[primerIndice];
+      this.sincronizarMetaLote();
+      this.ok =
+        generados === 1
+          ? `Lote de ${this.labelCategoria(this.categoriaLote)} listo`
+          : `${generados} categorías generadas · usa ← → para ver cada una`;
+      this.cdr.detectChanges();
+    } catch (e: unknown) {
+      if (!silencioso) {
+        this.error = e instanceof Error ? e.message : 'No se pudieron generar las promos';
+      }
+    } finally {
+      this.generando = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private async generarLote(cat: CategoriaConteo): Promise<void> {
     this.generando = true;
     this.error = '';
     this.ok = '';
@@ -564,17 +690,15 @@ export class PublicidadComponent implements OnInit, OnDestroy {
         vendePor: p.vendePor,
         departamento: p.departamento,
       }));
-      const lote = cat
-        ? await generarLoteDesdeCategoriaDef(LOTE_SIZE, productos, cat)
-        : await generarLotePublicidad(LOTE_SIZE, productos, depto);
+      const lote = await generarLoteDesdeCategoriaDef(LOTE_SIZE, productos, cat);
       const promos = lote.map((p) => this.fromGen(p));
       lote.forEach((p) => this.blobUrls.push(p.src));
       this.historialLotes.push(promos);
       this.indiceLote = this.historialLotes.length - 1;
       this.promosNuevas = promos;
-      this.deptoLote = depto;
-      this.categoriaLote = cat?.id || null;
-      this.ok = cat ? `Lote de ${cat.nombre} listo` : '';
+      this.deptoLote = cat.depto;
+      this.categoriaLote = cat.id;
+      this.ok = `Lote de ${cat.nombre} listo`;
       this.cdr.detectChanges();
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudieron generar las promos';
@@ -792,9 +916,15 @@ export class PublicidadComponent implements OnInit, OnDestroy {
 
   private msgError(e: unknown, fallback: string): string {
     if (e && typeof e === 'object' && 'error' in e) {
-      const body = (e as { error?: { message?: string; error?: string } }).error;
-      if (body?.message) return body.message;
-      if (body?.error) return body.error;
+      const body = (e as { error?: { message?: string; error?: string; detail?: string; title?: string } | string })
+        .error;
+      if (typeof body === 'string' && body.trim()) return body;
+      if (body && typeof body === 'object') {
+        if (body.detail) return body.detail;
+        if (body.message) return body.message;
+        if (body.error) return body.error;
+        if (body.title) return body.title;
+      }
     }
     return e instanceof Error ? e.message : fallback;
   }

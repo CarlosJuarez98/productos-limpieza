@@ -175,6 +175,24 @@ select:focus {
   border-color: #8fb5a2;
 }
 
+/* Modal categoría (portal en body): foco = borde grueso, sin outline/sombra externos. */
+body > .lightbox.cat-editor input:focus,
+body > .lightbox.cat-editor input:focus-visible,
+body > .lightbox.cat-editor select:focus,
+body > .lightbox.cat-editor select:focus-visible,
+body > .lightbox.cat-editor textarea:focus,
+body > .lightbox.cat-editor textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  border: 2px solid #6f9e88 !important;
+  padding: calc(0.55rem - 1px) calc(0.75rem - 1px) !important;
+}
+
+body > .lightbox.cat-editor .cat-form-scroll {
+  padding: 0.35rem 0.35rem 0.5rem !important;
+}
+
 /* Valores de solo lectura con el mismo recuadro que un input */
 .dato-fijo,
 .dato-caja,
