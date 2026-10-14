@@ -212,6 +212,9 @@
               @if (esPreparable(l)) {
                 ·
                 <a [routerLink]="['/entradas']" [queryParams]="{ preparar: l.productoId }">Preparar</a>
+              } @else {
+                ·
+                <a [routerLink]="['/entradas']" [queryParams]="{ producto: l.productoId }">Entradas</a>
               }
             }
           </p>

@@ -267,8 +267,10 @@ public class PedidoRegistroService {
 
   /**
    * Actualiza precio de compra del catálogo.
-   * Lista Armar: compra final = cabeza (proveedor) + bastón (así se calculan márgenes).
-   * «Falta armar» solo suma a pendienteArmar; no deja la compra en solo-cabeza.
+   * <ul>
+   *   <li>Falta armar: compra = cabeza + bastón (márgenes) y aparte suma pendienteArmar.
+   *   <li>Trae bastón: compra = precio capturado; no suma el bastón de madera.
+   * </ul>
    * Si el producto es el bastón y cambió de precio, recalcula compras de la lista Armar.
    */
   private void actualizarPrecioCompraSiCambio(
@@ -278,7 +280,8 @@ public class PedidoRegistroService {
     }
     BigDecimal anterior = producto.getPrecioCompra();
     BigDecimal nuevo = precioProveedor;
-    if (producto.isUsaBaston()) {
+    // Falta armar (default): compra = cabeza + bastón. Trae bastón: no sumar.
+    if (producto.isUsaBaston() && !Boolean.TRUE.equals(traeBastonIncluido)) {
       BigDecimal baston = inventarioService.costoBastonPorUnidad(producto);
       if (baston.compareTo(BigDecimal.ZERO) > 0) {
         nuevo = precioProveedor.add(baston).setScale(4, RoundingMode.HALF_UP);
@@ -289,27 +292,38 @@ public class PedidoRegistroService {
     }
     producto.setPrecioCompra(nuevo);
     productoRepo.save(producto);
-    if (producto.isEsBaston()) {
+    if (inventarioService.esProductoBastonUsadoEnArmar(producto)) {
       inventarioService.recalcularCompraTrasCambioPrecioBaston(producto, anterior, nuevo);
     }
   }
 
-  /** Si el producto usa bastón y llegó sin él, suma a pendiente de armar. */
-  private void sumarPendienteArmarSiAplica(
+  /**
+   * Si el producto usa bastón y llegó sin él (Falta armar), suma a pendiente de armar.
+   * Default = Falta armar (como en la UI): solo se omite si {@code traeBastonIncluido=true}.
+   */
+  public void sumarPendienteArmarSiAplica(
       Producto producto, BigDecimal delta, Boolean traeBastonIncluido) {
-    if (producto == null || !producto.isUsaBaston()) {
+    if (producto == null) {
+      return;
+    }
+    // Releer: el flag usaBaston debe estar fresco en BD.
+    Producto p =
+        producto.getId() != null
+            ? productoRepo.findById(producto.getId()).orElse(producto)
+            : producto;
+    if (!p.isUsaBaston()) {
       return;
     }
     if (delta == null || delta.compareTo(BigDecimal.ZERO) <= 0) {
       return;
     }
-    // Solo cuenta como pendiente si explícitamente NO trae bastón.
-    if (!Boolean.FALSE.equals(traeBastonIncluido)) {
+    // Solo NO suma si el usuario marcó «Trae bastón».
+    if (Boolean.TRUE.equals(traeBastonIncluido)) {
       return;
     }
-    BigDecimal actual = producto.getPendienteArmar() != null ? producto.getPendienteArmar() : BigDecimal.ZERO;
-    producto.setPendienteArmar(actual.add(delta));
-    productoRepo.save(producto);
+    BigDecimal actual = p.getPendienteArmar() != null ? p.getPendienteArmar() : BigDecimal.ZERO;
+    p.setPendienteArmar(actual.add(delta));
+    productoRepo.save(p);
   }
 
   /** Sincroniza cantidad recibida = suma de entradas ligadas al pedido. */

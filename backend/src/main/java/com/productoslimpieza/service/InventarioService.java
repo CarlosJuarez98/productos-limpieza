@@ -234,7 +234,7 @@ public class InventarioService {
       // se aplica abajo tras guardar menudeo
     }
     p = productoRepo.save(p);
-    if (p.isEsBaston() && req.precioCompra() != null) {
+    if (req.precioCompra() != null && esProductoBastonUsadoEnArmar(p)) {
       recalcularCompraTrasCambioPrecioBaston(p, compraAnterior, p.getPrecioCompra());
     }
     if (req.precioVenta() != null) {
@@ -497,7 +497,11 @@ public class InventarioService {
 
     boolean bajoMinimo = venta.compareTo(BigDecimal.ZERO) > 0 && venta.compareTo(min) < 0;
     boolean enMinimo = venta.compareTo(BigDecimal.ZERO) > 0 && venta.compareTo(min) == 0;
+    // Escobas/jaladores de Armar se venden por pieza (aunque en BD hayan quedado como litros).
     UnidadVenta vendePor = p.getVendePor() != null ? p.getVendePor() : UnidadVenta.LITROS;
+    if (p.isUsaBaston() && !p.isEsBaston()) {
+      vendePor = UnidadVenta.PIEZA;
+    }
     DepartamentoProducto depto =
         p.getDepartamento() != null
             ? p.getDepartamento()
@@ -537,8 +541,17 @@ public class InventarioService {
   /** Quita pendientes huérfanos de productos que ya no están en la lista Armar. */
   private void limpiarPendientesFueraDeListaArmar() {
     for (Producto p : productoRepo.findByActivoTrueOrderByNombreAsc()) {
+      boolean cambio = false;
       if (!p.isUsaBaston() && nz(p.getPendienteArmar()).compareTo(BigDecimal.ZERO) > 0) {
         p.setPendienteArmar(BigDecimal.ZERO);
+        cambio = true;
+      }
+      // Armar (escoba/jalador): corregir vendePor si quedó en litros.
+      if (p.isUsaBaston() && !p.isEsBaston() && p.getVendePor() != UnidadVenta.PIEZA) {
+        p.setVendePor(UnidadVenta.PIEZA);
+        cambio = true;
+      }
+      if (cambio) {
         productoRepo.save(p);
       }
     }
@@ -670,8 +683,10 @@ public class InventarioService {
     if (pend.compareTo(BigDecimal.ZERO) > 0) {
       return compra;
     }
-    BigDecimal stockNz = stock != null ? stock : BigDecimal.ZERO;
-    if (stockNz.compareTo(BigDecimal.ZERO) > 0 && compra.compareTo(costoB) > 0) {
+    // Heurística cabeza vs cabeza+bastón (también con stock 0).
+    // Si solo se aplicara con stock>0, asegurarCompraFinalConBaston sumaba el bastón
+    // en cada listado cuando no había existencia → compra en miles.
+    if (compra.compareTo(costoB) > 0) {
       BigDecimal restada = compra.subtract(costoB);
       // Si al restar queda una «cabeza» más barata que el bastón, la compra era solo cabeza
       // (ej. 23 − 14 = 9 con bastón a 14).
@@ -697,9 +712,26 @@ public class InventarioService {
     return casiIgual(compra, cabeza.add(costoB));
   }
 
+  /** Bastón marcado, o referenciado por productos de la lista Armar. */
+  public boolean esProductoBastonUsadoEnArmar(Producto p) {
+    if (p == null) return false;
+    if (p.isEsBaston()) return true;
+    Long id = p.getId();
+    if (id == null) return false;
+    for (Producto x : productoRepo.findByUsaBastonTrueAndActivoTrueOrderByNombreAsc()) {
+      if (id.equals(x.getBastonProductoId())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Si sube/baja el precio del bastón, actualiza la compra de productos de la lista Armar que ya
-   * incluyen bastón. Los que están solo-cabeza (pendientes o compra = proveedor) no se tocan.
+   * incluyen bastón (cabeza + bastón). Los que están solo-cabeza no se tocan.
+   *
+   * <p>Importante: la detección usa el precio <em>anterior</em> del bastón. Si se usara el nuevo,
+   * {@code compra ≈ cabeza + costoNuevo} fallaría y no recalcularía nada.
    */
   public void recalcularCompraTrasCambioPrecioBaston(
       Producto baston, BigDecimal precioAnterior, BigDecimal precioNuevo) {
@@ -718,14 +750,45 @@ public class InventarioService {
       if (usado == null || !usado.equals(bastonId)) {
         continue;
       }
-      BigDecimal stock = stockActual(p);
-      if (!compraIncluyeBaston(p, stock)) {
+      BigDecimal por = bastonesPorUnidad(p);
+      BigDecimal costoAnt = precioAnterior.multiply(por).setScale(4, RoundingMode.HALF_UP);
+      BigDecimal costoNue = precioNuevo.multiply(por).setScale(4, RoundingMode.HALF_UP);
+      BigDecimal compra = nz(p.getPrecioCompra());
+      if (compra.compareTo(BigDecimal.ZERO) <= 0) {
         continue;
       }
-      BigDecimal por = bastonesPorUnidad(p);
-      BigDecimal newCosto = precioNuevo.multiply(por);
-      BigDecimal cabeza = resolverPrecioCabeza(p, stock);
-      p.setPrecioCompra(cabeza.add(newCosto).setScale(4, RoundingMode.HALF_UP));
+
+      BigDecimal ultimaCabeza =
+          entradaRepo
+              .findFirstByProductoIdAndPrecioProveedorIsNotNullOrderByFechaDescIdDesc(p.getId())
+              .map(e -> nz(e.getPrecioProveedor()))
+              .filter(u -> u.compareTo(BigDecimal.ZERO) > 0)
+              .orElse(null);
+
+      BigDecimal cabeza = null;
+      if (ultimaCabeza != null) {
+        if (casiIgual(compra, ultimaCabeza.add(costoAnt))) {
+          // Compra ya era cabeza + bastón (precio viejo).
+          cabeza = ultimaCabeza;
+        } else if (casiIgual(compra, ultimaCabeza)) {
+          // Solo cabeza (Falta armar / pendiente): no tocar.
+          continue;
+        }
+      }
+      if (cabeza == null) {
+        BigDecimal pend = nz(p.getPendienteArmar());
+        if (pend.compareTo(BigDecimal.ZERO) > 0) {
+          // Con pendientes la compra suele ser solo cabeza.
+          continue;
+        }
+        if (compra.compareTo(costoAnt) <= 0) {
+          continue;
+        }
+        // Sin historial claro: asumir que compra = cabeza + bastón anterior.
+        cabeza = compra.subtract(costoAnt).max(BigDecimal.ZERO);
+      }
+
+      p.setPrecioCompra(cabeza.add(costoNue).setScale(4, RoundingMode.HALF_UP));
       productoRepo.save(p);
     }
   }
@@ -752,7 +815,13 @@ public class InventarioService {
         p.setBastonProductoId(null);
         // Fuera de la lista Armar: ya no hay pendientes que mostrar.
         p.setPendienteArmar(BigDecimal.ZERO);
+      } else if (!p.isEsBaston()) {
+        // Escoba/jalador/mechudo: siempre por pieza.
+        p.setVendePor(UnidadVenta.PIEZA);
       }
+    }
+    if (p.isUsaBaston() && !p.isEsBaston() && p.getVendePor() != UnidadVenta.PIEZA) {
+      p.setVendePor(UnidadVenta.PIEZA);
     }
     if (req.bastonesPorUnidad() != null && req.bastonesPorUnidad().compareTo(BigDecimal.ZERO) > 0) {
       p.setBastonesPorUnidad(req.bastonesPorUnidad());

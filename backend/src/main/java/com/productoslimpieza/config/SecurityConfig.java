@@ -114,6 +114,8 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.HEAD, "/api/publicidad/galeria/archivo/**").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/publicidad/media/**").permitAll()
             .requestMatchers(HttpMethod.HEAD, "/api/publicidad/media/**").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/publicidad/categorias/archivo/**").permitAll()
+            .requestMatchers(HttpMethod.HEAD, "/api/publicidad/categorias/archivo/**").permitAll()
             .requestMatchers("/api/**").authenticated()
             .anyRequest().permitAll())
         .exceptionHandling(ex -> ex

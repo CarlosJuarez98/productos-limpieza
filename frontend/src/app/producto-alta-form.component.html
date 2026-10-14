@@ -51,7 +51,7 @@
     </div>
   </label>
   <div class="campo-unitario">
-    <span class="campo-label">Precio unitario</span>
+    <span class="campo-label">{{ etiquetaPrecio }}</span>
     @if (unitario != null) {
       <div class="dato-fijo money">${{ unitario | number: '1.2-2' }}</div>
     } @else {

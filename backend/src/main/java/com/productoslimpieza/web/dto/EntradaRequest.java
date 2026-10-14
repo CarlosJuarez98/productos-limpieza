@@ -13,5 +13,10 @@ public record EntradaRequest(
     boolean actualizarPrecioCompra,
     /** true = ligar a pedido abierto (si hay faltante). false = compra libre / oferta. */
     Boolean aplicarAPedido,
-    Long pedidoId
+    Long pedidoId,
+    /**
+     * Solo productos con usaBaston.
+     * true = trae bastón (no pendiente). false/null = Falta armar → suma pendienteArmar.
+     */
+    Boolean traeBastonIncluido
 ) {}

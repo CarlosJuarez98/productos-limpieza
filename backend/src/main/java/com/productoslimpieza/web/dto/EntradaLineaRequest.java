@@ -9,5 +9,10 @@ public record EntradaLineaRequest(
     @NotNull @Positive BigDecimal cantidad,
     BigDecimal precioProveedor,
     Boolean aplicarAPedido,
-    Long pedidoId
+    Long pedidoId,
+    /**
+     * Solo productos con usaBaston.
+     * true = trae bastón (no pendiente). false/null = Falta armar → suma pendienteArmar.
+     */
+    Boolean traeBastonIncluido
 ) {}

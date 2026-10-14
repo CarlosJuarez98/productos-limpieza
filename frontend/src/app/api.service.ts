@@ -29,6 +29,7 @@ import {
   TraspasosResumen,
   Venta,
   PublicidadGaleriaItem,
+  PublicidadCategoria,
 } from './modelos';
 
 @Injectable({ providedIn: 'root' })
@@ -479,5 +480,56 @@ export class ApiService {
 
   eliminarPublicidadGaleria(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/publicidad/galeria/${encodeURIComponent(id)}`);
+  }
+
+  publicidadCategorias(): Observable<PublicidadCategoria[]> {
+    return this.http.get<PublicidadCategoria[]>(`${this.base}/publicidad/categorias`);
+  }
+
+  crearPublicidadCategoria(body: {
+    nombre: string;
+    departamento: string;
+    productoIds: number[];
+    slogan?: string | null;
+    imagenEstatica?: string | null;
+    orden?: number;
+  }): Observable<PublicidadCategoria> {
+    return this.http.post<PublicidadCategoria>(`${this.base}/publicidad/categorias`, body);
+  }
+
+  actualizarPublicidadCategoria(
+    id: string,
+    body: {
+      nombre: string;
+      departamento: string;
+      productoIds: number[];
+      slogan?: string | null;
+      imagenEstatica?: string | null;
+      orden?: number;
+    }
+  ): Observable<PublicidadCategoria> {
+    return this.http.put<PublicidadCategoria>(
+      `${this.base}/publicidad/categorias/${encodeURIComponent(id)}`,
+      body
+    );
+  }
+
+  eliminarPublicidadCategoria(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/publicidad/categorias/${encodeURIComponent(id)}`);
+  }
+
+  subirImagenCategoria(id: string, file: File): Observable<PublicidadCategoria> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<PublicidadCategoria>(
+      `${this.base}/publicidad/categorias/${encodeURIComponent(id)}/imagen`,
+      fd
+    );
+  }
+
+  quitarImagenCategoria(id: string): Observable<PublicidadCategoria> {
+    return this.http.delete<PublicidadCategoria>(
+      `${this.base}/publicidad/categorias/${encodeURIComponent(id)}/imagen`
+    );
   }
 }

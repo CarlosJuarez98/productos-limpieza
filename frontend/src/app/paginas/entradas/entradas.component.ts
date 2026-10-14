@@ -10,7 +10,14 @@ import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { PageAlertsComponent } from '../../page-alerts.component';
-import { Entrada, InventarioItem, Produccion, Receta, RecetaInsumo } from '../../modelos';
+import {
+  Entrada,
+  InventarioItem,
+  Produccion,
+  Receta,
+  RecetaInsumo,
+  etiquetaPrecioDeProducto,
+} from '../../modelos';
 import { ProductoAutocompleteComponent } from '../../producto-autocomplete.component';
 import { ProductoAltaFormComponent } from '../../producto-alta-form.component';
 import { ArmarComponent } from '../armar/armar.component';
@@ -19,7 +26,12 @@ import { FechaDiaComponent } from '../../fecha-dia.component';
 import { PullRefreshService } from '../../pull-refresh.service';
 import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreakpointCambio, capturaTieneFocoEnCampo, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
-import { enfocarPorAttr, programarEnfoque, scrollLineaPorAttr } from '../../captura-focus.util';
+import {
+  enfocarPorAttr,
+  esMovilTactil,
+  programarEnfoque,
+  scrollEnMain,
+} from '../../captura-focus.util';
 
 interface LineaForm {
   key: number;
@@ -33,6 +45,11 @@ interface LineaForm {
   tambienTraspasar: boolean;
   /** Cantidad a traspasar de esta línea (opcional, ≤ cantidad de entrada). */
   cantidadTraspaso: number | null;
+  /**
+   * Solo productos de la lista Armar (usaBaston).
+   * false = llegó sin bastón → suma a pendienteArmar; true = trae bastón.
+   */
+  traeBastonIncluido: boolean;
 }
 
 type CambioPrecio = 'SUBIO' | 'BAJO' | 'IGUAL' | null;
@@ -62,7 +79,13 @@ interface RevisionPrecioItem {
 
 type DraftEntradas = {
   fecha: string;
-  lineas: Array<Omit<LineaForm, 'key'> & { tambienTraspasar?: boolean; totalPagado?: number | null }>;
+  lineas: Array<
+    Omit<LineaForm, 'key'> & {
+      tambienTraspasar?: boolean;
+      totalPagado?: number | null;
+      traeBastonIncluido?: boolean;
+    }
+  >;
   nextKey: number;
   /** @deprecated Preferir por línea; se migra al restaurar. */
   tambienTraspasar?: boolean;
@@ -130,6 +153,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
   /** Móvil: pestaña Preparar vs Fórmulas. */
   prepVista: 'preparar' | 'formulas' = 'preparar';
   recetas: Receta[] = [];
+  private recetasCargadas = false;
   formReceta = this.formRecetaVacio();
   editandoRecetaId: number | null = null;
   guardandoRecetas = false;
@@ -191,6 +215,8 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.persistirBorrador();
     this.pullSub?.unsubscribe();
     if (this.draftTimer != null) clearTimeout(this.draftTimer);
+    for (const t of this.prepLlegadaTimers) clearTimeout(t);
+    this.prepLlegadaTimers = [];
   }
 
   @HostListener('window:resize')
@@ -424,32 +450,159 @@ export class EntradasComponent implements OnInit, OnDestroy {
     return this.formReceta.insumos.reduce((s, i) => s + (Number(i.cantidad) || 0), 0);
   }
 
-  /** Desde Ventas: /entradas?preparar=id → abre Preparación. */
-  private aplicarQueryPreparar(): void {
+  /** Query de Ventas/Domicilio pendiente hasta tener inventario + fórmulas. */
+  private prepQueryPendiente: { id: number } | null = null;
+  /** Desde Ventas/Domicilio: precargar línea de entrada con el producto. */
+  private productoEntradaQueryPendiente: { id: number } | null = null;
+  /** Tras precargar producto, completar precio cuando llegue el historial. */
+  private productoEntradaIdPrecio: number | null = null;
+  /** Tras llegar desde Ventas: resaltar y re-scrollear cuando cargue la fórmula. */
+  private prepDesdeVenta = false;
+  private prepLlegadaTimers: ReturnType<typeof setTimeout>[] = [];
+
+  private leerQueryPreparar(): void {
+    if (this.prepQueryPendiente) return;
     const raw = this.route.snapshot.queryParamMap.get('preparar');
     if (!raw) return;
     const id = Number(raw);
     if (!Number.isFinite(id) || id <= 0) return;
-    const prod = this.productos.find((p) => p.id === id);
-    if (!prod || !this.esProductoPreparacion(prod.id)) {
-      void this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams: {},
-        replaceUrl: true,
-      });
-      return;
-    }
-    this.prepAbierta = true;
-    this.onResultadoChange(id);
-    this.cdr.detectChanges();
-    setTimeout(() => {
-      document.getElementById('entradas-prep-top')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
+    this.prepQueryPendiente = { id };
+  }
+
+  private leerQueryProductoEntrada(): void {
+    if (this.productoEntradaQueryPendiente) return;
+    const raw = this.route.snapshot.queryParamMap.get('producto');
+    if (!raw) return;
+    const id = Number(raw);
+    if (!Number.isFinite(id) || id <= 0) return;
+    this.productoEntradaQueryPendiente = { id };
+  }
+
+  private limpiarQueryPreparar(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: {},
       replaceUrl: true,
     });
+  }
+
+  /** Lleva el main justo al bloque Preparar (bajo sticky) y lo marca un momento. */
+  private enfocarPanelPreparar(conFoco = false): void {
+    for (const t of this.prepLlegadaTimers) clearTimeout(t);
+    this.prepLlegadaTimers = [];
+    const ir = (foco: boolean) => {
+      const panel = document.getElementById('entradas-prep-top');
+      const form = document.querySelector('.form-prep-card') as HTMLElement | null;
+      const el = form || panel;
+      if (!el) return;
+      panel?.classList.add('prep-llegada');
+      form?.classList.add('prep-llegada');
+      scrollEnMain(el, { belowSticky: true });
+      if (foco) {
+        const ins = document.querySelector(
+          '.prep-insumos-editores .prep-hero-input, .prep-out .prep-hero-input'
+        ) as HTMLInputElement | null;
+        ins?.focus({ preventScroll: true });
+      }
+    };
+    // Varios pases: abre el panel → llega la fórmula → se pintan insumos.
+    this.prepLlegadaTimers.push(setTimeout(() => ir(false), 40));
+    this.prepLlegadaTimers.push(setTimeout(() => ir(conFoco), 180));
+    this.prepLlegadaTimers.push(setTimeout(() => ir(conFoco), 420));
+    this.prepLlegadaTimers.push(
+      setTimeout(() => {
+        document.getElementById('entradas-prep-top')?.classList.remove('prep-llegada');
+        document.querySelector('.form-prep-card')?.classList.remove('prep-llegada');
+      }, 2200)
+    );
+  }
+
+  /** Desde Ventas/Domicilio: /entradas?preparar=id&litros=n → abre Preparar con insumos listos. */
+  private aplicarQueryPreparar(): void {
+    this.leerQueryPreparar();
+    const pend = this.prepQueryPendiente;
+    if (!pend) return;
+    // Esperar ambos: si se limpia el query antes de tener recetas, se pierde el flujo.
+    if (!this.productos.length || !this.recetas.length) return;
+
+    const prod = this.productos.find((p) => p.id === pend.id);
+    if (!prod || !this.esProductoPreparacion(prod.id)) {
+      this.prepQueryPendiente = null;
+      this.limpiarQueryPreparar();
+      return;
+    }
+
+    this.prepQueryPendiente = null;
+    this.prepDesdeVenta = true;
+    this.prepAbierta = true;
+    this.prepVista = 'preparar';
+    this.recetasAbierta = false;
+    this.onResultadoChange(pend.id);
+    this.cdr.detectChanges();
+    this.enfocarPanelPreparar(true);
+    this.limpiarQueryPreparar();
+  }
+
+  /** Desde Ventas/Domicilio: /entradas?producto=id → línea con nombre listo; solo capturar cantidad. */
+  private aplicarQueryProductoEntrada(): void {
+    this.leerQueryProductoEntrada();
+    this.completarPrecioQueryProducto();
+    const pend = this.productoEntradaQueryPendiente;
+    if (!pend) return;
+    if (!this.productos.length) return;
+
+    // Esperar fórmulas: si aún no cargan, no meter Cloro/Fabuloso por error.
+    if (!this.recetasCargadas) return;
+
+    const prod = this.productos.find((p) => p.id === pend.id);
+    if (!prod || this.esProductoPreparacion(prod.id)) {
+      this.productoEntradaQueryPendiente = null;
+      this.limpiarQueryPreparar();
+      return;
+    }
+
+    this.productoEntradaQueryPendiente = null;
+    let idx = this.lineas.findIndex(
+      (l) => l.productoId == null || Number(l.productoId) === prod.id
+    );
+    if (idx < 0) {
+      this.lineas = [this.nuevaLinea(), ...this.lineas];
+      idx = 0;
+    }
+    const linea = this.lineas[idx];
+    this.onProductoChange(linea, prod.id);
+    const ultima = this.ultimaCompra(prod.id);
+    if (
+      (linea.precioProveedor == null || String(linea.precioProveedor) === '') &&
+      ultima != null
+    ) {
+      linea.precioProveedor = ultima;
+    } else if (linea.precioProveedor == null || String(linea.precioProveedor) === '') {
+      this.productoEntradaIdPrecio = prod.id;
+    }
+    this.programarBorrador();
+    this.cdr.detectChanges();
+    this.enfocarCaptura(idx, 'cantidad');
+    this.limpiarQueryPreparar();
+  }
+
+  private completarPrecioQueryProducto(): void {
+    const id = this.productoEntradaIdPrecio;
+    if (id == null || !this.entradas.length) return;
+    const linea = this.lineas.find((l) => Number(l.productoId) === id);
+    if (!linea) {
+      this.productoEntradaIdPrecio = null;
+      return;
+    }
+    if (linea.precioProveedor != null && String(linea.precioProveedor) !== '') {
+      this.productoEntradaIdPrecio = null;
+      return;
+    }
+    const ultima = this.ultimaCompra(id);
+    if (ultima == null) return;
+    linea.precioProveedor = ultima;
+    this.productoEntradaIdPrecio = null;
+    this.programarBorrador();
   }
 
   toggleHist(): void {
@@ -521,23 +674,70 @@ export class EntradasComponent implements OnInit, OnDestroy {
       totalPagado: null,
       tambienTraspasar: false,
       cantidadTraspaso: null,
+      traeBastonIncluido: false,
     };
   }
 
   onProductoChange(l: LineaForm, id: number | null): void {
     l.productoId = id;
+    if (!this.muestraOpcionesBaston(l)) {
+      l.traeBastonIncluido = false;
+      // Puede haberse agregado a Armar en este mismo momento: refresca flags.
+      if (id != null) this.refrescarFlagsBaston();
+    }
+    this.programarBorrador();
+  }
+
+  /** Armar embebido actualizó inventario (usaBaston, pendientes…). */
+  onArmarInventario(items: InventarioItem[]): void {
+    if (!items?.length) return;
+    this.productos = items;
+  }
+
+  /** Producto ya en lista Armar (usaBaston). */
+  muestraOpcionesBaston(l: LineaForm): boolean {
+    if (l.productoId == null) return false;
+    const p = this.productos.find((x) => x.id === l.productoId);
+    return !!p?.usaBaston && !p.esBaston;
+  }
+
+  private refrescarFlagsBaston(): void {
+    this.api.inventario().subscribe({
+      next: (p) => {
+        this.productos = p || [];
+      },
+    });
+  }
+
+  setTraeBaston(l: LineaForm, trae: boolean): void {
+    if (l.traeBastonIncluido === trae) {
+      this.programarBorrador();
+      return;
+    }
+    l.traeBastonIncluido = trae;
     this.programarBorrador();
   }
 
   onCantidadChange(l: LineaForm): void {
-    this.recalcularPrecioDesdeTotal(l);
+    // Si hay precio/L, actualiza total; si solo hay total, recalcula precio.
+    const precio = Number(l.precioProveedor);
+    const total = Number(l.totalPagado);
+    const tienePrecio =
+      l.precioProveedor != null && String(l.precioProveedor) !== '' && Number.isFinite(precio) && precio >= 0;
+    const tieneTotal =
+      l.totalPagado != null && String(l.totalPagado) !== '' && Number.isFinite(total) && total >= 0;
+    if (tienePrecio) {
+      this.recalcularTotalDesdePrecio(l);
+    } else if (tieneTotal) {
+      this.recalcularPrecioDesdeTotal(l);
+    }
     this.programarBorrador();
   }
 
-  /** Unidad del precio (L o pza) según el producto. */
+  /** Unidad del precio según el producto. */
   etiquetaPrecio(productoId: number | null): string {
     const p = this.productos.find((x) => x.id === productoId);
-    return p?.vendePor === 'PIEZA' ? 'Precio / pza' : 'Precio / L';
+    return etiquetaPrecioDeProducto(p);
   }
 
   /**
@@ -573,7 +773,22 @@ export class EntradasComponent implements OnInit, OnDestroy {
     return cantTr > cantEnt;
   }
 
-  /** Última compra con precio (historial ya viene fecha desc). */
+  /** Costo del bastón ligado al producto (o el bastón de madera del inventario). */
+  costoBastonPorUnidad(productoId?: number | null): number {
+    const p = productoId != null ? this.productos.find((x) => x.id === productoId) : undefined;
+    const bastonId = p?.bastonProductoId;
+    const baston =
+      (bastonId != null ? this.productos.find((x) => x.id === bastonId) : undefined) ||
+      this.productos.find((x) => x.esBaston) ||
+      this.productos.find((x) => /bast[oó]n/i.test(x.nombre || ''));
+    const c = Number(baston?.precioCompra) || 0;
+    return c > 0 ? Math.round(c * 100) / 100 : 0;
+  }
+
+  /**
+   * Última cabeza del proveedor (lo que capturas en la entrada).
+   * Si no hay historial, el catálogo ya trae compra = cabeza + bastón → se resta el bastón.
+   */
   ultimaCompra(productoId: number | null): number | null {
     if (productoId == null) return null;
     const previa = this.entradas.find(
@@ -581,8 +796,15 @@ export class EntradasComponent implements OnInit, OnDestroy {
     );
     if (previa?.precioProveedor != null) return Number(previa.precioProveedor);
     const inv = this.productos.find((p) => p.id === productoId);
-    const compra = inv != null ? Number(inv.precioCompra) : 0;
-    return compra > 0 ? compra : null;
+    let compra = inv != null ? Number(inv.precioCompra) : 0;
+    if (!(compra > 0)) return null;
+    if (inv?.usaBaston && !inv.esBaston) {
+      const baston = this.costoBastonPorUnidad(productoId);
+      if (baston > 0 && compra > baston) {
+        compra = Math.round((compra - baston) * 100) / 100;
+      }
+    }
+    return compra;
   }
 
   cambioLinea(l: LineaForm): CambioPrecio {
@@ -693,11 +915,14 @@ export class EntradasComponent implements OnInit, OnDestroy {
       const c = this.cambioLinea(l);
       if (c !== 'SUBIO' && c !== 'BAJO') continue;
       if (l.productoId == null) continue;
+      // Revisión usa compra de catálogo (ya con bastón si aplica), no solo la cabeza.
+      const inv = this.productos.find((p) => p.id === l.productoId);
+      const compraCat = Number(inv?.precioCompra) || 0;
       out.push({
         productoId: l.productoId,
         nombre: this.nombreProducto(l.productoId),
         cambio: c,
-        compraAnterior: this.ultimaCompra(l.productoId),
+        compraAnterior: compraCat > 0 ? compraCat : this.ultimaCompra(l.productoId),
       });
     }
     return out;
@@ -790,11 +1015,23 @@ export class EntradasComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Total capturado por el usuario (no se rellena solo). */
+  /** Total de la línea: total capturado, o precio × cantidad. */
   totalLinea(l: LineaForm): number | null {
     if (l.totalPagado != null && String(l.totalPagado) !== '') {
       const t = Number(l.totalPagado);
       return Number.isFinite(t) && t >= 0 ? Math.round(t * 100) / 100 : null;
+    }
+    const precio = Number(l.precioProveedor);
+    const cant = Number(l.cantidad);
+    if (
+      l.precioProveedor != null &&
+      String(l.precioProveedor) !== '' &&
+      Number.isFinite(precio) &&
+      precio >= 0 &&
+      Number.isFinite(cant) &&
+      cant > 0
+    ) {
+      return Math.round(precio * cant * 100) / 100;
     }
     return null;
   }
@@ -810,22 +1047,31 @@ export class EntradasComponent implements OnInit, OnDestroy {
       !Number.isFinite(cant) ||
       cant <= 0
     ) {
-      if (l.totalPagado == null || String(l.totalPagado) === '') {
-        l.precioProveedor = null;
-      }
       return;
     }
     l.precioProveedor = Math.round((total / cant) * 10000) / 10000;
   }
 
-  /**
-   * Escribes lo que pagaste por esa cantidad → se calcula el precio por L/pza.
-   * El campo queda vacío hasta que lo captures (no se rellena solo).
-   */
+  private recalcularTotalDesdePrecio(l: LineaForm): void {
+    const precio = Number(l.precioProveedor);
+    const cant = Number(l.cantidad);
+    if (
+      l.precioProveedor == null ||
+      String(l.precioProveedor) === '' ||
+      !Number.isFinite(precio) ||
+      precio < 0 ||
+      !Number.isFinite(cant) ||
+      cant <= 0
+    ) {
+      return;
+    }
+    l.totalPagado = Math.round(precio * cant * 100) / 100;
+  }
+
+  /** Total pagado → precio por L/pza. */
   onTotalPagadoChange(l: LineaForm, raw: number | string | null): void {
     if (raw === '' || raw == null) {
       l.totalPagado = null;
-      l.precioProveedor = null;
       this.programarBorrador();
       return;
     }
@@ -839,14 +1085,26 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.programarBorrador();
   }
 
-  onPrecioUnitarioChange(l: LineaForm): void {
+  /** Precio por L/pza → total pagado. */
+  onPrecioUnitarioChange(l: LineaForm, raw: number | string | null): void {
+    if (raw === '' || raw == null) {
+      l.precioProveedor = null;
+      this.programarBorrador();
+      return;
+    }
+    const precio = Number(raw);
+    if (!Number.isFinite(precio) || precio < 0) {
+      this.programarBorrador();
+      return;
+    }
+    l.precioProveedor = Math.round(precio * 10000) / 10000;
+    this.recalcularTotalDesdePrecio(l);
     this.programarBorrador();
   }
 
   onFormEditTotalChange(raw: number | string | null): void {
     if (raw === '' || raw == null) {
       this.formEdit.totalPagado = null;
-      this.formEdit.precioProveedor = null;
       return;
     }
     const total = Number(raw);
@@ -858,16 +1116,38 @@ export class EntradasComponent implements OnInit, OnDestroy {
     }
   }
 
-  onFormEditCantidadChange(): void {
-    const total = Number(this.formEdit.totalPagado);
+  onFormEditPrecioChange(raw: number | string | null): void {
+    if (raw === '' || raw == null) {
+      this.formEdit.precioProveedor = null;
+      return;
+    }
+    const precio = Number(raw);
+    if (!Number.isFinite(precio) || precio < 0) return;
+    this.formEdit.precioProveedor = Math.round(precio * 10000) / 10000;
     const cant = Number(this.formEdit.cantidad);
-    if (
+    if (Number.isFinite(cant) && cant > 0) {
+      this.formEdit.totalPagado = Math.round(precio * cant * 100) / 100;
+    }
+  }
+
+  onFormEditCantidadChange(): void {
+    const cant = Number(this.formEdit.cantidad);
+    if (!Number.isFinite(cant) || cant <= 0) return;
+    const precio = Number(this.formEdit.precioProveedor);
+    const total = Number(this.formEdit.totalPagado);
+    const tienePrecio =
+      this.formEdit.precioProveedor != null &&
+      String(this.formEdit.precioProveedor) !== '' &&
+      Number.isFinite(precio) &&
+      precio >= 0;
+    const tieneTotal =
       this.formEdit.totalPagado != null &&
+      String(this.formEdit.totalPagado) !== '' &&
       Number.isFinite(total) &&
-      total >= 0 &&
-      Number.isFinite(cant) &&
-      cant > 0
-    ) {
+      total >= 0;
+    if (tienePrecio) {
+      this.formEdit.totalPagado = Math.round(precio * cant * 100) / 100;
+    } else if (tieneTotal) {
       this.formEdit.precioProveedor = Math.round((total / cant) * 10000) / 10000;
     }
   }
@@ -935,6 +1215,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     return this.ratiosInsumoPorProducto(this.prep.productoResultadoId);
   }
 
+  /** Elige producto: deja insumos visibles pero cantidades vacías (tú capturas). */
   onResultadoChange(id: number | null): void {
     this.programarBorrador();
     this.prep.productoResultadoId = id;
@@ -944,6 +1225,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.prep.cantidadAgua = null;
     this.prep.cantidadInsumoCalculo = null;
     this.prep.insumoCalculoId = null;
+    this.prep.cantidadResultado = null;
     this.prep.modoCalculo = 'insumo';
     this.prep.insumos = [];
     this.errorPrep = '';
@@ -964,11 +1246,20 @@ export class EntradasComponent implements OnInit, OnDestroy {
           this.prep.productoInsumoId = insumos[0]?.productoInsumoId ?? null;
           this.prep.insumoNombre = insumos.map((i) => i.productoInsumoNombre).join(' + ');
           this.prep.insumoCalculoId = insumos[0]?.productoInsumoId ?? null;
-          this.aplicarCalculoPrep();
+          // Cantidades en 0: el usuario pone base o litros y se recalcula el otro.
           this.programarBorrador();
+          if (this.prepDesdeVenta) {
+            this.prepDesdeVenta = false;
+            this.cdr.detectChanges();
+            this.enfocarPanelPreparar(true);
+          }
         } else {
           this.errorPrep = 'No hay fórmula para ese producto. Créala en la pestaña «Fórmulas».';
+          this.prepDesdeVenta = false;
         }
+      },
+      error: () => {
+        this.prepDesdeVenta = false;
       },
     });
   }
@@ -1193,17 +1484,29 @@ export class EntradasComponent implements OnInit, OnDestroy {
     this.enfocarCaptura(index, 'cantidad');
   }
 
-  /** Enter en cantidad → total pagado. */
+  /** Enter en cantidad → precio unitario (o total si ya hay precio). */
   onCantidadEnter(ev: Event, index: number): void {
     ev.preventDefault();
     this.programarBorrador();
-    this.enfocarCaptura(index, 'total');
+    const l = this.lineas[index];
+    const tienePrecio =
+      l?.precioProveedor != null &&
+      String(l.precioProveedor) !== '' &&
+      Number(l.precioProveedor) >= 0;
+    this.enfocarCaptura(index, tienePrecio ? 'total' : 'precio');
   }
 
-  /** Enter en precio unitario → siguiente fila. */
+  /** Enter en precio unitario → total (si vacío) o siguiente fila. */
   onPrecioEnter(ev: Event, index: number): void {
     ev.preventDefault();
     this.programarBorrador();
+    const l = this.lineas[index];
+    const tieneTotal =
+      l?.totalPagado != null && String(l.totalPagado) !== '' && Number(l.totalPagado) >= 0;
+    if (!tieneTotal) {
+      this.enfocarCaptura(index, 'total');
+      return;
+    }
     this.avanzarTrasPrecio(index);
   }
 
@@ -1213,6 +1516,8 @@ export class EntradasComponent implements OnInit, OnDestroy {
 
   private enfocarCaptura(index: number, campo: 'producto' | 'cantidad' | 'precio' | 'total'): void {
     const go = () => {
+      // Primero la card a la vista (bajo sticky); luego foco sin que el teclado baje todo.
+      this.scrollLineaVisible(index);
       const key = this.lineas[index]?.key;
       if (campo === 'cantidad') {
         enfocarPorAttr('data-cant-key', key ?? '');
@@ -1223,10 +1528,22 @@ export class EntradasComponent implements OnInit, OnDestroy {
       } else {
         this.autosVisibles()[index]?.focus();
       }
-      if (key != null) scrollLineaPorAttr('data-linea-key', key);
+      if (esMovilTactil()) {
+        requestAnimationFrame(() => this.scrollLineaVisible(index));
+      }
     };
     this.cdr.detectChanges();
     programarEnfoque(go);
+  }
+
+  private scrollLineaVisible(index: number): void {
+    const l = this.lineas[index];
+    if (!l) return;
+    const linea =
+      document.getElementById('linea-entrada-' + l.key) ||
+      (document.querySelector(`[data-linea-key="${l.key}"]`) as HTMLElement | null);
+    if (!linea) return;
+    scrollEnMain(linea, { belowSticky: true });
   }
 
   quitarLinea(index: number): void {
@@ -1246,6 +1563,8 @@ export class EntradasComponent implements OnInit, OnDestroy {
       next: (e) => {
         this.entradas = e;
         this.pagEntradas.setItems(this.entradas, false);
+        // Historial listo → ultimaCompra disponible al precargar desde Ventas.
+        this.aplicarQueryProductoEntrada();
       },
       error: (e) => (this.error = e.error?.error || 'No se pudieron cargar entradas'),
     });
@@ -1263,13 +1582,21 @@ export class EntradasComponent implements OnInit, OnDestroy {
       next: (p) => {
         this.productos = p;
         this.aplicarQueryPreparar();
+        this.aplicarQueryProductoEntrada();
       },
     });
     this.api.recetas().subscribe({
       next: (r) => {
         this.recetas = r || [];
+        this.recetasCargadas = true;
         this.aplicarCalculoPrep();
         this.aplicarQueryPreparar();
+        this.aplicarQueryProductoEntrada();
+      },
+      error: () => {
+        this.recetas = [];
+        this.recetasCargadas = true;
+        this.aplicarQueryProductoEntrada();
       },
     });
     this.api.personas().subscribe({
@@ -1341,6 +1668,9 @@ export class EntradasComponent implements OnInit, OnDestroy {
     if (!this.validarFecha(this.fecha)) return;
 
     const lineasForm = this.lineas.filter((l) => l.productoId != null && Number(l.cantidad) > 0);
+    const lineasFaltaArmar = lineasForm.filter(
+      (l) => this.muestraOpcionesBaston(l) && !l.traeBastonIncluido
+    );
     const lineas = lineasForm.map((l) => ({
       productoId: l.productoId as number,
       productoNombre: this.nombreProducto(l.productoId),
@@ -1351,6 +1681,8 @@ export class EntradasComponent implements OnInit, OnDestroy {
           : null,
       aplicarAPedido: false,
       pedidoId: null as number | null,
+      // false = Falta armar (suma pendiente); true = Trae bastón; null = no aplica.
+      traeBastonIncluido: this.muestraOpcionesBaston(l) ? !!l.traeBastonIncluido : null,
     }));
     if (!lineas.length) {
       this.error = 'Agrega al menos un producto con cantidad';
@@ -1415,14 +1747,29 @@ export class EntradasComponent implements OnInit, OnDestroy {
         next: () => {
           this.guardando = false;
           const nTr = lineasTraspaso.length;
-          this.ok = nTr
-            ? `Entrada registrada y traspaso a ${persona} listo`
+          const nArmar = lineasFaltaArmar.length;
+          const partes: string[] = [];
+          if (nTr) partes.push(`traspaso a ${persona} listo`);
+          if (nArmar) {
+            partes.push(
+              nArmar === 1
+                ? '1 producto en pendientes de armar'
+                : `${nArmar} productos en pendientes de armar`
+            );
+            this.armarAbierta = true;
+            this.cdr.detectChanges();
+          }
+          this.ok = partes.length
+            ? `Entrada registrada · ${partes.join(' · ')}`
             : 'Entrada registrada';
           this.lineas = this.crearLineasVacias();
           this.traspasoPersona = '';
           this.persistirBorrador();
           this.cargar();
           this.refrescarInventarioYRevision(cambiosPrecio);
+          // Armar embebido (ya montado tras detectChanges) recarga pendientes.
+          // Sin scroll: el usuario sigue en la captura de entradas.
+          this.pullRefresh.trigger();
         },
         error: (e) => {
           this.guardando = false;
@@ -1706,13 +2053,22 @@ export class EntradasComponent implements OnInit, OnDestroy {
       nextKey: this.nextKey,
       traspasoPersona: this.traspasoPersona,
       lineas: this.lineas.map(
-        ({ productoId, cantidad, precioProveedor, totalPagado, tambienTraspasar, cantidadTraspaso }) => ({
+        ({
           productoId,
           cantidad,
           precioProveedor,
           totalPagado,
           tambienTraspasar,
           cantidadTraspaso,
+          traeBastonIncluido,
+        }) => ({
+          productoId,
+          cantidad,
+          precioProveedor,
+          totalPagado,
+          tambienTraspasar,
+          cantidadTraspaso,
+          traeBastonIncluido,
         })
       ),
       prep: { ...this.prep },
@@ -1758,6 +2114,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
                 })(),
           tambienTraspasar: porLinea,
           cantidadTraspaso: cantTr,
+          traeBastonIncluido: l.traeBastonIncluido === true,
         };
       });
     }

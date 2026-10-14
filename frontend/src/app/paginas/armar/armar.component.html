@@ -25,7 +25,9 @@
     <app-producto-autocomplete
       [productos]="productosParaAgregar"
       [productoId]="agregarId"
+      [enterAvanza]="true"
       (productoIdChange)="agregarId = $event"
+      (enterConfirmado)="agregarALista()"
       placeholder="Buscar producto…"
     />
     <button type="button" (click)="agregarALista()" [disabled]="guardandoId != null">
@@ -62,7 +64,7 @@
           </div>
         </li>
       } @empty {
-        <li class="muted vacio">Aún no hay productos en la lista. Búscalos arriba y pulsa Agregar.</li>
+        <li class="muted vacio">Aún no hay productos en la lista. Búscalos arriba y pulsa Enter o Agregar.</li>
       }
     </ul>
   }
@@ -74,7 +76,7 @@
     <p class="muted">Cargando…</p>
   } @else if (!pendientes.length) {
     <p class="muted">
-      No hay pendientes. Cuando en Surtir recibas un producto de la lista sin bastón, aparecen aquí.
+      No hay pendientes. Cuando en Entradas o Surtir recibas un producto de la lista sin bastón, aparecen aquí.
     </p>
   } @else {
     <ul class="armar-lista">

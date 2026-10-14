@@ -449,13 +449,13 @@ export class VentasComponent implements OnInit, OnDestroy {
   unidadDe(l: LineaVenta): string {
     if (l.modo === 'PESOS') return '$';
     const p = this.productoDe(l);
-    return p?.vendePor === 'PIEZA' ? 'pza' : 'L';
+    return p?.vendePor === 'PIEZA' ? 'Pieza' : 'Litro';
   }
 
   /** Litros o piezas (para «cuánto dar» en modo Pesos). */
   unidadFisicaDe(l: LineaVenta): string {
     const p = this.productoDe(l);
-    return p?.vendePor === 'PIEZA' ? 'pza' : 'L';
+    return p?.vendePor === 'PIEZA' ? 'Pieza' : 'Litro';
   }
 
   /** En Pesos: cuántas unidades físicas corresponde dar por el monto. */
@@ -625,7 +625,7 @@ export class VentasComponent implements OnInit, OnDestroy {
     if (!p) return 'Precios de mayoreo del producto';
     const m5 = Number(p.precioMayoreo5) || 0;
     const m10 = Number(p.precioMayoreo10) || 0;
-    const u = p.vendePor === 'PIEZA' ? 'pza' : 'L';
+    const u = p.vendePor === 'PIEZA' ? 'Pieza' : 'Litro';
     const lineas: string[] = [];
     if (m5 > 0) {
       lineas.push(`≥5 ${u}: $${this.fmtMoney(m5)} c/u (5 → $${this.fmtMoney(m5 * 5)})`);
@@ -1080,7 +1080,7 @@ export class VentasComponent implements OnInit, OnDestroy {
     if (exceso >= 0) {
       this.error =
         this.avisoStock(this.lineas[exceso], exceso) ||
-        'Hay cantidades mayores al stock. Revisa Inventario, Surtir o Preparar.';
+        'Hay cantidades mayores al stock. Revisa Inventario, Surtir, Entradas o Preparar.';
       return;
     }
 
@@ -1149,7 +1149,7 @@ export class VentasComponent implements OnInit, OnDestroy {
       const lineas = lineasApi.map((x) => ({
         nombre: x.productoNombre || 'Producto',
         cantidad: Number(x.cantidad) || 0,
-        unidad: x.tipoVenta === 'PIEZA' ? 'pza' : x.tipoVenta === 'PESOS' ? '$' : 'L',
+        unidad: x.tipoVenta === 'PIEZA' ? 'Pieza' : x.tipoVenta === 'PESOS' ? '$' : 'Litro',
         total: Number(x.total) || 0,
         sinCobro: x.tipoVenta === 'MUESTRA' || x.tipoVenta === 'CASA',
       }));

@@ -13,6 +13,30 @@ export type ModoVenta = 'MENUDEO' | 'MAYOREO' | 'MUESTRA' | 'PESOS' | 'CASA';
 
 export type UnidadVenta = 'LITROS' | 'PIEZA';
 
+/** Etiqueta de precio unitario según vendePor (o 'L' / 'pza' / label). */
+export function etiquetaPrecioUnidad(vendePor?: UnidadVenta | string | null): string {
+  const u = (vendePor || '').toString().trim().toUpperCase();
+  if (
+    u === 'PIEZA' ||
+    u === 'PZA' ||
+    u === 'PZ' ||
+    u.startsWith('PIEZ')
+  ) {
+    return 'Precio / Pieza';
+  }
+  return 'Precio / Litro';
+}
+
+/** Usa vendePor, label o lista Armar (escobas = pieza). */
+export function etiquetaPrecioDeProducto(
+  p?: { vendePor?: string | null; vendePorLabel?: string | null; usaBaston?: boolean; esBaston?: boolean } | null
+): string {
+  if (!p) return 'Precio / Litro';
+  if (p.usaBaston && !p.esBaston) return 'Precio / Pieza';
+  if (p.vendePorLabel && /piez/i.test(p.vendePorLabel)) return 'Precio / Pieza';
+  return etiquetaPrecioUnidad(p.vendePor);
+}
+
 /** Proveedor / área de surtido. Independiente de litros vs pieza. */
 export type DepartamentoProducto = 'LIMPIEZA' | 'JARCERIA';
 
@@ -508,6 +532,19 @@ export interface PublicidadGaleriaItem {
   src: string;
   textoShare: string;
   eliminable: boolean;
+}
+
+/** Categoría editable de publicidad (productos N:N). */
+export interface PublicidadCategoria {
+  id: string;
+  nombre: string;
+  departamento: DepartamentoProducto;
+  /** IDs de productos del inventario; un producto puede estar en varias categorías. */
+  productoIds: number[];
+  slogan?: string | null;
+  imagenSrc?: string | null;
+  imagenCustom: boolean;
+  orden: number;
 }
 
 export const MODOS_VENTA: { value: ModoVenta; label: string }[] = [

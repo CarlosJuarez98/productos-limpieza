@@ -717,7 +717,7 @@
                     <th>Producto</th>
                     <th class="money">Pedido</th>
                     <th class="money">Recibido</th>
-                    <th class="money" title="Precio por pieza o litro · multiplica × recibido">$/pza</th>
+                    <th class="money" title="Precio / Litro o Precio / Pieza · multiplica × recibido">Precio</th>
                     <th class="money" title="Total de la nota · divide ÷ recibido">Total $</th>
                     <th class="th-acc"></th>
                   </tr>
@@ -738,7 +738,7 @@
                         <div class="producto-con-tags">
                           <span class="producto-nom">
                             {{ r.productoNombre }}
-                            <span class="muted unidad">{{ r.unidad }}</span>
+                            <span class="muted unidad">{{ etiquetaUnidadRecibo(r) }}</span>
                           </span>
                           @if (r.completarAlta) {
                             <span class="item-tag tag-pendiente">nuevo</span>
@@ -851,7 +851,8 @@
                             [name]="'unit' + r.itemId"
                             (ngModelChange)="onPrecioUnitarioChange(r)"
                             (keydown.enter)="focusSiguienteCampo($event)"
-                            title="$ por pieza o litro"
+                            [title]="etiquetaPrecioRecibo(r)"
+                            [attr.aria-label]="etiquetaPrecioRecibo(r)"
                           />
                         } @else {
                           @if (unitarioRecibo(r) != null) {
@@ -938,7 +939,7 @@
                   <p class="item-motivo producto-con-tags">
                     <span class="producto-nom">
                       {{ r.productoNombre }}
-                      <span class="muted unidad">{{ r.unidad }}</span>
+                      <span class="muted unidad">{{ etiquetaUnidadRecibo(r) }}</span>
                     </span>
                     @if (r.completarAlta) {
                       <span class="item-tag tag-pendiente">nuevo</span>
@@ -1049,7 +1050,7 @@
                       />
                     </label>
                     <label>
-                      $/pza
+                      {{ etiquetaPrecioRecibo(r) }}
                       <input
                         type="text"
                         class="recibo-num"

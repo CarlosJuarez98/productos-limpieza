@@ -336,7 +336,7 @@ export class DomicilioComponent implements OnInit {
   unidadDe(l: LineaDom): string {
     if (l.modo === 'PESOS') return '$';
     const p = this.productoDe(l);
-    return p?.vendePor === 'PIEZA' ? 'pza' : 'L';
+    return p?.vendePor === 'PIEZA' ? 'Pieza' : 'Litro';
   }
 
   tipoVentaEfectivo(l: LineaDom): TipoVenta {
@@ -533,7 +533,7 @@ export class DomicilioComponent implements OnInit {
     }
     if (this.hayExcesoStock) {
       this.error =
-        'Hay cantidades mayores al stock. Revisa Inventario, Surtir o Preparar.';
+        'Hay cantidades mayores al stock. Revisa Inventario, Surtir, Entradas o Preparar.';
       return;
     }
     for (const l of lineas) {

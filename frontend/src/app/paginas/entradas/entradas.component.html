@@ -34,6 +34,7 @@
     @for (l of lineas; track l.key; let i = $index) {
       <article
         class="linea-card"
+        [id]="'linea-entrada-' + l.key"
         [attr.data-linea-key]="l.key"
         [class.warn]="cambioLinea(l) === 'SUBIO'"
         [class.bajo]="cambioLinea(l) === 'BAJO'"
@@ -95,6 +96,29 @@
           />
         </label>
 
+        @if (muestraOpcionesBaston(l)) {
+          <div class="baston-opts" role="group" aria-label="¿Trae bastón?">
+            <button
+              type="button"
+              class="btn-baston falta"
+              [class.activo]="!l.traeBastonIncluido"
+              [attr.aria-pressed]="!l.traeBastonIncluido"
+              (click)="setTraeBaston(l, false)"
+            >
+              Falta armar
+            </button>
+            <button
+              type="button"
+              class="btn-baston trae"
+              [class.activo]="l.traeBastonIncluido"
+              [attr.aria-pressed]="l.traeBastonIncluido"
+              (click)="setTraeBaston(l, true)"
+            >
+              Trae bastón
+            </button>
+          </div>
+        }
+
         <div class="linea-grid">
           <label class="campo">
             Cantidad
@@ -111,6 +135,25 @@
             />
           </label>
 
+          <label class="campo">
+            {{ etiquetaPrecio(l.productoId) }}
+            <div class="precio-input">
+              <span class="peso">$</span>
+              <input
+                type="text"
+                inputmode="decimal"
+                appClearable
+                [ngModel]="l.precioProveedor"
+                (ngModelChange)="onPrecioUnitarioChange(l, $event)"
+                [name]="'precio' + l.key"
+                [attr.data-precio-key]="l.key"
+                placeholder=""
+                title="Si lo capturas, el total se calcula solo"
+                (keydown.enter)="onPrecioEnter($event, i)"
+              />
+            </div>
+          </label>
+
           <label class="campo total-campo">
             Total pagado
             <div class="precio-input">
@@ -124,21 +167,11 @@
                 [name]="'total' + l.key"
                 [attr.data-total-key]="l.key"
                 placeholder=""
+                title="Si lo capturas, el precio por L/pza se calcula solo"
                 (keydown.enter)="onTotalEnter($event, i)"
               />
             </div>
           </label>
-
-          <div class="campo">
-            <span class="campo-label">{{ etiquetaPrecio(l.productoId) }}</span>
-            @if (tienePrecioUnitario(l.precioProveedor)) {
-              <div class="dato-fijo money" title="Se calcula solo: total ÷ cantidad">
-                ${{ l.precioProveedor | number: '1.2-4' }}
-              </div>
-            } @else {
-              <div class="dato-fijo muted">—</div>
-            }
-          </div>
 
           <div class="campo">
             <span class="campo-label">Última</span>
@@ -258,8 +291,8 @@
       </button>
     </div>
     <p class="hint revision-hint">
-      Con la compra nueva se recalculan mínimo/máximo sugeridos. El mayoreo se puede actualizar aquí; el
-      menudeo se ajusta en Inventario si hace falta.
+      Con la compra nueva (en productos de Armar ya incluye bastón) se recalculan mínimo/máximo. El
+      mayoreo se puede actualizar aquí; el menudeo se ajusta en Inventario si hace falta.
     </p>
     <div class="table-wrap revision-tabla">
       <table>
@@ -724,14 +757,14 @@
   }
 </section>
 
-<section class="panel" style="margin-top: 1rem">
+<section class="panel" id="entradas-armar-top" style="margin-top: 1rem">
   <button type="button" class="panel-toggle" (click)="toggleArmar()" [attr.aria-expanded]="armarAbierta">
     <h3 class="panel-titulo">Armar (bastón)</h3>
     <span class="chev">{{ armarAbierta ? '▾' : '▸' }}</span>
   </button>
   @if (armarAbierta) {
     <div class="panel-toggle-body">
-      <app-armar [embebido]="true" />
+      <app-armar [embebido]="true" (inventarioChange)="onArmarInventario($event)" />
     </div>
   }
 </section>
@@ -761,7 +794,7 @@
           <th class="col-fecha">Fecha</th>
           <th class="col-producto">Producto</th>
           <th class="money col-cant">Cantidad</th>
-          <th class="money col-precio">Precio unit.</th>
+          <th class="money col-precio">Precio</th>
           <th class="money col-total">Total</th>
           <th class="money col-ultima">Última compra</th>
           <th class="col-cambio" title="¿Subió, bajó o igual vs la última compra?">¿Subió?</th>
@@ -876,6 +909,21 @@
                     />
                   </label>
                   <label>
+                    {{ etiquetaPrecio(formEdit.productoId) }}
+                    <div class="precio-input">
+                      <span class="peso">$</span>
+                      <input
+                        type="text"
+                        inputmode="decimal"
+                        appClearable
+                        [ngModel]="formEdit.precioProveedor"
+                        (ngModelChange)="onFormEditPrecioChange($event)"
+                        name="editPrecio"
+                        placeholder=""
+                      />
+                    </div>
+                  </label>
+                  <label>
                     Total pagado
                     <div class="precio-input">
                       <span class="peso">$</span>
@@ -890,14 +938,6 @@
                       />
                     </div>
                   </label>
-                  <div>
-                    <span class="campo-label">{{ etiquetaPrecio(formEdit.productoId) }}</span>
-                    @if (tienePrecioUnitario(formEdit.precioProveedor)) {
-                      <div class="dato-fijo money">${{ formEdit.precioProveedor | number: '1.2-4' }}</div>
-                    } @else {
-                      <div class="dato-fijo muted">—</div>
-                    }
-                  </div>
                   <div class="edicion-actions">
                     <button type="submit" [disabled]="guardandoEdit">
                       {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}
@@ -951,6 +991,21 @@
           />
         </label>
         <label>
+          {{ etiquetaPrecio(formEdit.productoId) }}
+          <div class="precio-input">
+            <span class="peso">$</span>
+            <input
+              type="text"
+              inputmode="decimal"
+              appClearable
+              [ngModel]="formEdit.precioProveedor"
+              (ngModelChange)="onFormEditPrecioChange($event)"
+              name="editPrecioMovil"
+              placeholder=""
+            />
+          </div>
+        </label>
+        <label>
           Total pagado
           <div class="precio-input">
             <span class="peso">$</span>
@@ -965,14 +1020,6 @@
             />
           </div>
         </label>
-        <div>
-          <span class="campo-label">{{ etiquetaPrecio(formEdit.productoId) }}</span>
-          @if (tienePrecioUnitario(formEdit.precioProveedor)) {
-            <div class="dato-fijo money">${{ formEdit.precioProveedor | number: '1.2-4' }}</div>
-          } @else {
-            <div class="dato-fijo muted">—</div>
-          }
-        </div>
         <div class="edicion-actions">
           <button type="submit" [disabled]="guardandoEdit">
             {{ guardandoEdit ? 'Guardando…' : 'Guardar' }}

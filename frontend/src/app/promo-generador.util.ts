@@ -7,6 +7,30 @@
 /** Departamento de un lote de publicidad. */
 export type DeptoPromo = 'LIMPIEZA' | 'JARCERIA';
 
+/** @deprecated Preferir id de categoría editable (string). */
+export type CategoriaPromo =
+  | 'lavado'
+  | 'cocina'
+  | 'suavizante'
+  | 'aroma'
+  | 'manos'
+  | 'jarceria'
+  | string;
+
+/** Definición editable de categoría (viene del API). */
+export type CategoriaPromoDef = {
+  id: string;
+  nombre: string;
+  depto: DeptoPromo;
+  /** Productos del inventario (N:N con otras categorías). */
+  productoIds: number[];
+  slogan?: string | null;
+  /** URL de foto realista (upload o /publicidad/…). */
+  imagenSrc?: string | null;
+};
+
+export type CategoriaConteo = CategoriaPromoDef & { count: number; label: string };
+
 export type PromoGenerada = {
   id: string;
   titulo: string;
@@ -17,6 +41,8 @@ export type PromoGenerada = {
   vertical?: boolean;
   /** Departamento del lote (limpieza / jarcería). */
   departamento?: DeptoPromo;
+  /** Id de categoría editable. */
+  categoria?: string;
 };
 
 export type ProductoPromo = {
@@ -263,10 +289,38 @@ const TEMAS: TemaFlyer[] = [
 /** Carga imagen por fetch→blob (más fiable que Image() con SW/caché). */
 async function loadImage(src: string): Promise<HTMLImageElement | null> {
   try {
-    const res = await fetch(src, { cache: 'no-cache', credentials: 'same-origin' });
+    const res = await fetch(src, { cache: 'no-store', credentials: 'same-origin' });
     if (!res.ok) return null;
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
     const blob = await res.blob();
     if (!blob || blob.size < 32) return null;
+    // Evitar HTML de SPA (index) o JSON de error pintados como “imagen”.
+    if (ct.includes('text/html') || ct.includes('application/json')) return null;
+    if (ct && !ct.startsWith('image/') && !ct.includes('octet-stream')) return null;
+    if (typeof createImageBitmap === 'function') {
+      try {
+        const bmp = await createImageBitmap(blob);
+        const c = document.createElement('canvas');
+        c.width = bmp.width;
+        c.height = bmp.height;
+        const cctx = c.getContext('2d');
+        if (!cctx || !bmp.width || !bmp.height) {
+          bmp.close();
+          return null;
+        }
+        cctx.drawImage(bmp, 0, 0);
+        bmp.close();
+        const url = c.toDataURL('image/png');
+        return await new Promise<HTMLImageElement | null>((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = url;
+        });
+      } catch {
+        /* cae a blob URL */
+      }
+    }
     const url = URL.createObjectURL(blob);
     return await new Promise<HTMLImageElement | null>((resolve) => {
       const img = new Image();
@@ -292,10 +346,11 @@ async function loadImage(src: string): Promise<HTMLImageElement | null> {
 
 /** Prueba varias rutas: API (disco/JAR) y estáticos del front. */
 async function loadPublicidadMedia(name: string, bust: string): Promise<HTMLImageElement | null> {
+  const safe = encodeURIComponent(name).replace(/%2F/gi, '/');
   const urls = [
-    `/api/publicidad/media/${name}?${bust}`,
-    `/publicidad/${name}?${bust}`,
-    `/publicidad/${name}`,
+    `/api/publicidad/media/${safe}?${bust}`,
+    `/publicidad/${safe}?${bust}`,
+    `/publicidad/${safe}`,
   ];
   for (const u of urls) {
     const img = await loadImage(u);
@@ -343,7 +398,7 @@ function pickDesdeInventario(
   if (!delDepto.length) return [];
 
   const delGrupo = delDepto.filter((p) => clasificarProducto(p.nombre) === grupo);
-  if (delGrupo.length < 2) return [];
+  if (!delGrupo.length) return [];
 
   return shuffle(delGrupo)
     .slice(0, Math.min(cuantos, delGrupo.length))
@@ -351,6 +406,42 @@ function pickDesdeInventario(
       nombre: p.nombre.trim(),
       precio: fmtPrecio(p),
     }));
+}
+
+/** ¿El producto está asignado a la categoría (por id)? */
+export function productoEnCategoria(p: ProductoPromo, cat: CategoriaPromoDef): boolean {
+  if (!p || !(p.nombre || '').trim()) return false;
+  if (Number(p.precioVentaHoy) <= 0) return false;
+  const ids = cat.productoIds || [];
+  if (!ids.length) return false;
+  return ids.includes(p.id);
+}
+
+export function productosDeCategoria(
+  inventario: ProductoPromo[],
+  cat: CategoriaPromoDef
+): ProductoPromo[] {
+  const ids = cat.productoIds || [];
+  if (!ids.length) return [];
+  const byId = new Map(inventario.map((p) => [p.id, p]));
+  const out: ProductoPromo[] = [];
+  for (const id of ids) {
+    const p = byId.get(id);
+    if (p && productoEnCategoria(p, cat)) out.push(p);
+  }
+  return out;
+}
+
+/** Cuenta productos con precio según categorías editables. */
+export function contarCategoriasPublicidad(
+  inventario: ProductoPromo[],
+  categorias: CategoriaPromoDef[] = []
+): CategoriaConteo[] {
+  return categorias.map((c) => ({
+    ...c,
+    label: c.nombre,
+    count: productosDeCategoria(inventario, c).length,
+  }));
 }
 
 function familiaDePrecios(precios: PrecioItem[], fallback: GrupoTema): GrupoTema {
@@ -545,17 +636,26 @@ function drawFotoCompleta(
 }
 
 /**
- * Collage Canva: blob + 2 fotos completas apiladas (sin cortar).
+ * Collage Canva: fotos reales si cargan; si no, iconos dibujados (nunca columna vacía).
  */
 function drawCanvaCollage(
   ctx: CanvasRenderingContext2D,
   motivos: StickerMotivo[],
   fotos: Stickers,
   safe: { xMin: number; xMax: number; yMin: number; yMax: number },
-  tema: TemaFlyer
+  tema: TemaFlyer,
+  fotoCategoria: HTMLImageElement | null = null
 ): void {
-  const imgs = motivos.map((m) => fotos[m]).filter((i): i is HTMLImageElement => !!i).slice(0, 2);
-  if (!imgs.length) return;
+  const pares = motivos
+    .map((m) => ({ motivo: m, img: fotos[m] ?? null }))
+    .filter((p) => p.motivo !== 'burbujas')
+    .slice(0, 2);
+  // Foto realista de la categoría arriba del collage
+  if (fotoCategoria) {
+    pares.unshift({ motivo: motivos[0] || 'detergente', img: fotoCategoria });
+    while (pares.length > 2) pares.pop();
+  }
+  if (!pares.length) return;
 
   const cx = (safe.xMin + safe.xMax) / 2;
   const colW = Math.max(40, safe.xMax - safe.xMin);
@@ -601,15 +701,23 @@ function drawCanvaCollage(
   }
   ctx.restore();
 
-  // Apiladas verticalmente, enteras, poca rotación
-  const n = imgs.length;
+  // Apiladas verticalmente: foto completa o icono canvas de respaldo
+  const n = pares.length;
   const gap = 28;
   const maxS = Math.min(colW * 0.9, (colH - gap * (n - 1)) / n - 8);
   const totalH = n * maxS + (n - 1) * gap;
   let y = cy - totalH / 2 + maxS / 2;
-  imgs.forEach((img, i) => {
+  pares.forEach((par, i) => {
     const rot = i % 2 === 0 ? -4 : 4;
-    drawFotoCompleta(ctx, img, cx, y, maxS, rot);
+    if (par.img) {
+      drawFotoCompleta(ctx, par.img, cx, y, maxS, rot);
+    } else {
+      ctx.save();
+      ctx.translate(cx, y);
+      ctx.rotate((rot * Math.PI) / 180);
+      drawCanvasMotivo(ctx, par.motivo, maxS * 0.92);
+      ctx.restore();
+    }
     y += maxS + gap;
   });
 }
@@ -1037,10 +1145,21 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): s
 function pickComposiciones(
   n: number,
   inv: ProductoPromo[],
-  depto: DeptoPromo
+  depto: DeptoPromo,
+  grupoFijo?: GrupoTema
 ): Composicion[] {
-  const temasDepto = TEMAS.filter((t) => t.categoria === depto);
-  const temas = shuffle(temasDepto.length ? [...temasDepto] : [...TEMAS]);
+  const temasDepto = TEMAS.filter((t) => {
+    if (t.categoria !== depto) return false;
+    if (grupoFijo && t.grupo !== grupoFijo) return false;
+    return true;
+  });
+  // Si piden categoría concreta sin tema dedicado, clonar uno del depto con ese grupo.
+  let temas = temasDepto.length ? [...temasDepto] : [...TEMAS.filter((t) => t.categoria === depto)];
+  if (grupoFijo && !temas.length) {
+    const base = TEMAS.find((t) => t.categoria === depto) || TEMAS[0];
+    temas = [{ ...base, grupo: grupoFijo, titulo: labelCategoria(grupoFijo) }];
+  }
+  temas = shuffle(temas.length ? temas : [...TEMAS]);
   const out: Composicion[] = [];
   const pushComp = (tema: TemaFlyer, precios: PrecioItem[], i: number, tag: string) => {
     const familia = familiaDePrecios(precios, tema.grupo);
@@ -1053,19 +1172,75 @@ function pickComposiciones(
   };
   for (let i = 0; i < n; i++) {
     const tema = temas[i % temas.length];
-    const cuantos = 4 + Math.floor(Math.random() * 2); // 4–5
-    const precios = pickDesdeInventario(inv, tema.categoria, cuantos, tema.grupo);
+    const grupo = grupoFijo || tema.grupo;
+    const cuantos = Math.min(5, 3 + Math.floor(Math.random() * 3)); // 3–5
+    const precios = pickDesdeInventario(inv, tema.categoria, cuantos, grupo);
     if (!precios.length) continue;
-    pushComp(tema, precios, i, '');
+    pushComp({ ...tema, grupo }, precios, i, '');
   }
   let guard = 0;
-  while (out.length < n && guard++ < n * 3) {
+  while (out.length < n && guard++ < n * 4) {
     const tema = rand(temas);
-    const precios = pickDesdeInventario(inv, tema.categoria, 5, tema.grupo);
+    const grupo = grupoFijo || tema.grupo;
+    const precios = pickDesdeInventario(inv, tema.categoria, 5, grupo);
     if (!precios.length) break;
-    pushComp(tema, precios, guard, 'x');
+    pushComp({ ...tema, grupo }, precios, guard, 'x');
   }
   return shuffle(out).slice(0, n);
+}
+
+function labelCategoria(g: GrupoTema): string {
+  switch (g) {
+    case 'suavizante':
+      return 'Suavizantes';
+    case 'lavado':
+      return 'Lavado / detergente';
+    case 'cocina':
+      return 'Trastes / cocina';
+    case 'aroma':
+      return 'Aromatizantes';
+    case 'manos':
+      return 'Jabón de manos';
+    case 'jarceria':
+      return 'Jarcería';
+    default:
+      return 'Mixto';
+  }
+}
+
+function pickDesdeCategoriaDef(
+  inv: ProductoPromo[],
+  cat: CategoriaPromoDef,
+  cuantos: number
+): PrecioItem[] {
+  const delGrupo = productosDeCategoria(inv, cat);
+  if (!delGrupo.length) return [];
+  return shuffle(delGrupo)
+    .slice(0, Math.min(cuantos, delGrupo.length))
+    .map((p) => ({
+      nombre: p.nombre.trim(),
+      precio: fmtPrecio(p),
+    }));
+}
+
+function temaDesdeCategoriaDef(cat: CategoriaPromoDef): TemaFlyer {
+  const grupoFallback: GrupoTema =
+    cat.depto === 'JARCERIA'
+      ? 'jarceria'
+      : clasificarProducto(cat.nombre) !== 'mixto'
+        ? clasificarProducto(cat.nombre)
+        : 'lavado';
+  const base =
+    TEMAS.find((t) => t.grupo === grupoFallback && t.categoria === cat.depto) ||
+    TEMAS.find((t) => t.categoria === cat.depto) ||
+    TEMAS[0];
+  return {
+    ...base,
+    titulo: cat.nombre,
+    categoria: cat.depto,
+    grupo: grupoFallback,
+    slogan: (cat.slogan || '').trim() || base.slogan,
+  };
 }
 
 const FRASES_SERVICIO = [
@@ -1319,7 +1494,8 @@ async function renderFlyer(
   comp: Composicion,
   logo: HTMLImageElement | null,
   stickers: Stickers,
-  icons: { wa: HTMLImageElement | null; pin: HTMLImageElement | null }
+  icons: { wa: HTMLImageElement | null; pin: HTMLImageElement | null },
+  fotoCategoria: HTMLImageElement | null = null
 ): Promise<Blob> {
   const W = 1080;
   const H = 1350;
@@ -1409,7 +1585,7 @@ async function renderFlyer(
     layoutNames = measureBlock(nameSize, lineH, gap, textW);
   }
 
-  // Collage Canva (derecha): imágenes de limpieza del tema, no N botellas etiquetadas
+  // Collage Canva (derecha): foto de categoría si hay; si no, fotos del tema
   const familia = familiaDePrecios(precios, tema.grupo);
   const motivos = motivosCollage(
     productNames.map((n) => ({ nombre: n, precio: '' })),
@@ -1421,7 +1597,7 @@ async function renderFlyer(
     yMin: listTopY - 10,
     yMax: H - footReserve - 16,
   };
-  drawCanvaCollage(ctx, motivos, stickers, safe, tema);
+  drawCanvaCollage(ctx, motivos, stickers, safe, tema, fotoCategoria);
 
   drawSoftPanel(ctx, margin - 4, listTopY - nameSize - 6, listMaxW + 36, layoutNames.h + 28, 20);
 
@@ -1557,6 +1733,34 @@ function drawSoftPanel(
   ctx.restore();
 }
 
+async function cargarAssetsPublicidad(): Promise<{
+  logo: HTMLImageElement | null;
+  stickers: Stickers;
+  icons: { wa: HTMLImageElement | null; pin: HTMLImageElement | null };
+}> {
+  const bust = `v=54&t=${Date.now()}`;
+  const media = (name: string) => loadPublicidadMedia(name, bust);
+  const fotoEntries = Object.entries(FOTO_PRODUCTO) as [StickerMotivo, string][];
+
+  const logo =
+    (await media('amorcas-chingon.png')) ||
+    (await loadImage(`/amorcas-logo.png?${bust}`)) ||
+    (await media('amorcas-c.jpg'));
+  const iconWa = (await media('icon-wa-fijo.png')) || (await media('icon-wa-verde.png'));
+  const iconPin = await media('icon-pin-casa.png');
+
+  // Por lotes de 4: en móvil muchos fetch en paralelo suelen fallar.
+  const stickers: Stickers = {};
+  for (let i = 0; i < fotoEntries.length; i += 4) {
+    const chunk = fotoEntries.slice(i, i + 4);
+    const loaded = await Promise.all(chunk.map(([, file]) => media(file)));
+    chunk.forEach(([motivo], j) => {
+      stickers[motivo] = loaded[j] ?? null;
+    });
+  }
+  return { logo, stickers, icons: { wa: iconWa, pin: iconPin } };
+}
+
 /**
  * Genera un lote (default 5) formato Ropa/Trastes 4:5.
  * Solo productos del departamento indicado (LIMPIEZA o JARCERIA).
@@ -1567,30 +1771,92 @@ export async function generarLotePublicidad(
   inventario: ProductoPromo[] = [],
   depto: DeptoPromo = 'LIMPIEZA'
 ): Promise<PromoGenerada[]> {
-  const bust = 'v=53';
-  const media = (name: string) => loadPublicidadMedia(name, bust);
-
-  const fotoEntries = Object.entries(FOTO_PRODUCTO) as [StickerMotivo, string][];
-  // Secuencial en lotes: evita fallos por muchas Image/fetch en paralelo (SW/caché).
-  const logo =
-    (await media('amorcas-chingon.png')) ||
-    (await loadImage('/amorcas-logo.png')) ||
-    (await media('amorcas-c.jpg'));
-  const iconWa = (await media('icon-wa-fijo.png')) || (await media('icon-wa-verde.png'));
-  const iconPin = await media('icon-pin-casa.png');
-
-  const fotosCargadas = await Promise.all(fotoEntries.map(([, file]) => media(file)));
-  const stickers: Stickers = {};
-  fotoEntries.forEach(([motivo], i) => {
-    stickers[motivo] = fotosCargadas[i] ?? null;
-  });
-  const icons = { wa: iconWa, pin: iconPin };
+  const { logo, stickers, icons } = await cargarAssetsPublicidad();
   const comps = pickComposiciones(cantidad, inventario, depto);
-  const out: PromoGenerada[] = [];
+  return await renderComposiciones(comps, logo, stickers, icons, depto);
+}
 
+/** Genera un lote desde una categoría editable (productos + foto realista). */
+export async function generarLoteDesdeCategoriaDef(
+  cantidad = 5,
+  inventario: ProductoPromo[] = [],
+  cat: CategoriaPromoDef
+): Promise<PromoGenerada[]> {
+  const depto = cat.depto;
+  const { logo, stickers, icons } = await cargarAssetsPublicidad();
+  const tema = temaDesdeCategoriaDef(cat);
+  const comps: Composicion[] = [];
+  for (let i = 0; i < cantidad; i++) {
+    const cuantos = Math.min(5, 3 + Math.floor(Math.random() * 3));
+    const precios = pickDesdeCategoriaDef(inventario, cat, cuantos);
+    if (!precios.length) break;
+    const slogan =
+      (cat.slogan || '').trim() || sloganParaProductos(precios, tema.grupo);
+    comps.push({
+      id: `gen-${Date.now().toString(36)}-c${i}-${Math.random().toString(36).slice(2, 6)}`,
+      tema: { ...tema, titulo: cat.nombre, slogan },
+      vertical: true,
+      precios,
+    });
+  }
+  // Variantes si faltan
+  let guard = 0;
+  while (comps.length < cantidad && guard++ < cantidad * 3) {
+    const precios = pickDesdeCategoriaDef(inventario, cat, 5);
+    if (!precios.length) break;
+    comps.push({
+      id: `gen-${Date.now().toString(36)}-cx${guard}-${Math.random().toString(36).slice(2, 6)}`,
+      tema: {
+        ...tema,
+        titulo: cat.nombre,
+        slogan: (cat.slogan || '').trim() || sloganParaProductos(precios, tema.grupo),
+      },
+      vertical: true,
+      precios,
+    });
+  }
+  const out = await renderComposiciones(
+    shuffle(comps).slice(0, cantidad),
+    logo,
+    stickers,
+    icons,
+    depto,
+    cat,
+    cat.imagenSrc ? await loadImagePreferente(cat.imagenSrc) : null
+  );
+  if (!out.length) {
+    throw new Error(`No hay productos de «${cat.nombre}» con precio para armar promos`);
+  }
+  return out;
+}
+
+async function loadImagePreferente(src: string): Promise<HTMLImageElement | null> {
+  const base = (src || '').split('?')[0];
+  if (!base) return null;
+  const bust = `t=${Date.now()}`;
+  return (
+    (await loadImage(`${base}?${bust}`)) ||
+    (await loadImage(base)) ||
+    (base.startsWith('/publicidad/')
+      ? await loadPublicidadMedia(base.replace(/^\/publicidad\//, ''), bust)
+      : null)
+  );
+}
+
+async function renderComposiciones(
+  comps: Composicion[],
+  logo: HTMLImageElement | null,
+  stickers: Stickers,
+  icons: { wa: HTMLImageElement | null; pin: HTMLImageElement | null },
+  depto: DeptoPromo,
+  cat?: CategoriaPromoDef,
+  fotoCategoria?: HTMLImageElement | null
+): Promise<PromoGenerada[]> {
+  const out: PromoGenerada[] = [];
   for (const comp of comps) {
     if (!comp.precios.length) continue;
-    const blob = await renderFlyer(comp, logo, stickers, icons);
+    const blob = await renderFlyer(comp, logo, stickers, icons, fotoCategoria || null);
+    if (!blob || blob.size < 500) continue;
     const src = URL.createObjectURL(blob);
     const preciosTxt = comp.precios.map((p) => `${p.nombre} ${p.precio}`).join(' · ');
     out.push({
@@ -1602,9 +1868,10 @@ export async function generarLotePublicidad(
       blob,
       vertical: true,
       departamento: depto,
+      categoria: cat?.id,
     });
   }
-  if (!out.length) {
+  if (!out.length && !cat) {
     throw new Error(
       depto === 'JARCERIA'
         ? 'No hay productos de jarcería con precio para armar promos'

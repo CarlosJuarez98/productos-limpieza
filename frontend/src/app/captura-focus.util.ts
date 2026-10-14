@@ -28,7 +28,9 @@ export function stickyTopInset(main?: HTMLElement | null): number {
   if (!root) return 0;
   let inset = 0;
   root
-    .querySelectorAll<HTMLElement>('.ventas-fijo, .dom-fijo, .captura-sticky-top, .traspasos-fijo')
+    .querySelectorAll<HTMLElement>(
+      '.ventas-fijo, .dom-fijo, .captura-sticky-top, .traspasos-fijo, .entradas-fijo'
+    )
     .forEach((el) => {
     const st = getComputedStyle(el).position;
     if (st !== 'sticky' && st !== 'fixed') return;
