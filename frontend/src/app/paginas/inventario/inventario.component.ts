@@ -154,6 +154,8 @@ export class InventarioComponent implements OnInit, OnDestroy {
   };
   /** Formulario de alta (arriba). */
   formAlta: FormProducto = this.formVacio();
+  /** NA = no usa bastón; FALTA / TRAE = lista Armar. Default NA. */
+  tipoBastonAlta: 'NA' | 'FALTA' | 'TRAE' = 'NA';
   /** Formulario de edición en la fila. */
   form: FormProducto = this.formVacio();
 
@@ -280,6 +282,31 @@ export class InventarioComponent implements OnInit, OnDestroy {
       bastonesPorUnidad: 1,
       bastonProductoId: null,
     };
+  }
+
+  setTipoBastonAlta(tipo: 'NA' | 'FALTA' | 'TRAE'): void {
+    this.tipoBastonAlta = tipo;
+    this.formAlta.usaBaston = tipo !== 'NA';
+    this.formAlta.esBaston = false;
+    if (tipo !== 'NA') {
+      this.formAlta.vendePor = 'PIEZA';
+      this.formAlta.bastonesPorUnidad = Number(this.formAlta.bastonesPorUnidad) || 1;
+      this.formAlta.bastonProductoId = this.productosBaston[0]?.id ?? null;
+    } else {
+      this.formAlta.bastonProductoId = null;
+    }
+    if (this.formAlta.precioVenta != null && Number(this.formAlta.precioVenta) > 0) {
+      this.calcularMayoreo(this.formAlta);
+    }
+  }
+
+  /** Compra de catálogo al alta: con Falta armar incluye costo del bastón. */
+  private compraAltaEfectiva(): number | null {
+    const u = this.unitarioAlta;
+    if (u == null || u <= 0) return null;
+    if (this.tipoBastonAlta !== 'FALTA') return u;
+    const baston = Number(this.productosBaston[0]?.precioCompra) || 0;
+    return baston > 0 ? Math.round((u + baston) * 100) / 100 : u;
   }
 
   get productosBaston(): InventarioItem[] {
@@ -985,13 +1012,17 @@ export class InventarioComponent implements OnInit, OnDestroy {
       });
   }
 
-  private bodyDesde(f: FormProducto, opts?: { cantidadDefaultUno?: boolean }): Record<string, unknown> {
+  private bodyDesde(
+    f: FormProducto,
+    opts?: { cantidadDefaultUno?: boolean; traeBastonIncluido?: boolean | null }
+  ): Record<string, unknown> {
     this.calcularMayoreo(f);
     let cantidad = Number(f.cantidadInicial);
     if (opts?.cantidadDefaultUno && (f.cantidadInicial == null || String(f.cantidadInicial).trim() === '')) {
       cantidad = 1;
     }
-    return {
+    const usaBaston = !!f.usaBaston && !f.esBaston;
+    const body: Record<string, unknown> = {
       nombre: f.nombre,
       precioCompra: Number(f.precioCompra) || 0,
       cantidadInicial: Number.isFinite(cantidad) ? cantidad : 0,
@@ -1001,10 +1032,14 @@ export class InventarioComponent implements OnInit, OnDestroy {
       vendePor: f.vendePor || 'LITROS',
       departamento: f.departamento || 'LIMPIEZA',
       esBaston: !!f.esBaston,
-      usaBaston: !!f.usaBaston && !f.esBaston,
-      bastonesPorUnidad: f.usaBaston ? Number(f.bastonesPorUnidad) || 1 : 1,
-      bastonProductoId: f.usaBaston ? f.bastonProductoId : null,
+      usaBaston,
+      bastonesPorUnidad: usaBaston ? Number(f.bastonesPorUnidad) || 1 : 1,
+      bastonProductoId: usaBaston ? f.bastonProductoId : null,
     };
+    if (opts && 'traeBastonIncluido' in opts) {
+      body['traeBastonIncluido'] = usaBaston ? opts.traeBastonIncluido : null;
+    }
+    return body;
   }
 
   guardarNuevo(): void {
@@ -1033,6 +1068,12 @@ export class InventarioComponent implements OnInit, OnDestroy {
       this.error = 'No se pudo calcular el precio unitario';
       return;
     }
+    const compraCat = this.compraAltaEfectiva();
+    if (compraCat == null || compraCat <= 0) {
+      this.error = 'No se pudo calcular el precio unitario';
+      return;
+    }
+    // Al backend va la cabeza (unitario); si Falta armar, el server suma el bastón.
     this.formAlta.precioCompra = this.unitarioAlta;
     if (
       this.formAlta.precioVenta == null ||
@@ -1043,29 +1084,42 @@ export class InventarioComponent implements OnInit, OnDestroy {
       this.error = 'Indica el precio de menudeo';
       return;
     }
-    if (Number(this.formAlta.precioVenta) < Number(this.formAlta.precioCompra)) {
-      this.error = 'El menudeo no puede ser menor al precio de compra';
+    if (Number(this.formAlta.precioVenta) < compraCat) {
+      this.error =
+        this.tipoBastonAlta === 'FALTA'
+          ? 'El menudeo no puede ser menor a compra (cabeza + bastón)'
+          : 'El menudeo no puede ser menor al precio de compra';
       return;
     }
+    // Mayoreo / piso con la compra de catálogo (incluye bastón si Falta armar).
+    const compraGuardada = this.formAlta.precioCompra;
+    this.formAlta.precioCompra = compraCat;
     this.calcularMayoreo(this.formAlta);
+    this.formAlta.precioCompra = compraGuardada;
     if (
       this.formAlta.precioMayoreo5 != null &&
-      Number(this.formAlta.precioMayoreo5) < Number(this.formAlta.precioCompra)
+      Number(this.formAlta.precioMayoreo5) < compraCat
     ) {
       this.error = 'El mayoreo ≥5 no puede ser menor al precio de compra';
       return;
     }
     if (
       this.formAlta.precioMayoreo10 != null &&
-      Number(this.formAlta.precioMayoreo10) < Number(this.formAlta.precioCompra)
+      Number(this.formAlta.precioMayoreo10) < compraCat
     ) {
       this.error = 'El mayoreo ≥10 no puede ser menor al precio de compra';
       return;
     }
-    const body = this.bodyDesde(this.formAlta, { cantidadDefaultUno: true });
+    const trae =
+      this.tipoBastonAlta === 'TRAE' ? true : this.tipoBastonAlta === 'FALTA' ? false : null;
+    const body = this.bodyDesde(this.formAlta, {
+      cantidadDefaultUno: true,
+      traeBastonIncluido: trae,
+    });
     this.api.crearProducto(body).subscribe({
       next: () => {
         this.formAlta = this.formVacio();
+        this.tipoBastonAlta = 'NA';
         this.ok = 'Producto agregado';
         this.cargar();
       },

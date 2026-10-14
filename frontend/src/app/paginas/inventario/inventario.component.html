@@ -736,7 +736,44 @@
         />
       </div>
     </label>
-    <button type="submit" [disabled]="!altaCompleta">Agregar producto nuevo</button>
+    <div class="alta-pie">
+      <div class="campo-baston-alta">
+        <span class="campo-label">Bastón</span>
+        <div class="baston-opts" role="group" aria-label="¿Usa bastón?">
+          <button
+            type="button"
+            class="btn-baston na"
+            [class.activo]="tipoBastonAlta === 'NA'"
+            [attr.aria-pressed]="tipoBastonAlta === 'NA'"
+            title="No usa bastón"
+            (click)="setTipoBastonAlta('NA')"
+          >
+            NA
+          </button>
+          <button
+            type="button"
+            class="btn-baston falta"
+            [class.activo]="tipoBastonAlta === 'FALTA'"
+            [attr.aria-pressed]="tipoBastonAlta === 'FALTA'"
+            title="Falta armar"
+            (click)="setTipoBastonAlta('FALTA')"
+          >
+            Falta
+          </button>
+          <button
+            type="button"
+            class="btn-baston trae"
+            [class.activo]="tipoBastonAlta === 'TRAE'"
+            [attr.aria-pressed]="tipoBastonAlta === 'TRAE'"
+            title="Trae bastón"
+            (click)="setTipoBastonAlta('TRAE')"
+          >
+            Trae
+          </button>
+        </div>
+      </div>
+      <button type="submit" [disabled]="!altaCompleta">Agregar producto nuevo</button>
+    </div>
   </form>
 <app-page-alerts [(error)]="error" />
   }

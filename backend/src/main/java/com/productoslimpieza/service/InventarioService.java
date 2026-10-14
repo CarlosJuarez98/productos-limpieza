@@ -156,6 +156,7 @@ public class InventarioService {
       }
       previo.setDepartamento(resolverDepartamento(req, previo.getVendePor(), nombre));
       aplicarFlagsBaston(previo, req);
+      aplicarBastonAlCrear(previo, req);
       validarPreciosVsCompra(previo.getPrecioCompra(), req);
       previo = productoRepo.save(previo);
       if (req.precioVenta() != null) {
@@ -176,6 +177,7 @@ public class InventarioService {
     p.setDepartamento(resolverDepartamento(req, vendePor, nombre));
     p.setActivo(true);
     aplicarFlagsBaston(p, req);
+    aplicarBastonAlCrear(p, req);
     validarPreciosVsCompra(p.getPrecioCompra(), req);
     p = productoRepo.save(p);
     LocalDate fecha = req.fechaVigenciaPrecio() != null ? req.fechaVigenciaPrecio() : null;
@@ -798,6 +800,31 @@ public class InventarioService {
       return p.getBastonesPorUnidad();
     }
     return BigDecimal.ONE;
+  }
+
+  /**
+   * Alta de producto en lista Armar: Falta armar → pendiente = cantidad y compra += bastón;
+   * Trae bastón → sin pendiente (compra = lo pagado, ya armado).
+   */
+  private void aplicarBastonAlCrear(Producto p, ProductoRequest req) {
+    if (p == null || !p.isUsaBaston() || p.isEsBaston()) {
+      return;
+    }
+    if (Boolean.TRUE.equals(req.traeBastonIncluido())) {
+      p.setPendienteArmar(BigDecimal.ZERO);
+      return;
+    }
+    // Falta armar: unidades iniciales quedan por armar; compra catálogo = cabeza + bastón.
+    BigDecimal cant = nz(p.getCantidadInicial());
+    p.setPendienteArmar(cant.max(BigDecimal.ZERO));
+    try {
+      BigDecimal baston = costoBastonPorUnidad(p);
+      if (baston.compareTo(BigDecimal.ZERO) > 0) {
+        p.setPrecioCompra(nz(p.getPrecioCompra()).add(baston).setScale(4, RoundingMode.HALF_UP));
+      }
+    } catch (ResponseStatusException ignored) {
+      /* sin producto bastón en catálogo */
+    }
   }
 
   private void aplicarFlagsBaston(Producto p, ProductoRequest req) {

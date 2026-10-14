@@ -20,6 +20,8 @@ type FormAlta = {
   departamento: 'LIMPIEZA' | 'JARCERIA';
 };
 
+type TipoBaston = 'NA' | 'FALTA' | 'TRAE';
+
 @Component({
   selector: 'app-producto-alta-form',
   standalone: true,
@@ -36,8 +38,12 @@ export class ProductoAltaFormComponent implements OnInit {
   @Output() cancelado = new EventEmitter<void>();
 
   form: FormAlta = this.vacio();
+  /** NA por defecto: no entra a lista Armar. */
+  tipoBaston: TipoBaston = 'NA';
   error = '';
   guardando = false;
+  private costoBaston = 0;
+  private bastonProductoId: number | null = null;
   private pct: {
     mayoreo5: number | null;
     mayoreo10: number | null;
@@ -59,6 +65,15 @@ export class ProductoAltaFormComponent implements OnInit {
         this.pct.max = Number(m.porcentajeMax) || 63;
       },
     });
+    this.api.inventario().subscribe({
+      next: (list) => {
+        const b =
+          (list || []).find((i) => i.esBaston) ||
+          (list || []).find((i) => /bast[oó]n/i.test(i.nombre || ''));
+        this.costoBaston = Number(b?.precioCompra) || 0;
+        this.bastonProductoId = b?.id ?? null;
+      },
+    });
   }
 
   get cantidadEfectiva(): number | null {
@@ -76,6 +91,14 @@ export class ProductoAltaFormComponent implements OnInit {
     if (this.form.totalPagado == null || String(this.form.totalPagado).trim() === '') return null;
     if (!Number.isFinite(total) || total < 0) return null;
     return Math.round((total / cant) * 100) / 100;
+  }
+
+  /** Compra de catálogo: con Falta armar = cabeza + bastón. */
+  get compraCatalogo(): number | null {
+    const u = this.unitario;
+    if (u == null || u <= 0) return null;
+    if (this.tipoBaston !== 'FALTA' || !(this.costoBaston > 0)) return u;
+    return Math.round((u + this.costoBaston) * 100) / 100;
   }
 
   get etiquetaPrecio(): string {
@@ -97,11 +120,19 @@ export class ProductoAltaFormComponent implements OnInit {
   }
 
   get menudeoPlaceholder(): string {
-    const u = this.unitario;
-    if (u == null || u <= 0) return 'Según unitario';
-    const min = precioConMargenArriba(u, this.pct.min);
-    const max = precioConMargenArriba(u, this.pct.max);
+    const base = this.compraCatalogo ?? this.unitario;
+    if (base == null || base <= 0) return 'Según unitario';
+    const min = precioConMargenArriba(base, this.pct.min);
+    const max = precioConMargenArriba(base, this.pct.max);
     return `mín $${min} – máx $${max}`;
+  }
+
+  setTipoBaston(tipo: TipoBaston): void {
+    this.tipoBaston = tipo;
+    if (tipo !== 'NA') {
+      this.form.vendePor = 'PIEZA';
+    }
+    this.onMenudeoChange();
   }
 
   onCantidadChange(valor: string | number | null): void {
@@ -125,27 +156,40 @@ export class ProductoAltaFormComponent implements OnInit {
       return;
     }
     this.sincronizarUnitario();
-    this.form.precioCompra = this.unitario;
-    if (Number(this.form.precioVenta) < Number(this.form.precioCompra)) {
-      this.error = 'El menudeo no puede ser menor al precio de compra';
+    const compraCat = this.compraCatalogo;
+    if (compraCat == null || compraCat <= 0) {
+      this.error = 'No se pudo calcular el precio unitario';
       return;
     }
+    // Backend recibe la cabeza; si Falta armar, suma bastón allá.
+    this.form.precioCompra = this.unitario;
+    if (Number(this.form.precioVenta) < compraCat) {
+      this.error =
+        this.tipoBaston === 'FALTA'
+          ? 'El menudeo no puede ser menor a compra (cabeza + bastón)'
+          : 'El menudeo no puede ser menor al precio de compra';
+      return;
+    }
+    const guardada = this.form.precioCompra;
+    this.form.precioCompra = compraCat;
     this.calcularMayoreo();
+    this.form.precioCompra = guardada;
     if (
       this.form.precioMayoreo5 != null &&
-      Number(this.form.precioMayoreo5) < Number(this.form.precioCompra)
+      Number(this.form.precioMayoreo5) < compraCat
     ) {
       this.error = 'El mayoreo ≥5 no puede ser menor al precio de compra';
       return;
     }
     if (
       this.form.precioMayoreo10 != null &&
-      Number(this.form.precioMayoreo10) < Number(this.form.precioCompra)
+      Number(this.form.precioMayoreo10) < compraCat
     ) {
       this.error = 'El mayoreo ≥10 no puede ser menor al precio de compra';
       return;
     }
     const cant = this.cantidadEfectiva ?? 1;
+    const usaBaston = this.tipoBaston !== 'NA';
     const body = {
       nombre: this.form.nombre.trim(),
       precioCompra: Number(this.form.precioCompra) || 0,
@@ -155,12 +199,19 @@ export class ProductoAltaFormComponent implements OnInit {
       precioVenta: this.form.precioVenta,
       vendePor: this.form.vendePor || 'LITROS',
       departamento: this.form.departamento || 'LIMPIEZA',
+      usaBaston,
+      esBaston: false,
+      bastonesPorUnidad: usaBaston ? 1 : 1,
+      bastonProductoId: usaBaston ? this.bastonProductoId : null,
+      traeBastonIncluido:
+        this.tipoBaston === 'TRAE' ? true : this.tipoBaston === 'FALTA' ? false : null,
     };
     this.guardando = true;
     this.api.crearProducto(body).subscribe({
       next: (item) => {
         this.guardando = false;
         this.form = this.vacio();
+        this.tipoBaston = 'NA';
         this.creado.emit(item);
       },
       error: (e) => {
@@ -179,7 +230,7 @@ export class ProductoAltaFormComponent implements OnInit {
 
   private calcularMayoreo(): void {
     const menudeo = Number(this.form.precioVenta) || 0;
-    const compra = Number(this.form.precioCompra) || this.unitario || 0;
+    const compra = this.compraCatalogo || Number(this.form.precioCompra) || this.unitario || 0;
     if (menudeo <= 0) return;
     if (this.pct.mayoreo5 != null) {
       this.form.precioMayoreo5 = noBajoCompra(

@@ -74,11 +74,48 @@
       />
     </div>
   </label>
-  <div class="edicion-actions">
-    <button type="submit" [disabled]="!completa || guardando">
-      {{ guardando ? '…' : submitLabel }}
-    </button>
-    <button type="button" class="secondary" (click)="cancelado.emit()">Cancelar</button>
+  <div class="alta-pie">
+    <div class="campo-baston-alta">
+      <span class="campo-label">Bastón</span>
+      <div class="baston-opts" role="group" aria-label="¿Usa bastón?">
+        <button
+          type="button"
+          class="btn-baston na"
+          [class.activo]="tipoBaston === 'NA'"
+          [attr.aria-pressed]="tipoBaston === 'NA'"
+          title="No usa bastón"
+          (click)="setTipoBaston('NA')"
+        >
+          NA
+        </button>
+        <button
+          type="button"
+          class="btn-baston falta"
+          [class.activo]="tipoBaston === 'FALTA'"
+          [attr.aria-pressed]="tipoBaston === 'FALTA'"
+          title="Falta armar"
+          (click)="setTipoBaston('FALTA')"
+        >
+          Falta
+        </button>
+        <button
+          type="button"
+          class="btn-baston trae"
+          [class.activo]="tipoBaston === 'TRAE'"
+          [attr.aria-pressed]="tipoBaston === 'TRAE'"
+          title="Trae bastón"
+          (click)="setTipoBaston('TRAE')"
+        >
+          Trae
+        </button>
+      </div>
+    </div>
+    <div class="edicion-actions">
+      <button type="submit" [disabled]="!completa || guardando">
+        {{ guardando ? '…' : submitLabel }}
+      </button>
+      <button type="button" class="secondary" (click)="cancelado.emit()">Cancelar</button>
+    </div>
   </div>
 </form>
 <app-page-alerts [(error)]="error" />
