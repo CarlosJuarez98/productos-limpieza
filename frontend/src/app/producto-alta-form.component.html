@@ -46,18 +46,64 @@
         (ngModelChange)="onTotalChange($event)"
         [name]="namePrefix + 'Total'"
         placeholder="Ej. 25"
-        required
       />
     </div>
   </label>
-  <div class="campo-unitario">
-    <span class="campo-label">{{ etiquetaPrecio }}</span>
-    @if (unitario != null) {
-      <div class="dato-fijo money">${{ unitario | number: '1.2-2' }}</div>
-    } @else {
-      <div class="dato-fijo muted">—</div>
-    }
+  <div class="campo-baston-alta">
+    <span class="campo-label">Bastón</span>
+    <div class="baston-opts" role="group" aria-label="¿Usa bastón?">
+      <button
+        type="button"
+        class="btn-baston na"
+        [class.activo]="tipoBaston === 'NA'"
+        [attr.aria-pressed]="tipoBaston === 'NA'"
+        title="No usa bastón"
+        (click)="setTipoBaston('NA')"
+      >
+        NA
+      </button>
+      <button
+        type="button"
+        class="btn-baston falta"
+        [class.activo]="tipoBaston === 'FALTA'"
+        [attr.aria-pressed]="tipoBaston === 'FALTA'"
+        title="Falta armar"
+        (click)="setTipoBaston('FALTA')"
+      >
+        Falta
+      </button>
+      <button
+        type="button"
+        class="btn-baston trae"
+        [class.activo]="tipoBaston === 'TRAE'"
+        [attr.aria-pressed]="tipoBaston === 'TRAE'"
+        title="Trae bastón"
+        (click)="setTipoBaston('TRAE')"
+      >
+        Trae
+      </button>
+    </div>
   </div>
+  <label class="campo-unitario-alta">
+    {{ etiquetaPrecio }}
+    <div class="precio-input">
+      <span class="peso">$</span>
+      <input
+        type="text"
+        inputmode="decimal"
+        appClearable
+        [ngModel]="form.precioCompra"
+        (ngModelChange)="onUnitarioChange($event)"
+        [name]="namePrefix + 'Unitario'"
+        placeholder="Ej. 25"
+      />
+    </div>
+    @if (tipoBaston === 'FALTA' && compraCatalogo != null && costoBaston > 0) {
+      <span class="hint-unitario muted"
+        >Compra final ${{ compraCatalogo | number: '1.2-2' }} (incluye bastón)</span
+      >
+    }
+  </label>
   <label>
     Precio menudeo
     <div class="precio-input">
@@ -75,41 +121,6 @@
     </div>
   </label>
   <div class="alta-pie">
-    <div class="campo-baston-alta">
-      <span class="campo-label">Bastón</span>
-      <div class="baston-opts" role="group" aria-label="¿Usa bastón?">
-        <button
-          type="button"
-          class="btn-baston na"
-          [class.activo]="tipoBaston === 'NA'"
-          [attr.aria-pressed]="tipoBaston === 'NA'"
-          title="No usa bastón"
-          (click)="setTipoBaston('NA')"
-        >
-          NA
-        </button>
-        <button
-          type="button"
-          class="btn-baston falta"
-          [class.activo]="tipoBaston === 'FALTA'"
-          [attr.aria-pressed]="tipoBaston === 'FALTA'"
-          title="Falta armar"
-          (click)="setTipoBaston('FALTA')"
-        >
-          Falta
-        </button>
-        <button
-          type="button"
-          class="btn-baston trae"
-          [class.activo]="tipoBaston === 'TRAE'"
-          [attr.aria-pressed]="tipoBaston === 'TRAE'"
-          title="Trae bastón"
-          (click)="setTipoBaston('TRAE')"
-        >
-          Trae
-        </button>
-      </div>
-    </div>
     <div class="edicion-actions">
       <button type="submit" [disabled]="!completa || guardando">
         {{ guardando ? '…' : submitLabel }}

@@ -40,9 +40,11 @@ export class ProductoAltaFormComponent implements OnInit {
   form: FormAlta = this.vacio();
   /** NA por defecto: no entra a lista Armar. */
   tipoBaston: TipoBaston = 'NA';
+  /** Último campo de precio editado: total ↔ unitario se calculan entre sí. */
+  private precioOrigen: 'total' | 'unitario' = 'total';
   error = '';
   guardando = false;
-  private costoBaston = 0;
+  costoBaston = 0;
   private bastonProductoId: number | null = null;
   private pct: {
     mayoreo5: number | null;
@@ -84,18 +86,23 @@ export class ProductoAltaFormComponent implements OnInit {
     return n;
   }
 
+  /** Cabeza (lo pagado por pieza), sin sumar bastón. */
+  get unitarioCabeza(): number | null {
+    const u = Number(this.form.precioCompra);
+    if (this.form.precioCompra != null && String(this.form.precioCompra).trim() !== '') {
+      if (Number.isFinite(u) && u > 0) return Math.round(u * 100) / 100;
+    }
+    return this.unitarioDesdeTotal();
+  }
+
+  /** Alias: cabeza o derivado del total. */
   get unitario(): number | null {
-    const cant = this.cantidadEfectiva;
-    const total = Number(this.form.totalPagado);
-    if (cant == null || cant <= 0) return null;
-    if (this.form.totalPagado == null || String(this.form.totalPagado).trim() === '') return null;
-    if (!Number.isFinite(total) || total < 0) return null;
-    return Math.round((total / cant) * 100) / 100;
+    return this.unitarioCabeza;
   }
 
   /** Compra de catálogo: con Falta armar = cabeza + bastón. */
   get compraCatalogo(): number | null {
-    const u = this.unitario;
+    const u = this.unitarioCabeza;
     if (u == null || u <= 0) return null;
     if (this.tipoBaston !== 'FALTA' || !(this.costoBaston > 0)) return u;
     return Math.round((u + this.costoBaston) * 100) / 100;
@@ -111,20 +118,29 @@ export class ProductoAltaFormComponent implements OnInit {
     if (!f.vendePor || !f.departamento) return false;
     const cant = this.cantidadEfectiva;
     if (cant == null || cant <= 0) return false;
-    if (f.totalPagado == null || String(f.totalPagado).trim() === '') return false;
-    if (!Number.isFinite(Number(f.totalPagado)) || Number(f.totalPagado) <= 0) return false;
-    if (this.unitario == null || this.unitario <= 0) return false;
+    const cabeza = this.unitarioCabeza;
+    if (cabeza == null || cabeza <= 0) return false;
     if (f.precioVenta == null || String(f.precioVenta).trim() === '') return false;
     if (!Number.isFinite(Number(f.precioVenta)) || Number(f.precioVenta) <= 0) return false;
     return true;
   }
 
+  get sugeridoMin(): number {
+    const base = this.compraCatalogo;
+    if (base == null || base <= 0) return 0;
+    return precioConMargenArriba(base, this.pct.min);
+  }
+
+  get sugeridoMax(): number {
+    const base = this.compraCatalogo;
+    if (base == null || base <= 0) return 0;
+    return precioConMargenArriba(base, this.pct.max);
+  }
+
   get menudeoPlaceholder(): string {
-    const base = this.compraCatalogo ?? this.unitario;
-    if (base == null || base <= 0) return 'Según unitario';
-    const min = precioConMargenArriba(base, this.pct.min);
-    const max = precioConMargenArriba(base, this.pct.max);
-    return `mín $${min} – máx $${max}`;
+    const min = this.sugeridoMin;
+    if (min <= 0) return 'Según unitario';
+    return `mín $${min} – máx $${this.sugeridoMax}`;
   }
 
   setTipoBaston(tipo: TipoBaston): void {
@@ -132,17 +148,24 @@ export class ProductoAltaFormComponent implements OnInit {
     if (tipo !== 'NA') {
       this.form.vendePor = 'PIEZA';
     }
-    this.onMenudeoChange();
+    this.sincronizarUnitario();
   }
 
   onCantidadChange(valor: string | number | null): void {
     this.form.cantidadInicial = valor === '' || valor == null ? null : (valor as number | null);
-    this.sincronizarUnitario();
+    this.sincronizarPrecios();
   }
 
   onTotalChange(valor: string | number | null): void {
+    this.precioOrigen = 'total';
     this.form.totalPagado = valor === '' || valor == null ? null : (valor as number | null);
-    this.sincronizarUnitario();
+    this.sincronizarPrecios();
+  }
+
+  onUnitarioChange(valor: string | number | null): void {
+    this.precioOrigen = 'unitario';
+    this.form.precioCompra = valor === '' || valor == null ? null : (valor as number | null);
+    this.sincronizarPrecios();
   }
 
   onMenudeoChange(): void {
@@ -151,18 +174,23 @@ export class ProductoAltaFormComponent implements OnInit {
 
   guardar(): void {
     this.error = '';
+    this.sincronizarPrecios();
     if (!this.completa) {
-      this.error = 'Completa nombre, total pagado y menudeo';
+      this.error = 'Completa nombre, total o precio por pieza, y menudeo';
       return;
     }
-    this.sincronizarUnitario();
+    const cabeza = this.unitarioCabeza;
+    if (cabeza == null || cabeza <= 0) {
+      this.error = 'Indica el total pagado o el precio por pieza';
+      return;
+    }
     const compraCat = this.compraCatalogo;
     if (compraCat == null || compraCat <= 0) {
       this.error = 'No se pudo calcular el precio unitario';
       return;
     }
     // Backend recibe la cabeza; si Falta armar, suma bastón allá.
-    this.form.precioCompra = this.unitario;
+    this.form.precioCompra = cabeza;
     if (Number(this.form.precioVenta) < compraCat) {
       this.error =
         this.tipoBaston === 'FALTA'
@@ -212,6 +240,7 @@ export class ProductoAltaFormComponent implements OnInit {
         this.guardando = false;
         this.form = this.vacio();
         this.tipoBaston = 'NA';
+        this.precioOrigen = 'total';
         this.creado.emit(item);
       },
       error: (e) => {
@@ -221,8 +250,43 @@ export class ProductoAltaFormComponent implements OnInit {
     });
   }
 
+  private unitarioDesdeTotal(): number | null {
+    const cant = this.cantidadEfectiva;
+    const total = Number(this.form.totalPagado);
+    if (cant == null || cant <= 0) return null;
+    if (this.form.totalPagado == null || String(this.form.totalPagado).trim() === '') return null;
+    if (!Number.isFinite(total) || total < 0) return null;
+    return Math.round((total / cant) * 100) / 100;
+  }
+
+  private sincronizarPrecios(): void {
+    const cant = this.cantidadEfectiva;
+    if (cant == null || cant <= 0) {
+      this.sincronizarUnitario();
+      return;
+    }
+    if (this.precioOrigen === 'unitario') {
+      const u = Number(this.form.precioCompra);
+      if (
+        this.form.precioCompra != null &&
+        String(this.form.precioCompra).trim() !== '' &&
+        Number.isFinite(u) &&
+        u >= 0
+      ) {
+        this.form.totalPagado = Math.round(u * cant * 100) / 100;
+      }
+    } else {
+      const desdeTotal = this.unitarioDesdeTotal();
+      this.form.precioCompra = desdeTotal;
+    }
+    this.sincronizarUnitario();
+  }
+
   private sincronizarUnitario(): void {
-    this.form.precioCompra = this.unitario;
+    const u = this.unitarioCabeza;
+    if (u != null && u > 0) {
+      this.form.precioCompra = u;
+    }
     if (this.form.precioVenta != null && Number(this.form.precioVenta) > 0) {
       this.calcularMayoreo();
     }

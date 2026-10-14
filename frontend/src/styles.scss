@@ -417,7 +417,9 @@ button.icono.danger:hover:not(:disabled) {
 }
 
 .form-grid > label,
-.form-grid > .campo-unitario {
+.form-grid > .campo-unitario,
+.form-grid > .campo-menudeo-alta,
+.form-grid > .campo-baston-alta {
   min-width: 0;
 }
 
