@@ -103,8 +103,13 @@ public class PublicidadCategoriaService {
       items.add(m);
       escribir(items);
       return toDto(m);
-    } catch (IOException e) {
-      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo guardar la categoría");
+    } catch (ResponseStatusException e) {
+      throw e;
+    } catch (Exception e) {
+      log.error("No se pudo crear categoría publicidad en {}", tenantDirSafe(), e);
+      throw new ResponseStatusException(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          "No se pudo guardar la categoría: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
     } finally {
       lock.unlock();
     }
@@ -319,16 +324,16 @@ public class PublicidadCategoriaService {
       List<ManifestItem> seed = semilla();
       escribir(seed);
       log.info("Categorías publicidad: semilla en {}", manifest);
-      return seed;
+      return new ArrayList<>(seed);
     }
     byte[] bytes = Files.readAllBytes(manifest);
-    if (bytes.length == 0) return List.of();
+    if (bytes.length == 0) return new ArrayList<>();
     JsonNode root = mapper.readTree(bytes);
     if (root == null || !root.isArray()) {
       log.warn("categorias.json inválido en {}; se regenera semilla", manifest);
       List<ManifestItem> seed = semilla();
       escribir(seed);
-      return seed;
+      return new ArrayList<>(seed);
     }
     List<ManifestItem> items = new ArrayList<>();
     boolean migrated = false;
@@ -400,9 +405,21 @@ public class PublicidadCategoriaService {
   private void escribir(List<ManifestItem> items) throws IOException {
     Path dir = tenantDir();
     Files.createDirectories(dir);
+    if (!Files.isWritable(dir)) {
+      throw new IOException("Sin permiso de escritura en " + dir);
+    }
     Path manifest = dir.resolve("categorias.json");
-    items.sort(Comparator.comparingInt(ManifestItem::orden).thenComparing(ManifestItem::nombre));
-    mapper.writerWithDefaultPrettyPrinter().writeValue(manifest.toFile(), items);
+    // Copia mutable: List.of() / semilla vacía no admiten sort in-place.
+    List<ManifestItem> ordenados = new ArrayList<>(items != null ? items : List.of());
+    ordenados.sort(Comparator.comparingInt(ManifestItem::orden).thenComparing(ManifestItem::nombre));
+    byte[] json = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(ordenados);
+    Path tmp = dir.resolve("categorias.json.tmp");
+    Files.write(tmp, json);
+    try {
+      Files.move(tmp, manifest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+    } catch (IOException atomicFail) {
+      Files.move(tmp, manifest, StandardCopyOption.REPLACE_EXISTING);
+    }
   }
 
   private Path tenantDir() {
@@ -497,36 +514,9 @@ public class PublicidadCategoriaService {
     };
   }
 
+  /** Vacío: el usuario crea las categorías y asigna productos del inventario. */
   private static List<ManifestItem> semilla() {
-    return List.of(
-        seed("suavizante", "Suavizantes", "LIMPIEZA",
-            "¡ROPA SUAVE Y PERFUMADA AL PRECIO DEL GRANEL!",
-            "/publicidad/prod-suavizante.jpg", 10),
-        seed("lavado", "Lavado / detergente", "LIMPIEZA",
-            "¡LAVA MÁS ROPA Y GASTA MENOS EN CADA LITRO!",
-            "/publicidad/prod-detergente.jpg", 20),
-        seed("cocina", "Trastes / cocina", "LIMPIEZA",
-            "¡DESENGRASA FUERTE Y AHORRA EN CADA LITRO!",
-            "/publicidad/prod-trastes.jpg", 30),
-        seed("aroma", "Aromatizantes", "LIMPIEZA",
-            "¡AROMA QUE LLENA TU CASA AL PRECIO DEL GRANEL!",
-            "/publicidad/prod-aroma.jpg", 40),
-        seed("manos", "Jabón de manos", "LIMPIEZA",
-            "¡MANOS LIMPIAS Y SUAVES, LITRO A BUEN PRECIO!",
-            "/publicidad/prod-manos.jpg", 50),
-        seed("jarceria", "Jarcería", "JARCERIA",
-            "¡TODO PARA DEJAR TU CASA IMPECABLE!",
-            "/publicidad/prod-jarceria.jpg", 60));
-  }
-
-  private static ManifestItem seed(
-      String id,
-      String nombre,
-      String depto,
-      String slogan,
-      String staticSrc,
-      int orden) {
-    return new ManifestItem(id, nombre, depto, List.of(), slogan, null, staticSrc, orden);
+    return new ArrayList<>();
   }
 
   /** Persistido en categorias.json. Un producto puede estar en varias categorías. */

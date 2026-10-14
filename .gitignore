@@ -50,6 +50,9 @@ backend/archivo-anual/
 uploads/publicidad-galeria/*
 !uploads/publicidad-galeria/.gitkeep
 !uploads/publicidad-galeria/README.md
+uploads/publicidad-categorias/*
+!uploads/publicidad-categorias/.gitkeep
+!uploads/publicidad-categorias/README.md
 
 # Basura de pruebas locales
 _b64.txt

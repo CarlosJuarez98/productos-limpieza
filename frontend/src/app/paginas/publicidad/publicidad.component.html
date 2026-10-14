@@ -30,6 +30,15 @@
       <span class="muted mini">Asigna productos del inventario · un producto puede ir en varias</span>
     </div>
     <div class="bloque-acciones">
+      <button
+        type="button"
+        class="btn-generar"
+        (click)="generarTodasLasCategorias()"
+        [disabled]="generando || !categoriasConProductos.length"
+        title="Genera un lote por cada categoría con su eslogan"
+      >
+        {{ generando ? 'Generando…' : 'Generar todas' }}
+      </button>
       <button type="button" class="btn-generar" (click)="abrirNuevaCategoria()" [disabled]="generando">
         + Nueva categoría
       </button>
@@ -84,10 +93,6 @@
         <span class="chip-depto" [class.jarceria]="deptoLote === 'JARCERIA'">
           {{ labelCategoria(categoriaLote) }}
         </span>
-      } @else {
-        <span class="chip-depto" [class.jarceria]="deptoLote === 'JARCERIA'">
-          {{ deptoLote === 'JARCERIA' ? 'Jarcería' : 'Limpieza' }}
-        </span>
       }
     </div>
     <div class="bloque-acciones">
@@ -123,24 +128,15 @@
               : 'Agregar a galería'
         }}
       </button>
-      <button
-        type="button"
-        class="btn-generar"
-        (click)="generarMas('LIMPIEZA')"
-        [disabled]="generando"
-      >
-        {{ generando ? 'Generando…' : 'Generar limpieza' }}
-      </button>
-      <button
-        type="button"
-        class="btn-generar btn-generar-jarceria"
-        (click)="generarMas('JARCERIA')"
-        [disabled]="generando"
-      >
-        {{ generando ? 'Generando…' : 'Generar jarcería' }}
-      </button>
     </div>
   </header>
+  @if (!categorias.length) {
+    <p class="muted promo-vacio">Crea una categoría y asígnale productos para generar publicidad.</p>
+  } @else if (!categoriasConProductos.length) {
+    <p class="muted promo-vacio">Asigna productos a una categoría; cada flyer usa el eslogan de esa categoría.</p>
+  } @else if (!promosNuevas.length && !generando) {
+    <p class="muted promo-vacio">Pulsa Generar en una categoría o Generar todas.</p>
+  }
   <div class="promo-grid" [class.cambiando]="generando">
     @for (p of promosNuevas; track p.id) {
       <article
@@ -189,8 +185,8 @@
         </div>
       </article>
     } @empty {
-      @if (!generando) {
-        <p class="muted">Elige una categoría arriba o genera limpieza / jarcería.</p>
+      @if (generando) {
+        <p class="muted">Generando…</p>
       }
     }
   </div>
@@ -309,106 +305,109 @@
   </div>
 }
 
-@if (catEditorAbierto) {
+<!-- Portal a body: evita que main { overflow } recorte el modal al escribir. -->
+<ng-template #catEditorTpl>
   <div class="lightbox cat-editor" (click)="cerrarEditorCategoria()" role="dialog" aria-modal="true">
     <div class="lightbox-panel cat-editor-panel" (click)="$event.stopPropagation()">
       <button type="button" class="lightbox-x" (click)="cerrarEditorCategoria()" aria-label="Cerrar">×</button>
       <h3>{{ catForm.id ? 'Editar categoría' : 'Nueva categoría' }}</h3>
       <form class="cat-form" (ngSubmit)="guardarCategoria()">
-        <div class="cat-form-row">
+        <div class="cat-form-scroll">
+          <div class="cat-form-row">
+            <label class="campo">
+              Nombre
+              <input
+                type="text"
+                [(ngModel)]="catForm.nombre"
+                name="catNombre"
+                required
+                placeholder="Ej. Suavizantes"
+              />
+            </label>
+            <label class="campo">
+              Departamento
+              <select [(ngModel)]="catForm.departamento" name="catDepto">
+                <option value="LIMPIEZA">Limpieza</option>
+                <option value="JARCERIA">Jarcería</option>
+              </select>
+            </label>
+          </div>
           <label class="campo">
-            Nombre
+            Productos del inventario
             <input
               type="text"
-              [(ngModel)]="catForm.nombre"
-              name="catNombre"
-              required
-              placeholder="Ej. Suavizantes"
+              [(ngModel)]="catForm.filtroProd"
+              name="catFiltro"
+              placeholder="Buscar producto…"
+            />
+          </label>
+          @if (catForm.productoIds.length) {
+            <div class="cat-chips">
+              @for (id of catForm.productoIds; track id) {
+                <button type="button" class="cat-chip" (click)="quitarProductoSeleccionado(id, $event)">
+                  {{ nombreProducto(id) }} ×
+                </button>
+              }
+            </div>
+          }
+          <div class="cat-prod-list" role="listbox" aria-label="Productos">
+            @for (p of productosPicker; track p.id) {
+              <label class="cat-prod-item" [class.on]="productoSeleccionado(p.id)">
+                <input
+                  type="checkbox"
+                  [checked]="productoSeleccionado(p.id)"
+                  (change)="toggleProducto(p.id)"
+                />
+                <span class="cat-prod-nombre">{{ p.nombre }}</span>
+                <span class="muted mini money">${{ p.precioVentaHoy | number: '1.2-2' }}</span>
+              </label>
+            } @empty {
+              <p class="muted mini">{{ pickerVacioHint }}</p>
+            }
+          </div>
+          <label class="campo">
+            Eslogan (opcional)
+            <input
+              type="text"
+              [(ngModel)]="catForm.slogan"
+              name="catSlogan"
+              placeholder="¡ROPA SUAVE AL PRECIO DEL GRANEL!"
             />
           </label>
           <label class="campo">
-            Departamento
-            <select [(ngModel)]="catForm.departamento" name="catDepto">
-              <option value="LIMPIEZA">Limpieza</option>
-              <option value="JARCERIA">Jarcería</option>
-            </select>
+            Imagen estática (opcional)
+            <input
+              type="text"
+              [(ngModel)]="catForm.imagenEstatica"
+              name="catStatic"
+              placeholder="/publicidad/prod-suavizante.jpg"
+            />
           </label>
-        </div>
-        <label class="campo">
-          Productos del inventario
-          <input
-            type="text"
-            [(ngModel)]="catForm.filtroProd"
-            name="catFiltro"
-            placeholder="Buscar producto…"
-          />
-        </label>
-        @if (catForm.productoIds.length) {
-          <div class="cat-chips">
-            @for (id of catForm.productoIds; track id) {
-              <button type="button" class="cat-chip" (click)="quitarProductoSeleccionado(id, $event)">
-                {{ nombreProducto(id) }} ×
-              </button>
-            }
-          </div>
-        }
-        <div class="cat-prod-list" role="listbox" aria-label="Productos">
-          @for (p of productosPicker; track p.id) {
-            <label class="cat-prod-item" [class.on]="productoSeleccionado(p.id)">
-              <input
-                type="checkbox"
-                [checked]="productoSeleccionado(p.id)"
-                (change)="toggleProducto(p.id)"
-              />
-              <span class="cat-prod-nombre">{{ p.nombre }}</span>
-              <span class="muted mini money">${{ p.precioVentaHoy | number: '1.2-2' }}</span>
-            </label>
-          } @empty {
-            <p class="muted mini">{{ pickerVacioHint }}</p>
+          @if (catForm.id) {
+            <div class="cat-img-row">
+              @if (catPreviewSrc) {
+                <div class="cat-preview" [style.background-image]="fondoGaleria(catPreviewSrc)"></div>
+              }
+              <label class="btn-agregar">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  (change)="onElegirImagenCategoria($event)"
+                  [disabled]="catSubiendoImg"
+                  hidden
+                />
+                {{ catSubiendoImg ? 'Subiendo…' : 'Subir foto' }}
+              </label>
+              @if (catPreviewSrc) {
+                <button type="button" class="btn-borrar-texto" (click)="quitarImagenCategoria()" [disabled]="catSubiendoImg">
+                  Quitar
+                </button>
+              }
+            </div>
+          } @else {
+            <p class="muted mini">Guarda y luego sube la foto realista.</p>
           }
         </div>
-        <label class="campo">
-          Eslogan (opcional)
-          <input
-            type="text"
-            [(ngModel)]="catForm.slogan"
-            name="catSlogan"
-            placeholder="¡ROPA SUAVE AL PRECIO DEL GRANEL!"
-          />
-        </label>
-        <label class="campo">
-          Imagen estática (opcional)
-          <input
-            type="text"
-            [(ngModel)]="catForm.imagenEstatica"
-            name="catStatic"
-            placeholder="/publicidad/prod-suavizante.jpg"
-          />
-        </label>
-        @if (catForm.id) {
-          <div class="cat-img-row">
-            @if (catPreviewSrc) {
-              <div class="cat-preview" [style.background-image]="fondoGaleria(catPreviewSrc)"></div>
-            }
-            <label class="btn-agregar">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                (change)="onElegirImagenCategoria($event)"
-                [disabled]="catSubiendoImg"
-                hidden
-              />
-              {{ catSubiendoImg ? 'Subiendo…' : 'Subir foto' }}
-            </label>
-            @if (catPreviewSrc) {
-              <button type="button" class="btn-borrar-texto" (click)="quitarImagenCategoria()" [disabled]="catSubiendoImg">
-                Quitar
-              </button>
-            }
-          </div>
-        } @else {
-          <p class="muted mini">Guarda y luego sube la foto realista.</p>
-        }
         <div class="cat-form-acciones">
           <button type="button" class="btn-texto-omitir" (click)="cerrarEditorCategoria()">Cancelar</button>
           <button type="submit" class="btn-generar" [disabled]="catGuardando">
@@ -418,4 +417,4 @@
       </form>
     </div>
   </div>
-}
+</ng-template>

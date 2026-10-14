@@ -12,6 +12,14 @@ function isAuth(url: string): boolean {
   return url.includes('/api/auth/');
 }
 
+/** Mutaciones que necesitan respuesta real del servidor (archivos / IDs). */
+function isServerOnlyMutation(url: string): boolean {
+  return (
+    url.includes('/api/publicidad/categorias') ||
+    url.includes('/api/publicidad/galeria')
+  );
+}
+
 function isMutation(method: string): boolean {
   const m = method.toUpperCase();
   return m === 'POST' || m === 'PUT' || m === 'PATCH' || m === 'DELETE';
@@ -60,6 +68,17 @@ export const offlineInterceptor: HttpInterceptorFn = (req, next) => {
   // Sin conexión: no intentar red.
   if (!offline.online) {
     if (isMutation(method)) {
+      if (isServerOnlyMutation(url)) {
+        return throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 0,
+              statusText: 'Offline',
+              url,
+              error: { error: 'Necesitas conexión para guardar categorías o galería de publicidad.' },
+            })
+        );
+      }
       return from(offline.enqueue(method, url, body)).pipe(
         switchMap(() => of(offline.syntheticSuccess(method, body)))
       );
@@ -95,6 +114,9 @@ export const offlineInterceptor: HttpInterceptorFn = (req, next) => {
       }
       offline.online$.next(false);
       if (isMutation(method)) {
+        if (isServerOnlyMutation(url)) {
+          return throwError(() => err);
+        }
         return from(offline.enqueue(method, url, body)).pipe(
           switchMap(() => of(offline.syntheticSuccess(method, body)))
         );

@@ -1223,6 +1223,23 @@ function pickDesdeCategoriaDef(
     }));
 }
 
+/** Eslogan propio de la categoría (el del formulario o uno inventado con su nombre). */
+export function sloganDeCategoria(cat: CategoriaPromoDef, grupo?: GrupoTema): string {
+  const propio = (cat.slogan || '').trim();
+  if (propio) return propio;
+  const g =
+    grupo ||
+    (cat.depto === 'JARCERIA'
+      ? 'jarceria'
+      : clasificarProducto(cat.nombre) !== 'mixto'
+        ? clasificarProducto(cat.nombre)
+        : 'lavado');
+  const porGrupo = sloganParaProductos([], g);
+  if (porGrupo) return porGrupo;
+  const nombre = (cat.nombre || 'Amorcas').trim().toUpperCase();
+  return `¡${nombre} AL PRECIO DEL GRANEL!`;
+}
+
 function temaDesdeCategoriaDef(cat: CategoriaPromoDef): TemaFlyer {
   const grupoFallback: GrupoTema =
     cat.depto === 'JARCERIA'
@@ -1239,7 +1256,7 @@ function temaDesdeCategoriaDef(cat: CategoriaPromoDef): TemaFlyer {
     titulo: cat.nombre,
     categoria: cat.depto,
     grupo: grupoFallback,
-    slogan: (cat.slogan || '').trim() || base.slogan,
+    slogan: sloganDeCategoria(cat, grupoFallback),
   };
 }
 
@@ -1786,15 +1803,14 @@ export async function generarLoteDesdeCategoriaDef(
   const { logo, stickers, icons } = await cargarAssetsPublicidad();
   const tema = temaDesdeCategoriaDef(cat);
   const comps: Composicion[] = [];
+  const sloganCat = sloganDeCategoria(cat, tema.grupo);
   for (let i = 0; i < cantidad; i++) {
     const cuantos = Math.min(5, 3 + Math.floor(Math.random() * 3));
     const precios = pickDesdeCategoriaDef(inventario, cat, cuantos);
     if (!precios.length) break;
-    const slogan =
-      (cat.slogan || '').trim() || sloganParaProductos(precios, tema.grupo);
     comps.push({
       id: `gen-${Date.now().toString(36)}-c${i}-${Math.random().toString(36).slice(2, 6)}`,
-      tema: { ...tema, titulo: cat.nombre, slogan },
+      tema: { ...tema, titulo: cat.nombre, slogan: sloganCat },
       vertical: true,
       precios,
     });
@@ -1809,7 +1825,7 @@ export async function generarLoteDesdeCategoriaDef(
       tema: {
         ...tema,
         titulo: cat.nombre,
-        slogan: (cat.slogan || '').trim() || sloganParaProductos(precios, tema.grupo),
+        slogan: sloganCat,
       },
       vertical: true,
       precios,
