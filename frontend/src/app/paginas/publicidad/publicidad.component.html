@@ -339,6 +339,11 @@
               [(ngModel)]="catForm.filtroProd"
               name="catFiltro"
               placeholder="Buscar producto…"
+              appClearable
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
             />
           </label>
           @if (catForm.productoIds.length) {

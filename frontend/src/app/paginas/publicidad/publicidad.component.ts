@@ -12,6 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
+import { ClearableDirective } from '../../clearable.directive';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { PageAlertsComponent } from '../../page-alerts.component';
 import { InventarioItem, PublicidadGaleriaItem, PublicidadCategoria } from '../../modelos';
@@ -56,7 +57,7 @@ const LOTE_SIZE = 5;
 @Component({
   selector: 'app-publicidad',
   standalone: true,
-  imports: [CommonModule, FormsModule, PageAlertsComponent],
+  imports: [CommonModule, FormsModule, PageAlertsComponent, ClearableDirective],
   templateUrl: './publicidad.component.html',
   styleUrl: './publicidad.component.scss',
 })
@@ -267,6 +268,8 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       this.catForm.productoIds = this.catForm.productoIds.filter((x) => x !== id);
     } else {
       this.catForm.productoIds = [...this.catForm.productoIds, id];
+      // Listo para buscar el siguiente sin borrar a mano
+      this.catForm.filtroProd = '';
     }
   }
 
