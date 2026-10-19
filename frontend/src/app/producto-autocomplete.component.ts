@@ -79,14 +79,17 @@ import { InventarioItem } from './modelos';
         [class.arriba]="abreArriba"
         [ngStyle]="estiloLista"
         role="listbox"
-        (pointerdown)="$event.preventDefault()"
+        (pointerdown)="onListaPointerDown($event)"
+        (pointermove)="onListaPointerMove($event)"
+        (pointerup)="onListaPointerUp($event)"
+        (pointercancel)="onListaPointerCancel()"
       >
         @for (p of filtrados; track p.id; let i = $index) {
           <li
             role="option"
             [class.activo]="i === indiceActivo"
             [attr.aria-selected]="i === indiceActivo"
-            (pointerdown)="elegir(p); $event.preventDefault()"
+            (pointerup)="onItemPointerUp($event, p)"
             (mouseenter)="indiceActivo = i"
           >
             {{ p.nombre }}
@@ -198,6 +201,12 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
 
   private bloqueoReabrir = false;
   private blurTimer: ReturnType<typeof setTimeout> | null = null;
+  /** True mientras el dedo/ratón está en la lista (evita cerrar por blur al hacer scroll). */
+  private interactuandoLista = false;
+  private ptrId: number | null = null;
+  private ptrStartX = 0;
+  private ptrStartY = 0;
+  private ptrMoved = false;
   private scrollBound = false;
   private vvBound = false;
   private layoutObs: ResizeObserver | null = null;
@@ -361,11 +370,62 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   onBlur(): void {
     if (this.blurTimer != null) clearTimeout(this.blurTimer);
     this.blurTimer = setTimeout(() => {
+      if (this.interactuandoLista) return;
       const ae = document.activeElement as HTMLElement | null;
       if (ae && this.rootEl?.nativeElement.contains(ae)) return;
       if (ae?.closest?.('.producto-ac-sugerencias')) return;
       this.cerrarLista(true);
     }, 160);
+  }
+
+  /**
+   * Móvil: pointerdown en el ítem seleccionaba al intentar hacer scroll.
+   * Solo elegimos en pointerup si el dedo no se movió (tap).
+   * En mouse sí preventDefault para no perder el foco del input.
+   */
+  onListaPointerDown(ev: PointerEvent): void {
+    if ((ev.target as HTMLElement | null)?.closest?.('li.vacio')) return;
+    this.interactuandoLista = true;
+    this.ptrId = ev.pointerId;
+    this.ptrStartX = ev.clientX;
+    this.ptrStartY = ev.clientY;
+    this.ptrMoved = false;
+    if (ev.pointerType === 'mouse') {
+      ev.preventDefault();
+    }
+  }
+
+  onListaPointerMove(ev: PointerEvent): void {
+    if (this.ptrId == null || ev.pointerId !== this.ptrId) return;
+    if (
+      Math.abs(ev.clientX - this.ptrStartX) > 10 ||
+      Math.abs(ev.clientY - this.ptrStartY) > 10
+    ) {
+      this.ptrMoved = true;
+    }
+  }
+
+  onListaPointerUp(ev: PointerEvent): void {
+    if (this.ptrId != null && ev.pointerId !== this.ptrId) return;
+    this.ptrId = null;
+    // Dejar que blur/click terminen antes de soltar el flag.
+    setTimeout(() => {
+      this.interactuandoLista = false;
+    }, 220);
+  }
+
+  onListaPointerCancel(): void {
+    this.ptrId = null;
+    this.ptrMoved = true;
+    this.interactuandoLista = false;
+  }
+
+  onItemPointerUp(ev: PointerEvent, p: InventarioItem): void {
+    if ((ev.target as HTMLElement | null)?.closest?.('li.vacio')) return;
+    if (this.ptrMoved) return;
+    // Tap corto → elegir (no al inicio del gesto, para poder scrollear).
+    ev.preventDefault();
+    this.elegir(p);
   }
 
   onTexto(value: string): void {
