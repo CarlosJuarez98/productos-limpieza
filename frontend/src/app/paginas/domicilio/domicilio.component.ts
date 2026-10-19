@@ -1,4 +1,12 @@
-import { ChangeDetectorRef, Component, HostListener, OnInit, QueryList, ViewChildren } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  QueryList,
+  ViewChildren,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -10,10 +18,14 @@ import { PageAlertsComponent } from '../../page-alerts.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import {
+  capturaTecladoAbierto,
   elementoVisible,
   esMovilTactil,
+  focoEnCapturaLinea,
+  observarTecladoCaptura,
   scrollCampoCaptura,
   scrollEnMain,
+  scrollLineaCapturaComfort,
 } from '../../captura-focus.util';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
@@ -54,7 +66,7 @@ interface LineaDom {
   templateUrl: './domicilio.component.html',
   styleUrl: './domicilio.component.scss',
 })
-export class DomicilioComponent implements OnInit {
+export class DomicilioComponent implements OnInit, OnDestroy {
   @ViewChildren(ProductoAutocompleteComponent) prodAutos!: QueryList<ProductoAutocompleteComponent>;
 
   productos: InventarioItem[] = [];
@@ -81,13 +93,19 @@ export class DomicilioComponent implements OnInit {
   fechaMin: string | null = null;
   fechaUltimoCorte: string | null = null;
   cliente = '';
-  nota = '';
   lineas: LineaDom[] = [];
+  /** Línea cuyo tipo de venta se muestra fijo en móvil. */
+  lineaModoKey: number | null = null;
+  /** Compacta sticky al abrir teclado para ver producto/cantidad. */
+  tecladoAbierto = false;
+  /** Evita que onCantidadFocus robe el foco durante Enter/Siguiente. */
+  private avanzandoCaptura = false;
   private nextKey = 1;
   private focusTimer: ReturnType<typeof setTimeout> | null = null;
   private focusTimer2: ReturnType<typeof setTimeout> | null = null;
   private focusTimer3: ReturnType<typeof setTimeout> | null = null;
   private idsPreparables = new Set<number>();
+  private tecladoCleanup?: () => void;
   /** Evita realinear al abrir teclado (resize por altura). */
   private capturaMovil = capturaEsMovil();
 
@@ -104,6 +122,88 @@ export class DomicilioComponent implements OnInit {
     this.resetLineas();
     this.alinearLineasViewport();
     this.cargar();
+    this.tecladoCleanup = observarTecladoCaptura(() => this.actualizarStickyTeclado(true));
+  }
+
+  private actualizarStickyTeclado(recolocar = false): void {
+    const ae = document.activeElement;
+    const enLinea = focoEnCapturaLinea(ae);
+    const next = capturaTecladoAbierto() && enLinea;
+    const cerro = this.tecladoAbierto && !next;
+    if (next !== this.tecladoAbierto) {
+      this.tecladoAbierto = next;
+      document.body.classList.toggle('captura-teclado', next);
+      this.cdr.detectChanges();
+    }
+    if (cerro) {
+      if (focoEnCapturaLinea()) {
+        this.tecladoAbierto = capturaTecladoAbierto();
+        document.body.classList.toggle('captura-teclado', this.tecladoAbierto);
+        this.cdr.detectChanges();
+        return;
+      }
+      document.body.classList.remove('captura-teclado');
+      setTimeout(() => this.anclarLineaTrasTeclado(), 160);
+      return;
+    }
+    if (recolocar && next && ae instanceof HTMLInputElement) {
+      const forceTop =
+        ae.id.startsWith('dom-cant-') ||
+        ae.id.startsWith('dom-precio-') ||
+        ae.id.startsWith('dom-total-');
+      requestAnimationFrame(() => {
+        scrollCampoCaptura(ae, { forceTop });
+        setTimeout(() => scrollCampoCaptura(ae, { forceTop }), 120);
+        setTimeout(() => scrollCampoCaptura(ae, { forceTop }), 280);
+      });
+    }
+  }
+
+  /** Tras cerrar teclado: ancla la línea activa / última en posición cómoda. */
+  private anclarLineaTrasTeclado(): void {
+    if (capturaTecladoAbierto()) return;
+    if (focoEnCapturaLinea()) return;
+    const key =
+      this.lineaModoKey ??
+      this.lineas[this.lineas.length - 1]?.key ??
+      null;
+    if (key == null) return;
+    const linea = document.getElementById('dom-linea-' + key);
+    if (!linea) return;
+    this.activarLineaModo(key);
+    scrollLineaCapturaComfort(linea);
+  }
+
+  @HostListener('document:focusin')
+  onFocusInTeclado(): void {
+    this.actualizarStickyTeclado(true);
+    setTimeout(() => this.actualizarStickyTeclado(true), 100);
+    setTimeout(() => this.actualizarStickyTeclado(true), 280);
+    setTimeout(() => this.actualizarStickyTeclado(true), 480);
+  }
+
+  @HostListener('document:focusout')
+  onFocusOutTeclado(): void {
+    setTimeout(() => {
+      if (focoEnCapturaLinea()) {
+        this.actualizarStickyTeclado(true);
+        return;
+      }
+      this.actualizarStickyTeclado(false);
+    }, 80);
+    setTimeout(() => {
+      if (focoEnCapturaLinea()) return;
+      this.actualizarStickyTeclado(false);
+    }, 350);
+  }
+
+  ngOnDestroy(): void {
+    this.tecladoCleanup?.();
+    this.tecladoCleanup = undefined;
+    document.body.classList.remove('captura-teclado');
+    if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
   }
 
   @HostListener('window:resize')
@@ -211,9 +311,13 @@ export class DomicilioComponent implements OnInit {
       this.clienteIndice = Math.max(this.clienteIndice - 1, 0);
       return;
     }
-    if (ev.key === 'Enter' && this.clienteListaAbierta && list.length) {
+    if (ev.key === 'Enter') {
       ev.preventDefault();
-      this.elegirCliente(list[this.clienteIndice] ?? list[0]);
+      if (this.clienteListaAbierta && list.length) {
+        this.elegirCliente(list[this.clienteIndice] ?? list[0]);
+      }
+      this.clienteListaAbierta = false;
+      this.enfocarCaptura(0, 'producto', { desdeHead: true });
       return;
     }
     if (ev.key === 'Escape') {
@@ -269,21 +373,46 @@ export class DomicilioComponent implements OnInit {
 
   resetLineas(n = capturaLineasVacias()): void {
     this.lineas = Array.from({ length: Math.max(1, n) }, () => this.nuevaLinea());
+    this.lineaModoKey = this.lineas[0]?.key ?? null;
+  }
+
+  get lineaModoActiva(): LineaDom | null {
+    if (this.lineaModoKey == null) return null;
+    return this.lineas.find((l) => l.key === this.lineaModoKey) ?? null;
+  }
+
+  get indiceLineaModo(): number {
+    if (this.lineaModoKey == null) return -1;
+    return this.lineas.findIndex((l) => l.key === this.lineaModoKey);
+  }
+
+  activarLineaModo(key: number): void {
+    if (this.lineaModoKey === key) return;
+    this.lineaModoKey = key;
   }
 
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
     this.cdr.detectChanges();
-    requestAnimationFrame(() => this.enfocarCaptura(this.lineas.length - 1, 'producto'));
+    const idx = this.lineas.length - 1;
+    this.activarLineaModo(this.lineas[idx].key);
+    // Foco ya (gesto Siguiente): si se aplaza, Android no abre teclado.
+    this.enfocarCaptura(idx, 'producto');
   }
 
   quitarLinea(i: number): void {
     if (this.lineas.length <= 1) {
       this.lineas[i] = this.nuevaLinea();
+      this.lineaModoKey = this.lineas[0].key;
       this.alinearLineasViewport();
       return;
     }
+    const quitada = this.lineas[i]?.key;
     this.lineas.splice(i, 1);
+    if (quitada != null && this.lineaModoKey === quitada) {
+      const idx = Math.min(i, this.lineas.length - 1);
+      this.lineaModoKey = this.lineas[idx]?.key ?? null;
+    }
     this.alinearLineasViewport();
   }
 
@@ -429,6 +558,7 @@ export class DomicilioComponent implements OnInit {
   }
 
   setModo(l: LineaDom, modo: ModoVenta): void {
+    this.activarLineaModo(l.key);
     l.modo = modo;
     if (modo !== 'MAYOREO') {
       l.precioManual = null;
@@ -440,7 +570,7 @@ export class DomicilioComponent implements OnInit {
   }
 
   onFechaEnter(): void {
-    this.enfocarCaptura(0, 'producto');
+    this.enfocarCaptura(0, 'producto', { desdeHead: true });
   }
 
   onProductoEnter(index: number): void {
@@ -453,75 +583,171 @@ export class DomicilioComponent implements OnInit {
   }
 
   private avanzarDesde(index: number, desde: 'producto' | 'cantidad' | 'precio' | 'total'): void {
-    const l = this.lineas[index];
-    if (!l) {
-      this.agregarLinea();
-      return;
+    this.avanzandoCaptura = true;
+    try {
+      const l = this.lineas[index];
+      if (!l) {
+        this.agregarLinea();
+        return;
+      }
+      if (desde === 'producto') {
+        this.enfocarCaptura(index, 'cantidad');
+        return;
+      }
+      if (desde === 'cantidad' && this.permitePrecioManual(l)) {
+        this.enfocarCampoId('dom-precio-' + l.key);
+        return;
+      }
+      if ((desde === 'cantidad' || desde === 'precio') && this.esMayoreo(l) && !this.tienePrecioManual(l)) {
+        this.enfocarCampoId('dom-total-' + l.key);
+        return;
+      }
+      const irA = index + 1;
+      if (irA >= this.lineas.length) {
+        this.agregarLinea();
+        return;
+      }
+      this.enfocarCaptura(irA, 'producto');
+    } finally {
+      queueMicrotask(() => {
+        this.avanzandoCaptura = false;
+      });
     }
-    if (desde === 'producto') {
-      this.enfocarCaptura(index, 'cantidad');
-      return;
-    }
-    if (desde === 'cantidad' && this.permitePrecioManual(l)) {
-      if (this.focusById('dom-precio-' + l.key)) return;
-    }
-    if ((desde === 'cantidad' || desde === 'precio') && this.esMayoreo(l) && !this.tienePrecioManual(l)) {
-      if (this.focusById('dom-total-' + l.key)) return;
-    }
-    const irA = index + 1;
-    if (irA >= this.lineas.length) {
-      this.agregarLinea();
-      return;
-    }
-    this.enfocarCaptura(irA, 'producto');
   }
 
   private autosCaptura(): ProductoAutocompleteComponent[] {
     return (this.prodAutos?.toArray() || []).filter((a) => !!a.inputName?.startsWith('domProd'));
   }
 
-  private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
-    const go = () => {
-      this.scrollCapturaVisible(index, campo);
-      if (campo === 'cantidad') {
-        if (!this.focusById('dom-cant-' + (this.lineas[index]?.key ?? ''))) {
-          this.autosCaptura()[index]?.focus();
-        }
-      } else {
-        this.autosCaptura()[index]?.focus();
-      }
-      if (esMovilTactil()) {
-        requestAnimationFrame(() => this.scrollCapturaVisible(index, campo));
-      }
-    };
-    if (this.focusTimer != null) clearTimeout(this.focusTimer);
-    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
-    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
-    this.cdr.detectChanges();
-    this.focusTimer = setTimeout(go, 50);
-    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 200 : 220);
-    this.focusTimer3 = esMovilTactil() ? setTimeout(go, 420) : null;
+  /** Siguiente / foco nativo: scroll mínimo (producto no se va arriba). */
+  onCampoFocus(ev: FocusEvent): void {
+    const t = ev.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    const forceTop =
+      t.id.startsWith('dom-cant-') ||
+      t.id.startsWith('dom-precio-') ||
+      t.id.startsWith('dom-total-');
+    scrollCampoCaptura(t, { forceTop });
+    if (esMovilTactil()) {
+      setTimeout(() => scrollCampoCaptura(t, { forceTop }), 200);
+    }
   }
 
-  private scrollCapturaVisible(index: number, campo: 'producto' | 'cantidad'): void {
+  /**
+   * Tras Nota, el teclado a veces salta el producto (readonly anti-autofill)
+   * y cae en cantidad. Si aún no hay producto, devolver el foco ahí.
+   * No interferir durante Enter/Siguiente (avanzandoCaptura).
+   */
+  onCantidadFocus(ev: FocusEvent, index: number): void {
+    if (this.avanzandoCaptura) {
+      this.onCampoFocus(ev);
+      return;
+    }
     const l = this.lineas[index];
-    if (!l) return;
+    if (l && l.productoId == null) {
+      ev.preventDefault();
+      (ev.target as HTMLInputElement).blur();
+      this.enfocarCaptura(index, 'producto');
+      return;
+    }
+    this.onCampoFocus(ev);
+  }
+
+  /**
+   * @param opts.desdeHead Cliente/Fecha → Producto: compactar sticky antes del scroll
+   * (el head no cuenta como línea; si no, el producto queda pegado arriba).
+   */
+  private enfocarCaptura(
+    index: number,
+    campo: 'producto' | 'cantidad',
+    opts?: { desdeHead?: boolean }
+  ): void {
+    const lineaKey = this.lineas[index]?.key;
+    if (lineaKey != null) this.activarLineaModo(lineaKey);
+
     if (campo === 'cantidad') {
-      const cant = document.getElementById('dom-cant-' + l.key);
-      if (cant) {
-        scrollCampoCaptura(cant);
+      if (lineaKey != null) {
+        this.enfocarCampoId('dom-cant-' + lineaKey, () => this.autosCaptura()[index]?.focus(), true);
         return;
       }
     }
-    const linea = document.getElementById('dom-linea-' + l.key);
-    if (linea) scrollEnMain(linea, { belowSticky: true, pinTop: true });
+
+    const tecladoYa =
+      capturaTecladoAbierto(80) || (!!opts?.desdeHead && esMovilTactil());
+    if (tecladoYa) {
+      this.tecladoAbierto = true;
+      document.body.classList.add('captura-teclado');
+    }
+    this.cdr.detectChanges();
+    this.autosCaptura()[index]?.focus();
+    const pinBajoDock = tecladoYa;
+    const scrollProd = () => {
+      const key = this.lineas[index]?.key;
+      const input =
+        (key != null &&
+          (document.querySelector(
+            `#dom-linea-${key} app-producto-autocomplete input`
+          ) as HTMLInputElement | null)) ||
+        null;
+      if (input) {
+        if (document.activeElement !== input) {
+          input.readOnly = false;
+          input.focus({ preventScroll: true });
+        }
+        scrollCampoCaptura(input, { forceTop: pinBajoDock });
+      } else {
+        const linea = document.getElementById('dom-linea-' + (key ?? ''));
+        if (linea) scrollEnMain(linea, { belowSticky: true, prefer: pinBajoDock ? 'upper' : 'min' });
+      }
+    };
+    // Tras compactar head, esperar un frame para medir la franja real (solo modos).
+    requestAnimationFrame(() => {
+      scrollProd();
+      this.programarScrollSolo(scrollProd);
+    });
+  }
+
+  private enfocarCampoId(id: string, fallback?: () => void, desdeProducto = false): void {
+    this.cdr.detectChanges();
+    const applyFocus = (): boolean => {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (!el || !elementoVisible(el)) {
+        fallback?.();
+        return false;
+      }
+      // Primero foco (mantén teclado); scroll suave si venimos de producto.
+      el.focus({ preventScroll: true });
+      if (!esMovilTactil()) el.select();
+      scrollCampoCaptura(el, { forceTop: !desdeProducto });
+      return true;
+    };
+    applyFocus();
+    this.programarScrollSolo(() => {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (!el) return;
+      if (document.activeElement !== el) {
+        el.focus({ preventScroll: true });
+      }
+      scrollCampoCaptura(el, { forceTop: !desdeProducto });
+    });
+  }
+
+  private programarScrollSolo(fn: () => void): void {
+    if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
+    this.focusTimer = setTimeout(fn, 50);
+    this.focusTimer2 = setTimeout(fn, esMovilTactil() ? 200 : 220);
+    this.focusTimer3 = esMovilTactil() ? setTimeout(fn, 420) : null;
   }
 
   private focusById(id: string): boolean {
     const el = document.getElementById(id) as HTMLInputElement | null;
     if (!el || !elementoVisible(el)) return false;
+    const forceTop =
+      id.startsWith('dom-cant-') || id.startsWith('dom-precio-') || id.startsWith('dom-total-');
+    scrollCampoCaptura(el, { forceTop });
     el.focus({ preventScroll: true });
-    // select() en móvil a veces cierra/reabre el teclado
     if (!esMovilTactil()) el.select();
     return true;
   }
@@ -538,7 +764,7 @@ export class DomicilioComponent implements OnInit {
       fecha: this.fecha,
       cliente: this.cliente.trim() || null,
       telefono: null as string | null,
-      nota: this.nota.trim() || null,
+      nota: null as string | null,
       lineas,
     };
   }
@@ -580,7 +806,6 @@ export class DomicilioComponent implements OnInit {
             : 'Pedido actualizado';
         this.editandoId = null;
         this.cliente = '';
-        this.nota = '';
         this.fecha = this.hoyLocal();
         this.resetLineas();
         this.cargar();
@@ -604,7 +829,6 @@ export class DomicilioComponent implements OnInit {
     this.editandoId = p.id;
     this.fecha = p.fecha;
     this.cliente = p.cliente || '';
-    this.nota = p.nota || '';
     this.lineas = p.items.map((it) => {
       const modo: ModoVenta =
         it.tipoVenta === 'MAYOREO'
@@ -637,7 +861,6 @@ export class DomicilioComponent implements OnInit {
   cancelarEdicion(): void {
     this.editandoId = null;
     this.cliente = '';
-    this.nota = '';
     this.fecha = this.hoyLocal();
     this.resetLineas();
   }

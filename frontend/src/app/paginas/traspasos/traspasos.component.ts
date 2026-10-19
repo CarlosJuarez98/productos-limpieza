@@ -338,18 +338,11 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     this.programarBorrador();
     this.cdr.detectChanges();
     const idx = this.lineas.length - 1;
-    // Quitar foco del «+»: el anclaje de scroll del navegador deja la vista abajo.
-    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    requestAnimationFrame(() => {
-      this.scrollLineaVisible(idx);
-      this.enfocarCaptura(idx, 'producto');
-    });
+    // Foco ya (gesto Siguiente/+): si se aplaza, Android no abre teclado.
+    this.enfocarCaptura(idx, 'producto');
     if (esMovilTactil()) {
       this.programarScroll(() => this.scrollLineaVisible(idx), 120);
       this.programarScroll(() => this.scrollLineaVisible(idx), 280);
-      this.programarScroll(() => this.scrollLineaVisible(idx), 480);
     }
   }
 
@@ -381,27 +374,23 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     return (this.prodAutos?.toArray() || []).filter((a) => a.estaVisible());
   }
 
-  /** Igual que Ventas: anclar campo a la vista, luego foco (preventScroll). */
+  /** Foco síncrono (abre teclado); scroll con reintentos. */
   private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
-    const go = () => {
-      this.scrollCapturaVisible(index, campo);
-      const key = this.lineas[index]?.key;
-      if (campo === 'cantidad') {
-        enfocarPorAttr('data-cant-key', key ?? '');
-      } else {
-        this.autosVisibles()[index]?.focus();
-      }
-      if (esMovilTactil()) {
-        requestAnimationFrame(() => this.scrollCapturaVisible(index, campo));
-      }
-    };
+    this.cdr.detectChanges();
+    const key = this.lineas[index]?.key;
+    if (campo === 'cantidad') {
+      enfocarPorAttr('data-cant-key', key ?? '');
+    } else {
+      this.autosVisibles()[index]?.focus();
+    }
+    this.scrollCapturaVisible(index, campo);
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
     if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
     if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
-    this.cdr.detectChanges();
-    this.focusTimer = setTimeout(go, 50);
-    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 200 : 220);
-    this.focusTimer3 = esMovilTactil() ? setTimeout(go, 420) : null;
+    const reScroll = () => this.scrollCapturaVisible(index, campo);
+    this.focusTimer = setTimeout(reScroll, 50);
+    this.focusTimer2 = setTimeout(reScroll, esMovilTactil() ? 200 : 220);
+    this.focusTimer3 = esMovilTactil() ? setTimeout(reScroll, 420) : null;
   }
 
   private scrollCapturaVisible(index: number, campo: 'producto' | 'cantidad'): void {

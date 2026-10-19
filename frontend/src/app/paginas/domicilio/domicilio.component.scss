@@ -1,3 +1,43 @@
+/* Igual que Ventas: título + resumen sticky; dock de modos debajo del head. */
+.dom-fijo {
+  position: sticky;
+  top: 0;
+  z-index: 16;
+  margin: -0.7rem -1rem 0.75rem;
+  padding: 0.7rem 1rem 0.65rem;
+  background: var(--bg, #f4f7f5);
+  isolation: isolate;
+  box-sizing: border-box;
+}
+
+.dom-fijo::before {
+  display: block;
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 50vh;
+  background: var(--bg, #f4f7f5);
+  pointer-events: none;
+}
+
+.dom-fijo .page-title {
+  margin-bottom: 0.45rem;
+}
+
+.dom-fijo .corte-aviso {
+  margin-top: 0;
+}
+
+.captura-resumen {
+  margin: 0;
+}
+
+.modos-dock {
+  display: none;
+}
+
 .captura-panel {
   overflow: visible;
 }
@@ -22,15 +62,21 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.75rem 1rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0;
   overflow: visible;
   position: relative;
   z-index: 4;
 }
 
+/* Escritorio: los hijos participan en el flex del head (Fecha | Cliente | Total). */
+.captura-head-top {
+  display: contents;
+}
+
 .fecha-field {
   margin: 0;
   min-width: 9.5rem;
+  order: 1;
 }
 
 .cliente-field {
@@ -39,6 +85,7 @@
   flex: 1 1 14rem;
   position: relative;
   z-index: 6;
+  order: 2;
 }
 
 .cliente-ac {
@@ -106,6 +153,8 @@
   flex-direction: column;
   min-width: 6.5rem;
   margin-left: auto;
+  flex: 0 0 auto;
+  order: 3;
 
   span {
     font-size: 0.72rem;
@@ -364,10 +413,9 @@
   opacity: 0.92;
 }
 
-@media (max-width: 899px) {
+@media (max-width: 899px) and (min-width: 768px) {
   .tot-chip {
     margin-left: 0;
-    width: 100%;
   }
 }
 
@@ -555,5 +603,163 @@
   color: #8f2d2d;
   font-weight: 700;
   text-decoration: underline;
+}
+
+@media (max-width: 767px) {
+  .dom-fijo {
+    margin: -0.5rem -0.6rem 0.5rem;
+    padding: 0.5rem 0.6rem 0.55rem;
+    max-width: none;
+    width: auto;
+  }
+
+  .dom-fijo .page-title {
+    margin-bottom: 0.3rem;
+  }
+
+  /* Solo móvil: Fecha | Total; Cliente debajo. */
+  .dom-fijo .captura-head {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+
+  .dom-fijo .captura-head-top {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 0.5rem;
+    width: 100%;
+    order: 1;
+  }
+
+  .dom-fijo .fecha-field {
+    flex: 1 1 auto;
+    min-width: 0;
+    order: unset;
+  }
+
+  .dom-fijo .tot-chip {
+    margin-left: 0;
+    width: auto;
+    min-width: 5.5rem;
+    padding: 0.35rem 0.55rem;
+    order: unset;
+  }
+
+  .dom-fijo .cliente-field {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    order: 2;
+  }
+
+  .captura-panel {
+    display: flex;
+    flex-direction: column;
+    max-height: none;
+    padding-bottom: 0.35rem;
+  }
+
+  /* Tipo de venta fijo bajo fecha/cliente/total (igual que Ventas). */
+  .modos-dock {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.45rem;
+    margin-top: 0.45rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid color-mix(in srgb, var(--line, #c5d4cb) 70%, #fff);
+  }
+
+  .modos-dock-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted, #6b7f72);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .modos-dock .modo-chips {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .modos-dock .modo-chip {
+    padding: 0.32rem 0.55rem;
+    font-size: 0.78rem;
+    min-height: 2rem;
+  }
+
+  /* Con teclado: solo modos (fecha/cliente/total ocultos). */
+  .dom-fijo.teclado-abierto {
+    padding: 0.28rem 0.5rem 0.3rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .dom-fijo.teclado-abierto .page-title,
+  .dom-fijo.teclado-abierto .corte-aviso,
+  .dom-fijo.teclado-abierto .captura-head {
+    display: none;
+  }
+
+  .dom-fijo.teclado-abierto .modos-dock {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dom-fijo.teclado-abierto .modos-dock-label {
+    flex: 0 0 auto;
+    font-size: 0.65rem;
+  }
+
+  .dom-fijo.teclado-abierto .modos-dock .modo-chips {
+    flex-wrap: nowrap;
+  }
+
+  .dom-fijo.teclado-abierto .modos-dock .modo-chip {
+    padding: 0.22rem 0.4rem;
+    font-size: 0.68rem;
+    min-height: 1.65rem;
+    white-space: nowrap;
+  }
+
+  .dom-fijo.teclado-abierto::before {
+    display: none;
+  }
+
+  .linea-top {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .linea-top .modo-chips-en-card {
+    display: none;
+  }
+
+  .modo-chip {
+    padding: 0.32rem 0.55rem;
+    font-size: 0.78rem;
+    min-height: 2rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .dom-fijo {
+    margin-left: calc(-1 * clamp(1.25rem, 3vw, 2.25rem));
+    margin-right: calc(-1 * clamp(1.25rem, 3vw, 2.25rem));
+    padding-left: clamp(1.25rem, 3vw, 2.25rem);
+    padding-right: clamp(1.25rem, 3vw, 2.25rem);
+  }
 }
 
