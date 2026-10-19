@@ -892,6 +892,7 @@ th {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 0.4rem;
