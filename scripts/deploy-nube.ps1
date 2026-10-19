@@ -43,7 +43,8 @@ docker compose -f docker-compose.cloud-atp.yml --env-file .env.cloud up -d --bui
 docker network connect control-gastos_default productos-limpieza-caddy 2>/dev/null || true
 docker network connect mesa-lista_default productos-limpieza-caddy 2>/dev/null || true
 docker network connect taximetro_default productos-limpieza-caddy 2>/dev/null || true
-for i in 1 2 3 4 5 6 7 8 9 10 12 15; do
+# Spring+ATP suele tardar ~60s; dejamos margen (~3 min).
+for i in $(seq 1 36); do
   if docker exec productos-limpieza-api wget -qO- http://127.0.0.1:8083/api/health 2>/dev/null | grep -q UP; then
     echo HEALTH_OK
     exit 0
@@ -53,7 +54,8 @@ done
 echo HEALTH_TIMEOUT
 exit 1
 "@
+# PowerShell al pipar a ssh reintroduce CR; en bash rompe `sleep`/`exit` ("numeric argument required").
 $remote = ($remote -replace "`r`n", "`n" -replace "`r", "`n")
-$remote | ssh @SshOpts $VmHost "bash -s"
+$remote | ssh @SshOpts $VmHost "tr -d '\r' | bash -s"
 if ($LASTEXITCODE -ne 0) { throw "Deploy productos-limpieza fallo (exit $LASTEXITCODE)" }
 Write-Host "Listo." -ForegroundColor Green
