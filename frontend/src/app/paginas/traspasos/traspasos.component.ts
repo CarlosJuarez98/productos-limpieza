@@ -16,7 +16,12 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreakpointCambio, capturaTieneFocoEnCampo, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import { Traspaso, TraspasoAbono } from '../../modelos';
-import { enfocarPorAttr, esMovilTactil, scrollEnMain } from '../../captura-focus.util';
+import {
+  enfocarPorAttr,
+  esMovilTactil,
+  scrollCampoCaptura,
+  scrollEnMain,
+} from '../../captura-focus.util';
 
 interface LineaForm {
   key: number;
@@ -73,6 +78,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
   private focusTimer: ReturnType<typeof setTimeout> | null = null;
   private focusTimer2: ReturnType<typeof setTimeout> | null = null;
+  private focusTimer3: ReturnType<typeof setTimeout> | null = null;
   private scrollTimers: ReturnType<typeof setTimeout>[] = [];
   private capturaMovil = capturaEsMovil();
   form = {
@@ -132,6 +138,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     if (this.draftTimer != null) clearTimeout(this.draftTimer);
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
     if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
     for (const t of this.scrollTimers) clearTimeout(t);
     this.scrollTimers = [];
   }
@@ -374,10 +381,10 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     return (this.prodAutos?.toArray() || []).filter((a) => a.estaVisible());
   }
 
-  /** Igual que Ventas: primero la card a la vista, luego foco (preventScroll) para que el teclado no baje todo. */
+  /** Igual que Ventas: anclar campo a la vista, luego foco (preventScroll). */
   private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
     const go = () => {
-      this.scrollLineaVisible(index);
+      this.scrollCapturaVisible(index, campo);
       const key = this.lineas[index]?.key;
       if (campo === 'cantidad') {
         enfocarPorAttr('data-cant-key', key ?? '');
@@ -385,14 +392,29 @@ export class TraspasosComponent implements OnInit, OnDestroy {
         this.autosVisibles()[index]?.focus();
       }
       if (esMovilTactil()) {
-        requestAnimationFrame(() => this.scrollLineaVisible(index));
+        requestAnimationFrame(() => this.scrollCapturaVisible(index, campo));
       }
     };
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
     if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
     this.cdr.detectChanges();
     this.focusTimer = setTimeout(go, 50);
-    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 180 : 220);
+    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 200 : 220);
+    this.focusTimer3 = esMovilTactil() ? setTimeout(go, 420) : null;
+  }
+
+  private scrollCapturaVisible(index: number, campo: 'producto' | 'cantidad'): void {
+    const l = this.lineas[index];
+    if (!l) return;
+    if (campo === 'cantidad') {
+      const cant = document.querySelector(`[data-cant-key="${l.key}"]`) as HTMLElement | null;
+      if (cant) {
+        scrollCampoCaptura(cant);
+        return;
+      }
+    }
+    this.scrollLineaVisible(index);
   }
 
   private scrollLineaVisible(index: number): void {
@@ -402,7 +424,7 @@ export class TraspasosComponent implements OnInit, OnDestroy {
       document.getElementById('linea-traspaso-' + l.key) ||
       (document.querySelector(`[data-linea-key="${l.key}"]`) as HTMLElement | null);
     if (!linea) return;
-    scrollEnMain(linea, { belowSticky: true });
+    scrollEnMain(linea, { belowSticky: true, pinTop: true });
   }
 
   quitarLinea(index: number): void {

@@ -14,7 +14,12 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
-import { elementoVisible, esMovilTactil, scrollEnMain } from '../../captura-focus.util';
+import {
+  elementoVisible,
+  esMovilTactil,
+  scrollCampoCaptura,
+  scrollEnMain,
+} from '../../captura-focus.util';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { PageAlertsComponent } from '../../page-alerts.component';
 import { ClearableDirective } from '../../clearable.directive';
@@ -107,6 +112,7 @@ export class VentasComponent implements OnInit, OnDestroy {
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
   private focusTimer: ReturnType<typeof setTimeout> | null = null;
   private focusTimer2: ReturnType<typeof setTimeout> | null = null;
+  private focusTimer3: ReturnType<typeof setTimeout> | null = null;
   /** Timers de scroll al pulsar «+»; hay que cancelarlos al salir de la ruta. */
   private scrollTimers: ReturnType<typeof setTimeout>[] = [];
   private idsPreparables = new Set<number>();
@@ -175,8 +181,10 @@ export class VentasComponent implements OnInit, OnDestroy {
   private limpiarTimersCaptura(): void {
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
     if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
     this.focusTimer = null;
     this.focusTimer2 = null;
+    this.focusTimer3 = null;
     for (const t of this.scrollTimers) clearTimeout(t);
     this.scrollTimers = [];
   }
@@ -819,8 +827,8 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
     const go = () => {
-      // Primero la card a la vista; luego foco (preventScroll) para que el teclado no baje todo.
-      this.scrollLineaVisible(index);
+      // Primero anclar a la vista; luego foco (preventScroll) para que el teclado no baje todo.
+      this.scrollCapturaVisible(index, campo);
       if (campo === 'cantidad') {
         if (!this.focusById('cant-' + (this.lineas[index]?.key ?? ''))) {
           this.autosCaptura()[index]?.focus();
@@ -829,15 +837,31 @@ export class VentasComponent implements OnInit, OnDestroy {
         this.autosCaptura()[index]?.focus();
       }
       if (esMovilTactil()) {
-        requestAnimationFrame(() => this.scrollLineaVisible(index));
+        requestAnimationFrame(() => this.scrollCapturaVisible(index, campo));
       }
     };
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
     if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
     this.cdr.detectChanges();
-    // Móvil: un intento; si la card es nueva, un segundo tras pintar.
+    // Móvil: reintentos cuando abre el teclado (cantidad debe quedar arriba).
     this.focusTimer = setTimeout(go, 50);
-    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 180 : 220);
+    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 200 : 220);
+    this.focusTimer3 = esMovilTactil() ? setTimeout(go, 420) : null;
+  }
+
+  /** Producto → card; cantidad → el campo (en móvil no debe quedar bajo el teclado). */
+  private scrollCapturaVisible(index: number, campo: 'producto' | 'cantidad' = 'producto'): void {
+    const l = this.lineas[index];
+    if (!l) return;
+    if (campo === 'cantidad') {
+      const cant = document.getElementById('cant-' + l.key);
+      if (cant) {
+        scrollCampoCaptura(cant);
+        return;
+      }
+    }
+    this.scrollLineaVisible(index);
   }
 
   private scrollLineaVisible(index: number): void {
@@ -846,7 +870,7 @@ export class VentasComponent implements OnInit, OnDestroy {
     const linea = document.getElementById('linea-' + l.key);
     if (!linea) return;
     // Card completa (no solo el input): queda bajo el sticky de fecha/totales.
-    scrollEnMain(linea, { belowSticky: true });
+    scrollEnMain(linea, { belowSticky: true, pinTop: true });
   }
 
   private focusById(id: string): boolean {

@@ -30,6 +30,7 @@ import {
   enfocarPorAttr,
   esMovilTactil,
   programarEnfoque,
+  scrollCampoCaptura,
   scrollEnMain,
 } from '../../captura-focus.util';
 
@@ -1516,8 +1517,8 @@ export class EntradasComponent implements OnInit, OnDestroy {
 
   private enfocarCaptura(index: number, campo: 'producto' | 'cantidad' | 'precio' | 'total'): void {
     const go = () => {
-      // Primero la card a la vista (bajo sticky); luego foco sin que el teclado baje todo.
-      this.scrollLineaVisible(index);
+      // Primero el campo a la vista (cantidad/precio no deben quedar bajo el teclado).
+      this.scrollCapturaVisible(index, campo);
       const key = this.lineas[index]?.key;
       if (campo === 'cantidad') {
         enfocarPorAttr('data-cant-key', key ?? '');
@@ -1529,11 +1530,33 @@ export class EntradasComponent implements OnInit, OnDestroy {
         this.autosVisibles()[index]?.focus();
       }
       if (esMovilTactil()) {
-        requestAnimationFrame(() => this.scrollLineaVisible(index));
+        requestAnimationFrame(() => this.scrollCapturaVisible(index, campo));
       }
     };
     this.cdr.detectChanges();
     programarEnfoque(go);
+  }
+
+  private scrollCapturaVisible(
+    index: number,
+    campo: 'producto' | 'cantidad' | 'precio' | 'total'
+  ): void {
+    const l = this.lineas[index];
+    if (!l) return;
+    const key = l.key;
+    let el: HTMLElement | null = null;
+    if (campo === 'cantidad') {
+      el = document.querySelector(`[data-cant-key="${key}"]`);
+    } else if (campo === 'precio') {
+      el = document.querySelector(`[data-precio-key="${key}"]`);
+    } else if (campo === 'total') {
+      el = document.querySelector(`[data-total-key="${key}"]`);
+    }
+    if (el) {
+      scrollCampoCaptura(el);
+      return;
+    }
+    this.scrollLineaVisible(index);
   }
 
   private scrollLineaVisible(index: number): void {
@@ -1543,7 +1566,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
       document.getElementById('linea-entrada-' + l.key) ||
       (document.querySelector(`[data-linea-key="${l.key}"]`) as HTMLElement | null);
     if (!linea) return;
-    scrollEnMain(linea, { belowSticky: true });
+    scrollEnMain(linea, { belowSticky: true, pinTop: true });
   }
 
   quitarLinea(index: number): void {

@@ -44,11 +44,12 @@ export function stickyTopInset(main?: HTMLElement | null): number {
 
 /**
  * Lleva un elemento a la vista scrolleando el main (no el body).
- * En móvil ancla arriba (bajo stickies / visualViewport) para que la card no quede baja.
+ * Móvil + teclado: solo el scroll mínimo para que el campo quede visible
+ * sobre el teclado (no lo pega arriba: eso se iba “muy abajo”).
  */
 export function scrollEnMain(
   el: HTMLElement | null | undefined,
-  opts?: { offset?: number; belowSticky?: boolean }
+  opts?: { offset?: number; belowSticky?: boolean; pinTop?: boolean }
 ): void {
   if (!el) return;
   const main = mainScrollEl();
@@ -60,11 +61,20 @@ export function scrollEnMain(
   }
   if (main) {
     const r = el.getBoundingClientRect();
-    // Con teclado: anclar al viewport visible, no al layout completo.
     const vv = typeof window !== 'undefined' ? window.visualViewport : null;
     if (esMovilTactil() && vv && vv.height > 0) {
-      const targetTop = vv.offsetTop + sticky + 8;
-      const delta = r.top - targetTop;
+      const visibleTop = vv.offsetTop + sticky + 8;
+      const visibleBottom = vv.offsetTop + vv.height - 14;
+      let delta = 0;
+      if (opts?.pinTop) {
+        // Card nueva / producto: pegar bajo sticky.
+        delta = r.top - visibleTop;
+      } else {
+        // Campo (cantidad…): lo mínimo para entrar en la zona visible.
+        if (r.bottom > visibleBottom) delta = r.bottom - visibleBottom;
+        if (r.top - delta < visibleTop) delta = r.top - visibleTop;
+      }
+      if (Math.abs(delta) < 2) return;
       main.scrollTo({ top: Math.max(0, main.scrollTop + delta), behavior: 'auto' });
       return;
     }
@@ -74,17 +84,32 @@ export function scrollEnMain(
     return;
   }
   el.scrollIntoView({
-    block: esMovilTactil() ? 'start' : 'center',
+    block: esMovilTactil() ? 'nearest' : 'center',
     behavior: 'auto',
   });
 }
 
-/** Un intento en móvil (el segundo pelea con el teclado); dos en escritorio (DOM nuevo). */
+/**
+ * Enfocar/scroll tras pintar DOM.
+ * Móvil: reintentos cuando abre el teclado (visualViewport); sin ellos cantidad queda abajo.
+ */
 export function programarEnfoque(fn: () => void): void {
   setTimeout(fn, 50);
-  if (!esMovilTactil()) {
-    setTimeout(fn, 220);
+  setTimeout(fn, esMovilTactil() ? 200 : 220);
+  if (esMovilTactil()) {
+    setTimeout(fn, 420);
   }
+}
+
+/**
+ * Tras elegir producto: scroll mínimo para que cantidad/precio queden sobre el teclado.
+ * No usa pinTop (pegaba el campo arriba y “se iba muy abajo”).
+ */
+export function scrollCampoCaptura(el: HTMLElement | null | undefined): void {
+  if (!el) return;
+  const ancla =
+    (el.closest('.campo-cantidad, .campo, label.campo') as HTMLElement | null) || el;
+  scrollEnMain(ancla, { belowSticky: true, pinTop: false });
 }
 
 export function enfocarInput(el: HTMLInputElement | null | undefined): boolean {

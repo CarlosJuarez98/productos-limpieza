@@ -9,7 +9,12 @@ import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { PageAlertsComponent } from '../../page-alerts.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
-import { elementoVisible, esMovilTactil, scrollEnMain } from '../../captura-focus.util';
+import {
+  elementoVisible,
+  esMovilTactil,
+  scrollCampoCaptura,
+  scrollEnMain,
+} from '../../captura-focus.util';
 import { FechaDiaComponent } from '../../fecha-dia.component';
 import { FechaDmYPipe, formatFechaDmY } from '../../fecha-dmy.pipe';
 import {
@@ -80,6 +85,8 @@ export class DomicilioComponent implements OnInit {
   lineas: LineaDom[] = [];
   private nextKey = 1;
   private focusTimer: ReturnType<typeof setTimeout> | null = null;
+  private focusTimer2: ReturnType<typeof setTimeout> | null = null;
+  private focusTimer3: ReturnType<typeof setTimeout> | null = null;
   private idsPreparables = new Set<number>();
   /** Evita realinear al abrir teclado (resize por altura). */
   private capturaMovil = capturaEsMovil();
@@ -475,6 +482,7 @@ export class DomicilioComponent implements OnInit {
 
   private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
     const go = () => {
+      this.scrollCapturaVisible(index, campo);
       if (campo === 'cantidad') {
         if (!this.focusById('dom-cant-' + (this.lineas[index]?.key ?? ''))) {
           this.autosCaptura()[index]?.focus();
@@ -482,18 +490,31 @@ export class DomicilioComponent implements OnInit {
       } else {
         this.autosCaptura()[index]?.focus();
       }
-      const l = this.lineas[index];
-      if (l) {
-        const linea = document.getElementById('dom-linea-' + l.key);
-        const ancla =
-          (linea?.querySelector('app-producto-autocomplete input') as HTMLElement | null) || linea;
-        scrollEnMain(ancla);
+      if (esMovilTactil()) {
+        requestAnimationFrame(() => this.scrollCapturaVisible(index, campo));
       }
     };
     if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
     this.cdr.detectChanges();
     this.focusTimer = setTimeout(go, 50);
-    if (!esMovilTactil()) setTimeout(go, 220);
+    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 200 : 220);
+    this.focusTimer3 = esMovilTactil() ? setTimeout(go, 420) : null;
+  }
+
+  private scrollCapturaVisible(index: number, campo: 'producto' | 'cantidad'): void {
+    const l = this.lineas[index];
+    if (!l) return;
+    if (campo === 'cantidad') {
+      const cant = document.getElementById('dom-cant-' + l.key);
+      if (cant) {
+        scrollCampoCaptura(cant);
+        return;
+      }
+    }
+    const linea = document.getElementById('dom-linea-' + l.key);
+    if (linea) scrollEnMain(linea, { belowSticky: true, pinTop: true });
   }
 
   private focusById(id: string): boolean {
