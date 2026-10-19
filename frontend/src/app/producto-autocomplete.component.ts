@@ -30,48 +30,58 @@ import { InventarioItem } from './modelos';
     '[class.lista-abierta]': 'listaVisible',
   },
   template: `
-    <div
-      class="producto-ac"
-      [class.abierto]="listaVisible"
+    <!-- form autocomplete=off + readonly hasta focus: Chrome/Android no mete sugerencias nativas -->
+    <form
+      class="producto-ac-form"
+      ngNoForm
+      autocomplete="off"
+      (submit)="$event.preventDefault()"
       #root
       (click)="$event.stopPropagation()"
     >
-      <input
-        #inputEl
-        type="text"
-        [ngModel]="texto"
-        (ngModelChange)="onTexto($event)"
-        (focus)="abrir()"
-        (blur)="onBlur()"
-        (keydown)="onKeydown($event)"
-        role="combobox"
-        [attr.aria-expanded]="listaVisible"
-        aria-autocomplete="list"
-        [placeholder]="placeholder"
-        [required]="required"
-        [disabled]="disabled"
-        [readonly]="disabled"
-        autocomplete="new-password"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-        data-lpignore="true"
-        data-1p-ignore="true"
-        data-form-type="other"
-        [attr.name]="inputNameSafe"
-        [attr.autocomplete]="'new-password'"
-        [class.con-clear]="texto.trim() && !disabled"
-      />
-      @if (texto.trim() && !disabled) {
-        <button
-          type="button"
-          class="ac-clear"
-          aria-label="Borrar"
-          tabindex="-1"
-          (pointerdown)="limpiar($event)"
-        >×</button>
-      }
-    </div>
+      <div class="producto-ac" [class.abierto]="listaVisible">
+        <input
+          #inputEl
+          type="text"
+          inputmode="text"
+          enterkeyhint="next"
+          [ngModel]="texto"
+          (ngModelChange)="onTexto($event)"
+          (pointerdown)="soltarNativoAntesDeFoco()"
+          (touchstart)="soltarNativoAntesDeFoco()"
+          (focus)="onFocusInput()"
+          (blur)="onBlur()"
+          (keydown)="onKeydown($event)"
+          role="combobox"
+          [attr.aria-expanded]="listaVisible"
+          aria-autocomplete="list"
+          [placeholder]="placeholder"
+          [required]="required"
+          [disabled]="disabled"
+          [readOnly]="disabled || nativoBloqueado"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          data-bwignore="true"
+          data-form-type="other"
+          [attr.name]="inputNameSafe"
+          [attr.autocomplete]="'off'"
+          [class.con-clear]="texto.trim() && !disabled"
+        />
+        @if (texto.trim() && !disabled) {
+          <button
+            type="button"
+            class="ac-clear"
+            aria-label="Borrar"
+            tabindex="-1"
+            (pointerdown)="limpiar($event)"
+          >×</button>
+        }
+      </div>
+    </form>
 
     <ng-template #listaTpl>
       <ul
@@ -117,6 +127,13 @@ import { InventarioItem } from './modelos';
       }
       :host.lista-abierta {
         z-index: 45;
+      }
+      .producto-ac-form {
+        display: block;
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
       }
       .producto-ac {
         position: relative;
@@ -198,6 +215,8 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
   abreArriba = false;
   estiloLista: Record<string, string> | null = null;
   indiceActivo = -1;
+  /** Readonly hasta el foco: evita el autocompletado nativo de Chrome/Android/iOS. */
+  nativoBloqueado = true;
 
   private bloqueoReabrir = false;
   private blurTimer: ReturnType<typeof setTimeout> | null = null;
@@ -260,8 +279,36 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     if (this.blurTimer != null) clearTimeout(this.blurTimer);
   }
 
+  /**
+   * Enfoca y abre teclado móvil.
+   * Debe ir en el mismo gesto del usuario (Enter/Siguiente): sin setTimeout.
+   * Quita readonly en el DOM al momento; si Angular lo quita después, Android
+   * deja el cursor parpadeando sin teclado.
+   */
   focus(): void {
-    this.inputEl?.nativeElement?.focus({ preventScroll: true });
+    if (this.disabled) return;
+    this.nativoBloqueado = false;
+    const el = this.inputEl?.nativeElement;
+    if (!el) return;
+    el.readOnly = false;
+    el.focus({ preventScroll: true });
+  }
+
+  /**
+   * Quitar readonly ANTES del focus (touch/click).
+   * Si el input está readonly al enfocar, Android/iOS no abren el teclado.
+   * Hay que tocar el DOM ya: el change detection de Angular llega tarde.
+   */
+  soltarNativoAntesDeFoco(): void {
+    if (this.disabled) return;
+    this.nativoBloqueado = false;
+    const el = this.inputEl?.nativeElement;
+    if (el) el.readOnly = false;
+  }
+
+  onFocusInput(): void {
+    this.nativoBloqueado = false;
+    this.abrir();
   }
 
   estaVisible(): boolean {
@@ -323,10 +370,17 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
 
   onEnter(ev: Event): void {
     const ke = ev as KeyboardEvent;
-    if (this.listaVisible && this.filtrados.length > 0) {
+    const list = this.filtrados;
+    const q = this.texto.trim().toLowerCase();
+    const exacto = list.find((p) => p.nombre.toLowerCase() === q);
+    if (this.listaVisible && list.length > 0) {
       ke.preventDefault();
-      const idx = this.indiceActivo >= 0 ? this.indiceActivo : 0;
-      this.elegir(this.filtrados[idx]);
+      // Nombre completo escrito → ese producto; si no, el activo o el primero.
+      const elegido =
+        exacto ||
+        (this.indiceActivo >= 0 ? list[this.indiceActivo] : null) ||
+        list[0];
+      this.elegir(elegido);
       return;
     }
     if (this.enterAvanza || this.productoId != null || this.texto.trim()) {
@@ -369,13 +423,26 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
 
   onBlur(): void {
     if (this.blurTimer != null) clearTimeout(this.blurTimer);
+    // «Siguiente» / avance a cantidad: solo cerrar lista; no pelear con el nuevo foco.
+    const cerrarSuave = () => {
+      this.cerrarLista(true);
+      const ae = document.activeElement as HTMLElement | null;
+      // Si el foco quedó en cantidad/precio de la misma card, no rebloquear nativo aquí.
+      if (ae?.closest?.('.linea-card, .ticket')) return;
+      this.nativoBloqueado = true;
+    };
+    if (!this.interactuandoLista) {
+      // Dejar que el foco llegue a cantidad en el mismo turno (Enter/Siguiente).
+      queueMicrotask(cerrarSuave);
+      return;
+    }
     this.blurTimer = setTimeout(() => {
       if (this.interactuandoLista) return;
       const ae = document.activeElement as HTMLElement | null;
       if (ae && this.rootEl?.nativeElement.contains(ae)) return;
       if (ae?.closest?.('.producto-ac-sugerencias')) return;
-      this.cerrarLista(true);
-    }, 160);
+      cerrarSuave();
+    }, 220);
   }
 
   /**
@@ -433,10 +500,6 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     this.bloqueoReabrir = false;
     this.texto = value;
     this.indiceActivo = -1;
-    this.abierto = true;
-    this.sincronizarPortal();
-    this.prepararListaVisible(!this.vistaAsegurada);
-    if (this.listaVisible) this.vistaAsegurada = true;
     const exacto = this.productos.find(
       (p) => p.nombre.toLowerCase() === value.trim().toLowerCase()
     );
@@ -445,6 +508,18 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
       this.productoId = id;
       this.productoIdChange.emit(id);
     }
+    // Coincidencia exacta y única → no dejar la lista abierta encima de cantidad.
+    const extras = this.filtrados.filter((p) => !exacto || p.id !== exacto.id);
+    if (exacto && extras.length === 0) {
+      this.abierto = false;
+      this.destruirPortal();
+      this.vistaAsegurada = false;
+      return;
+    }
+    this.abierto = true;
+    this.sincronizarPortal();
+    this.prepararListaVisible(!this.vistaAsegurada);
+    if (this.listaVisible) this.vistaAsegurada = true;
   }
 
   elegir(p: InventarioItem): void {
@@ -457,8 +532,9 @@ export class ProductoAutocompleteComponent implements OnChanges, OnDestroy {
     this.productoIdChange.emit(p.id);
     this.bloqueoReabrir = true;
     this.cerrarLista(false);
+    // Síncrono: microtask sale del gesto y Android cierra el teclado al ir a cantidad.
     if (this.enterAvanza) {
-      queueMicrotask(() => this.enterConfirmado.emit());
+      this.enterConfirmado.emit();
     }
   }
 

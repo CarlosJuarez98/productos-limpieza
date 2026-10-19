@@ -705,6 +705,11 @@ td.fecha-naranja {
   flex: 1;
 }
 
+/* Dock de modos: solo móvil (va dentro de .ventas-fijo sticky) */
+.modos-dock {
+  display: none;
+}
+
 @media (max-width: 767px) {
   .ventas-fijo {
     position: sticky;
@@ -746,6 +751,86 @@ td.fecha-naranja {
     flex-direction: column;
     align-items: stretch;
     gap: 0.45rem;
+  }
+
+  /* Tipo de venta fijo bajo fecha/totales (línea activa); no tapa el teclado */
+  .modos-dock {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.45rem;
+    margin-top: 0.45rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid color-mix(in srgb, var(--line) 70%, #fff);
+  }
+
+  /*
+   * Con teclado: quitar corte/fecha/totales.
+   * Header Amorcas y bottom-nav se ocultan vía body.captura-teclado.
+   * Modos en una sola fila compacta.
+   */
+  .ventas-fijo.teclado-abierto {
+    padding: 0.28rem 0.5rem 0.3rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .ventas-fijo.teclado-abierto .page-title,
+  .ventas-fijo.teclado-abierto .corte-aviso,
+  .ventas-fijo.teclado-abierto .captura-head {
+    display: none;
+  }
+
+  .ventas-fijo.teclado-abierto .modos-dock {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ventas-fijo.teclado-abierto .modos-dock-label {
+    flex: 0 0 auto;
+    font-size: 0.65rem;
+  }
+
+  .ventas-fijo.teclado-abierto .modos-dock .modo-chips {
+    flex-wrap: nowrap;
+  }
+
+  .ventas-fijo.teclado-abierto .modos-dock .modo-chip {
+    padding: 0.22rem 0.4rem;
+    font-size: 0.68rem;
+    min-height: 1.65rem;
+    white-space: nowrap;
+  }
+
+  .ventas-fijo.teclado-abierto::before {
+    display: none;
+  }
+
+  .modos-dock-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .modos-dock .modo-chips {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .modos-dock .modo-chip {
+    padding: 0.32rem 0.55rem;
+    font-size: 0.78rem;
+    min-height: 2rem;
+  }
+
+  .linea-top .modo-chips-en-card {
+    display: none;
   }
 
   .totales-rapidos {

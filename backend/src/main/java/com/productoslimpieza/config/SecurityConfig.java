@@ -138,7 +138,8 @@ public class SecurityConfig {
         .map(String::trim)
         .filter(s -> !s.isEmpty())
         .toList();
-    config.setAllowedOrigins(origins);
+    // Patrones: permite cel en WiFi (192.168.x.x:4202) sin listar cada IP.
+    config.setAllowedOriginPatterns(origins);
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
     config.setAllowedHeaders(List.of("*"));
     config.setAllowCredentials(true);

@@ -15,10 +15,14 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
 import {
+  capturaTecladoAbierto,
   elementoVisible,
   esMovilTactil,
+  focoEnCapturaLinea,
+  observarTecladoCaptura,
   scrollCampoCaptura,
   scrollEnMain,
+  scrollLineaCapturaComfort,
 } from '../../captura-focus.util';
 import { ConfirmDialogService } from '../../confirm-dialog.service';
 import { PageAlertsComponent } from '../../page-alerts.component';
@@ -106,8 +110,15 @@ export class VentasComponent implements OnInit, OnDestroy {
   private fechasCorte = new Set<string>();
   private idMarcadoresCorte = new Set<number>();
   lineas: LineaVenta[] = [];
+  /** Línea cuyo tipo de venta se muestra fijo (móvil, bajo fecha/totales). */
+  lineaModoKey: number | null = null;
+  /** Compacta sticky (fecha/totales) para dejar ver producto/cantidad. */
+  tecladoAbierto = false;
+  /** Evita pelear con foco durante Enter/Siguiente entre campos. */
+  private avanzandoCaptura = false;
   private nextKey = 1;
   private pullSub?: Subscription;
+  private tecladoCleanup?: () => void;
   private filtroTimer: ReturnType<typeof setTimeout> | null = null;
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
   private focusTimer: ReturnType<typeof setTimeout> | null = null;
@@ -168,9 +179,86 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.alinearLineasViewport();
     this.cargar();
     this.pullSub = this.pullRefresh.refresh$.subscribe(() => this.cargar());
+    this.tecladoCleanup = observarTecladoCaptura(() => this.actualizarStickyTeclado(true));
+  }
+
+  /** Compacta sticky solo con teclado + foco en línea de captura. */
+  private actualizarStickyTeclado(recolocar = false): void {
+    const ae = document.activeElement;
+    const enLinea = focoEnCapturaLinea(ae);
+    const next = capturaTecladoAbierto() && enLinea;
+    const cerro = this.tecladoAbierto && !next;
+    if (next !== this.tecladoAbierto) {
+      this.tecladoAbierto = next;
+      document.body.classList.toggle('captura-teclado', next);
+      this.cdr.detectChanges();
+    }
+    if (cerro) {
+      // Salto producto→cantidad: el foco sigue en captura; no anclar ni bajar scroll.
+      if (focoEnCapturaLinea()) {
+        this.tecladoAbierto = capturaTecladoAbierto();
+        document.body.classList.toggle('captura-teclado', this.tecladoAbierto);
+        this.cdr.detectChanges();
+        return;
+      }
+      document.body.classList.remove('captura-teclado');
+      setTimeout(() => this.anclarLineaTrasTeclado(), 160);
+      return;
+    }
+    if (recolocar && next && ae instanceof HTMLInputElement) {
+      const forceTop =
+        ae.id.startsWith('cant-') || ae.id.startsWith('precio-') || ae.id.startsWith('total-');
+      requestAnimationFrame(() => {
+        scrollCampoCaptura(ae, { forceTop });
+        setTimeout(() => scrollCampoCaptura(ae, { forceTop }), 120);
+        setTimeout(() => scrollCampoCaptura(ae, { forceTop }), 280);
+      });
+    }
+  }
+
+  /** Tras cerrar teclado: scroll cómodo a la línea activa o la última venta. */
+  private anclarLineaTrasTeclado(): void {
+    if (capturaTecladoAbierto()) return;
+    if (focoEnCapturaLinea()) return;
+    const key =
+      this.lineaModoKey ??
+      this.lineas[this.lineas.length - 1]?.key ??
+      null;
+    if (key == null) return;
+    const linea = document.getElementById('linea-' + key);
+    if (!linea) return;
+    this.activarLineaModo(key);
+    scrollLineaCapturaComfort(linea);
+  }
+
+  @HostListener('document:focusin')
+  onFocusInTeclado(): void {
+    this.actualizarStickyTeclado(true);
+    setTimeout(() => this.actualizarStickyTeclado(true), 100);
+    setTimeout(() => this.actualizarStickyTeclado(true), 280);
+    setTimeout(() => this.actualizarStickyTeclado(true), 480);
+  }
+
+  @HostListener('document:focusout')
+  onFocusOutTeclado(): void {
+    // Esperar al nuevo foco (producto→cantidad) antes de decidir si cerró teclado.
+    setTimeout(() => {
+      if (focoEnCapturaLinea()) {
+        this.actualizarStickyTeclado(true);
+        return;
+      }
+      this.actualizarStickyTeclado(false);
+    }, 80);
+    setTimeout(() => {
+      if (focoEnCapturaLinea()) return;
+      this.actualizarStickyTeclado(false);
+    }, 350);
   }
 
   ngOnDestroy(): void {
+    this.tecladoCleanup?.();
+    this.tecladoCleanup = undefined;
+    document.body.classList.remove('captura-teclado');
     this.persistirBorrador();
     this.pullSub?.unsubscribe();
     if (this.filtroTimer != null) clearTimeout(this.filtroTimer);
@@ -655,7 +743,24 @@ export class VentasComponent implements OnInit, OnDestroy {
     }
   }
 
+  get lineaModoActiva(): LineaVenta | null {
+    if (this.lineaModoKey == null) return null;
+    return this.lineas.find((l) => l.key === this.lineaModoKey) ?? null;
+  }
+
+  get indiceLineaModo(): number {
+    if (this.lineaModoKey == null) return -1;
+    return this.lineas.findIndex((l) => l.key === this.lineaModoKey);
+  }
+
+  /** Al enfocar producto/cantidad de una línea, fija sus modos arriba (sin scroll). */
+  activarLineaModo(key: number): void {
+    if (this.lineaModoKey === key) return;
+    this.lineaModoKey = key;
+  }
+
   setModo(l: LineaVenta, modo: ModoVenta): void {
+    this.activarLineaModo(l.key);
     const activeId = (document.activeElement as HTMLElement | null)?.id || '';
     const enEstaLinea =
       activeId === `cant-${l.key}` ||
@@ -764,20 +869,12 @@ export class VentasComponent implements OnInit, OnDestroy {
     this.programarBorrador();
     this.cdr.detectChanges();
     const idx = this.lineas.length - 1;
-    // Quitar foco del «+»: el anclaje de scroll del navegador deja la vista abajo.
-    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    // Esperar un frame para que la card exista; en móvil reafirmar tras teclado/layout.
-    requestAnimationFrame(() => {
-      this.scrollLineaVisible(idx);
-      this.enfocarCaptura(idx, 'producto');
-    });
+    this.activarLineaModo(this.lineas[idx].key);
+    // Foco YA (mismo gesto de Siguiente/+): si se aplaza, Android no abre teclado.
+    this.enfocarCaptura(idx, 'producto');
     if (esMovilTactil()) {
-      // Tras teclado / visualViewport: subir un poco (si no, la card queda baja).
       this.programarScroll(() => this.scrollLineaVisible(idx), 120);
       this.programarScroll(() => this.scrollLineaVisible(idx), 280);
-      this.programarScroll(() => this.scrollLineaVisible(idx), 480);
     }
   }
 
@@ -796,27 +893,36 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   private avanzarDesde(index: number, desde: 'producto' | 'cantidad' | 'precio' | 'total'): void {
-    const l = this.lineas[index];
-    if (!l) {
-      this.agregarLinea();
-      return;
+    this.avanzandoCaptura = true;
+    try {
+      const l = this.lineas[index];
+      if (!l) {
+        this.agregarLinea();
+        return;
+      }
+      if (desde === 'producto') {
+        this.enfocarCaptura(index, 'cantidad');
+        return;
+      }
+      if (desde === 'cantidad' && this.permitePrecioManual(l)) {
+        this.enfocarCampoId('precio-' + l.key);
+        return;
+      }
+      if ((desde === 'cantidad' || desde === 'precio') && this.esMayoreo(l) && !this.tienePrecioManual(l)) {
+        this.enfocarCampoId('total-' + l.key);
+        return;
+      }
+      const irA = index + 1;
+      if (irA >= this.lineas.length) {
+        this.agregarLinea();
+        return;
+      }
+      this.enfocarCaptura(irA, 'producto');
+    } finally {
+      queueMicrotask(() => {
+        this.avanzandoCaptura = false;
+      });
     }
-    if (desde === 'producto') {
-      this.enfocarCaptura(index, 'cantidad');
-      return;
-    }
-    if (desde === 'cantidad' && this.permitePrecioManual(l)) {
-      if (this.focusById('precio-' + l.key)) return;
-    }
-    if ((desde === 'cantidad' || desde === 'precio') && this.esMayoreo(l) && !this.tienePrecioManual(l)) {
-      if (this.focusById('total-' + l.key)) return;
-    }
-    const irA = index + 1;
-    if (irA >= this.lineas.length) {
-      this.agregarLinea();
-      return;
-    }
-    this.enfocarCaptura(irA, 'producto');
   }
 
   private autosCaptura(): ProductoAutocompleteComponent[] {
@@ -825,43 +931,82 @@ export class VentasComponent implements OnInit, OnDestroy {
     );
   }
 
-  private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
-    const go = () => {
-      // Primero anclar a la vista; luego foco (preventScroll) para que el teclado no baje todo.
-      this.scrollCapturaVisible(index, campo);
-      if (campo === 'cantidad') {
-        if (!this.focusById('cant-' + (this.lineas[index]?.key ?? ''))) {
-          this.autosCaptura()[index]?.focus();
-        }
-      } else {
-        this.autosCaptura()[index]?.focus();
-      }
-      if (esMovilTactil()) {
-        requestAnimationFrame(() => this.scrollCapturaVisible(index, campo));
-      }
-    };
-    if (this.focusTimer != null) clearTimeout(this.focusTimer);
-    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
-    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
-    this.cdr.detectChanges();
-    // Móvil: reintentos cuando abre el teclado (cantidad debe quedar arriba).
-    this.focusTimer = setTimeout(go, 50);
-    this.focusTimer2 = setTimeout(go, esMovilTactil() ? 200 : 220);
-    this.focusTimer3 = esMovilTactil() ? setTimeout(go, 420) : null;
+  /** Siguiente / foco nativo: scroll mínimo (sin tirar el producto fuera de vista). */
+  onCampoFocus(ev: FocusEvent): void {
+    const t = ev.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    const forceTop = t.id.startsWith('cant-') || t.id.startsWith('precio-') || t.id.startsWith('total-');
+    scrollCampoCaptura(t, { forceTop });
+    if (esMovilTactil()) {
+      setTimeout(() => scrollCampoCaptura(t, { forceTop }), 200);
+    }
   }
 
-  /** Producto → card; cantidad → el campo (en móvil no debe quedar bajo el teclado). */
-  private scrollCapturaVisible(index: number, campo: 'producto' | 'cantidad' = 'producto'): void {
-    const l = this.lineas[index];
-    if (!l) return;
+  private enfocarCaptura(index: number, campo: 'producto' | 'cantidad'): void {
     if (campo === 'cantidad') {
-      const cant = document.getElementById('cant-' + l.key);
-      if (cant) {
-        scrollCampoCaptura(cant);
+      const key = this.lineas[index]?.key;
+      if (key != null) {
+        this.enfocarCampoId('cant-' + key, () => this.autosCaptura()[index]?.focus(), true);
         return;
       }
     }
-    this.scrollLineaVisible(index);
+    // Producto: foco síncrono (abre teclado); scroll se puede reintentar.
+    this.cdr.detectChanges();
+    this.autosCaptura()[index]?.focus();
+    const scrollProd = () => {
+      const key = this.lineas[index]?.key;
+      const input =
+        (key != null &&
+          (document.querySelector(
+            `#linea-${key} app-producto-autocomplete input`
+          ) as HTMLInputElement | null)) ||
+        null;
+      if (input) {
+        // Reafirmar foco sin salir del input (por si CD re-puso readonly).
+        if (document.activeElement !== input) {
+          input.readOnly = false;
+          input.focus({ preventScroll: true });
+        }
+        scrollCampoCaptura(input);
+      } else {
+        this.scrollLineaVisible(index);
+      }
+    };
+    scrollProd();
+    this.programarScrollSolo(scrollProd);
+  }
+
+  /** Precio / total / cantidad: foco ya; reintentos solo de scroll. */
+  private enfocarCampoId(id: string, fallback?: () => void, desdeProducto = false): void {
+    this.cdr.detectChanges();
+    const applyFocus = (): boolean => {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (!el || !elementoVisible(el)) {
+        fallback?.();
+        return false;
+      }
+      el.focus({ preventScroll: true });
+      if (!esMovilTactil()) el.select();
+      scrollCampoCaptura(el, { forceTop: !desdeProducto });
+      return true;
+    };
+    applyFocus();
+    this.programarScrollSolo(() => {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (!el) return;
+      if (document.activeElement !== el) el.focus({ preventScroll: true });
+      scrollCampoCaptura(el, { forceTop: !desdeProducto });
+    });
+  }
+
+  /** Reintentos de scroll tras teclado; no retrasan el primer focus. */
+  private programarScrollSolo(fn: () => void): void {
+    if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
+    this.focusTimer = setTimeout(fn, 50);
+    this.focusTimer2 = setTimeout(fn, esMovilTactil() ? 200 : 220);
+    this.focusTimer3 = esMovilTactil() ? setTimeout(fn, 420) : null;
   }
 
   private scrollLineaVisible(index: number): void {
@@ -876,6 +1021,8 @@ export class VentasComponent implements OnInit, OnDestroy {
   private focusById(id: string): boolean {
     const el = document.getElementById(id) as HTMLInputElement | null;
     if (!el || !elementoVisible(el)) return false;
+    const forceTop = id.startsWith('cant-') || id.startsWith('precio-') || id.startsWith('total-');
+    scrollCampoCaptura(el, { forceTop });
     el.focus({ preventScroll: true });
     // select() en móvil a veces cierra/reabre el teclado
     if (!esMovilTactil()) el.select();
@@ -1048,10 +1195,16 @@ export class VentasComponent implements OnInit, OnDestroy {
   quitarLinea(index: number): void {
     if (this.lineas.length <= 1) {
       this.lineas[index] = this.nuevaLinea();
+      this.lineaModoKey = this.lineas[0].key;
       this.alinearLineasViewport();
       return;
     }
+    const quitada = this.lineas[index]?.key;
     this.lineas.splice(index, 1);
+    if (quitada != null && this.lineaModoKey === quitada) {
+      const idx = Math.min(index, this.lineas.length - 1);
+      this.lineaModoKey = this.lineas[idx]?.key ?? null;
+    }
     this.alinearLineasViewport();
   }
 
@@ -1272,6 +1425,7 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   private resetLineas(n: number): void {
     this.lineas = Array.from({ length: n }, () => this.nuevaLinea());
+    this.lineaModoKey = this.lineas[0]?.key ?? null;
   }
 
   private nuevaLinea(): LineaVenta {
@@ -1334,6 +1488,7 @@ export class VentasComponent implements OnInit, OnDestroy {
       total: l.total ?? null,
       pagoTarjeta: !!l.pagoTarjeta,
     }));
+    this.lineaModoKey = this.lineas[0]?.key ?? null;
     return this.hayBorradorUtil();
   }
 }

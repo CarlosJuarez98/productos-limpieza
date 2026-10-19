@@ -1473,6 +1473,8 @@ export class EntradasComponent implements OnInit, OnDestroy {
   agregarLinea(): void {
     this.lineas.push(this.nuevaLinea());
     this.programarBorrador();
+    this.cdr.detectChanges();
+    // Foco ya (gesto Siguiente): si se aplaza, Android no abre teclado.
     this.enfocarCaptura(this.lineas.length - 1, 'producto');
   }
 
@@ -1516,25 +1518,22 @@ export class EntradasComponent implements OnInit, OnDestroy {
   }
 
   private enfocarCaptura(index: number, campo: 'producto' | 'cantidad' | 'precio' | 'total'): void {
-    const go = () => {
-      // Primero el campo a la vista (cantidad/precio no deben quedar bajo el teclado).
-      this.scrollCapturaVisible(index, campo);
-      const key = this.lineas[index]?.key;
-      if (campo === 'cantidad') {
-        enfocarPorAttr('data-cant-key', key ?? '');
-      } else if (campo === 'precio') {
-        enfocarPorAttr('data-precio-key', key ?? '');
-      } else if (campo === 'total') {
-        enfocarPorAttr('data-total-key', key ?? '');
-      } else {
-        this.autosVisibles()[index]?.focus();
-      }
-      if (esMovilTactil()) {
-        requestAnimationFrame(() => this.scrollCapturaVisible(index, campo));
-      }
-    };
     this.cdr.detectChanges();
-    programarEnfoque(go);
+    // Foco síncrono (mismo gesto Enter/Siguiente) para abrir teclado en Android.
+    const key = this.lineas[index]?.key;
+    if (campo === 'cantidad') {
+      enfocarPorAttr('data-cant-key', key ?? '');
+    } else if (campo === 'precio') {
+      enfocarPorAttr('data-precio-key', key ?? '');
+    } else if (campo === 'total') {
+      enfocarPorAttr('data-total-key', key ?? '');
+    } else {
+      this.autosVisibles()[index]?.focus();
+    }
+    this.scrollCapturaVisible(index, campo);
+    const reScroll = () => this.scrollCapturaVisible(index, campo);
+    requestAnimationFrame(reScroll);
+    programarEnfoque(reScroll);
   }
 
   private scrollCapturaVisible(

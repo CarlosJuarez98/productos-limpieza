@@ -1,4 +1,4 @@
-<div class="ventas-fijo" #capturaPanel>
+<div class="ventas-fijo" [class.teclado-abierto]="tecladoAbierto" #capturaPanel>
   <h2 class="page-title">Ventas</h2>
 
   @if (fechaUltimoCorte) {
@@ -40,16 +40,43 @@
         </div>
       </div>
     </div>
+
+    @if (lineaModoActiva; as lm) {
+      <div class="modos-dock" role="group" [attr.aria-label]="'Tipo de venta ' + (indiceLineaModo + 1)">
+        <span class="modos-dock-label">Venta {{ indiceLineaModo + 1 }}</span>
+        <div class="modo-chips">
+          @for (t of modos; track t.value) {
+            <button
+              type="button"
+              class="modo-chip"
+              [class.activo]="lm.modo === t.value"
+              (mousedown)="$event.preventDefault()"
+              (click)="setModo(lm, t.value)"
+            >
+              {{ t.label }}
+            </button>
+          }
+        </div>
+      </div>
+    }
   </div>
 </div>
 
 <section class="panel captura-panel panel-anim">
   <div class="ticket">
     @for (l of lineas; track l.key; let i = $index) {
-      <article class="linea-card ui-card" [attr.id]="'linea-' + l.key" [class.stock-warn]="excedeStock(l, i)" [style.--i]="i">
+      <article
+        class="linea-card ui-card"
+        [attr.id]="'linea-' + l.key"
+        [class.stock-warn]="excedeStock(l, i)"
+        [class.linea-modo-activa]="lineaModoKey === l.key"
+        [style.--i]="i"
+        (focusin)="activarLineaModo(l.key)"
+        (pointerdown)="activarLineaModo(l.key)"
+      >
         <header class="linea-top">
           <span class="linea-num">{{ i + 1 }}</span>
-          <div class="modo-chips" role="group" [attr.aria-label]="'Modo venta ' + (i + 1)">
+          <div class="modo-chips modo-chips-en-card" role="group" [attr.aria-label]="'Modo venta ' + (i + 1)">
             @for (t of modos; track t.value) {
               <button
                 type="button"
@@ -112,12 +139,14 @@
                 [id]="'cant-' + l.key"
                 type="text"
                 inputmode="decimal"
+                enterkeyhint="next"
                 appClearable
                 [(ngModel)]="l.cantidad"
                 [name]="'cant' + l.key"
                 placeholder="0"
                 [class.input-warn]="excedeStock(l, i)"
                 (ngModelChange)="onLineaCambio(l)"
+                (focus)="onCampoFocus($event)"
                 (keydown.enter)="onCampoEnter($event, i, 'cantidad')"
               />
               <span class="unidad">{{ unidadDe(l) }}</span>
@@ -141,12 +170,14 @@
                   [id]="'precio-' + l.key"
                   type="text"
                   inputmode="decimal"
+                  enterkeyhint="next"
                   appClearable
                   [(ngModel)]="l.precioManual"
                   [name]="'precio' + l.key"
                   [placeholder]="pistaPrecioMayoreo(l)"
                   [title]="tituloPistaMayoreo(l)"
                   (ngModelChange)="onLineaCambio(l)"
+                  (focus)="onCampoFocus($event)"
                   (keydown.enter)="onCampoEnter($event, i, 'precio')"
                 />
               </div>
@@ -178,12 +209,14 @@
                   [id]="'total-' + l.key"
                   type="text"
                   inputmode="decimal"
+                  enterkeyhint="done"
                   appClearable
                   [(ngModel)]="l.total"
                   [name]="'total' + l.key"
                   [placeholder]="pistaTotalMayoreo(l)"
                   [title]="tituloPistaMayoreo(l)"
                   (ngModelChange)="programarBorrador()"
+                  (focus)="onCampoFocus($event)"
                   (keydown.enter)="onCampoEnter($event, i, 'total')"
                 />
               </div>

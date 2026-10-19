@@ -1,74 +1,97 @@
-<h2 class="page-title">Domicilio</h2>
+<div class="dom-fijo" [class.teclado-abierto]="tecladoAbierto">
+  <h2 class="page-title">Domicilio</h2>
 
-@if (fechaUltimoCorte) {
-  <p class="corte-aviso">
-    Última fecha de corte:
-    <strong class="fecha-naranja-caja">{{ fechaUltimoCorte | fechaDmY }}</strong>
-  </p>
-}
+  @if (fechaUltimoCorte) {
+    <p class="corte-aviso">
+      Última fecha de corte:
+      <strong class="fecha-naranja-caja">{{ fechaUltimoCorte | fechaDmY }}</strong>
+    </p>
+  }
+
+  <div class="panel captura-resumen">
+    <div class="captura-head">
+      <div class="captura-head-top">
+        <label class="fecha-field">
+          Fecha
+          <app-fecha-dia
+            [(ngModel)]="fecha"
+            name="fechaDom"
+            [min]="fechaMin || null"
+            [required]="true"
+            (fechaEnter)="onFechaEnter()"
+            ariaLabel="Fecha del pedido (puede ser futura)"
+          />
+        </label>
+        <div class="tot-chip">
+          <span>Total</span>
+          <strong>${{ totalTicket | number: '1.2-2' }}</strong>
+        </div>
+      </div>
+      <label class="cliente-field">
+        Cliente
+        <div
+          class="cliente-ac"
+          [class.abierto]="clienteListaAbierta && clientesFiltrados.length > 0"
+        >
+          <input
+            type="text"
+            appClearable
+            [(ngModel)]="cliente"
+            name="clienteDom"
+            placeholder="Nombre"
+            autocomplete="off"
+            enterkeyhint="next"
+            role="combobox"
+            [attr.aria-expanded]="clienteListaAbierta"
+            (focus)="abrirListaClientes()"
+            (ngModelChange)="onClienteCambio()"
+            (keydown)="onClienteKeydown($event)"
+            (blur)="cerrarListaClientes()"
+          />
+          @if (clienteListaAbierta && clientesFiltrados.length) {
+            <div class="lista-clientes" role="listbox" aria-label="Clientes anteriores">
+              @for (c of clientesFiltrados; track c; let i = $index) {
+                <button
+                  type="button"
+                  class="lista-cliente-item"
+                  role="option"
+                  [class.activo]="i === clienteIndice"
+                  (mousedown)="elegirCliente(c); $event.preventDefault()"
+                  (mouseenter)="clienteIndice = i"
+                >
+                  {{ c }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </label>
+    </div>
+
+    @if (lineaModoActiva; as lm) {
+      <div class="modos-dock" role="group" [attr.aria-label]="'Tipo de venta ' + (indiceLineaModo + 1)">
+        <span class="modos-dock-label">Venta {{ indiceLineaModo + 1 }}</span>
+        <div class="modo-chips">
+          @for (t of modos; track t.value) {
+            <button
+              type="button"
+              class="modo-chip"
+              [class.activo]="lm.modo === t.value"
+              (mousedown)="$event.preventDefault()"
+              (click)="setModo(lm, t.value)"
+            >
+              {{ t.label }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>
+
 <app-page-alerts [(ok)]="ok" [(error)]="error" />
 
 <section class="panel captura-panel panel-anim">
-  <div class="captura-head">
-    <label class="fecha-field">
-      Fecha
-      <app-fecha-dia
-        [(ngModel)]="fecha"
-        name="fechaDom"
-        [min]="fechaMin || null"
-        [required]="true"
-        (fechaEnter)="onFechaEnter()"
-        ariaLabel="Fecha del pedido (puede ser futura)"
-      />
-    </label>
-    <label class="cliente-field">
-      Cliente
-      <div
-        class="cliente-ac"
-        [class.abierto]="clienteListaAbierta && clientesFiltrados.length > 0"
-      >
-        <input
-          type="text"
-          appClearable
-          [(ngModel)]="cliente"
-          name="clienteDom"
-          placeholder="Nombre"
-          autocomplete="off"
-          role="combobox"
-          [attr.aria-expanded]="clienteListaAbierta"
-          (focus)="abrirListaClientes()"
-          (ngModelChange)="onClienteCambio()"
-          (keydown)="onClienteKeydown($event)"
-          (blur)="cerrarListaClientes()"
-        />
-        @if (clienteListaAbierta && clientesFiltrados.length) {
-          <div class="lista-clientes" role="listbox" aria-label="Clientes anteriores">
-            @for (c of clientesFiltrados; track c; let i = $index) {
-              <button
-                type="button"
-                class="lista-cliente-item"
-                role="option"
-                [class.activo]="i === clienteIndice"
-                (mousedown)="elegirCliente(c); $event.preventDefault()"
-                (mouseenter)="clienteIndice = i"
-              >
-                {{ c }}
-              </button>
-            }
-          </div>
-        }
-      </div>
-    </label>
-    <label>
-      Nota
-      <input type="text" appClearable [(ngModel)]="nota" name="notaDom" placeholder="Opcional" />
-    </label>
-    <div class="tot-chip">
-      <span>Total</span>
-      <strong>${{ totalTicket | number: '1.2-2' }}</strong>
-    </div>
-  </div>
-
   <h3 class="sr-only">{{ editandoId ? 'Editar pedido' : 'Nuevo pedido' }}</h3>
   @if (editandoId) {
     <p class="edit-banner">Editando pedido <strong>#{{ editandoId }}</strong></p>
@@ -80,11 +103,14 @@
         class="linea-card ui-card"
         [attr.id]="'dom-linea-' + l.key"
         [class.stock-warn]="excedeStock(l, i)"
+        [class.linea-modo-activa]="lineaModoKey === l.key"
         [style.--i]="i"
+        (focusin)="activarLineaModo(l.key)"
+        (pointerdown)="activarLineaModo(l.key)"
       >
         <header class="linea-top">
           <span class="linea-num">{{ i + 1 }}</span>
-          <div class="modo-chips" role="group" [attr.aria-label]="'Modo ' + (i + 1)">
+          <div class="modo-chips modo-chips-en-card" role="group" [attr.aria-label]="'Modo ' + (i + 1)">
             @for (t of modos; track t.value) {
               <button
                 type="button"
@@ -144,12 +170,14 @@
             <input
               type="text"
               inputmode="decimal"
+              enterkeyhint="next"
               appClearable
               [(ngModel)]="l.cantidad"
               [id]="'dom-cant-' + l.key"
               [name]="'domCant' + l.key"
               placeholder="0"
               [class.input-warn]="excedeStock(l, i)"
+              (focus)="onCantidadFocus($event, i)"
               (keydown.enter)="onCampoEnter($event, i, 'cantidad')"
             />
           </label>
@@ -161,11 +189,13 @@
                 <input
                   type="text"
                   inputmode="decimal"
+                  enterkeyhint="next"
                   appClearable
                   [(ngModel)]="l.precioManual"
                   [id]="'dom-precio-' + l.key"
                   [name]="'domPrecio' + l.key"
                   placeholder="0"
+                  (focus)="onCampoFocus($event)"
                   (keydown.enter)="onCampoEnter($event, i, 'precio')"
                 />
               </div>
@@ -177,11 +207,13 @@
                 <input
                   type="text"
                   inputmode="decimal"
+                  enterkeyhint="done"
                   appClearable
                   [(ngModel)]="l.total"
                   [id]="'dom-total-' + l.key"
                   [name]="'domTotal' + l.key"
                   placeholder="0"
+                  (focus)="onCampoFocus($event)"
                   (keydown.enter)="onCampoEnter($event, i, 'total')"
                 />
               </div>

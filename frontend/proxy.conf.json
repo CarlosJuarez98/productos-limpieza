@@ -4,6 +4,6 @@
     "secure": false,
     "changeOrigin": true,
     "cookiePathRewrite": "/",
-    "cookieDomainRewrite": "127.0.0.1"
+    "cookieDomainRewrite": ""
   }
 }
