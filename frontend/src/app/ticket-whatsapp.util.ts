@@ -16,6 +16,13 @@ export type TicketDatos = {
   lineas: TicketLinea[];
   total: number;
   nota?: string | null;
+  /**
+   * Publicidad por categoría: mismo diseño que domicilio,
+   * textos de lista de precios (no “pedido”).
+   */
+  modoPublicidad?: boolean;
+  /** Hasta 2 fotos bajo el logo (productos de la categoría). */
+  stripUrls?: string[] | null;
 };
 
 /** Paleta Amorcas (logo: navy + teal + verde limón). */
@@ -43,7 +50,8 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
     const img = new Image();
     img.decoding = 'async';
     img.onload = () => {
-      const finish = () => resolve(img.width > 0 && img.height > 0 ? img : null);
+      const finish = () =>
+        resolve((img.naturalWidth || img.width) > 0 && (img.naturalHeight || img.height) > 0 ? img : null);
       if (typeof img.decode === 'function') {
         img.decode().then(finish).catch(finish);
       } else {
@@ -59,6 +67,26 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
         ? src
         : `/${src}`;
   });
+}
+
+/** Fetch → blob → Image (más fiable que solo img.src en algunos móviles/Chrome). */
+async function loadImageViaFetch(url: string): Promise<HTMLImageElement | null> {
+  try {
+    const res = await fetch(url, { cache: 'no-cache' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (!blob || blob.size < 200) return null;
+    const objUrl = URL.createObjectURL(blob);
+    const img = await loadImage(objUrl);
+    if (!img) {
+      URL.revokeObjectURL(objUrl);
+      return null;
+    }
+    // Mantener blob vivo mientras el canvas dibuja (no revoke aquí).
+    return img;
+  } catch {
+    return null;
+  }
 }
 
 function roundRect(
@@ -249,10 +277,34 @@ function drawRoundedImageCover(
   h: number,
   r: number
 ): void {
+  const iw = img.naturalWidth || img.width || 1;
+  const ih = img.naturalHeight || img.height || 1;
+  const scale = Math.max(w / iw, h / ih);
+  const dw = iw * scale;
+  const dh = ih * scale;
+  const sx = x + (w - dw) / 2;
+  const sy = y + (h - dh) / 2;
   ctx.save();
   roundRect(ctx, x, y, w, h, r);
   ctx.clip();
-  drawImageCover(ctx, img, x, y, w, h);
+  ctx.drawImage(img, sx, sy, dw, dh);
+  ctx.restore();
+}
+
+/** Foto completa dentro del marco (sin recortar; deja márgenes si hace falta). */
+function drawRoundedImageContain(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.clip();
+  drawImageContain(ctx, img, x, y, w, h);
   ctx.restore();
 }
 
@@ -298,21 +350,88 @@ function drawBubblesWallpaper(
 }
 
 async function loadSticker(name: string): Promise<HTMLImageElement | null> {
-  const q = '?v=ticket8';
-  return loadImage(`/publicidad/${name}${q}`).then(
-    (i) => i || loadImage(`/api/publicidad/media/${name}${q}`)
-  );
+  const safe = (name || '').split('/').pop()?.split('?')[0] || '';
+  if (!safe) return null;
+  const q = `?v=ticket11`;
+  const urls = [`/publicidad/${safe}${q}`, `/api/publicidad/media/${safe}${q}`];
+  for (const url of urls) {
+    const viaFetch = await loadImageViaFetch(url);
+    if (viaFetch) return viaFetch;
+    const viaImg = await loadImage(url);
+    if (viaImg) return viaImg;
+  }
+  return null;
+}
+
+function stripNameFromUrl(url: string): string {
+  return (url || '').split('/').pop()?.split('?')[0] || '';
+}
+
+/** Fondo de publicidad: URL completa (foto de categoría) o nombre en /publicidad. */
+async function loadFondoPublicidad(stripRef: string | null | undefined): Promise<{
+  img: HTMLImageElement | null;
+  /** Foto subida: contain (no recortar). Strips de stock: cover. */
+  custom: boolean;
+}> {
+  const raw = (stripRef || '').trim();
+  if (!raw) {
+    return { img: await loadSticker('ticket-productos-strip.png'), custom: false };
+  }
+  const esUrl =
+    raw.startsWith('/') ||
+    raw.startsWith('http') ||
+    raw.startsWith('blob:') ||
+    raw.includes('/api/publicidad/categorias/');
+  if (esUrl) {
+    const bust = raw.includes('?') ? raw : `${raw}?t=${Date.now()}`;
+    const img =
+      (await loadImageViaFetch(bust)) ||
+      (await loadImage(bust)) ||
+      (await loadSticker('ticket-productos-strip.png'));
+    const custom =
+      raw.includes('/categorias/') ||
+      raw.includes('/galeria/') ||
+      raw.startsWith('blob:');
+    return { img, custom };
+  }
+  const name = stripNameFromUrl(raw) || 'ticket-productos-strip.png';
+  const img = (await loadSticker(name)) || (await loadSticker('ticket-productos-strip.png'));
+  return { img, custom: false };
 }
 
 export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
-  const [logo, stripProductos, stripJarceria, stickerBubbles] = await Promise.all([
-    loadImage('/publicidad/amorcas-chingon.png').then(
-      (i) => i || loadImage('/amorcas-logo.png').then((j) => j || loadImage('/publicidad/amorcas-c.jpg'))
-    ),
-    loadSticker('ticket-productos-strip.png'),
-    loadSticker('ticket-jarceria-strip.png'),
-    loadSticker('deco-burbujas.png'),
-  ]);
+  const esPub = !!datos.modoPublicidad;
+
+  // Publicidad: foto de categoría (si hay) o strip de local. Domicilio: 2 strips lifestyle.
+  const fondoPubRef = (datos.stripUrls || [])[0] || 'ticket-productos-strip.png';
+
+  const [logo, stripProductos, stripJarceria, fondoPub, stickerBubbles, iconWa] =
+    await Promise.all([
+      loadImageViaFetch('/publicidad/amorcas-chingon.png?v=ticket11').then(
+        (i) =>
+          i ||
+          loadImage('/publicidad/amorcas-chingon.png?v=ticket11').then(
+            (j) =>
+              j ||
+              loadImage('/amorcas-logo.png').then((k) => k || loadImage('/publicidad/amorcas-c.jpg'))
+          )
+      ),
+      loadSticker('ticket-productos-strip.png'),
+      loadSticker('ticket-jarceria-strip.png'),
+      esPub ? loadFondoPublicidad(fondoPubRef) : Promise.resolve({ img: null, custom: false }),
+      loadSticker('deco-burbujas.png'),
+      esPub
+        ? loadSticker('icon-wa-fijo.png').then(
+            (i) =>
+              i ||
+              loadImage('/publicidad/icon-wa-fijo.png?v=47').then(
+                (j) => j || loadImage('/api/publicidad/media/icon-wa-fijo.png?v=47')
+              )
+          )
+        : Promise.resolve(null),
+    ]);
+  const fondoLocal = fondoPub.img;
+  const fondoCustom = fondoPub.custom;
 
   const W = 1080;
   const margin = 36;
@@ -324,13 +443,14 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
   const clienteNom = (datos.cliente || '').trim();
   const tieneCliente = !!clienteNom;
 
-  // Logo: proporción fija del asset (1152×896) — nunca estirar
+  // Logo: proporción fija del asset (1152×896) — igual que domicilio
   const LOGO_AR = 1152 / 896;
   const logoBoxW = 520;
   const logoBoxH = Math.round(logoBoxW / LOGO_AR);
   const logoTop = 28;
   const headerBandH = 64;
-  const stripH = 260;
+  // Publicidad: banner; foto subida → más alto para que no se vea aplastada
+  const stripH = esPub ? (fondoCustom ? 420 : 300) : 260;
   const stripGap = 16;
   const afterBrandGap = 28;
   const fechaH = 132;
@@ -340,7 +460,7 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
   const itemsGap = 14;
   const itemsH = n * itemH + Math.max(0, n - 1) * itemsGap;
   const totalH = 150;
-  const notaH = datos.nota ? 64 : 0;
+  const notaH = datos.nota && !esPub ? 64 : 0;
   const contactH = 88;
   const brandH = logoTop + logoBoxH + stripGap + stripH + afterBrandGap;
   const cardH =
@@ -422,28 +542,59 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
     ctx.fillText('AMORCAS', W / 2, logoY + logoBoxH / 2 + 16);
   }
 
-  // Fotos limpias (sin marco de stickers)
+  // Bajo el logo: publicidad = 1 fondo de local; domicilio = 2 strips
   const stripY = logoY + logoBoxH + stripGap;
   const listX = cardX + pad;
   const listW = cardW - pad * 2;
   const halfGap = 14;
   const halfW = (listW - halfGap) / 2;
 
-  const drawPhotoPanel = (x: number, photo: HTMLImageElement | null) => {
-    roundRect(ctx, x, stripY, halfW, stripH, 22);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fill();
-    if (photo) {
-      drawRoundedImageCover(ctx, photo, x, stripY, halfW, stripH, 22);
+  if (esPub) {
+    let fondo = fondoLocal || stripProductos;
+    if (!fondo) {
+      fondo = (await loadSticker('ticket-productos-strip.png'));
     }
-    ctx.strokeStyle = 'rgba(11, 42, 74, 0.14)';
-    ctx.lineWidth = 2;
-    roundRect(ctx, x, stripY, halfW, stripH, 22);
+    roundRect(ctx, listX, stripY, listW, stripH, 22);
+    ctx.fillStyle = '#E8F5F8';
+    ctx.fill();
+    if (fondo && (fondo.naturalWidth || fondo.width) > 0) {
+      // Foto de categoría: contain (entera). Strips de stock: cover.
+      if (fondoCustom) {
+        drawRoundedImageContain(ctx, fondo, listX, stripY, listW, stripH, 22);
+      } else {
+        drawRoundedImageCover(ctx, fondo, listX, stripY, listW, stripH, 22);
+      }
+    }
+    ctx.strokeStyle = 'rgba(11, 42, 74, 0.16)';
+    ctx.lineWidth = 2.5;
+    roundRect(ctx, listX, stripY, listW, stripH, 22);
     ctx.stroke();
-  };
-
-  drawPhotoPanel(listX, stripProductos);
-  drawPhotoPanel(listX + halfW + halfGap, stripJarceria);
+  } else {
+    const drawPhotoPanel = (x: number, photo: HTMLImageElement | null) => {
+      roundRect(ctx, x, stripY, halfW, stripH, 22);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      if (photo && (photo.naturalWidth || photo.width) > 0) {
+        drawRoundedImageCover(ctx, photo, x, stripY, halfW, stripH, 22);
+      }
+      ctx.strokeStyle = 'rgba(11, 42, 74, 0.14)';
+      ctx.lineWidth = 2;
+      roundRect(ctx, x, stripY, halfW, stripH, 22);
+      ctx.stroke();
+    };
+    let stripA = stripProductos;
+    let stripB = stripJarceria;
+    if (!stripA || !stripB) {
+      const [retryA, retryB] = await Promise.all([
+        stripA ? Promise.resolve(stripA) : loadSticker('ticket-productos-strip.png'),
+        stripB ? Promise.resolve(stripB) : loadSticker('ticket-jarceria-strip.png'),
+      ]);
+      stripA = stripA || retryA;
+      stripB = stripB || retryB;
+    }
+    drawPhotoPanel(listX, stripA);
+    drawPhotoPanel(listX + halfW + halfGap, stripB);
+  }
 
   let y = cardY + brandH;
   // listX/listW already set
@@ -470,7 +621,7 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
   const textLeft = listX + 18 + dayBoxW + 28;
   ctx.fillStyle = C.limeSoft;
   ctx.font = '800 22px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText((fb.weekday || 'pedido').toUpperCase(), textLeft, y + 48);
+  ctx.fillText((esPub ? 'precios' : fb.weekday || 'pedido').toUpperCase(), textLeft, y + 48);
   ctx.fillStyle = '#FFFFFF';
   ctx.font = '900 40px "Segoe UI", system-ui, sans-serif';
   const mesAnio = fb.mesLargo
@@ -480,7 +631,7 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
 
   y += fechaBoxH + 18;
 
-  // —— Cliente (sin círculo de iniciales) ——
+  // —— Cliente / eslogan publicidad ——
   roundRect(ctx, listX, y, listW, clienteH, 24);
   ctx.fillStyle = C.soft;
   ctx.fill();
@@ -490,22 +641,49 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
   ctx.stroke();
 
   const cTextX = listX + 28;
+  const cMaxW = listW - 56;
   ctx.textAlign = 'left';
-  ctx.fillStyle = C.navy;
-  ctx.font = '800 17px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText('PEDIDO PARA', cTextX, y + 36);
-  ctx.fillStyle = C.ink;
-  ctx.font = '900 36px "Segoe UI", system-ui, sans-serif';
-  const nombreShow = tieneCliente ? clienteNom : 'Cliente (sin nombre)';
-  ctx.fillText(truncate(ctx, nombreShow, listW - 56), cTextX, y + 74);
-  if (datos.telefonoCliente?.trim()) {
-    ctx.fillStyle = C.navy;
-    ctx.font = '700 18px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(truncate(ctx, datos.telefonoCliente.trim(), listW - 56), cTextX, y + 98);
+  if (esPub) {
+    // Solo el eslogan (sin etiqueta CATEGORÍA ni nombre de categoría)
+    const slogan = (datos.nota || 'Precios menudeo · Amorcas').trim();
+    ctx.fillStyle = C.ink;
+    ctx.font = '900 30px "Segoe UI", system-ui, sans-serif';
+    const words = slogan.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let cur = '';
+    for (const w of words) {
+      const trial = cur ? `${cur} ${w}` : w;
+      if (ctx.measureText(trial).width <= cMaxW) cur = trial;
+      else {
+        if (cur) lines.push(cur);
+        cur = w;
+        if (lines.length >= 1) break;
+      }
+    }
+    if (cur && lines.length < 2) lines.push(cur);
+    if (lines.length === 1) {
+      ctx.fillText(truncate(ctx, lines[0], cMaxW), cTextX, y + clienteH / 2 + 10);
+    } else {
+      ctx.fillText(truncate(ctx, lines[0] || slogan, cMaxW), cTextX, y + 42);
+      ctx.fillText(truncate(ctx, lines[1] || '', cMaxW), cTextX, y + 80);
+    }
   } else {
     ctx.fillStyle = C.navy;
-    ctx.font = '700 17px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText('Entrega a domicilio · Amorcas', cTextX, y + 98);
+    ctx.font = '800 17px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText('PEDIDO PARA', cTextX, y + 36);
+    ctx.fillStyle = C.ink;
+    ctx.font = '900 36px "Segoe UI", system-ui, sans-serif';
+    const nombreShow = tieneCliente ? clienteNom : 'Cliente (sin nombre)';
+    ctx.fillText(truncate(ctx, nombreShow, cMaxW), cTextX, y + 74);
+    if (datos.telefonoCliente?.trim()) {
+      ctx.fillStyle = C.navy;
+      ctx.font = '700 18px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(truncate(ctx, datos.telefonoCliente.trim(), cMaxW), cTextX, y + 98);
+    } else {
+      ctx.fillStyle = C.navy;
+      ctx.font = '700 17px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText('Entrega a domicilio · Amorcas', cTextX, y + 98);
+    }
   }
 
   y += clienteH + 28;
@@ -538,29 +716,39 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
     ctx.fill();
     ctx.fillRect(listX + 6, rowY, 10, itemH);
 
-    ctx.beginPath();
-    ctx.arc(listX + 50, rowY + itemH / 2, 24, 0, Math.PI * 2);
-    ctx.fillStyle = C.navy;
-    ctx.fill();
-    ctx.fillStyle = C.limeSoft;
-    ctx.font = '900 20px "Segoe UI", system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(String(i + 1), listX + 50, rowY + itemH / 2 + 7);
+    if (!esPub) {
+      ctx.beginPath();
+      ctx.arc(listX + 50, rowY + itemH / 2, 24, 0, Math.PI * 2);
+      ctx.fillStyle = C.navy;
+      ctx.fill();
+      ctx.fillStyle = C.limeSoft;
+      ctx.font = '900 20px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(i + 1), listX + 50, rowY + itemH / 2 + 7);
+    }
 
-    const textX = listX + 90;
-    const textMax = listW - 270;
+    const textX = esPub ? listX + 36 : listX + 90;
+    const textMax = esPub ? listW - 250 : listW - 270;
     ctx.textAlign = 'left';
     ctx.fillStyle = C.ink;
-    ctx.font = '900 28px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(truncate(ctx, l.nombre, textMax), textX, rowY + 44);
-    ctx.fillStyle = C.navy;
-    ctx.font = '800 20px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(truncate(ctx, l.detalle, textMax), textX, rowY + 78);
+    if (esPub) {
+      ctx.font = '900 34px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(truncate(ctx, l.nombre, textMax), textX, rowY + itemH / 2 + 12);
+    } else {
+      ctx.font = '900 34px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(truncate(ctx, l.nombre, textMax), textX, rowY + 46);
+      ctx.fillStyle = C.navy;
+      ctx.font = '800 24px "Segoe UI", system-ui, sans-serif';
+      ctx.fillText(truncate(ctx, l.detalle, textMax), textX, rowY + 82);
+    }
 
     ctx.textAlign = 'right';
     ctx.fillStyle = C.navy;
-    ctx.font = '900 32px "Segoe UI", system-ui, sans-serif';
-    ctx.fillText(`$${money(l.total)}`, listX + listW - 28, rowY + itemH / 2 + 11);
+    ctx.font = '900 38px "Segoe UI", system-ui, sans-serif';
+    const precioDer = esPub
+      ? (l.detalle || '').trim() || `$${money(l.total)}`
+      : `$${money(l.total)}`;
+    ctx.fillText(precioDer, listX + listW - 28, rowY + itemH / 2 + 13);
     ctx.textAlign = 'left';
   });
 
@@ -576,20 +764,42 @@ export async function generarTicketPng(datos: TicketDatos): Promise<Blob> {
 
   ctx.fillStyle = C.limeSoft;
   ctx.font = '800 18px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText('TOTAL A PAGAR', listX + 44, y + 46);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = '900 56px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText(`$${money(datos.total)}`, listX + 44, y + 110);
+  ctx.fillText(esPub ? 'PEDIDOS' : 'TOTAL A PAGAR', listX + 44, y + 46);
+  if (esPub) {
+    // Logo fijo de WhatsApp + número (sin la palabra "WhatsApp")
+    const iconSize = 72;
+    const iconX = listX + 44;
+    const iconY = y + 110 - iconSize + 10;
+    if (iconWa && (iconWa.naturalWidth || iconWa.width) > 0) {
+      drawImageContain(ctx, iconWa, iconX, iconY, iconSize, iconSize);
+    } else {
+      ctx.beginPath();
+      ctx.arc(iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2, 0, Math.PI * 2);
+      ctx.fillStyle = C.wa;
+      ctx.fill();
+    }
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 52px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(TEL_AMORCAS, iconX + iconSize + 18, y + 110);
+  } else {
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 56px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(`$${money(datos.total)}`, listX + 44, y + 110);
+  }
 
-  ctx.textAlign = 'right';
-  ctx.fillStyle = C.limeSoft;
-  ctx.font = '800 22px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText(`${n} producto${n === 1 ? '' : 's'}`, listX + listW - 36, y + 78);
-  ctx.textAlign = 'left';
+  if (!esPub) {
+    ctx.textAlign = 'right';
+    ctx.fillStyle = C.limeSoft;
+    ctx.font = '800 22px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(`${n} producto${n === 1 ? '' : 's'}`, listX + listW - 36, y + 78);
+    ctx.textAlign = 'left';
+  }
 
   y += totalH + 16;
 
-  if (datos.nota) {
+  // En publicidad el eslogan ya va en el bloque de categoría (no repetir como nota).
+  if (datos.nota && !esPub) {
     roundRect(ctx, listX, y, listW, 52, 16);
     ctx.fillStyle = C.mint;
     ctx.fill();
@@ -690,7 +900,7 @@ const FRASES_SERVICIO = [
   '¡Ya abrimos! ✅🟢\nEstamos listos para servirles 🧼✨',
   'En servicio 🟢\nPase a visitarnos o pida a domicilio 🛵🏠',
   '¡Negocio abierto! 🚪✨\nLo esperamos o le llevamos su pedido 🏠.',
-  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WhatsApp 💬',
+  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WA_TAIL',
 ];
 
 /**
@@ -870,9 +1080,26 @@ async function anexarPieContactoPublicidad(blob: Blob): Promise<Blob> {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('💳 Aceptamos tarjeta o efectivo', W / 2, y0 + barH * 0.38);
-  ctx.fillStyle = '#E8F6F8';
+
+  const iconWa =
+    (await loadImage('/publicidad/icon-wa-fijo.png?v=47')) ||
+    (await loadImage('/api/publicidad/media/icon-wa-fijo.png?v=47'));
+  const iconS = Math.round(barH * 0.42);
+  const line2 = `🕘 Horario ${HORARIO_ATENCION}  ·  ${TEL_AMORCAS}`;
   ctx.font = `700 ${Math.round(barH * 0.26)}px "Segoe UI", sans-serif`;
-  ctx.fillText(`🕘 Horario ${HORARIO_ATENCION}  ·  WhatsApp ${TEL_AMORCAS}`, W / 2, y0 + barH * 0.72);
+  const tw = ctx.measureText(line2).width;
+  const gap = 10;
+  const totalW = (iconWa ? iconS + gap : 0) + tw;
+  let x = (W - totalW) / 2;
+  const cy = y0 + barH * 0.72;
+  if (iconWa && (iconWa.naturalWidth || iconWa.width) > 0) {
+    drawImageContain(ctx, iconWa, x, cy - iconS / 2, iconS, iconS);
+    x += iconS + gap;
+  }
+  ctx.fillStyle = '#E8F6F8';
+  ctx.textAlign = 'left';
+  ctx.fillText(line2, x, cy);
+
   return new Promise((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('pie'))), 'image/png', 0.92);
   });
@@ -964,8 +1191,8 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
       rows.push({ text: '', size: 18, bold: false, accent: false, mute: false });
       continue;
     }
-    // "WA_ICON 247-…" o "💬 WhatsApp 247-…" → fila con icono + número
-    const waMatch = line.match(/^(?:WA_ICON|💬\s*WhatsApp)\s*(.+)$/i);
+    // "WA_ICON 247-…" / "WhatsApp 247-…" → fila con logo fijo + número
+    const waMatch = line.match(/^(?:WA_ICON|💬\s*WhatsApp|WhatsApp)\s+(.+)$/i);
     if (waMatch) {
       rows.push({
         text: waMatch[1].trim(),
@@ -1082,9 +1309,15 @@ async function renderTextoComoImagen(texto: string): Promise<Blob> {
 /** Marcadores internos → texto con emojis (el resto de emojis se conserva). */
 function textoParaPortapapeles(texto: string): string {
   return (texto || '')
-    .replace(/^WA_ICON\s+/gm, '💬 WhatsApp ')
-    .replace(/\bWA_TAIL\b/g, 'WhatsApp 💬')
+    // En imagen: logo WA; en portapapeles: emoji de chat + número
+    .replace(/^WA_ICON\s+/gm, '💬 ')
+    .replace(/\bWA_TAIL\b/g, 'WhatsApp')
+    .replace(/💬\s*WhatsApp\s+/gi, '💬 ')
+    .replace(/WhatsApp\s*💬\s*/gi, '💬 ')
+    .replace(/^WhatsApp\s+/gim, '💬 ')
     .replace(/\r\n/g, '\n')
+    .replace(/\n?https?:\/\/wa\.me\/\d+/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
@@ -1130,7 +1363,8 @@ function textoPublicidadLineas(_tituloPromo?: string): LineaPub[] {
     { text: `💳 Aceptamos pago con tarjeta o efectivo`, size: 'body' },
     { text: `🕘 Horario de atención: ${HORARIO_ATENCION}`, size: 'body' },
     { text: `📍 ${DIR_AMORCAS}`, size: 'body' },
-    { text: `💬 WhatsApp ${TEL_AMORCAS}`, size: 'body' },
+    // WA_ICON → logo en imagen; en portapapeles → 💬 + número
+    { text: `WA_ICON ${TEL_AMORCAS}`, size: 'body' },
     { text: '' },
     { text: 'Amorcas · Soluciones de Limpieza', mute: true, size: 'body' },
   ];

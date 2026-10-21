@@ -78,9 +78,9 @@
   flex: 0 0 auto;
   padding: 0.35rem 0.7rem;
   min-height: 2rem;
-  border-radius: 0.45rem;
-  border: 1px solid #1c654a;
-  background: #1c654a;
+  border-radius: 0.55rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
   color: #fff;
   font-weight: 700;
   font-size: 0.8rem;
@@ -88,7 +88,7 @@
 }
 
 .offline-sync-btn:hover {
-  background: #17553e;
+  background: var(--teal-deep, #1a7a8c);
 }
 
 .pull-refresh span {
@@ -114,8 +114,10 @@
   gap: 0.4rem;
   align-items: stretch;
   padding: calc(0.55rem + var(--safe-top, 0px)) 1rem 0.5rem;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, #f8fbf9 0%, #eef5f1 100%);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, #fff);
+  background:
+    radial-gradient(ellipse 50% 80% at 100% 0%, rgba(176, 208, 64, 0.14), transparent 55%),
+    linear-gradient(180deg, #f5fbfd 0%, #e4f2f5 100%);
 }
 
 .brand {
@@ -139,7 +141,7 @@
   flex: 0 0 auto;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  background: #1c654a;
+  background: linear-gradient(135deg, var(--navy, #183060) 0%, var(--teal-deep, #1a7a8c) 100%);
   color: #fff;
   font-size: 0.82rem;
   font-weight: 700;
@@ -155,21 +157,21 @@
   height: 2.55rem;
   flex-shrink: 0;
   display: block;
-  border-radius: 0.5rem;
+  border-radius: 0.65rem;
   object-fit: cover;
-  background: var(--accent);
-  box-shadow: 0 2px 8px rgba(28, 101, 74, 0.18);
+  background: var(--navy, #183060);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--teal, #28a0b8) 32%, transparent);
 }
 
 .brand h1 {
   margin: 0;
   text-align: center;
-  font-size: 1.15rem;
-  font-family: 'Fraunces', Georgia, serif;
-  color: #12251d;
+  font-size: 1.12rem;
+  font-family: var(--font-display);
+  color: var(--navy, #183060);
   line-height: 1.15;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   min-width: 0;
 }
 
@@ -196,8 +198,8 @@
 .btn-salir {
   flex: 0 0 auto;
   background: transparent;
-  color: #5a3a2a;
-  border: 1px solid #d4b5a0;
+  color: var(--teal-deep, #1a7a8c);
+  border: 1px solid color-mix(in srgb, var(--teal, #28a0b8) 40%, var(--line));
   padding: 0.35rem 0.7rem;
   font-size: 0.8rem;
   font-weight: 650;
@@ -207,7 +209,7 @@
 }
 
 .btn-salir:hover {
-  background: #fff5ee;
+  background: var(--accent-soft, #e4f4f8);
 }
 
 .login-main {
@@ -258,16 +260,16 @@
 .top-nav a,
 .top-nav .nav-more {
   text-decoration: none;
-  color: #1f4d3a;
+  color: var(--navy, #183060);
   padding: 0.38rem 0.72rem;
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 650;
   white-space: nowrap;
   line-height: 1.15;
-  background: #fff;
-  border: 1px solid color-mix(in srgb, #b9cbbf 80%, #fff);
-  box-shadow: 0 4px 12px rgba(22, 53, 40, 0.05);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid color-mix(in srgb, var(--line) 75%, #fff);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--teal, #28a0b8) 12%, transparent);
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
   display: inline-flex;
   align-items: center;
@@ -297,24 +299,24 @@
 
 .top-nav a:hover,
 .top-nav .nav-more:hover {
-  background: var(--accent-soft, #e8f3ee);
-  border-color: #9fb8aa;
-  color: #163528;
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--teal) 45%, var(--line));
+  color: var(--navy);
   transform: translateY(-1px);
 }
 
 .top-nav a.active,
 .top-nav .nav-more.active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--navy) 0%, var(--teal-deep) 100%);
+  border-color: transparent;
   color: #fff;
-  box-shadow: 0 8px 18px rgba(28, 101, 74, 0.2);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--teal) 32%, transparent);
 }
 
 .top-nav a.active:hover,
 .top-nav .nav-more.active:hover {
-  background: #17553e;
-  border-color: #17553e;
+  background: linear-gradient(135deg, var(--navy-deep) 0%, var(--teal) 100%);
+  border-color: transparent;
   color: #fff;
 }
 
@@ -407,10 +409,10 @@ main {
   gap: 0.7rem;
   padding: 0.72rem 0.85rem;
   min-height: 2.65rem;
-  border-radius: 0.75rem;
+  border-radius: 0.85rem;
   border: 1px solid var(--line);
-  background: #f7faf8;
-  color: #1f4d3a;
+  background: color-mix(in srgb, var(--accent-soft) 70%, #fff);
+  color: var(--navy);
   text-decoration: none;
   font-weight: 650;
   font-size: 0.95rem;
@@ -548,10 +550,10 @@ main {
     justify-content: space-around;
     gap: 0.12rem;
     padding: 0.28rem 0.28rem calc(0.28rem + var(--safe-bottom, 0px));
-    border-top: 1px solid var(--line);
-    background: rgba(248, 251, 249, 0.96);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 -4px 16px rgba(18, 42, 32, 0.06);
+    border-top: 1px solid color-mix(in srgb, var(--line) 65%, #fff);
+    background: rgba(245, 251, 253, 0.94);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 -6px 22px color-mix(in srgb, var(--teal) 12%, transparent);
     /* Por encima de stickies de página (Inventario buscador, etc.) */
     position: relative;
     z-index: 100;
@@ -570,9 +572,9 @@ main {
     padding: 0.28rem 0.12rem;
     margin: 0;
     border: none;
-    border-radius: 0.75rem;
+    border-radius: 0.85rem;
     background: transparent;
-    color: #3d5c4c;
+    color: var(--muted);
     text-decoration: none;
     font: inherit;
     font-size: 0.68rem;
@@ -586,9 +588,9 @@ main {
 
   .bottom-nav a.active,
   .bottom-nav .bn-more.active {
-    background: var(--accent);
+    background: linear-gradient(145deg, var(--navy) 0%, var(--teal-deep) 100%);
     color: #fff;
-    box-shadow: 0 8px 18px rgba(28, 101, 74, 0.22);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--teal) 30%, transparent);
   }
 
   .bn-ico {

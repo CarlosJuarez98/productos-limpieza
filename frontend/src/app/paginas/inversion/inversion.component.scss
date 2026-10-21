@@ -157,7 +157,7 @@
   }
 
   .stats-inversion .stat strong {
-    font-family: Fraunces, Georgia, serif;
+    font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
 
@@ -166,7 +166,7 @@
   }
 
   .hist-cards .item-motivo {
-    font-family: Fraunces, Georgia, serif;
+    font-family: var(--font-display);
   }
 
   form.form-infra button[type='submit'],
