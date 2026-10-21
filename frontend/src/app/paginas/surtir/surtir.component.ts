@@ -29,7 +29,14 @@ import { FechaDiaComponent } from '../../fecha-dia.component';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import { enviarTextoWhatsApp } from '../../ticket-whatsapp.util';
 import { firstValueFrom } from 'rxjs';
-import { noBajoCompra, precioConDescuentoEntero, precioConMargenArriba } from '../../captura-focus.util';
+import {
+  capturaGuardarScrollMain,
+  capturaPaginaVisible,
+  capturaRestaurarScrollMain,
+  noBajoCompra,
+  precioConDescuentoEntero,
+  precioConMargenArriba,
+} from '../../captura-focus.util';
 
 type LineaEditable = PedidoLinea & {
   pedir: number | null;
@@ -280,9 +287,19 @@ export class SurtirComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('window:pagehide')
-  @HostListener('document:visibilitychange')
-  onGuardarBorrador(): void {
+  onPageHide(): void {
+    capturaGuardarScrollMain();
     this.persistirBorrador();
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    if (!capturaPaginaVisible()) {
+      capturaGuardarScrollMain();
+      this.persistirBorrador();
+      return;
+    }
+    capturaRestaurarScrollMain();
   }
 
   private cargarEntradas(): void {

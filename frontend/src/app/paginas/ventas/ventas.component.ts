@@ -15,6 +15,9 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../api.service';
 import { CapturaDraftService } from '../../captura-draft.service';
 import {
+  capturaGuardarScrollMain,
+  capturaPaginaVisible,
+  capturaRestaurarScrollMain,
   capturaTecladoAbierto,
   elementoVisible,
   esMovilTactil,
@@ -184,6 +187,7 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   /** Compacta sticky solo con teclado + foco en línea de captura. */
   private actualizarStickyTeclado(recolocar = false): void {
+    if (!capturaPaginaVisible()) return;
     const ae = document.activeElement;
     const enLinea = focoEnCapturaLinea(ae);
     const next = capturaTecladoAbierto() && enLinea;
@@ -202,6 +206,8 @@ export class VentasComponent implements OnInit, OnDestroy {
         return;
       }
       document.body.classList.remove('captura-teclado');
+      // No anclar al cambiar de ventana (visibility hidden → teclado “cierra”).
+      if (!capturaPaginaVisible()) return;
       setTimeout(() => this.anclarLineaTrasTeclado(), 160);
       return;
     }
@@ -218,6 +224,7 @@ export class VentasComponent implements OnInit, OnDestroy {
 
   /** Tras cerrar teclado: scroll cómodo a la línea activa o la última venta. */
   private anclarLineaTrasTeclado(): void {
+    if (!capturaPaginaVisible()) return;
     if (capturaTecladoAbierto()) return;
     if (focoEnCapturaLinea()) return;
     const key =
@@ -303,9 +310,21 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('window:pagehide')
-  @HostListener('document:visibilitychange')
-  onGuardarBorrador(): void {
+  onPageHide(): void {
+    capturaGuardarScrollMain();
+    this.limpiarTimersCaptura();
     this.persistirBorrador();
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    if (!capturaPaginaVisible()) {
+      capturaGuardarScrollMain();
+      this.limpiarTimersCaptura();
+      this.persistirBorrador();
+      return;
+    }
+    capturaRestaurarScrollMain();
   }
 
   private rebuildFiltradas(reset = false): void {
@@ -1010,12 +1029,16 @@ export class VentasComponent implements OnInit, OnDestroy {
   }
 
   private scrollLineaVisible(index: number): void {
+    if (!capturaPaginaVisible()) return;
     const l = this.lineas[index];
     if (!l) return;
     const linea = document.getElementById('linea-' + l.key);
     if (!linea) return;
-    // Card completa (no solo el input): queda bajo el sticky de fecha/totales.
-    scrollEnMain(linea, { belowSticky: true, pinTop: true });
+    // Mínimo al navegar; pinTop solo hacía falta en móvil al agregar línea.
+    scrollEnMain(linea, {
+      belowSticky: true,
+      prefer: esMovilTactil() ? 'upper' : 'min',
+    });
   }
 
   private focusById(id: string): boolean {

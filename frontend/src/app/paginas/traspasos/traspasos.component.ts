@@ -17,6 +17,9 @@ import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreak
 import { PaginadorComponent } from '../../paginador.component';
 import { Traspaso, TraspasoAbono } from '../../modelos';
 import {
+  capturaGuardarScrollMain,
+  capturaPaginaVisible,
+  capturaRestaurarScrollMain,
   enfocarPorAttr,
   esMovilTactil,
   scrollCampoCaptura,
@@ -202,9 +205,32 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('window:pagehide')
-  @HostListener('document:visibilitychange')
-  onGuardarBorrador(): void {
+  onPageHide(): void {
+    capturaGuardarScrollMain();
+    this.cancelarScrollPendiente();
     this.persistirBorrador();
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    if (!capturaPaginaVisible()) {
+      capturaGuardarScrollMain();
+      this.cancelarScrollPendiente();
+      this.persistirBorrador();
+      return;
+    }
+    capturaRestaurarScrollMain();
+  }
+
+  private cancelarScrollPendiente(): void {
+    if (this.focusTimer != null) clearTimeout(this.focusTimer);
+    if (this.focusTimer2 != null) clearTimeout(this.focusTimer2);
+    if (this.focusTimer3 != null) clearTimeout(this.focusTimer3);
+    this.focusTimer = null;
+    this.focusTimer2 = null;
+    this.focusTimer3 = null;
+    for (const t of this.scrollTimers) clearTimeout(t);
+    this.scrollTimers = [];
   }
 
   private nuevaLinea(): LineaForm {
@@ -341,8 +367,8 @@ export class TraspasosComponent implements OnInit, OnDestroy {
     // Foco ya (gesto Siguiente/+): si se aplaza, Android no abre teclado.
     this.enfocarCaptura(idx, 'producto');
     if (esMovilTactil()) {
-      this.programarScroll(() => this.scrollLineaVisible(idx), 120);
-      this.programarScroll(() => this.scrollLineaVisible(idx), 280);
+      this.programarScroll(() => this.scrollLineaVisible(idx, true), 120);
+      this.programarScroll(() => this.scrollLineaVisible(idx, true), 280);
     }
   }
 
@@ -394,26 +420,39 @@ export class TraspasosComponent implements OnInit, OnDestroy {
   }
 
   private scrollCapturaVisible(index: number, campo: 'producto' | 'cantidad'): void {
+    if (!capturaPaginaVisible()) return;
     const l = this.lineas[index];
     if (!l) return;
     if (campo === 'cantidad') {
       const cant = document.querySelector(`[data-cant-key="${l.key}"]`) as HTMLElement | null;
       if (cant) {
+        // Enter desde producto: scroll mínimo (no forzar tope).
         scrollCampoCaptura(cant);
         return;
       }
     }
-    this.scrollLineaVisible(index);
+    const input =
+      (document.querySelector(
+        `#linea-traspaso-${l.key} app-producto-autocomplete input`
+      ) as HTMLElement | null) ||
+      (document.querySelector(`[data-linea-key="${l.key}"] app-producto-autocomplete input`) as HTMLElement | null);
+    if (input) {
+      scrollCampoCaptura(input);
+      return;
+    }
+    this.scrollLineaVisible(index, false);
   }
 
-  private scrollLineaVisible(index: number): void {
+  /** pinTop solo al agregar línea nueva en móvil. */
+  private scrollLineaVisible(index: number, pinTop = false): void {
+    if (!capturaPaginaVisible()) return;
     const l = this.lineas[index];
     if (!l) return;
     const linea =
       document.getElementById('linea-traspaso-' + l.key) ||
       (document.querySelector(`[data-linea-key="${l.key}"]`) as HTMLElement | null);
     if (!linea) return;
-    scrollEnMain(linea, { belowSticky: true, pinTop: true });
+    scrollEnMain(linea, { belowSticky: true, pinTop, prefer: pinTop ? 'upper' : 'min' });
   }
 
   quitarLinea(index: number): void {

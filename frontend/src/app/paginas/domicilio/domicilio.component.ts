@@ -18,6 +18,9 @@ import { PageAlertsComponent } from '../../page-alerts.component';
 import { ClearableDirective } from '../../clearable.directive';
 import { SoloNumerosDirective } from '../../solo-numeros.directive';
 import {
+  capturaGuardarScrollMain,
+  capturaPaginaVisible,
+  capturaRestaurarScrollMain,
   capturaTecladoAbierto,
   elementoVisible,
   esMovilTactil,
@@ -126,6 +129,7 @@ export class DomicilioComponent implements OnInit, OnDestroy {
   }
 
   private actualizarStickyTeclado(recolocar = false): void {
+    if (!capturaPaginaVisible()) return;
     const ae = document.activeElement;
     const enLinea = focoEnCapturaLinea(ae);
     const next = capturaTecladoAbierto() && enLinea;
@@ -143,6 +147,7 @@ export class DomicilioComponent implements OnInit, OnDestroy {
         return;
       }
       document.body.classList.remove('captura-teclado');
+      if (!capturaPaginaVisible()) return;
       setTimeout(() => this.anclarLineaTrasTeclado(), 160);
       return;
     }
@@ -161,6 +166,7 @@ export class DomicilioComponent implements OnInit, OnDestroy {
 
   /** Tras cerrar teclado: ancla la línea activa / última en posición cómoda. */
   private anclarLineaTrasTeclado(): void {
+    if (!capturaPaginaVisible()) return;
     if (capturaTecladoAbierto()) return;
     if (focoEnCapturaLinea()) return;
     const key =
@@ -172,6 +178,20 @@ export class DomicilioComponent implements OnInit, OnDestroy {
     if (!linea) return;
     this.activarLineaModo(key);
     scrollLineaCapturaComfort(linea);
+  }
+
+  @HostListener('window:pagehide')
+  onPageHide(): void {
+    capturaGuardarScrollMain();
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    if (!capturaPaginaVisible()) {
+      capturaGuardarScrollMain();
+      return;
+    }
+    capturaRestaurarScrollMain();
   }
 
   @HostListener('document:focusin')

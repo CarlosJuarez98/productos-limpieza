@@ -119,6 +119,32 @@ export function mainScrollEl(): HTMLElement | null {
   );
 }
 
+export function capturaPaginaVisible(): boolean {
+  return typeof document === 'undefined' || document.visibilityState === 'visible';
+}
+
+/** Guarda scroll del main (p. ej. al cambiar de ventana / ocultar pestaña). */
+let mainScrollGuardado: number | null = null;
+
+export function capturaGuardarScrollMain(): void {
+  const main = mainScrollEl();
+  if (main) mainScrollGuardado = main.scrollTop;
+}
+
+/** Restaura el scroll guardado (varios ticks: teclado / layout al volver). */
+export function capturaRestaurarScrollMain(): void {
+  const main = mainScrollEl();
+  const y = mainScrollGuardado;
+  if (!main || y == null || !Number.isFinite(y)) return;
+  const apply = () => {
+    if (main.isConnected) main.scrollTop = y;
+  };
+  apply();
+  requestAnimationFrame(apply);
+  setTimeout(apply, 50);
+  setTimeout(apply, 180);
+}
+
 /**
  * Franja útil real encima del teclado y debajo del chrome fijo/sticky.
  * Usa getBoundingClientRect (incluye header Amorcas + ventas-fijo), no solo
@@ -185,9 +211,16 @@ export function scrollEnMain(
   const prefer: 'min' | 'upper' | 'comfort' =
     opts?.prefer ?? (opts?.comfort ? 'comfort' : opts?.pinTop ? 'upper' : 'min');
 
-  if (main && usarScrollBanda()) {
+  if (main) {
     const r = el.getBoundingClientRect();
-    const { top: visibleTop, bottom: visibleBottom } = franjaVisibleCaptura();
+    const mainRect = main.getBoundingClientRect();
+    // Desktop y móvil: misma lógica de franja (antes desktop siempre anclaba arriba → salto en Enter).
+    const { top: visibleTop, bottom: visibleBottom } = usarScrollBanda()
+      ? franjaVisibleCaptura()
+      : {
+          top: mainRect.top + (opts?.belowSticky === false ? 8 : stickyTopInset(main) + 12),
+          bottom: mainRect.bottom - 12,
+        };
     const zona = Math.max(48, visibleBottom - visibleTop);
 
     if (prefer === 'min' && r.top >= visibleTop - 2 && r.bottom <= visibleBottom + 2) {
@@ -200,7 +233,7 @@ export function scrollEnMain(
     } else if (prefer === 'upper') {
       targetTop = visibleTop + Math.min(10, zona * 0.04);
     } else {
-      // min: si sobresale abajo, subir; si sobresale arriba, bajar.
+      // min: solo lo necesario para entrar en la franja.
       let delta = 0;
       if (r.bottom > visibleBottom) delta = r.bottom - visibleBottom;
       if (r.top - delta < visibleTop) delta = r.top - visibleTop;
@@ -210,7 +243,6 @@ export function scrollEnMain(
     }
 
     let delta = r.top - targetTop;
-    // Si tras mover el fondo sigue bajo el teclado y el campo cabe, prioriza ver el fondo.
     if (r.height <= zona && r.bottom - delta > visibleBottom) {
       delta = r.bottom - visibleBottom;
       if (r.top - delta < visibleTop) delta = r.top - visibleTop;
@@ -223,19 +255,7 @@ export function scrollEnMain(
     return;
   }
 
-  if (main) {
-    const sticky = opts?.belowSticky === false ? 0 : stickyTopInset(main);
-    const offset = opts?.offset ?? sticky + 24;
-    const r = el.getBoundingClientRect();
-    const mainRect = main.getBoundingClientRect();
-    const y = main.scrollTop + (r.top - mainRect.top) - offset;
-    main.scrollTo({
-      top: Math.max(0, y),
-      behavior: prefer === 'comfort' ? 'smooth' : 'auto',
-    });
-    return;
-  }
-
+  // Sin main: nearest evita saltos; comfort solo si se pidió.
   el.scrollIntoView({
     block: prefer === 'comfort' ? 'start' : 'nearest',
     behavior: prefer === 'comfort' ? 'smooth' : 'auto',

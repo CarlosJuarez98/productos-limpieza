@@ -27,6 +27,9 @@ import { PullRefreshService } from '../../pull-refresh.service';
 import { alinearLineasCaptura, capturaEsMovil, capturaLineasVacias, capturaBreakpointCambio, capturaTieneFocoEnCampo, PaginacionEstado } from '../../paginacion.util';
 import { PaginadorComponent } from '../../paginador.component';
 import {
+  capturaGuardarScrollMain,
+  capturaPaginaVisible,
+  capturaRestaurarScrollMain,
   enfocarPorAttr,
   esMovilTactil,
   programarEnfoque,
@@ -247,9 +250,19 @@ export class EntradasComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('window:pagehide')
-  @HostListener('document:visibilitychange')
-  onGuardarBorrador(): void {
+  onPageHide(): void {
+    capturaGuardarScrollMain();
     this.persistirBorrador();
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisibilityChange(): void {
+    if (!capturaPaginaVisible()) {
+      capturaGuardarScrollMain();
+      this.persistirBorrador();
+      return;
+    }
+    capturaRestaurarScrollMain();
   }
 
   togglePrep(): void {
@@ -1540,6 +1553,7 @@ export class EntradasComponent implements OnInit, OnDestroy {
     index: number,
     campo: 'producto' | 'cantidad' | 'precio' | 'total'
   ): void {
+    if (!capturaPaginaVisible()) return;
     const l = this.lineas[index];
     if (!l) return;
     const key = l.key;
@@ -1550,6 +1564,14 @@ export class EntradasComponent implements OnInit, OnDestroy {
       el = document.querySelector(`[data-precio-key="${key}"]`);
     } else if (campo === 'total') {
       el = document.querySelector(`[data-total-key="${key}"]`);
+    } else {
+      el =
+        (document.querySelector(
+          `#linea-entrada-${key} app-producto-autocomplete input`
+        ) as HTMLElement | null) ||
+        (document.querySelector(
+          `[data-linea-key="${key}"] app-producto-autocomplete input`
+        ) as HTMLElement | null);
     }
     if (el) {
       scrollCampoCaptura(el);
@@ -1559,13 +1581,15 @@ export class EntradasComponent implements OnInit, OnDestroy {
   }
 
   private scrollLineaVisible(index: number): void {
+    if (!capturaPaginaVisible()) return;
     const l = this.lineas[index];
     if (!l) return;
     const linea =
       document.getElementById('linea-entrada-' + l.key) ||
       (document.querySelector(`[data-linea-key="${l.key}"]`) as HTMLElement | null);
     if (!linea) return;
-    scrollEnMain(linea, { belowSticky: true, pinTop: true });
+    // Scroll mínimo: pinTop saltaba demasiado al dar Enter.
+    scrollEnMain(linea, { belowSticky: true, prefer: 'min' });
   }
 
   quitarLinea(index: number): void {
