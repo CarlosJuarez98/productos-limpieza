@@ -494,7 +494,7 @@
 }
 
 .grupo-toggle-tit {
-  font-family: Fraunces, Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.015em;
@@ -1877,7 +1877,7 @@ table tr.bajo > td {
 
   .grupo-cab .panel-titulo,
   .grupo-toggle-tit {
-    font-family: Fraunces, Georgia, serif;
+    font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
 

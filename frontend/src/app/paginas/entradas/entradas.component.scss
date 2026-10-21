@@ -1002,7 +1002,7 @@ tr.editando-fila.bajo > td:not(.col-propia) {
 
 .receta-nombre {
   display: block;
-  font-family: Fraunces, Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1.05rem;
   letter-spacing: -0.02em;
   margin-bottom: 0.2rem;
@@ -1127,7 +1127,7 @@ tr.editando-fila.bajo > td:not(.col-propia) {
 
 .prep-step-tit {
   margin: 0;
-  font-family: Fraunces, Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1rem;
   letter-spacing: -0.02em;
 }
@@ -1434,7 +1434,7 @@ tr.editando-fila.bajo > td:not(.col-propia) {
 }
 
 .prep-hist-card .item-motivo {
-  font-family: Fraunces, Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1.02rem;
   margin: 0.25rem 0 0.15rem;
 }
@@ -1626,7 +1626,7 @@ tr.editando-fila.bajo > td:not(.col-propia) {
 
 .prep-auto-num {
   margin: 0;
-  font-family: Fraunces, Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1.65rem;
   font-weight: 700;
   letter-spacing: -0.03em;

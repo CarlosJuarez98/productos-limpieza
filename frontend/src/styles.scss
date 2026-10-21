@@ -1,18 +1,28 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap');
 
+/* Amorcas · productos de limpieza: navy · teal · lima (frescura / agua). */
 :root {
-  --bg: #eef3f0;
+  --navy: #183060;
+  --navy-deep: #102038;
+  --teal: #28a0b8;
+  --teal-deep: #1a7a8c;
+  --lime: #b0d040;
+  --lime-deep: #7cb82e;
+  --lime-soft: #d4e878;
+  --bg: #e8f4f6;
   --panel: #ffffff;
-  --line: #d0ddd5;
-  --text: #162821;
-  --muted: #5a6f64;
-  --accent: #1c654a;
-  --accent-soft: #e8f3ee;
+  --line: #c5d8de;
+  --text: #12253a;
+  --muted: #5a7380;
+  --accent: #1a7a8c;
+  --accent-soft: #e4f4f8;
   --warn: #9a4b1f;
   --danger: #c62828;
-  --ok: #1c654a;
-  --radius: 0.65rem;
-  --shadow: 0 4px 14px rgba(18, 42, 32, 0.05);
+  --ok: #1a7a8c;
+  --radius: 0.85rem;
+  --shadow: 0 8px 28px rgba(16, 48, 72, 0.07);
+  --font-ui: 'Outfit', 'Segoe UI', sans-serif;
+  --font-display: 'Sora', 'Outfit', sans-serif;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
 }
@@ -31,11 +41,16 @@ body {
   margin: 0;
   overflow-x: clip;
   max-width: 100%;
-  background:
-    radial-gradient(ellipse 70% 45% at 0% 0%, rgba(28, 101, 74, 0.07), transparent 55%),
-    linear-gradient(180deg, #f6faf7 0%, var(--bg) 45%, #e6ede8 100%);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(176, 208, 64, 0.16), transparent 32%),
+    radial-gradient(circle at 88% 12%, rgba(40, 160, 184, 0.18), transparent 36%),
+    radial-gradient(circle at 70% 78%, rgba(24, 48, 96, 0.06), transparent 40%),
+    radial-gradient(circle at 18% 72%, rgba(255, 255, 255, 0.55), transparent 28%),
+    linear-gradient(165deg, #f4fbfd 0%, var(--bg) 42%, #dceef2 100%);
+  background-attachment: fixed;
   color: var(--text);
-  font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+  font-family: var(--font-ui);
   font-size: 15.5px;
   line-height: 1.35;
   -webkit-font-smoothing: antialiased;
@@ -56,7 +71,7 @@ nav {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(31, 107, 79, 0.4) transparent;
+  scrollbar-color: color-mix(in srgb, var(--teal) 45%, transparent) transparent;
 }
 
 .scroll-y::-webkit-scrollbar,
@@ -73,7 +88,7 @@ nav::-webkit-scrollbar {
 main::-webkit-scrollbar-thumb,
 .table-wrap::-webkit-scrollbar-thumb,
 nav::-webkit-scrollbar-thumb {
-  background: rgba(31, 107, 79, 0.35);
+  background: color-mix(in srgb, var(--teal) 40%, transparent);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
@@ -90,8 +105,9 @@ nav::-webkit-scrollbar-track {
 h1,
 h2,
 h3 {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: var(--font-display);
   font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 button,
@@ -115,7 +131,7 @@ button {
 button:hover:not(:disabled):not(.icon-btn):not(.icono):not(.clearable-x):not(.ac-clear):not(.panel-toggle):not(.lista-toggle):not(.pedido-cab):not(.secondary):not(.danger):not(.modo-chip):not(.seg-btn):not(.chip):not(.ghost):not(.btn-salir):not(.bn-more):not(.btn-agregar-linea):not(.stepper-btn):not(.quitar):not(.tarjeta-btn):not(.linkish):not(.btn-mini):not(.cal-dia):not(.cal-nav):not(.rango-trigger):not(.fecha-trigger):not(.monto-sumar) {
   background: color-mix(in srgb, var(--accent) 82%, #fff);
   color: #fff;
-  box-shadow: 0 6px 14px rgba(28, 101, 74, 0.14);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--teal) 28%, transparent);
   transform: translateY(-1px);
 }
 
@@ -230,10 +246,10 @@ body > .lightbox.cat-editor .cat-form-scroll {
   color: var(--muted);
 }
 
-.total-campo .dato-fijo,
+  .total-campo .dato-fijo,
 .total-campo .total-fijo,
 .total-campo .dato-caja {
-  color: #1f3d2a;
+  color: var(--navy);
 }
 
 /* Sin flechas en inputs numéricos (todas las pantallas) */
@@ -250,26 +266,26 @@ input[type='number'] {
 
 .page-title {
   margin: 0 0 0.5rem;
-  font-size: 1.22rem;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -0.02em;
-  font-family: Fraunces, Georgia, serif;
+  font-size: 1.28rem;
+  font-weight: 800;
+  color: var(--navy);
+  letter-spacing: -0.03em;
+  font-family: var(--font-display);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   max-width: 100%;
   min-width: 0;
 }
 
 .page-title::before {
   content: '';
-  width: 0.55rem;
-  height: 0.55rem;
+  width: 0.6rem;
+  height: 0.6rem;
   border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  background: linear-gradient(145deg, var(--lime) 0%, var(--teal) 100%);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--teal) 20%, transparent);
   flex-shrink: 0;
 }
 
@@ -278,8 +294,8 @@ input[type='number'] {
   margin: 0 0 0.55rem;
   font-size: 1.02rem;
   font-weight: 700;
-  color: var(--text);
-  font-family: Fraunces, Georgia, serif;
+  color: var(--navy);
+  font-family: var(--font-display);
   letter-spacing: -0.02em;
 }
 
@@ -372,26 +388,28 @@ button.ac-clear:active:not(:disabled) {
 
 .panel {
   background:
-    linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 28%, #fff) 100%);
-  border: 1px solid color-mix(in srgb, var(--line) 80%, #fff);
-  border-radius: 1.05rem;
-  padding: 0.85rem 1rem;
-  box-shadow: 0 10px 26px rgba(22, 40, 33, 0.05);
+    linear-gradient(160deg, rgba(255, 255, 255, 0.96) 0%, color-mix(in srgb, var(--accent-soft) 55%, #fff) 100%);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, #fff);
+  border-radius: 1.15rem;
+  padding: 0.9rem 1.05rem;
+  box-shadow: var(--shadow);
   max-width: 100%;
   min-width: 0;
+  backdrop-filter: blur(6px);
 }
 
 .stat {
-  border-radius: 0.9rem;
+  border-radius: 1rem;
   padding: 0.55rem 0.75rem;
   background:
-    linear-gradient(165deg, #fff 0%, #f4f9f6 100%);
-  border: 1px solid color-mix(in srgb, var(--line) 85%, #fff);
+    linear-gradient(165deg, #fff 0%, color-mix(in srgb, var(--accent-soft) 70%, #fff) 100%);
+  border: 1px solid color-mix(in srgb, var(--line) 75%, #fff);
 }
 
 .stat strong {
-  font-family: Fraunces, Georgia, serif;
+  font-family: var(--font-display);
   letter-spacing: -0.02em;
+  color: var(--navy);
 }
 
 /* Icon buttons stay square-ish (not pills) */
@@ -1750,7 +1768,7 @@ button.chip.ghost:hover {
   }
 
   .page-title {
-    font-family: Fraunces, Georgia, serif;
+    font-family: var(--font-display);
     font-size: 1.28rem;
     letter-spacing: -0.02em;
   }
@@ -1763,7 +1781,7 @@ button.chip.ghost:hover {
 
   .panel > h3,
   .panel-titulo {
-    font-family: Fraunces, Georgia, serif;
+    font-family: var(--font-display);
     letter-spacing: -0.015em;
     font-weight: 700;
   }
@@ -1775,7 +1793,7 @@ button.chip.ghost:hover {
   }
 
   .stat strong {
-    font-family: Fraunces, Georgia, serif;
+    font-family: var(--font-display);
     letter-spacing: -0.02em;
   }
 
@@ -1820,7 +1838,7 @@ button.chip.ghost:hover {
   }
 
   .hist-cards .item-motivo {
-    font-family: Fraunces, Georgia, serif;
+    font-family: var(--font-display);
     font-size: 1.02rem;
     letter-spacing: -0.015em;
     font-weight: 700;

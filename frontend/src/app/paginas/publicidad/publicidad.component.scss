@@ -45,10 +45,17 @@
 }
 
 .cat-thumb {
-  height: 4.5rem;
+  height: 5.5rem;
   background-color: #dfe8e2;
-  background-size: cover;
-  background-position: center;
+  overflow: hidden;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
 }
 
 .cat-body {
@@ -148,10 +155,6 @@
     font-size: 1.15rem;
     flex-shrink: 0;
   }
-
-  img {
-    display: none;
-  }
 }
 
 .lightbox.cat-editor .cat-form {
@@ -241,6 +244,13 @@
   max-width: 100%;
 }
 
+.cat-img-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .cat-img-row {
   display: flex;
   flex-wrap: wrap;
@@ -255,6 +265,46 @@
   background: #dfe8e2 center/cover no-repeat;
   border: 1px solid #c5d4cb;
   flex-shrink: 0;
+}
+
+.cat-preview-lg {
+  position: relative;
+  width: 100%;
+  max-width: 22rem;
+  aspect-ratio: 16 / 10;
+  border-radius: 0.55rem;
+  border: 1px solid #c5d4cb;
+  background: #e8f0eb;
+  overflow: hidden;
+
+  // absolute: height:100% no resuelve con solo aspect-ratio → img quedaba 0×0 (caja gris)
+  img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    background: #f4f8f5;
+  }
+
+  &.subiendo img {
+    opacity: 0.72;
+  }
+}
+
+.cat-preview-badge {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 1;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(11, 47, 92, 0.82);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .cat-chips {

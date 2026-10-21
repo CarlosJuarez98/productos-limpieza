@@ -1,8 +1,7 @@
 /**
- * Flyers Amorcas formato 4:5 estilo Canva:
- * logo, título, slogan, lista de productos + collage visual de limpieza
- * (fotos recortadas, formas de color, destellos). Precios en WhatsApp.
+ * Publicidad por categoría: mismo diseño que el ticket de domicilio (WhatsApp).
  */
+import { generarTicketPng } from './ticket-whatsapp.util';
 
 /** Departamento de un lote de publicidad. */
 export type DeptoPromo = 'LIMPIEZA' | 'JARCERIA';
@@ -140,8 +139,59 @@ function clasificarProducto(nombre: string): GrupoTema {
   return 'mixto';
 }
 
-/** Un solo eslogan acorde a la familia real de los productos listados. */
-function sloganParaProductos(precios: PrecioItem[], grupo: GrupoTema): string {
+/** Pool de eslóganes por familia (≥3 para que el lote no repita). */
+function poolSlogans(grupo: GrupoTema): string[] {
+  switch (grupo) {
+    case 'aroma':
+      return [
+        '¡AROMA QUE LLENA TU CASA AL PRECIO DEL GRANEL!',
+        '¡TU HOGAR HUELE INCREÍBLE SIN GASTAR DE MÁS!',
+        '¡FRAGANCIA DE MARCA, LITRO A PRECIO AMORCAS!',
+        '¡PERFUME EN CADA RINCÓN, AHORRO EN CADA LITRO!',
+      ];
+    case 'suavizante':
+      return [
+        '¡ROPA SUAVE Y PERFUMADA AL PRECIO DEL GRANEL!',
+        '¡SUAVIDAD QUE DURA Y PRECIO QUE CONVIENE!',
+        '¡TU ROPA QUEDA COMO NUEVA, SIN GASTAR DE MÁS!',
+        '¡SUAVITEL Y DOWNY AL PRECIO DEL GRANEL!',
+      ];
+    case 'manos':
+      return [
+        '¡MANOS LIMPIAS Y SUAVES, LITRO A BUEN PRECIO!',
+        '¡JABÓN PARA MANOS A GRANEL: AHORRA CADA DÍA!',
+        '¡HIGIENE DIARIA SIN PAGAR DE MÁS!',
+      ];
+    case 'cocina':
+      return [
+        '¡DESENGRASA FUERTE Y AHORRA EN CADA LITRO!',
+        '¡TRASTES Y COCINA BRILLANTES SIN GASTAR DE MÁS!',
+        '¡QUITA LA GRASA FÁCIL, AL PRECIO DEL GRANEL!',
+      ];
+    case 'lavado':
+      return [
+        '¡LAVA MÁS ROPA Y GASTA MENOS EN CADA LITRO!',
+        '¡JABÓN DE MARCA, PRECIO DE GRANEL!',
+        '¡ROPA LIMPIA Y AHORRO EN CADA LAVADA!',
+        '¡DETERGENTE QUE RINDE, PRECIO QUE CONVIENE!',
+      ];
+    case 'jarceria':
+      return [
+        '¡TODO PARA DEJAR TU CASA IMPECABLE!',
+        '¡DE LA ESCOBA AL TRAPEADOR, LO TENEMOS!',
+        '¡JARCERÍA COMPLETA AL MEJOR PRECIO!',
+        '¡LO QUE NECESITAS PARA LIMPIAR DE VERDAD!',
+      ];
+    default:
+      return [
+        '¡CALIDAD DE MARCA, PRECIO DE GRANEL!',
+        '¡LLEVA SOLO LO QUE NECESITAS Y AHORRA!',
+        '¡PRODUCTOS DE LIMPIEZA AL PRECIO AMORCAS!',
+      ];
+  }
+}
+
+function familiaDePreciosOGrupo(precios: PrecioItem[], grupo: GrupoTema): GrupoTema {
   const votos: Partial<Record<GrupoTema, number>> = {};
   for (const p of precios) {
     const g = clasificarProducto(p.nombre);
@@ -155,42 +205,21 @@ function sloganParaProductos(precios: PrecioItem[], grupo: GrupoTema): string {
       familia = g;
     }
   }
+  return familia;
+}
 
-  switch (familia) {
-    case 'aroma':
-      return rand([
-        '¡AROMA QUE LLENA TU CASA AL PRECIO DEL GRANEL!',
-        '¡TU HOGAR HUELE INCREÍBLE SIN GASTAR DE MÁS!',
-        '¡FRAGANCIA DE MARCA, LITRO A PRECIO AMORCAS!',
-      ]);
-    case 'suavizante':
-      return rand([
-        '¡ROPA SUAVE Y PERFUMADA AL PRECIO DEL GRANEL!',
-        '¡SUAVIDAD QUE DURA Y PRECIO QUE CONVIENE!',
-      ]);
-    case 'manos':
-      return rand([
-        '¡MANOS LIMPIAS Y SUAVES, LITRO A BUEN PRECIO!',
-        '¡JABÓN PARA MANOS A GRANEL: AHORRA CADA DÍA!',
-      ]);
-    case 'cocina':
-      return rand([
-        '¡DESENGRASA FUERTE Y AHORRA EN CADA LITRO!',
-        '¡TRASTES Y COCINA BRILLANTES SIN GASTAR DE MÁS!',
-      ]);
-    case 'lavado':
-      return rand([
-        '¡LAVA MÁS ROPA Y GASTA MENOS EN CADA LITRO!',
-        '¡JABÓN DE MARCA, PRECIO DE GRANEL!',
-      ]);
-    case 'jarceria':
-      return rand([
-        '¡TODO PARA DEJAR TU CASA IMPECABLE!',
-        '¡DE LA ESCOBA AL TRAPEADOR, LO TENEMOS!',
-      ]);
-    default:
-      return rand(['¡CALIDAD DE MARCA, PRECIO DE GRANEL!', '¡LLEVA SOLO LO QUE NECESITAS Y AHORRA!']);
-  }
+/** Un eslogan acorde a la familia; si `usados` viene, no repite. */
+function sloganParaProductos(
+  precios: PrecioItem[],
+  grupo: GrupoTema,
+  usados?: Set<string>
+): string {
+  const familia = familiaDePreciosOGrupo(precios, grupo);
+  const pool = poolSlogans(familia);
+  const libres = usados ? pool.filter((s) => !usados.has(s)) : pool;
+  const pick = libres.length ? rand(libres) : rand(pool);
+  if (usados) usados.add(pick);
+  return pick;
 }
 
 const TEMAS: TemaFlyer[] = [
@@ -591,52 +620,144 @@ function drawSticker(
   ctx.restore();
 }
 
-/**
- * Foto completa (contain): se ve entera, sin cleanSticker que la “comía”.
- * size = lado máximo del cuadro donde cabe.
- */
-function drawFotoCompleta(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  cx: number,
-  cy: number,
-  size: number,
-  rotDeg: number
-): void {
+/** Quita fondo blanco de fotos de producto (botella flota, no “sticker en caja”). */
+function productoSinFondo(img: HTMLImageElement, maxSide: number): HTMLCanvasElement | null {
   const iw = img.naturalWidth || img.width;
   const ih = img.naturalHeight || img.height;
-  if (!iw || !ih) return;
-  const scale = Math.min(size / iw, size / ih);
+  if (!iw || !ih) return null;
+  const scale = Math.min(maxSide / iw, maxSide / ih, 1.35);
   const dw = Math.max(1, Math.round(iw * scale));
   const dh = Math.max(1, Math.round(ih * scale));
+  const off = document.createElement('canvas');
+  off.width = dw;
+  off.height = dh;
+  const octx = off.getContext('2d', { willReadFrequently: true });
+  if (!octx) return null;
+  octx.drawImage(img, 0, 0, dw, dh);
+  const pix = octx.getImageData(0, 0, dw, dh);
+  const d = pix.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i];
+    const g = d[i + 1];
+    const b = d[i + 2];
+    const mx = Math.max(r, g, b);
+    const mn = Math.min(r, g, b);
+    const sat = mx - mn;
+    // Fondo estudio blanco / casi blanco
+    if (r > 228 && g > 228 && b > 228 && sat < 18) {
+      d[i + 3] = 0;
+      continue;
+    }
+    if (r > 242 && g > 242 && b > 242) {
+      d[i + 3] = 0;
+    }
+  }
+  octx.putImageData(pix, 0, 0);
+  return off;
+}
 
+/** Aura + brillos de limpieza detrás del producto. */
+function drawAuraProducto(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  tema: TemaFlyer
+): void {
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate((rotDeg * Math.PI) / 180);
-  ctx.shadowColor = 'rgba(16, 32, 56, 0.2)';
-  ctx.shadowBlur = Math.max(12, size * 0.06);
-  ctx.shadowOffsetY = Math.max(5, size * 0.03);
-  // Soft white plate detrás para que destaque el producto
-  const pad = Math.max(8, size * 0.04);
-  const rw = dw + pad * 2;
-  const rh = dh + pad * 2;
-  const rr = Math.min(28, rw * 0.12);
+  const glow = ctx.createRadialGradient(cx, cy, 8, cx, cy, Math.max(w, h) * 0.62);
+  glow.addColorStop(0, hexAlpha(tema.acentoTitulo, 0.38));
+  glow.addColorStop(0.45, hexAlpha(Brand.lime, 0.18));
+  glow.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.moveTo(-rw / 2 + rr, -rh / 2);
-  ctx.arcTo(rw / 2, -rh / 2, rw / 2, rh / 2, rr);
-  ctx.arcTo(rw / 2, rh / 2, -rw / 2, rh / 2, rr);
-  ctx.arcTo(-rw / 2, rh / 2, -rw / 2, -rh / 2, rr);
-  ctx.arcTo(-rw / 2, -rh / 2, rw / 2, -rh / 2, rr);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.ellipse(cx, cy, w * 0.58, h * 0.52, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+
+  // Burbujas (frescura / limpieza)
+  const bubbles: [number, number, number, number][] = [
+    [cx - w * 0.38, cy - h * 0.28, w * 0.07, 0.35],
+    [cx + w * 0.34, cy - h * 0.18, w * 0.05, 0.4],
+    [cx + w * 0.28, cy + h * 0.22, w * 0.09, 0.28],
+    [cx - w * 0.3, cy + h * 0.3, w * 0.045, 0.45],
+    [cx + w * 0.12, cy - h * 0.42, w * 0.035, 0.5],
+  ];
+  for (const [bx, by, br, a] of bubbles) {
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = Math.max(2, br * 0.12);
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.arc(bx - br * 0.28, by - br * 0.28, br * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
 /**
- * Collage Canva: fotos reales si cargan; si no, iconos dibujados (nunca columna vacía).
+ * Producto hero flotante (sin marco): quita fondo blanco, aura y sombra.
+ * Se ve a anuncio de limpieza, no a sticker en caja.
+ */
+function drawProductoHeroFlotante(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  safe: { xMin: number; xMax: number; yMin: number; yMax: number },
+  tema: TemaFlyer
+): void {
+  const colW = Math.max(40, safe.xMax - safe.xMin);
+  const colH = Math.max(40, safe.yMax - safe.yMin);
+  const cx = (safe.xMin + safe.xMax) / 2 + colW * 0.04;
+  const cy = (safe.yMin + safe.yMax) / 2;
+  const maxSide = Math.min(colW * 1.15, colH * 0.98);
+
+  drawAuraProducto(ctx, cx, cy, colW, colH, tema);
+
+  const cleaned = productoSinFondo(img, Math.round(maxSide * 1.5));
+  const drawW = cleaned ? cleaned.width : 0;
+  const drawH = cleaned ? cleaned.height : 0;
+  if (!cleaned || !drawW || !drawH) {
+    // Fallback contain si no se pudo limpiar
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    const sc = Math.min(maxSide / iw, maxSide / ih);
+    const dw = iw * sc;
+    const dh = ih * sc;
+    ctx.save();
+    ctx.shadowColor = 'rgba(16, 32, 56, 0.35)';
+    ctx.shadowBlur = 36;
+    ctx.shadowOffsetY = 18;
+    ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+    ctx.restore();
+    return;
+  }
+
+  const sc = Math.min(maxSide / drawW, maxSide / drawH);
+  const dw = drawW * sc;
+  const dh = drawH * sc;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((-3 * Math.PI) / 180);
+  // Sombra elíptica en la base
+  ctx.fillStyle = 'rgba(16, 32, 56, 0.22)';
+  ctx.beginPath();
+  ctx.ellipse(0, dh * 0.48, dw * 0.38, dh * 0.06, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowColor = 'rgba(16, 32, 56, 0.4)';
+  ctx.shadowBlur = 42;
+  ctx.shadowOffsetY = 16;
+  ctx.drawImage(cleaned, -dw / 2, -dh / 2, dw, dh);
+  ctx.restore();
+}
+
+/**
+ * Columna derecha: producto flotante con aura (categoría o foto del tema).
  */
 function drawCanvaCollage(
   ctx: CanvasRenderingContext2D,
@@ -646,80 +767,26 @@ function drawCanvaCollage(
   tema: TemaFlyer,
   fotoCategoria: HTMLImageElement | null = null
 ): void {
-  const pares = motivos
-    .map((m) => ({ motivo: m, img: fotos[m] ?? null }))
-    .filter((p) => p.motivo !== 'burbujas')
-    .slice(0, 2);
-  // Foto realista de la categoría arriba del collage
-  if (fotoCategoria) {
-    pares.unshift({ motivo: motivos[0] || 'detergente', img: fotoCategoria });
-    while (pares.length > 2) pares.pop();
-  }
-  if (!pares.length) return;
+  const hero =
+    fotoCategoria ||
+    motivos.map((m) => fotos[m] ?? null).find((img): img is HTMLImageElement => !!img) ||
+    null;
 
+  if (hero) {
+    drawProductoHeroFlotante(ctx, hero, safe, tema);
+    return;
+  }
+
+  const motivo = motivos.find((m) => m !== 'burbujas') || 'detergente';
   const cx = (safe.xMin + safe.xMax) / 2;
-  const colW = Math.max(40, safe.xMax - safe.xMin);
-  const colH = Math.max(40, safe.yMax - safe.yMin);
   const cy = (safe.yMin + safe.yMax) / 2;
-
-  // Blob de color (fondo Canva)
+  const colW = safe.xMax - safe.xMin;
+  const colH = safe.yMax - safe.yMin;
+  drawAuraProducto(ctx, cx, cy, colW, colH, tema);
   ctx.save();
-  ctx.globalAlpha = 0.2;
-  ctx.fillStyle = tema.acentoTitulo;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, colW * 0.48, colH * 0.4, -0.1, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = Brand.lime;
-  ctx.beginPath();
-  ctx.ellipse(cx + colW * 0.08, cy + colH * 0.12, colW * 0.32, colH * 0.22, 0.2, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.translate(cx, cy);
+  drawCanvasMotivo(ctx, motivo, Math.min(colW, colH) * 0.82);
   ctx.restore();
-
-  // Destellos (fuera del producto)
-  const sparkCols = [Brand.lime, Brand.teal, Brand.limeSoft, '#FF8FAB'];
-  const sparks: [number, number, number][] = [
-    [safe.xMin + 18, safe.yMin + 24, 12],
-    [safe.xMax - 22, safe.yMin + 40, 10],
-    [safe.xMax - 18, safe.yMax - 36, 12],
-  ];
-  ctx.save();
-  for (let i = 0; i < sparks.length; i++) {
-    const [sx, sy, ss] = sparks[i];
-    ctx.fillStyle = sparkCols[i % sparkCols.length];
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    for (let k = 0; k < 8; k++) {
-      const ang = (k * Math.PI) / 4 - Math.PI / 2;
-      const r = k % 2 === 0 ? ss : ss * 0.35;
-      const px = sx + Math.cos(ang) * r;
-      const py = sy + Math.sin(ang) * r;
-      if (k === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // Apiladas verticalmente: foto completa o icono canvas de respaldo
-  const n = pares.length;
-  const gap = 28;
-  const maxS = Math.min(colW * 0.9, (colH - gap * (n - 1)) / n - 8);
-  const totalH = n * maxS + (n - 1) * gap;
-  let y = cy - totalH / 2 + maxS / 2;
-  pares.forEach((par, i) => {
-    const rot = i % 2 === 0 ? -4 : 4;
-    if (par.img) {
-      drawFotoCompleta(ctx, par.img, cx, y, maxS, rot);
-    } else {
-      ctx.save();
-      ctx.translate(cx, y);
-      ctx.rotate((rot * Math.PI) / 180);
-      drawCanvasMotivo(ctx, par.motivo, maxS * 0.92);
-      ctx.restore();
-    }
-    y += maxS + gap;
-  });
 }
 
 /** Iconos simples y coloridos por tipo de producto (centrados en 0,0). */
@@ -1265,7 +1332,7 @@ const FRASES_SERVICIO = [
   '¡Ya abrimos! ✅🟢\nEstamos listos para servirles 🧼✨',
   'En servicio 🟢\nPase a visitarnos o pida a domicilio 🛵🏠',
   '¡Negocio abierto! 🚪✨\nLo esperamos o le llevamos su pedido 🏠.',
-  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WhatsApp 💬',
+  'Atendiendo con gusto 🙌\nVisítenos o escríbanos por WhatsApp',
 ];
 
 function textoShareDe(_titulo: string, precios: PrecioItem[]): string {
@@ -1286,7 +1353,8 @@ function textoShareDe(_titulo: string, precios: PrecioItem[]): string {
     '💳 Aceptamos pago con tarjeta o efectivo',
     `🕘 Horario de atención: 9:00 am – 8:00 pm`,
     `📍 ${DIR}`,
-    `💬 WhatsApp ${TEL}`,
+    // WA_ICON → logo en imagen; en portapapeles → 💬 + número
+    `WA_ICON ${TEL}`,
   ].join('\n');
 }
 
@@ -1503,16 +1571,127 @@ function drawLocationPinFallback(ctx: CanvasRenderingContext2D, cx: number, cy: 
   ctx.restore();
 }
 
+/** Fila de producto a ancho completo: nombre + precio. */
+function drawProductoFila(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  nombre: string,
+  precio: string,
+  fontPx: number,
+  i: number
+): void {
+  const rr = Math.min(20, h / 2);
+  ctx.save();
+  ctx.shadowColor = 'rgba(16, 32, 56, 0.12)';
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 5;
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+  ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.96)' : 'rgba(232, 245, 248, 0.95)';
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = hexAlpha(Brand.navy, 0.08);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Acento lima
+  ctx.fillStyle = Brand.lime;
+  ctx.fillRect(x + 4, y + 10, 8, h - 20);
+
+  const mid = y + h / 2;
+  ctx.fillStyle = Brand.navy;
+  ctx.font = `800 ${fontPx}px "Segoe UI", "Arial Black", sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  const precioW = precio ? ctx.measureText(precio).width + 28 : 0;
+  const maxNom = w - 36 - precioW;
+  let nom = nombre;
+  while (nom.length > 3 && ctx.measureText(nom).width > maxNom) {
+    nom = nom.slice(0, -2);
+  }
+  if (nom !== nombre && nom.length > 3) nom = nom.slice(0, -1) + '…';
+  ctx.fillText(nom, x + 28, mid);
+
+  if (precio) {
+    ctx.textAlign = 'right';
+    ctx.fillStyle = Brand.tealDeep;
+    ctx.font = `900 ${Math.round(fontPx * 1.05)}px "Segoe UI", "Arial Black", sans-serif`;
+    ctx.fillText(precio, x + w - 22, mid);
+  }
+  ctx.restore();
+}
+
+/** Arte de marca abstracto (gota / ondas) — sin botellas ni clipart. */
+function drawArteMarcaLimpieza(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  tema: TemaFlyer
+): void {
+  ctx.save();
+  // Marca de agua tipográfica
+  ctx.globalAlpha = 0.07;
+  ctx.fillStyle = Brand.navy;
+  ctx.font = `900 120px "Segoe UI", "Arial Black", Impact, sans-serif`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.translate(W - 40, H * 0.42);
+  ctx.rotate((-18 * Math.PI) / 180);
+  ctx.fillText('GRANEL', 0, 0);
+  ctx.restore();
+
+  // Gota grande (identidad Amorcas)
+  const cx = W - 160;
+  const cy = H * 0.38;
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  const drop = ctx.createRadialGradient(cx, cy - 20, 10, cx, cy, 130);
+  drop.addColorStop(0, Brand.limeSoft);
+  drop.addColorStop(0.45, Brand.teal);
+  drop.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = drop;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 110);
+  ctx.bezierCurveTo(cx + 90, cy - 20, cx + 70, cy + 90, cx, cy + 100);
+  ctx.bezierCurveTo(cx - 70, cy + 90, cx - 90, cy - 20, cx, cy - 110);
+  ctx.fill();
+  ctx.restore();
+
+  // Ondas inferiores suaves
+  ctx.save();
+  ctx.globalAlpha = 0.14;
+  ctx.strokeStyle = tema.acentoTitulo;
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 3; i++) {
+    const yy = H * 0.62 + i * 28;
+    ctx.beginPath();
+    ctx.moveTo(60, yy);
+    for (let x = 60; x < W - 60; x += 40) {
+      ctx.quadraticCurveTo(x + 20, yy + (i % 2 === 0 ? -16 : 16), x + 40, yy);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 /**
- * Formato Ropa / Trastes: 1080×1350 (4:5).
- * Título → espacio → slogan → espacio → productos (siempre dentro) → pie WA + pin.
+ * Flyer 1080×1350 tipográfico (sin botellas):
+ * atmósfera + arte de marca + filas nombre/precio + pie navy.
  */
 async function renderFlyer(
   comp: Composicion,
   logo: HTMLImageElement | null,
-  stickers: Stickers,
+  _stickers: Stickers,
   icons: { wa: HTMLImageElement | null; pin: HTMLImageElement | null },
-  fotoCategoria: HTMLImageElement | null = null
+  _fotoCategoria: HTMLImageElement | null = null
 ): Promise<Blob> {
   const W = 1080;
   const H = 1350;
@@ -1526,129 +1705,126 @@ async function renderFlyer(
   const margin = 48;
 
   drawFlyerBackground(ctx, W, H, tema);
+  drawArteMarcaLimpieza(ctx, W, H, tema);
 
-  const logoW = 250;
+  const logoW = 220;
   drawLogoTopRight(ctx, logo, W, margin, logoW);
 
-  // Título fijo + letras con colorimetría del logo
+  // Título
   const headLines = HEADLINE_FIJO.split('\n');
-  const titleMaxW = W - margin * 2 - logoW * 0.45;
+  const titleMaxW = W - margin * 2 - logoW * 0.4;
   ctx.save();
   ctx.font = `900 68px "Segoe UI", "Arial Black", Impact, sans-serif`;
   const tooWide = headLines.some((ln) => ctx.measureText(ln).width > titleMaxW);
   ctx.restore();
-  const size = tooWide ? 54 : 66;
-  let y = margin + size + 4;
+  const size = tooWide ? 50 : 62;
+  let y = margin + size;
   drawHeadlineLogoColors(ctx, headLines, margin, y, size);
-  y += headLines.length * (size + 12);
+  y += headLines.length * (size + 10) + 16;
 
-  // Aire claro título → slogan
-  y += 110;
+  // Badge
+  const badge = 'CALIDAD DE MARCA  ·  PRECIO A GRANEL';
+  ctx.font = `800 18px "Segoe UI", sans-serif`;
+  const badgeW = Math.min(W - margin * 2, ctx.measureText(badge).width + 40);
+  const badgeH = 34;
+  ctx.save();
+  ctx.fillStyle = Brand.navy;
+  const brr = badgeH / 2;
+  ctx.beginPath();
+  ctx.moveTo(margin + brr, y);
+  ctx.arcTo(margin + badgeW, y, margin + badgeW, y + badgeH, brr);
+  ctx.arcTo(margin + badgeW, y + badgeH, margin, y + badgeH, brr);
+  ctx.arcTo(margin, y + badgeH, margin, y, brr);
+  ctx.arcTo(margin, y, margin + badgeW, y, brr);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = Brand.limeSoft;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(badge, margin + 20, y + badgeH / 2 + 1);
+  ctx.restore();
+  y += badgeH + 22;
 
+  // Slogan
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  const sloganSize = 30;
+  const sloganSize = 26;
   ctx.font = `800 ${sloganSize}px "Segoe UI", "Arial Black", sans-serif`;
-  const sloganRows = wrapLines(ctx, `"${tema.slogan}"`, W - margin * 2 - 48);
-  const sloganBlockH = sloganRows.length * (sloganSize + 10);
-  drawSoftPanel(ctx, margin, y - sloganSize - 8, W - margin * 2, sloganBlockH + 28, 22);
-  ctx.fillStyle = tema.acentoSlogan;
+  const sloganRows = wrapLines(ctx, tema.slogan.replace(/^¡|!$/g, '').trim(), W - margin * 2 - 48);
+  const sloganPadY = 14;
+  const sloganBlockH = sloganRows.length * (sloganSize + 8) + sloganPadY * 2;
+  const sloganY0 = y;
+  ctx.save();
+  const srr = 18;
+  ctx.beginPath();
+  ctx.moveTo(margin + srr, sloganY0);
+  ctx.arcTo(W - margin, sloganY0, W - margin, sloganY0 + sloganBlockH, srr);
+  ctx.arcTo(W - margin, sloganY0 + sloganBlockH, margin, sloganY0 + sloganBlockH, srr);
+  ctx.arcTo(margin, sloganY0 + sloganBlockH, margin, sloganY0, srr);
+  ctx.arcTo(margin, sloganY0, W - margin, sloganY0, srr);
+  ctx.closePath();
+  const sg = ctx.createLinearGradient(margin, sloganY0, W - margin, sloganY0);
+  sg.addColorStop(0, Brand.tealDeep);
+  sg.addColorStop(1, Brand.navy);
+  ctx.fillStyle = sg;
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  let sy = sloganY0 + sloganPadY + sloganSize;
   for (const row of sloganRows) {
-    ctx.fillText(row, W / 2, y);
-    y += sloganSize + 10;
+    ctx.fillText(row.toUpperCase(), W / 2, sy);
+    sy += sloganSize + 8;
   }
+  ctx.restore();
+  y = sloganY0 + sloganBlockH + 28;
 
-  // Aire slogan → productos
-  y += 78;
-  const listTopY = y;
-
-  // Lista a la izquierda (medir primero para zona segura de stickers)
-  const listX = margin + 12;
-  const listMaxW = W * 0.52;
-  const footReserve = 270;
+  // Lista a todo el ancho (protagonista: productos + precios)
+  const listX = margin;
+  const listW = W - margin * 2;
+  const footReserve = 240;
   const listBottom = H - footReserve;
-  const productNames = precios.map((p) => p.nombre.trim().toUpperCase());
-  let nameSize = 36;
-  let lineH = 44;
-  let gap = 12;
-  const bulletGap = 16;
+  const items = precios.map((p) => ({
+    nombre: p.nombre.trim().toUpperCase(),
+    precio: (p.precio || '').trim(),
+  }));
+  let nameSize = 32;
+  let rowH = 72;
+  let gap = 14;
 
-  const measureBlock = (fontPx: number, lh: number, g: number, textW: number) => {
-    ctx.font = `800 ${fontPx}px "Segoe UI", "Arial Black", sans-serif`;
-    let h = 0;
-    const blocks: string[][] = [];
-    for (const full of productNames) {
-      const rows = wrapLines(ctx, full, textW);
-      blocks.push(rows);
-      h += rows.length * lh + g;
-    }
-    return { h, blocks };
-  };
-
-  const bulletR = () => Math.max(6, Math.round(nameSize * 0.2));
-  let textColX = listX + bulletR() * 2 + bulletGap;
-  let textW = Math.max(120, listMaxW - (textColX - listX));
-  let layoutNames = measureBlock(nameSize, lineH, gap, textW);
-  while (y + layoutNames.h > listBottom && nameSize > 24) {
-    nameSize -= 2;
-    lineH = Math.round(nameSize * 1.22);
-    gap = Math.max(8, gap - 1);
-    textColX = listX + bulletR() * 2 + bulletGap;
-    textW = Math.max(120, listMaxW - (textColX - listX));
-    layoutNames = measureBlock(nameSize, lineH, gap, textW);
+  const totalH = (n: number, rh: number, g: number) => n * rh + Math.max(0, n - 1) * g;
+  while (items.length > 2 && y + totalH(items.length, rowH, gap) > listBottom) {
+    items.pop();
   }
-  while (layoutNames.blocks.length > 2 && y + layoutNames.h > listBottom) {
-    productNames.pop();
-    layoutNames = measureBlock(nameSize, lineH, gap, textW);
+  while (y + totalH(items.length, rowH, gap) > listBottom && (nameSize > 22 || rowH > 52)) {
+    if (nameSize > 22) nameSize -= 2;
+    if (rowH > 52) rowH -= 2;
+    gap = Math.max(10, gap - 1);
   }
 
-  // Collage Canva (derecha): foto de categoría si hay; si no, fotos del tema
-  const familia = familiaDePrecios(precios, tema.grupo);
-  const motivos = motivosCollage(
-    productNames.map((n) => ({ nombre: n, precio: '' })),
-    familia
-  );
-  const safe = {
-    xMin: margin + listMaxW + 20,
-    xMax: W - margin - 8,
-    yMin: listTopY - 10,
-    yMax: H - footReserve - 16,
-  };
-  drawCanvaCollage(ctx, motivos, stickers, safe, tema, fotoCategoria);
+  items.forEach((it, i) => {
+    drawProductoFila(ctx, listX, y, listW, rowH, it.nombre, it.precio, nameSize, i);
+    y += rowH + gap;
+  });
 
-  drawSoftPanel(ctx, margin - 4, listTopY - nameSize - 6, listMaxW + 36, layoutNames.h + 28, 20);
+  // Pie navy
+  const footTop = H - 210;
+  ctx.save();
+  ctx.fillStyle = Brand.navy;
+  ctx.beginPath();
+  ctx.moveTo(0, footTop + 24);
+  ctx.quadraticCurveTo(W * 0.5, footTop - 10, W, footTop + 24);
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = Brand.lime;
+  ctx.fillRect(0, footTop + 24, W, 5);
+  ctx.restore();
 
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.font = `800 ${nameSize}px "Segoe UI", "Arial Black", sans-serif`;
-  const br = bulletR();
-  textColX = listX + br * 2 + bulletGap;
-  for (const rows of layoutNames.blocks) {
-    const firstY = y;
-    ctx.beginPath();
-    ctx.arc(listX + br, firstY - nameSize * 0.32, br, 0, Math.PI * 2);
-    ctx.fillStyle = Brand.lime;
-    ctx.fill();
-    ctx.strokeStyle = Brand.limeDeep;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    for (let i = 0; i < rows.length; i++) {
-      ctx.fillStyle = Brand.navy;
-      ctx.fillText(rows[i], textColX, y);
-      y += lineH;
-    }
-    y += gap;
-  }
-
-  // Pie: WhatsApp + pin + pagos / horario
-  const footY = H - 158;
-  const iconSize = 92;
-  const footGap = 14;
-  const leftIconX = margin + iconSize / 2;
-  const rightIconX = W - margin - iconSize / 2;
-  drawSoftPanel(ctx, margin - 8, footY - 62, W - margin * 2 + 16, 168, 24);
-  drawWhatsAppIcon(ctx, leftIconX, footY - 8, iconSize, icons.wa);
-  drawIconImg(ctx, icons.pin, rightIconX, footY - 8, iconSize, drawLocationPinFallback);
+  const footY = H - 112;
+  const iconSize = 74;
+  const footGap = 12;
+  drawWhatsAppIcon(ctx, margin + iconSize / 2, footY - 16, iconSize, icons.wa);
+  drawIconImg(ctx, icons.pin, W - margin - iconSize / 2, footY - 16, iconSize, drawLocationPinFallback);
 
   ctx.textBaseline = 'middle';
   const footFont = (px: number, color: string) => {
@@ -1656,62 +1832,92 @@ async function renderFlyer(
     ctx.fillStyle = color;
   };
   const leftTextX = margin + iconSize + footGap;
-  footFont(26, Brand.tealDeep);
+  footFont(20, Brand.limeSoft);
   ctx.textAlign = 'left';
-  ctx.fillText('Haz tu pedido:', leftTextX, footY - 32);
-  footFont(34, Brand.navy);
-  ctx.fillText(TEL, leftTextX, footY + 6);
+  ctx.fillText('Haz tu pedido', leftTextX, footY - 38);
+  footFont(30, '#fff');
+  ctx.fillText(TEL, leftTextX, footY - 4);
 
   const rightTextX = W - margin - iconSize - footGap;
-  footFont(26, Brand.tealDeep);
+  footFont(20, Brand.limeSoft);
   ctx.textAlign = 'right';
-  ctx.fillText('Estamos cerca de ti:', rightTextX, footY - 32);
-  footFont(28, Brand.navy);
-  ctx.fillText(DIR, rightTextX, footY + 6);
+  ctx.fillText('Estamos cerca de ti', rightTextX, footY - 38);
+  footFont(22, '#fff');
+  ctx.fillText(DIR, rightTextX, footY - 4);
 
   ctx.textAlign = 'center';
-  footFont(24, Brand.teal);
-  ctx.fillText('Contamos con servicio a domicilio (dentro del fracc.)', W / 2, footY + 48);
-  footFont(25, Brand.navy);
-  ctx.fillText('💳 Aceptamos tarjeta o efectivo  ·  🕘 9:00 am – 8:00 pm', W / 2, footY + 82);
+  footFont(20, Brand.limeSoft);
+  ctx.fillText('Servicio a domicilio (dentro del fracc.)', W / 2, footY + 34);
+  footFont(20, '#fff');
+  ctx.fillText('Tarjeta o efectivo  ·  9:00 am – 8:00 pm', W / 2, footY + 64);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se generó la promo'))), 'image/png', 0.94);
   });
 }
 
-/** Fondo con degradado suave + formas solo a la derecha (no compiten con el texto). */
+/** Fondo “frescura / limpieza”: agua, luz y burbujas (sin clipart infantil). */
 function drawFlyerBackground(
   ctx: CanvasRenderingContext2D,
   W: number,
   H: number,
   tema: TemaFlyer
 ): void {
-  // Fondo degradado tipo Canva
-  const base = ctx.createLinearGradient(0, 0, W, H);
-  base.addColorStop(0, '#FFFFFF');
-  base.addColorStop(0.45, tema.fondo);
-  base.addColorStop(1, hexAlpha(tema.acentoTitulo, 0.18));
+  const base = ctx.createLinearGradient(0, 0, W * 0.2, H);
+  base.addColorStop(0, '#F4FBFD');
+  base.addColorStop(0.35, tema.fondo);
+  base.addColorStop(0.7, hexAlpha(Brand.teal, 0.14));
+  base.addColorStop(1, hexAlpha(tema.acentoTitulo, 0.22));
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, W, H);
 
+  // Haz de luz suave (anuncio premium)
   ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.fillStyle = Brand.lime;
+  const ray = ctx.createLinearGradient(W * 0.55, 0, W, H * 0.55);
+  ray.addColorStop(0, 'rgba(255,255,255,0.55)');
+  ray.addColorStop(0.5, 'rgba(255,255,255,0.08)');
+  ray.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = ray;
   ctx.beginPath();
-  ctx.ellipse(W * 0.12, H * 0.08, 220, 140, -0.3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = Brand.teal;
-  ctx.beginPath();
-  ctx.ellipse(W * 0.95, H * 0.9, 260, 180, 0.4, 0, Math.PI * 2);
+  ctx.moveTo(W * 0.45, 0);
+  ctx.lineTo(W, 0);
+  ctx.lineTo(W, H * 0.7);
+  ctx.closePath();
   ctx.fill();
   ctx.restore();
 
-  const bot = ctx.createLinearGradient(0, H * 0.75, 0, H);
-  bot.addColorStop(0, 'rgba(255,255,255,0)');
-  bot.addColorStop(1, 'rgba(255,255,255,0.4)');
-  ctx.fillStyle = bot;
-  ctx.fillRect(0, H * 0.75, W, H * 0.25);
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = Brand.lime;
+  ctx.beginPath();
+  ctx.ellipse(W * 0.08, H * 0.12, 200, 130, -0.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = Brand.teal;
+  ctx.beginPath();
+  ctx.ellipse(W * 0.92, H * 0.55, 280, 220, 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Burbujas de ambiente (derecha / arriba)
+  ctx.save();
+  const ambient: [number, number, number, number][] = [
+    [W * 0.72, H * 0.14, 18, 0.25],
+    [W * 0.88, H * 0.22, 28, 0.2],
+    [W * 0.78, H * 0.72, 22, 0.18],
+    [W * 0.95, H * 0.4, 14, 0.28],
+    [W * 0.62, H * 0.82, 16, 0.15],
+  ];
+  for (const [bx, by, br, a] of ambient) {
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function hexAlpha(hex: string, a: number): string {
@@ -1755,9 +1961,8 @@ async function cargarAssetsPublicidad(): Promise<{
   stickers: Stickers;
   icons: { wa: HTMLImageElement | null; pin: HTMLImageElement | null };
 }> {
-  const bust = `v=54&t=${Date.now()}`;
+  const bust = `v=56&t=${Date.now()}`;
   const media = (name: string) => loadPublicidadMedia(name, bust);
-  const fotoEntries = Object.entries(FOTO_PRODUCTO) as [StickerMotivo, string][];
 
   const logo =
     (await media('amorcas-chingon.png')) ||
@@ -1766,16 +1971,8 @@ async function cargarAssetsPublicidad(): Promise<{
   const iconWa = (await media('icon-wa-fijo.png')) || (await media('icon-wa-verde.png'));
   const iconPin = await media('icon-pin-casa.png');
 
-  // Por lotes de 4: en móvil muchos fetch en paralelo suelen fallar.
-  const stickers: Stickers = {};
-  for (let i = 0; i < fotoEntries.length; i += 4) {
-    const chunk = fotoEntries.slice(i, i + 4);
-    const loaded = await Promise.all(chunk.map(([, file]) => media(file)));
-    chunk.forEach(([motivo], j) => {
-      stickers[motivo] = loaded[j] ?? null;
-    });
-  }
-  return { logo, stickers, icons: { wa: iconWa, pin: iconPin } };
+  // Ya no cargamos botellas/prod-*.jpg: el flyer es tipográfico.
+  return { logo, stickers: {}, icons: { wa: iconWa, pin: iconPin } };
 }
 
 /**
@@ -1793,53 +1990,87 @@ export async function generarLotePublicidad(
   return await renderComposiciones(comps, logo, stickers, icons, depto);
 }
 
-/** Genera un lote desde una categoría editable (productos + foto realista). */
+/** Genera promos (default 1) con el diseño del ticket de domicilio. */
 export async function generarLoteDesdeCategoriaDef(
-  cantidad = 5,
+  cantidad = 1,
   inventario: ProductoPromo[] = [],
   cat: CategoriaPromoDef
 ): Promise<PromoGenerada[]> {
   const depto = cat.depto;
-  const { logo, stickers, icons } = await cargarAssetsPublicidad();
   const tema = temaDesdeCategoriaDef(cat);
-  const comps: Composicion[] = [];
-  const sloganCat = sloganDeCategoria(cat, tema.grupo);
-  for (let i = 0; i < cantidad; i++) {
-    const cuantos = Math.min(5, 3 + Math.floor(Math.random() * 3));
-    const precios = pickDesdeCategoriaDef(inventario, cat, cuantos);
-    if (!precios.length) break;
-    comps.push({
-      id: `gen-${Date.now().toString(36)}-c${i}-${Math.random().toString(36).slice(2, 6)}`,
-      tema: { ...tema, titulo: cat.nombre, slogan: sloganCat },
-      vertical: true,
-      precios,
-    });
+  const pool = productosDeCategoria(inventario, cat);
+  if (!pool.length) {
+    throw new Error(`No hay productos de «${cat.nombre}» con precio para armar promos`);
   }
-  // Variantes si faltan
+
+  const hoy = new Date();
+  const y = hoy.getFullYear();
+  const m = String(hoy.getMonth() + 1).padStart(2, '0');
+  const d = String(hoy.getDate()).padStart(2, '0');
+  const fechaIso = `${y}-${m}-${d}`;
+
+  const out: PromoGenerada[] = [];
+  const slogansUsados = new Set<string>();
+  // Si la categoría tiene eslogan propio, ocupa el primero; el resto no lo repite
+  const propio = (cat.slogan || '').trim();
+  // Foto de la categoría si la subieron; si no, strip de local.
+  const fotoCat = (cat.imagenSrc || '').trim();
+  const fondosLocal =
+    depto === 'JARCERIA'
+      ? ['ticket-jarceria-strip.png', 'ticket-productos-strip.png']
+      : ['ticket-productos-strip.png', 'ticket-jarceria-strip.png'];
   let guard = 0;
-  while (comps.length < cantidad && guard++ < cantidad * 3) {
-    const precios = pickDesdeCategoriaDef(inventario, cat, 5);
-    if (!precios.length) break;
-    comps.push({
-      id: `gen-${Date.now().toString(36)}-cx${guard}-${Math.random().toString(36).slice(2, 6)}`,
-      tema: {
-        ...tema,
-        titulo: cat.nombre,
-        slogan: sloganCat,
-      },
+  while (out.length < cantidad && guard++ < cantidad * 4) {
+    const cuantos = Math.min(5, Math.max(2, pool.length));
+    const prods = shuffle(pool).slice(0, cuantos);
+    if (!prods.length) break;
+
+    const precios: PrecioItem[] = prods.map((p) => ({
+      nombre: p.nombre.trim(),
+      precio: fmtPrecio(p),
+    }));
+    const lineas = prods.map((p) => ({
+      nombre: p.nombre.trim(),
+      detalle: fmtPrecio(p),
+      total: Number(p.precioVentaHoy) || 0,
+    }));
+    const total = lineas.reduce((s, l) => s + l.total, 0);
+    const fondo = fotoCat || fondosLocal[out.length % fondosLocal.length];
+
+    let slogan: string;
+    if (propio && out.length === 0) {
+      slogan = propio;
+      slogansUsados.add(propio);
+    } else {
+      slogan = sloganParaProductos(precios, tema.grupo, slogansUsados);
+    }
+
+    const blob = await generarTicketPng({
+      cliente: cat.nombre,
+      fecha: fechaIso,
+      fechaIso,
+      lineas,
+      total,
+      nota: slogan,
+      modoPublicidad: true,
+      stripUrls: [fondo],
+    });
+    if (!blob || blob.size < 500) continue;
+
+    const id = `gen-${Date.now().toString(36)}-c${out.length}-${Math.random().toString(36).slice(2, 6)}`;
+    out.push({
+      id,
+      titulo: cat.nombre,
+      descripcion: '',
+      src: URL.createObjectURL(blob),
+      textoShare: textoShareDe(cat.nombre, precios),
+      blob,
       vertical: true,
-      precios,
+      departamento: depto,
+      categoria: cat.id,
     });
   }
-  const out = await renderComposiciones(
-    shuffle(comps).slice(0, cantidad),
-    logo,
-    stickers,
-    icons,
-    depto,
-    cat,
-    cat.imagenSrc ? await loadImagePreferente(cat.imagenSrc) : null
-  );
+
   if (!out.length) {
     throw new Error(`No hay productos de «${cat.nombre}» con precio para armar promos`);
   }
@@ -1874,11 +2105,10 @@ async function renderComposiciones(
     const blob = await renderFlyer(comp, logo, stickers, icons, fotoCategoria || null);
     if (!blob || blob.size < 500) continue;
     const src = URL.createObjectURL(blob);
-    const preciosTxt = comp.precios.map((p) => `${p.nombre} ${p.precio}`).join(' · ');
     out.push({
       id: comp.id,
       titulo: comp.tema.titulo,
-      descripcion: preciosTxt,
+      descripcion: '',
       src,
       textoShare: textoShareDe(comp.tema.titulo, comp.precios),
       blob,

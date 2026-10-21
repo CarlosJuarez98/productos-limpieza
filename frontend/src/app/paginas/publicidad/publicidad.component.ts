@@ -52,7 +52,8 @@ type CatForm = {
   filtroProd: string;
 };
 
-const LOTE_SIZE = 5;
+/** Una imagen por categoría (previews = una tarjeta por categoría). */
+const LOTE_SIZE = 1;
 
 @Component({
   selector: 'app-publicidad',
@@ -82,6 +83,9 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   categorias: CategoriaConteo[] = [];
   private categoriasRaw: PublicidadCategoria[] = [];
   private inventarioCache: InventarioItem[] = [];
+  /** Miniaturas de categoría ya hidratadas (blob:) — evita cuadros grises. */
+  catThumbs: Record<string, string> = {};
+  private catThumbBlobUrls: string[] = [];
 
   /** Editor de categoría (montado en document.body para no recortarse). */
   catEditorAbierto = false;
@@ -89,13 +93,15 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   catSubiendoImg = false;
   catForm: CatForm = this.catFormVacio();
   catPreviewSrc = '';
+  /** Blob local de la foto elegida (preview al instante). */
+  private catPreviewLocalUrl = '';
   @ViewChild('catEditorTpl') private catEditorTpl?: TemplateRef<unknown>;
   private catEditorPortal: EmbeddedViewRef<unknown> | null = null;
   private bodyOverflowPrev = '';
 
-  /** Lote visible (siempre 5 generadas). */
+  /** Promos visibles en la grilla (1 por categoría al generar todas). */
   promosNuevas: Promo[] = [];
-  /** Historial de lotes para volver atrás / adelante. */
+  /** Historial de generaciones para volver atrás / adelante. */
   private historialLotes: Promo[][] = [];
   indiceLote = -1;
   private blobUrls: string[] = [];
@@ -186,6 +192,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       })),
       defs
     );
+    void this.hidratarCatThumbs();
   }
 
   private toDef(c: PublicidadCategoria): CategoriaPromoDef {
@@ -195,8 +202,24 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       depto: c.departamento === 'JARCERIA' ? 'JARCERIA' : 'LIMPIEZA',
       productoIds: c.productoIds || [],
       slogan: c.slogan,
-      imagenSrc: c.imagenSrc,
+      // Preferir API media (el proxy Angular solo reenvía /api)
+      imagenSrc: this.normalizarUrlMedia(c.imagenSrc),
     };
+  }
+
+  /** /publicidad/x.jpg → /api/publicidad/media/x.jpg (sirve el backend). */
+  private normalizarUrlMedia(raw: string | null | undefined): string {
+    const s = (raw || '').trim();
+    if (!s) return '';
+    if (s.startsWith('blob:') || s.startsWith('data:')) return s;
+    const m = s.match(/^\/(?:api\/publicidad\/media\/|publicidad\/)([^?]+)/);
+    if (m) return `/api/publicidad/media/${m[1]}`;
+    return s.split('?')[0];
+  }
+
+  /** URL visible en tarjeta / editor (blob si ya hidrató). */
+  thumbCategoria(c: { id: string; imagenSrc?: string | null }): string {
+    return this.catThumbs[c.id] || this.normalizarUrlMedia(c.imagenSrc) || '';
   }
 
   labelCategoria(id: string | null | undefined): string {
@@ -284,7 +307,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
 
   abrirNuevaCategoria(): void {
     this.catForm = this.catFormVacio();
-    this.catPreviewSrc = '';
+    this.setCatPreview('');
     this.abrirEditorCategoriaPortal();
     void this.asegurarInventarioParaPicker();
   }
@@ -301,9 +324,137 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       imagenEstatica: raw && !raw.imagenCustom ? raw.imagenSrc || '' : '',
       filtroProd: '',
     };
-    this.catPreviewSrc = c.imagenSrc || '';
+    const previewRaw =
+      c.imagenSrc ||
+      (raw && !raw.imagenCustom ? raw.imagenSrc || '' : '') ||
+      '';
     this.abrirEditorCategoriaPortal();
     void this.asegurarInventarioParaPicker();
+    void this.hidratarCatPreview(previewRaw);
+  }
+
+  private setCatPreview(src: string): void {
+    if (this.catPreviewLocalUrl) {
+      // No revocar si la miniatura de la tarjeta sigue usando ese blob
+      const enUso = Object.values(this.catThumbs).includes(this.catPreviewLocalUrl);
+      if (!enUso) URL.revokeObjectURL(this.catPreviewLocalUrl);
+      this.catPreviewLocalUrl = '';
+    }
+    this.catPreviewSrc = src || '';
+    if (src.startsWith('blob:') && !Object.values(this.catThumbs).includes(src)) {
+      this.catPreviewLocalUrl = src;
+    }
+  }
+
+  /** Candidatos de URL para una imagen de publicidad (media / public / categorías). */
+  private candidatosUrlImagen(raw: string): string[] {
+    const url = (raw || '').trim().split('?')[0];
+    if (!url) return [];
+    if (url.startsWith('blob:') || url.startsWith('data:')) return [url];
+    const out: string[] = [];
+    if (url.includes('/api/publicidad/media/')) {
+      out.push(url, url.replace('/api/publicidad/media/', '/publicidad/'));
+    } else if (url.startsWith('/publicidad/')) {
+      out.push(url.replace('/publicidad/', '/api/publicidad/media/'), url);
+    } else if (url.startsWith('/api/publicidad/categorias/archivo/')) {
+      out.push(url);
+    } else if (url.startsWith('/api/publicidad/galeria/archivo/')) {
+      out.push(url);
+    } else {
+      out.push(url);
+    }
+    return out;
+  }
+
+  /** Fetch de imagen → blob URL (null si ninguna candidata sirve). */
+  private async fetchImagenBlobUrl(raw: string): Promise<string | null> {
+    const src = (raw || '').trim();
+    if (!src) return null;
+    if (src.startsWith('blob:') || src.startsWith('data:')) return src;
+    for (const u of this.candidatosUrlImagen(this.normalizarUrlMedia(src) || src)) {
+      try {
+        const res = await fetch(u, { credentials: 'same-origin', cache: 'no-store' });
+        if (!res.ok) continue;
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        if (ct.includes('text/html') || ct.includes('application/json')) continue;
+        const blob = await res.blob();
+        const okType =
+          blob.type.startsWith('image/') ||
+          (!blob.type && blob.size > 500) ||
+          ct.startsWith('image/');
+        if (!okType || blob.size < 64) continue;
+        return URL.createObjectURL(blob);
+      } catch {
+        /* siguiente */
+      }
+    }
+    return null;
+  }
+
+  /** Miniaturas de la grilla de categorías. */
+  private async hidratarCatThumbs(): Promise<void> {
+    const prev = this.catThumbBlobUrls;
+    this.catThumbBlobUrls = [];
+    const next: Record<string, string> = {};
+    await Promise.all(
+      this.categorias.map(async (c) => {
+        const raw = (c.imagenSrc || '').trim();
+        if (!raw) return;
+        const blobUrl = await this.fetchImagenBlobUrl(raw);
+        if (!blobUrl) return;
+        if (blobUrl.startsWith('blob:')) this.catThumbBlobUrls.push(blobUrl);
+        next[c.id] = blobUrl;
+      })
+    );
+    prev.forEach((u) => {
+      if (!Object.values(next).includes(u)) URL.revokeObjectURL(u);
+    });
+    this.catThumbs = next;
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Muestra la foto de categoría en el editor (fetch → blob).
+   * Evita el cuadro gris cuando /publicidad/… no pinta en &lt;img&gt;.
+   */
+  private async hidratarCatPreview(raw: string): Promise<void> {
+    const src = (raw || '').trim();
+    if (!src) {
+      this.setCatPreview('');
+      this.catEditorPortal?.detectChanges();
+      this.cdr.detectChanges();
+      return;
+    }
+    if (src.startsWith('blob:') || src.startsWith('data:')) {
+      this.setCatPreview(src);
+      this.catEditorPortal?.detectChanges();
+      this.cdr.detectChanges();
+      return;
+    }
+    // Si ya hay thumb de esa categoría, úsala al instante
+    const catId = this.catForm.id;
+    if (catId && this.catThumbs[catId]) {
+      this.setCatPreview(this.catThumbs[catId]);
+      this.catEditorPortal?.detectChanges();
+      this.cdr.detectChanges();
+    } else {
+      this.catPreviewSrc = this.normalizarUrlMedia(src) || src;
+      this.catEditorPortal?.detectChanges();
+      this.cdr.detectChanges();
+    }
+
+    const blobUrl = await this.fetchImagenBlobUrl(src);
+    if (blobUrl) {
+      this.setCatPreview(blobUrl);
+      if (catId) {
+        const old = this.catThumbs[catId];
+        this.catThumbs = { ...this.catThumbs, [catId]: blobUrl };
+        if (blobUrl.startsWith('blob:')) this.catThumbBlobUrls.push(blobUrl);
+        if (old?.startsWith('blob:') && old !== blobUrl) URL.revokeObjectURL(old);
+      }
+      this.catEditorPortal?.detectChanges();
+      this.cdr.detectChanges();
+    }
   }
 
   private async asegurarInventarioParaPicker(): Promise<void> {
@@ -352,7 +503,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
     this.desmontarEditorCategoria();
     this.catEditorAbierto = false;
     this.catForm = this.catFormVacio();
-    this.catPreviewSrc = '';
+    this.setCatPreview('');
   }
 
   guardarCategoria(): void {
@@ -407,22 +558,36 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       this.error = 'Guarda la categoría primero y luego sube la imagen';
       return;
     }
+    // Preview inmediata (antes de que termine el upload)
+    this.setCatPreview(URL.createObjectURL(file));
     this.catSubiendoImg = true;
+    this.error = '';
+    this.ok = '';
+    this.catEditorPortal?.detectChanges();
+    this.cdr.detectChanges();
+
     this.api.subirImagenCategoria(this.catForm.id, file).subscribe({
       next: (item) => {
         this.categoriasRaw = this.categoriasRaw.map((x) => (x.id === item.id ? item : x));
         this.refrescarConteosCategorias();
-        this.catPreviewSrc = item.imagenSrc || '';
         this.catForm.imagenEstatica = '';
         this.catSubiendoImg = false;
-        this.ok = 'Imagen de categoría actualizada';
-        this.cdr.detectChanges();
+        this.ok = 'Foto guardada. Pulsa Generar en la categoría para verla en el flyer.';
+        void this.hidratarCatPreview(item.imagenSrc || '');
       },
       error: (e: unknown) => {
         this.catSubiendoImg = false;
         this.error = this.msgError(e, 'No se pudo subir la imagen');
+        this.catEditorPortal?.detectChanges();
+        this.cdr.detectChanges();
       },
     });
+  }
+
+  /** Al cambiar la ruta estática, refresca la vista previa. */
+  onImagenEstaticaChange(): void {
+    const path = this.catForm.imagenEstatica.trim();
+    void this.hidratarCatPreview(path);
   }
 
   quitarImagenCategoria(): void {
@@ -432,10 +597,11 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       next: (item) => {
         this.categoriasRaw = this.categoriasRaw.map((x) => (x.id === item.id ? item : x));
         this.refrescarConteosCategorias();
-        this.catPreviewSrc = item.imagenSrc || '';
+        this.catForm.imagenEstatica =
+          item.imagenSrc && !item.imagenCustom ? item.imagenSrc : '';
         this.catSubiendoImg = false;
         this.ok = 'Imagen quitada';
-        this.cdr.detectChanges();
+        void this.hidratarCatPreview(item.imagenSrc || this.catForm.imagenEstatica || '');
       },
       error: (e: unknown) => {
         this.catSubiendoImg = false;
@@ -468,6 +634,10 @@ export class PublicidadComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.setCatPreview('');
+    this.catThumbBlobUrls.forEach((u) => URL.revokeObjectURL(u));
+    this.catThumbBlobUrls = [];
+    this.catThumbs = {};
     this.desmontarEditorCategoria();
     this.limpiarTodosBlobs();
     this.limpiarGaleriaBlobs();
@@ -626,35 +796,33 @@ export class PublicidadComponent implements OnInit, OnDestroy {
         vendePor: p.vendePor,
         departamento: p.departamento,
       }));
-      let generados = 0;
-      let primerIndice = -1;
+      const todas: Promo[] = [];
       for (const cat of listas) {
         try {
           const lote = await generarLoteDesdeCategoriaDef(LOTE_SIZE, productos, cat);
           if (!lote.length) continue;
           const promos = lote.map((p) => this.fromGen(p));
           lote.forEach((p) => this.blobUrls.push(p.src));
-          this.historialLotes.push(promos);
-          if (primerIndice < 0) primerIndice = this.historialLotes.length - 1;
-          generados += 1;
+          todas.push(...promos);
         } catch (e: unknown) {
           // Sigue con las demás categorías
           console.warn('Publicidad categoría', cat.nombre, e);
         }
       }
-      if (primerIndice < 0 || !generados) {
+      if (!todas.length) {
         if (!silencioso) {
           this.error = 'No se pudieron generar promos (revisa precios de los productos)';
         }
         return;
       }
-      this.indiceLote = primerIndice;
-      this.promosNuevas = this.historialLotes[primerIndice];
+      this.historialLotes.push(todas);
+      this.indiceLote = this.historialLotes.length - 1;
+      this.promosNuevas = todas;
       this.sincronizarMetaLote();
       this.ok =
-        generados === 1
-          ? `Lote de ${this.labelCategoria(this.categoriaLote)} listo`
-          : `${generados} categorías generadas · usa ← → para ver cada una`;
+        todas.length === 1
+          ? `Promo de ${this.labelCategoria(this.categoriaLote)} lista`
+          : `${todas.length} promos listas · una por categoría`;
       this.cdr.detectChanges();
     } catch (e: unknown) {
       if (!silencioso) {
@@ -701,7 +869,7 @@ export class PublicidadComponent implements OnInit, OnDestroy {
       this.promosNuevas = promos;
       this.deptoLote = cat.depto;
       this.categoriaLote = cat.id;
-      this.ok = `Lote de ${cat.nombre} listo`;
+      this.ok = `Promo de ${cat.nombre} lista`;
       this.cdr.detectChanges();
     } catch (e: unknown) {
       this.error = e instanceof Error ? e.message : 'No se pudieron generar las promos';

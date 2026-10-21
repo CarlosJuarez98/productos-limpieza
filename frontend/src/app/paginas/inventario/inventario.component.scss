@@ -1190,7 +1190,7 @@ input[readonly] {
   }
 
   .hist-cards .item-motivo {
-    font-family: Fraunces, Georgia, serif;
+    font-family: var(--font-display);
     font-size: 1.05rem;
   }
 
@@ -1212,7 +1212,7 @@ input[readonly] {
   }
 
   .inv-card-resumen strong {
-    font-family: Fraunces, Georgia, serif;
+    font-family: var(--font-display);
     font-size: 1.15rem;
   }
 }
