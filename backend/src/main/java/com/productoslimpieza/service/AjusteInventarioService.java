@@ -1,12 +1,9 @@
 package com.productoslimpieza.service;
 
 import com.productoslimpieza.domain.AjusteInventario;
-import com.productoslimpieza.domain.CajaConfig;
 import com.productoslimpieza.domain.Producto;
 import com.productoslimpieza.repo.AjusteInventarioRepository;
-import com.productoslimpieza.repo.CajaConfigRepository;
 import com.productoslimpieza.repo.ProductoRepository;
-import com.productoslimpieza.tenant.TenantContext;
 import com.productoslimpieza.web.dto.AjusteInventarioDto;
 import com.productoslimpieza.web.dto.AjusteInventarioRequest;
 import java.math.BigDecimal;
@@ -25,15 +22,11 @@ public class AjusteInventarioService {
 
   private final AjusteInventarioRepository ajusteRepo;
   private final ProductoRepository productoRepo;
-  private final CajaConfigRepository cajaConfigRepo;
 
   public AjusteInventarioService(
-      AjusteInventarioRepository ajusteRepo,
-      ProductoRepository productoRepo,
-      CajaConfigRepository cajaConfigRepo) {
+      AjusteInventarioRepository ajusteRepo, ProductoRepository productoRepo) {
     this.ajusteRepo = ajusteRepo;
     this.productoRepo = productoRepo;
-    this.cajaConfigRepo = cajaConfigRepo;
   }
 
   @Transactional(readOnly = true)
@@ -89,6 +82,10 @@ public class AjusteInventarioService {
     a.setMotivo(motivo);
   }
 
+  /**
+   * Ajustes de stock son operativos: no los congela el corte de caja (solo ventas).
+   * Único límite: fecha requerida y no futura.
+   */
   private void validarFechaPermitida(LocalDate fecha) {
     if (fecha == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fecha requerida");
@@ -96,14 +93,6 @@ public class AjusteInventarioService {
     LocalDate hoy = LocalDate.now(ZONA);
     if (fecha.isAfter(hoy)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se permiten fechas futuras");
-    }
-    LocalDate inicioPeriodo = cajaConfigRepo.findByTenantId(TenantContext.require())
-        .map(CajaConfig::getFechaInicio)
-        .orElse(null);
-    if (inicioPeriodo != null && fecha.isBefore(inicioPeriodo)) {
-      throw new ResponseStatusException(
-          HttpStatus.BAD_REQUEST,
-          "No se pueden registrar ajustes antes del periodo de caja actual (" + inicioPeriodo + ")");
     }
   }
 

@@ -5,6 +5,7 @@ import com.productoslimpieza.domain.Entrada;
 import com.productoslimpieza.domain.Pedido;
 import com.productoslimpieza.domain.Producto;
 import com.productoslimpieza.repo.CajaConfigRepository;
+import com.productoslimpieza.repo.CorteCajaRepository;
 import com.productoslimpieza.repo.EntradaRepository;
 import com.productoslimpieza.repo.ProductoRepository;
 import com.productoslimpieza.tenant.TenantContext;
@@ -38,6 +39,7 @@ public class EntradaService {
   private final EntradaRepository entradaRepo;
   private final ProductoRepository productoRepo;
   private final CajaConfigRepository cajaConfigRepo;
+  private final CorteCajaRepository corteRepo;
   private final PedidoRegistroService pedidoRegistroService;
   private final InventarioService inventarioService;
 
@@ -45,11 +47,13 @@ public class EntradaService {
       EntradaRepository entradaRepo,
       ProductoRepository productoRepo,
       CajaConfigRepository cajaConfigRepo,
+      CorteCajaRepository corteRepo,
       PedidoRegistroService pedidoRegistroService,
       InventarioService inventarioService) {
     this.entradaRepo = entradaRepo;
     this.productoRepo = productoRepo;
     this.cajaConfigRepo = cajaConfigRepo;
+    this.corteRepo = corteRepo;
     this.inventarioService = inventarioService;
     this.pedidoRegistroService = pedidoRegistroService;
   }
@@ -279,6 +283,10 @@ public class EntradaService {
     }
   }
 
+  /**
+   * Entradas (mercancía): desde el día del último corte inclusive (como caja).
+   * No exige esperar al día siguiente; las ventas sí quedan congeladas en el corte.
+   */
   private void validarFechaPermitida(LocalDate fecha) {
     if (fecha == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fecha requerida");
@@ -288,15 +296,18 @@ public class EntradaService {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "No se permiten fechas futuras");
     }
-    LocalDate inicioPeriodo = cajaConfigRepo.findByTenantId(TenantContext.require())
-        .map(CajaConfig::getFechaInicio)
-        .orElse(null);
-    if (inicioPeriodo != null && fecha.isBefore(inicioPeriodo)) {
-      LocalDate ultimoCorte = inicioPeriodo.minusDays(1);
+    String tenant = TenantContext.require();
+    LocalDate ultimoCorte = corteRepo.findMaxFecha(tenant).orElse(null);
+    LocalDate inicioPeriodo =
+        cajaConfigRepo.findByTenantId(tenant).map(CajaConfig::getFechaInicio).orElse(null);
+    LocalDate desde = ultimoCorte != null ? ultimoCorte : inicioPeriodo;
+    if (desde != null && fecha.isBefore(desde)) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST,
-          "No se pueden registrar entradas el " + ultimoCorte
-              + " ni antes (ya hubo corte). Usa una fecha desde " + inicioPeriodo);
+          "No se pueden registrar entradas antes del "
+              + desde
+              + ". Usa una fecha desde "
+              + desde);
     }
   }
 

@@ -663,13 +663,9 @@ export class EntradasComponent implements OnInit, OnDestroy {
       this[destino] = 'No se pueden registrar fechas futuras';
       return false;
     }
-    if (this.fechaUltimoCorte && fecha <= this.fechaUltimoCorte) {
-      this[destino] =
-        `No se pueden registrar el ${formatFechaDmY(this.fechaUltimoCorte)} ni antes (ya hubo corte). Usa una fecha desde ${formatFechaDmY(this.fechaMin)}.`;
-      return false;
-    }
+    // Entradas: desde el día del último corte inclusive (como caja). Ventas sí quedan congeladas.
     if (this.fechaMin && fecha < this.fechaMin) {
-      this[destino] = `La fecha debe ser desde ${formatFechaDmY(this.fechaMin)} (día siguiente al último corte)`;
+      this[destino] = `La fecha debe ser desde ${formatFechaDmY(this.fechaMin)} (día del último corte)`;
       return false;
     }
     return true;
@@ -1655,9 +1651,10 @@ export class EntradasComponent implements OnInit, OnDestroy {
     });
     this.api.caja().subscribe({
       next: (c) => {
-        this.fechaMin = c.fechaInicio || null;
         this.fechaUltimoCorte =
           c.fechaUltimoCorte || (c.fechaInicio ? this.sumarDias(c.fechaInicio, -1) : null);
+        // Desde el día del corte (no corte+1): igual que movimientos de caja.
+        this.fechaMin = this.fechaUltimoCorte || c.fechaInicio || null;
         this.asegurarFechaValida();
       },
     });
