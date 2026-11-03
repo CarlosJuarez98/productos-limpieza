@@ -24,3 +24,8 @@ taxi.163.192.146.143.sslip.io {
 	encode gzip
 	reverse_proxy taximetro-api:8084
 }
+
+vinateria.163.192.146.143.sslip.io {
+	encode gzip
+	reverse_proxy vinateria-api:8085
+}
